@@ -1,0 +1,60 @@
+# OpenShift Service Mesh Operator Default Configuration
+# Istio/Maistra configuration
+
+# Service Mesh Subscription
+subscription:
+  channel: "stable"
+  name: "servicemeshoperator"
+  source: "redhat-operators"
+  sourceNamespace: "openshift-marketplace"
+
+# Kiali Subscription
+kiali_subscription:
+  channel: "stable"
+  name: "kiali-ossm"
+  source: "redhat-operators"
+  sourceNamespace: "openshift-marketplace"
+
+# Jaeger Subscription  
+jaeger_subscription:
+  channel: "stable"
+  name: "jaeger-product"
+  source: "redhat-operators"
+  sourceNamespace: "openshift-marketplace"
+
+# Default configuration values
+defaults:
+  name: "service-mesh"
+  version: "v2.5"
+  jaeger_storage_type: "Memory"  # Memory or Elasticsearch
+  tracing_sampling: 1000
+  enable_kiali: true
+  enable_grafana: true
+  control_plane_namespace: "istio-system"
+  mtls_mode: "PERMISSIVE"  # STRICT, PERMISSIVE, or DISABLE
+
+# Service Mesh Control Plane configuration
+control_plane:
+  version: "v2.5"
+  
+# Tracing configuration
+tracing:
+  type: "Jaeger"
+  sampling: 1000
+
+# Addons configuration
+addons:
+  jaeger:
+    install:
+      storage:
+        type: "Memory"
+  kiali:
+    enabled: true
+  grafana:
+    enabled: true
+
+# ElasticSearch configuration (when using ElasticSearch storage)
+elasticsearch_config: {}
+
+# Member namespaces (empty by default)
+member_namespaces: [] 

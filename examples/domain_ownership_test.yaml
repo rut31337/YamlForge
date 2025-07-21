@@ -1,0 +1,44 @@
+yamlforge:
+  cloud_workspace:
+    name: "domain-ownership-test"
+    description: "Test domain-based user ownership without DNS management"
+
+  # Configure company domain for user ownership (separate from DNS)
+  user_management:
+    company_domain: "mycompany.com"
+    enable_domain_ownership: true
+
+  # DNS management explicitly disabled
+  dns_config:
+    root_zone_management: false
+
+  users:
+    # Company email - should get Owner role regardless of DNS settings
+    - email: "admin@mycompany.com"
+      roles: ["roles/editor"]  # Will be overridden to Owner due to domain match
+      display_name: "Company Admin"
+      
+    # Another company email - should get Owner role
+    - email: "developer@mycompany.com"
+      roles: ["roles/viewer"]  # Will be overridden to Owner due to domain match
+      display_name: "Company Developer"
+      
+    # External email - should get specified roles exactly
+    - email: "contractor@external.com"
+      roles: ["roles/viewer", "roles/compute.instanceAdmin"]
+      display_name: "External Contractor"
+      
+    # Another external email - should get specified roles exactly
+    - email: "student@university.edu"
+      roles: ["roles/viewer"]
+      display_name: "University Student"
+
+  instances:
+    - name: "test-server"
+      provider: "gcp"
+      size: "small"
+      region: "us-central1"
+      image: "Ubuntu-22.04"
+      tags:
+        purpose: "test-server"
+        environment: "development" 

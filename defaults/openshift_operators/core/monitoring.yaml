@@ -1,0 +1,39 @@
+# OpenShift Monitoring Operator Default Configuration
+# Prometheus, Grafana, and AlertManager settings
+
+# Subscription configuration
+subscription:
+  channel: "stable"
+  name: "cluster-monitoring"
+  source: "redhat-operators" 
+  sourceNamespace: "openshift-marketplace"
+  installPlanApproval: "Automatic"
+
+# Default configuration values
+defaults:
+  name: "cluster-monitoring"
+  retention_days: 15
+  storage_size: "50Gi"
+  enable_user_workload_monitoring: true
+  alertmanager_storage_size: "10Gi"
+  node_selector:
+    "node-role.kubernetes.io/infra": ""
+  
+  # User workload monitoring defaults
+  user_retention_days: 7
+  user_storage_size: "20Gi"
+  
+  # Default timeout for configuration
+  default_timeout_minutes: 60
+
+# Storage configuration
+storage:
+  storageClassName: "gp3"
+  
+# Tolerations for infrastructure nodes
+tolerations:
+  - key: "node-role.kubernetes.io/infra"
+    effect: "NoSchedule"
+
+# Custom rules (empty by default, can be overridden)
+custom_rules: [] 

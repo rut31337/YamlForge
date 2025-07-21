@@ -1,0 +1,54 @@
+---
+# IBM Modern VPC Example
+# Demonstrates IBM Cloud VPC (modern) infrastructure deployment
+
+yamlforge:
+  cloud_workspace:
+    name: "ibm-modern-vpc-demo"
+    description: "IBM Cloud modern VPC demonstration"
+
+  instances:
+    # IBM VPC instances
+    - name: "ibm-web-server"
+      provider: "ibm_vpc"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "us-south"
+      zone: "us-south-1"
+      
+    - name: "ibm-app-server"
+      provider: "ibm_vpc"
+      size: "large"
+      image: "RHEL8-latest"
+      region: "us-south"
+      zone: "us-south-2"
+
+    # IBM VPC with custom specs
+    - name: "ibm-custom-worker"
+      provider: "ibm_vpc"
+      cores: 4
+      memory: 8192
+      image: "RHEL9-latest"
+      region: "us-south"
+      zone: "us-south-3"
+
+  # IBM VPC-specific networking
+  security_groups:
+    ibm-web-sg:
+      description: "IBM VPC web server security group"
+      rules:
+        - protocol: "tcp"
+          port: 80
+          source: "0.0.0.0/0"
+        - protocol: "tcp"
+          port: 443
+          source: "0.0.0.0/0"
+        - protocol: "tcp"
+          port: 22
+          source: "10.0.0.0/8"
+
+  tags:
+    cloud_provider: "ibm_vpc"
+    infrastructure_type: "modern"
+    deployment_model: "vpc"
+    environment: "production" 

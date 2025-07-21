@@ -1,0 +1,45 @@
+# OpenShift Data Foundation Operator Default Configuration
+# ODF/OCS storage configuration
+
+# Local Storage Subscription
+local_storage_subscription:
+  channel: "stable"
+  name: "local-storage-operator"
+  source: "redhat-operators"
+  sourceNamespace: "openshift-marketplace"
+
+# OpenShift Data Foundation Subscription
+odf_subscription:
+  channel: "stable-4.14"
+  name: "odf-operator"
+  source: "redhat-operators"
+  sourceNamespace: "openshift-marketplace"
+
+# Default configuration values
+defaults:
+  name: "openshift-data-foundation"
+  storage_class: "gp3"
+  device_sets: 3
+  device_size: "2Ti"
+  enable_ceph_tools: true
+  enable_noobaa: true
+  replica_count: 3
+
+# StorageSystem configuration
+storage_system:
+  kind: "StorageSystem"
+  managementState: "Managed"
+  
+# StorageCluster configuration
+storage_cluster:
+  monDataDirHostPath: "/var/lib/rook"
+  managementState: "Managed"
+  
+# Multi-Cloud Gateway configuration
+multi_cloud_gateway:
+  reconcileStrategy: "standalone"
+  dbStorageClass: "gp3"
+  cacheVolumeStorageClass: "gp3"
+
+# Backup configuration (empty by default)
+backup_config: {} 

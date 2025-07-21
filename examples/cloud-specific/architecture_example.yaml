@@ -1,0 +1,37 @@
+---
+# Architecture-Specific Example
+# Demonstrates x86_64 and ARM64 architecture deployment
+
+yamlforge:
+  cloud_workspace:
+    name: "architecture-demo"
+    description: "Architecture testing workspace"
+
+  instances:
+    # x86_64 architecture (default)
+    - name: "x86-web-server"
+      provider: "aws"
+      size: "medium"
+      image: "RHEL9-latest"
+      architecture: "x86_64"
+      region: "us-east-1"
+      
+    # ARM64 architecture (Graviton instances)
+    - name: "arm64-web-server"
+      provider: "aws"
+      size: "medium"
+      image: "RHEL9-latest"
+      architecture: "arm64"
+      region: "us-east-1"
+      
+    # Auto-detect architecture (cost optimized)
+    - name: "auto-detect-server"
+      provider: "cheapest"
+      cores: 4
+      memory: 8192
+      image: "RHEL9-latest"
+
+  tags:
+      guid: "architectu-2024-001"
+    architecture_test: "enabled"
+    environment: "testing" 

@@ -1,0 +1,6 @@
+# IBM Cloud Classic Infrastructure Default Configuration
+# Settings and features for IBM Classic Infrastructure integration
+ 
+# Features Configuration
+features:
+  # Classic Infrastructure specific features can be added here as needed 

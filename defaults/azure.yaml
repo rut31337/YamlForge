@@ -1,0 +1,4 @@
+# Azure Default Configuration
+# Settings and features for Azure integration
+ 
+# Note: Dynamic image discovery is always enabled when Azure SDK and credentials are available 

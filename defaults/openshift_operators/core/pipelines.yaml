@@ -1,0 +1,44 @@
+# OpenShift Pipelines Operator Default Configuration  
+# Tekton Pipelines, Triggers, and CI/CD configuration
+
+# Subscription configuration
+subscription:
+  channel: "latest"
+  name: "openshift-pipelines-operator-rh"
+  source: "redhat-operators"
+  sourceNamespace: "openshift-marketplace"
+  installPlanApproval: "Automatic"
+
+# Default configuration values
+defaults:
+  name: "openshift-pipelines"
+  enable_tekton_config: true
+  enable_performance_config: true
+  enable_dev_tools: true
+  pipeline_timeout: "1h"
+  task_timeout: "30m"
+  default_timeout_minutes: 60
+
+# TektonConfig performance settings
+performance:
+  buckets: 10
+  threads-per-controller: 2
+  kube-api-qps: 100
+  kube-api-burst: 200
+
+# Default cluster tasks
+cluster_tasks:
+  - name: "git-clone"
+    version: "0.9"
+  - name: "buildah"  
+    version: "0.6"
+  - name: "s2i-generic"
+    version: "0.3"
+  - name: "openshift-client"
+    version: "0.2"
+
+# Pipeline templates (empty by default)
+pipeline_templates: []
+
+# Event listeners (empty by default)  
+event_listeners: [] 

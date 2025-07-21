@@ -1,0 +1,387 @@
+# =============================================================================
+# COMPLETE ENTERPRISE OPENSHIFT PLATFORM
+# =============================================================================
+# This example demonstrates the full enterprise OpenShift platform capabilities
+# including multi-cloud deployment, operators, applications, security, and monitoring.
+
+# Multi-Cloud OpenShift Clusters
+openshift_clusters:
+  # Production ROSA cluster on AWS
+  - name: production-rosa
+    type: rosa
+    region: us-east-1
+    size: large
+    version: "4.14.15"
+    worker_count: 6
+    base_domain: "production.example.com"
+    
+  # Development self-managed cluster on GCP  
+  - name: development-gcp
+    type: self-managed
+    provider: gcp
+    region: us-central1
+    size: medium
+    version: "4.14.15"
+    worker_count: 3
+    base_domain: "dev.example.com"
+    
+  # Testing self-managed cluster on Azure
+  - name: testing-azure
+    type: self-managed
+    provider: azure
+    region: eastus
+    size: small
+    version: "4.14.15"
+    worker_count: 2
+    base_domain: "test.example.com"
+
+  # HyperShift hosted clusters for cost optimization
+  - name: hypershift-aws-workloads
+    type: hypershift
+    management_cluster: production-rosa
+    provider: aws
+    region: us-west-2
+    size: small
+    worker_count: 2
+    
+  - name: hypershift-gcp-workloads  
+    type: hypershift
+    management_cluster: production-rosa
+    provider: gcp
+    region: us-west1
+    size: small
+    worker_count: 2
+
+# Enterprise OpenShift Operators
+openshift_operators:
+  # Platform Monitoring - Production only
+  - name: enterprise-monitoring
+    type: monitoring
+    clusters: [production-rosa, development-gcp]
+    retention_days: 90
+    storage_size: 500Gi
+    enable_user_workload_monitoring: true
+    
+  # Centralized Logging - All clusters
+  - name: platform-logging
+    type: logging
+    clusters: [production-rosa, development-gcp, testing-azure]
+    retention_days: 30
+    storage_size: 1Ti
+    enable_json_logging: true
+    
+  # Service Mesh - Production and Dev
+  - name: enterprise-service-mesh
+    type: service-mesh
+    clusters: [production-rosa, development-gcp]
+    version: "2.4"
+    enable_jaeger: true
+    enable_kiali: true
+    
+  # Container Storage - Production only
+  - name: enterprise-storage
+    type: storage
+    clusters: [production-rosa]
+    storage_size: 10Ti
+    replica_count: 3
+    
+  # CI/CD Pipelines - Development cluster
+  - name: platform-pipelines
+    type: pipelines
+    clusters: [development-gcp]
+    
+  # Serverless Platform - Production and HyperShift
+  - name: serverless-platform
+    type: serverless
+    clusters: [production-rosa, hypershift-aws-workloads, hypershift-gcp-workloads]
+    
+  # GitOps Platform - All clusters
+  - name: enterprise-gitops
+    type: gitops
+    clusters: [production-rosa, development-gcp, testing-azure]
+
+# Enterprise Applications
+openshift_applications:
+  # Frontend Web Application (Multi-cluster)
+  - name: frontend-web
+    type: multi-cluster
+    strategy: replicated
+    clusters: [production-rosa, development-gcp]
+    image: "registry.redhat.io/ubi8/nginx-118:latest"
+    replicas: 3
+    port: 8080
+    namespace: web-tier
+    hostname: "app.production.example.com"
+    
+    security:
+      read_only_root_filesystem: true
+      tls_enabled: true
+      
+    scaling:
+      max_replicas: 20
+      target_cpu_utilization: 60
+      target_memory_utilization: 70
+      min_available: "30%"
+      
+    monitoring:
+      enabled: true
+      metrics_path: "/metrics"
+      scrape_interval: "15s"
+      alerts_enabled: true
+      
+    environment:
+      LOG_LEVEL: "INFO"
+      ENVIRONMENT: "production"
+      DATABASE_URL: "${DATABASE_URL}"
+      REDIS_URL: "${REDIS_URL}"
+      
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "256Mi"
+      limits:
+        cpu: "2000m"
+        memory: "2Gi"
+
+  # API Backend Service (Primary-Secondary)
+  - name: api-backend
+    type: multi-cluster
+    strategy: primary-secondary
+    clusters: [production-rosa, development-gcp]
+    image: "quay.io/your-org/api-service:v2.1.0"
+    replicas: 5
+    port: 9000
+    namespace: api-tier
+    hostname: "api.production.example.com"
+    
+    security:
+      read_only_root_filesystem: true
+      tls_enabled: true
+      
+    scaling:
+      max_replicas: 30
+      target_cpu_utilization: 70
+      target_memory_utilization: 75
+      min_available: "50%"
+      
+    monitoring:
+      enabled: true
+      metrics_path: "/actuator/prometheus"
+      scrape_interval: "10s"
+      alerts_enabled: true
+      
+    environment:
+      LOG_LEVEL: "DEBUG"
+      SPRING_PROFILES_ACTIVE: "kubernetes,production"
+      DATABASE_POOL_SIZE: "20"
+      
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "512Mi"
+      limits:
+        cpu: "4000m"
+        memory: "4Gi"
+
+  # Database Service (Single cluster with storage)
+  - name: postgresql-database
+    type: deployment
+    cluster: production-rosa
+    image: "registry.redhat.io/rhel8/postgresql-13:latest"
+    replicas: 1
+    port: 5432
+    namespace: data-tier
+    
+    security:
+      read_only_root_filesystem: false
+      tls_enabled: true
+      
+    scaling:
+      max_replicas: 3
+      target_cpu_utilization: 80
+      target_memory_utilization: 85
+      
+    monitoring:
+      enabled: true
+      metrics_path: "/metrics"
+      scrape_interval: "30s"
+      alerts_enabled: true
+      
+    environment:
+      POSTGRESQL_USER: "appuser"
+      POSTGRESQL_DATABASE: "production_db"
+      POSTGRESQL_PASSWORD: "${DB_PASSWORD}"
+      
+    resources:
+      requests:
+        cpu: "1000m"
+        memory: "2Gi"
+      limits:
+        cpu: "4000m"
+        memory: "8Gi"
+
+  # Redis Cache (Sharded across clusters)
+  - name: redis-cache
+    type: multi-cluster
+    strategy: sharded
+    clusters: [production-rosa, development-gcp, testing-azure]
+    image: "registry.redhat.io/rhel8/redis-6:latest"
+    replicas: 2
+    port: 6379
+    namespace: cache-tier
+    
+    security:
+      read_only_root_filesystem: true
+      tls_enabled: true
+      
+    scaling:
+      max_replicas: 6
+      target_cpu_utilization: 75
+      target_memory_utilization: 80
+      
+    monitoring:
+      enabled: true
+      metrics_path: "/metrics"
+      scrape_interval: "20s"
+      alerts_enabled: true
+      
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+      REDIS_MAX_MEMORY: "1gb"
+      
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "512Mi"
+      limits:
+        cpu: "1000m"
+        memory: "2Gi"
+
+  # Microservice for User Management
+  - name: user-service
+    type: deployment
+    cluster: production-rosa
+    image: "quay.io/your-org/user-service:v1.5.2"
+    replicas: 4
+    port: 8081
+    namespace: services-tier
+    hostname: "users.api.production.example.com"
+    
+    security:
+      read_only_root_filesystem: true
+      tls_enabled: true
+      
+    scaling:
+      max_replicas: 15
+      target_cpu_utilization: 65
+      target_memory_utilization: 70
+      
+    monitoring:
+      enabled: true
+      metrics_path: "/metrics"
+      scrape_interval: "15s"
+      alerts_enabled: true
+      
+    environment:
+      LOG_LEVEL: "INFO"
+      JWT_SECRET: "${JWT_SECRET}"
+      USER_DB_URL: "${USER_DB_URL}"
+      
+    resources:
+      requests:
+        cpu: "300m"
+        memory: "384Mi"
+      limits:
+        cpu: "1500m"
+        memory: "1.5Gi"
+
+  # Helm-based Monitoring Stack
+  - name: grafana-stack
+    type: helm
+    cluster: production-rosa
+    chart: "grafana"
+    repository: "https://grafana.github.io/helm-charts"
+    version: "6.50.0"
+    namespace: monitoring
+    
+    values:
+      adminPassword: "${GRAFANA_ADMIN_PASSWORD}"
+      persistence:
+        enabled: true
+        size: 10Gi
+      ingress:
+        enabled: true
+        hosts:
+          - grafana.production.example.com
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+        requests:
+          cpu: 500m
+          memory: 512Mi
+
+  # ArgoCD GitOps Application
+  - name: microservices-gitops
+    type: argocd
+    cluster: development-gcp
+    git_repo: "https://github.com/your-org/microservices-config.git"
+    path: "overlays/development"
+    branch: "main"
+    namespace: argocd
+    project: "microservices"
+    
+    sync_policy:
+      automated: true
+      self_heal: true
+      prune: true
+      
+    health_check: true
+    
+# Supporting Infrastructure (leveraging existing yamlforge capabilities)
+instances:
+  # Bastion host for secure access
+  - name: bastion-host
+    provider: aws
+    region: us-east-1
+    size: small
+    image: RHEL9-latest
+    security_groups:
+      - ssh_access
+      - outbound_https
+      
+  # Monitoring jumpbox
+  - name: monitoring-tools
+    provider: gcp
+    region: us-central1
+    size: medium
+    image: RHEL9-latest
+    
+  # CI/CD build agents
+  - name: build-agent
+    provider: azure
+    region: eastus
+    size: large
+    image: RHEL9-latest
+    count: 2
+
+# DNS Configuration
+dns:
+  - name: production-dns
+    domain: production.example.com
+    provider: aws
+    records:
+      - name: "*.apps"
+        type: CNAME
+        value: production-rosa-elb.us-east-1.elb.amazonaws.com
+      - name: api
+        type: A
+        value: "{{ production_api_ip }}"
+        
+  - name: development-dns
+    domain: dev.example.com
+    provider: gcp
+    records:
+      - name: "*.apps"
+        type: CNAME
+        value: development-gcp-lb.us-central1.gcp.example.com 

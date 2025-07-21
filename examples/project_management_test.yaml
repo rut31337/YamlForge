@@ -1,0 +1,90 @@
+yamlforge:
+  cloud_workspace:
+    name: "ml-training-lab"
+    description: "Machine Learning Training Lab with User Management"
+
+  # User management configuration
+  users:
+    # This user's domain matches dns_zone, so will get Owner role
+    - email: "instructor@example.com"
+      roles: ["roles/editor", "roles/compute.admin"]
+      display_name: "Lab Instructor"
+      
+    # External domain users get specified roles
+    - email: "student1@university.edu"
+      roles: ["roles/viewer", "roles/compute.instanceAdmin"]
+      display_name: "Student One"
+      
+    - email: "student2@university.edu"
+      roles: ["roles/viewer"]
+      display_name: "Student Two"
+      
+    # Another matching domain user - will get Owner
+    - email: "admin@example.com"
+      roles: ["roles/editor"]
+      display_name: "Lab Administrator"
+
+  # Service accounts for automation (optional - project SA is always created)
+  service_accounts:
+    - name: "lab-automation"
+      display_name: "Lab Automation Service Account"
+      roles: ["roles/compute.instanceAdmin", "roles/storage.admin"]
+      
+    - name: "student-workload"
+      display_name: "Student Workload Service Account"
+      roles: ["roles/storage.objectViewer", "roles/logging.viewer"]
+
+  # Additional APIs beyond defaults (optional)
+  additional_apis:
+    - "ml.googleapis.com"
+    - "notebooks.googleapis.com"
+    - "aiplatform.googleapis.com"
+
+  instances:
+    - name: "instructor-workstation"
+      provider: "gcp"
+      size: "large"
+      region: "us-central1"
+      image: "Ubuntu-22.04"
+      tags:
+        purpose: "instructor-workstation"
+        environment: "training"
+        
+    - name: "student-lab-vm-1"
+      provider: "gcp"
+      size: "medium"
+      region: "us-central1"
+      image: "Ubuntu-22.04"
+      authorized_users: ["student1@university.edu"]
+      tags:
+        purpose: "student-lab"
+        student: "student1"
+        environment: "training"
+        
+    - name: "student-lab-vm-2"
+      provider: "gcp"
+      size: "medium" 
+      region: "us-central1"
+      image: "Ubuntu-22.04"
+      authorized_users: ["student2@university.edu"]
+      tags:
+        purpose: "student-lab"
+        student: "student2"
+        environment: "training"
+
+  # Optional: Security group for lab access
+  security_groups:
+    - name: "training-lab-access"
+      description: "Security group for training lab access"
+      rules:
+        - from_port: 22
+          to_port: 22
+          protocol: tcp
+          cidr_blocks: ["10.0.0.0/8", "192.168.0.0/16"]
+          description: "SSH access from internal networks"
+          
+        - from_port: 8080
+          to_port: 8090
+          protocol: tcp
+          cidr_blocks: ["10.0.0.0/8"]
+          description: "Lab application ports" 

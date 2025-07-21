@@ -1,0 +1,11 @@
+# AWS Default Configuration
+# Settings and features for AWS integration
+ 
+# AMI Owners Configuration
+ami_owners:
+  redhat_gold: "309956199498"    # Red Hat Cloud Access Gold AMIs
+  redhat_public: "309956199498"  # Red Hat public AMIs
+  fedora: "125523088429"         # Fedora Project AMIs
+  amazon: "137112412989"         # Amazon Linux AMIs
+  canonical: "099720109477"      # Ubuntu AMIs (Canonical)
+  microsoft: "801119661308"      # Microsoft Windows AMIs 

@@ -1,0 +1,69 @@
+---
+# Fedora Image Discovery Example
+# Demonstrates automatic Fedora image resolution across cloud providers
+
+yamlforge:
+  cloud_workspace:
+    name: "fedora-multi-cloud"
+    description: "Fedora testing workspace across cloud providers"
+    tags:
+      guid: "fmc-2024-001"
+
+  instances:
+    # AWS Fedora instances with automatic AMI discovery
+    - name: "aws-fedora-web"
+      provider: "aws"
+      size: "medium"
+      image: "Fedora-latest"  # Resolves to latest Fedora AMI
+      region: "us-east-1"
+      
+    - name: "aws-fedora-worker"
+      provider: "aws"
+      size: "large"
+      image: "Fedora39-latest"  # Specific Fedora 39 latest
+      region: "us-west-2"
+
+    # Azure Fedora instances
+    - name: "azure-fedora-api"
+      provider: "azure"
+      size: "medium"
+      image: "Fedora-latest"
+      region: "eastus"
+      
+    # GCP Fedora instances
+    - name: "gcp-fedora-compute"
+      provider: "gcp"
+      size: "large"
+      image: "Fedora-latest"
+      region: "us-central1"
+
+    # IBM Cloud Fedora instances
+    - name: "ibm-fedora-analytics"
+      provider: "ibm"
+      size: "large"
+      image: "Fedora-latest"
+      region: "us-south"
+
+    # Cost-optimized Fedora deployment
+    - name: "cheapest-fedora-node"
+      provider: "cheapest"
+      cores: 4
+      memory: 8192
+      image: "Fedora-latest"
+      tags:
+        workload_type: "development"
+        cost_optimized: "true"
+
+  # Architecture-specific image discovery
+  # instances:
+  #   - name: "fedora-arm64"
+  #     provider: "aws"
+  #     size: "t4g.medium"  # ARM-based instance
+  #     image: "Fedora-latest"
+  #     architecture: "arm64"
+  #     region: "us-east-1"
+
+  tags:
+    os_family: "fedora"
+    use_case: "development"
+    auto_discovery: "enabled" 

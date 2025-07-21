@@ -1,0 +1,511 @@
+# =============================================================================
+# OPENSHIFT DAY 2 OPERATIONS EXAMPLE
+# =============================================================================
+# This example demonstrates comprehensive Day 2 operations for OpenShift
+# including cluster lifecycle management, blue-green deployments, rollback
+# strategies, automated upgrades, advanced networking, and monitoring.
+
+# OpenShift Clusters
+openshift_clusters:
+  - name: production-cluster
+    type: rosa
+    region: us-east-1
+    version: 4.14.8
+    compute_machine_type: m5.xlarge
+    replica_count: 3
+    enable_autoscaling: true
+    min_replicas: 3
+    max_replicas: 10
+    enable_fips: true
+    multi_az: true
+    tags:
+      environment: production
+      team: platform
+      lifecycle: managed
+
+  - name: staging-cluster
+    type: aro
+    region: eastus
+    version: 4.14.8
+    compute_machine_type: Standard_D4s_v3
+    replica_count: 2
+    enable_autoscaling: true
+    min_replicas: 2
+    max_replicas: 6
+    tags:
+      environment: staging
+      team: development
+      lifecycle: managed
+
+  - name: development-cluster
+    type: self-managed
+    provider: gcp
+    region: us-central1
+    version: 4.14.8
+    master_count: 3
+    worker_count: 3
+    master_size: xlarge
+    worker_size: large
+    tags:
+      environment: development
+      team: development
+      lifecycle: managed
+
+# Day 2 Operations Configuration
+openshift_day2_operations:
+  # Cluster Lifecycle Management
+  - name: production-lifecycle
+    type: lifecycle
+    clusters: [production-cluster, staging-cluster]
+    cluster_id: prod-lifecycle-001
+    update_channel: stable-4.14
+    baseline_capabilities: vCurrent
+    additional_capabilities:
+      - openshift-samples
+      - marketplace
+      - insights
+    max_nodes_total: 50
+    min_cores: 16
+    max_cores: 500
+    min_memory_gb: 32
+    max_memory_gb: 2000
+    scale_down_enabled: true
+    scale_down_delay_after_add: 10m
+    scale_down_unneeded_time: 15m
+    min_worker_replicas: 3
+    max_worker_replicas: 15
+    min_available_critical_pods: 2
+    automation_schedule: "0 2 * * 0"  # Weekly at 2 AM Sunday
+    auto_certificate_rotation: true
+    automation_image: quay.io/openshift/origin-cli:4.14
+
+  # Blue-Green Deployment Strategy
+  - name: web-application-bg
+    type: blue-green
+    clusters: [production-cluster]
+    current_environment: blue
+    traffic_namespace: web-apps
+    replicas: 5
+    auto_promotion_enabled: false
+    scale_down_delay_seconds: 60
+    application_image: registry.example.com/web-app:latest
+    service_port: 80
+    target_port: 8080
+    cpu_request: 200m
+    memory_request: 256Mi
+    cpu_limit: 1000m
+    memory_limit: 1Gi
+    health_check_path: /health
+    readiness_check_path: /ready
+    liveness_initial_delay: 30
+    readiness_initial_delay: 10
+    success_rate_threshold: 0.98
+    response_time_threshold: 300
+    analysis_interval: 3m
+    failure_limit: 2
+    prometheus_address: http://prometheus.openshift-monitoring.svc.cluster.local:9090
+
+  # Rollback Strategy
+  - name: automatic-rollback
+    type: rollback
+    rollback_strategy: automatic
+    error_rate_threshold: 0.03
+    response_time_threshold: 800
+    availability_threshold: 0.995
+    rollback_window: 10m
+    max_rollback_attempts: 2
+    notifications_enabled: true
+    notification_webhook: https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
+    preserve_database_backup: true
+    preserve_config_backup: true
+    log_retention_period: 14d
+    default_deployment: web-app
+    default_namespace: web-apps
+    rollback_timeout: 300s
+    monitor_schedule: "*/3 * * * *"  # Every 3 minutes
+    monitor_image: quay.io/openshift/origin-cli:4.14
+
+  # Cluster Upgrade Automation
+  - name: automated-upgrades
+    type: upgrade
+    target_version: 4.14.8
+    upgrade_channel: stable-4.14
+    upgrade_strategy: rolling
+    maintenance_start: "02:00"
+    maintenance_end: "06:00"
+    timezone: UTC
+    maintenance_days: [Sunday]
+    auto_etcd_backup: true
+    rollback_enabled: true
+    api_unavailable_threshold: 10
+    cluster_degraded_threshold: 20
+    app_failure_threshold: 0.05
+    monitored_namespaces:
+      - default
+      - web-apps
+      - openshift-monitoring
+      - openshift-logging
+    upgrade_schedule: "0 2 * * 0"  # Weekly at 2 AM Sunday
+    upgrade_suspended: true  # Start suspended for safety
+    upgrade_image: quay.io/openshift/origin-cli:4.14
+
+# Advanced Networking Configuration
+openshift_networking:
+  # Submariner Cross-Cluster Networking
+  - name: multi-cluster-submariner
+    type: submariner
+    broker_cluster: production-cluster
+    participant_clusters: [production-cluster, staging-cluster, development-cluster]
+    globalnet_enabled: true
+    globalnet_cidr_size: 26
+    default_globalnet_cluster_size: 8192
+    components: [service-discovery, connectivity]
+    cluster_cidrs:
+      production-cluster: "10.128.0.0/14"
+      staging-cluster: "10.132.0.0/14"
+      development-cluster: "10.136.0.0/14"
+    service_cidrs:
+      production-cluster: "172.30.0.0/16"
+      staging-cluster: "172.31.0.0/16"
+      development-cluster: "172.32.0.0/16"
+    global_cidrs:
+      production-cluster: "242.0.0.0/8"
+      staging-cluster: "243.0.0.0/8"
+      development-cluster: "244.0.0.0/8"
+    nat_enabled: true
+    debug: false
+    broker_api_server: production-cluster-api.example.com:6443
+    repository: quay.io/submariner
+    version: 0.18.0
+    cable_driver: libreswan
+    health_check_enabled: true
+    health_check_interval: 30
+    health_check_max_packet_loss: 3
+    load_balancer_enabled: false
+    gateway_config:
+      ha_enabled: true
+      ha_replicas: 2
+      instance_type: c5.large
+      natt_port: 4500
+      gateways: 2
+
+  # Cross-Cluster Service Mesh
+  - name: global-service-mesh
+    type: service-mesh
+    clusters: [production-cluster, staging-cluster]
+    service_mesh_version: v2.6
+    ingress_gateway_replicas: 3
+    egress_gateway_replicas: 2
+    tracing_sampling: 1000
+    trust_domain: global.local
+    member_namespaces:
+      - default
+      - web-apps
+      - microservices
+      - api-gateway
+    peer_authentication: true
+    mtls_mode: STRICT
+
+  # Advanced Load Balancer
+  - name: metallb-loadbalancer
+    type: load-balancer
+    clusters: [development-cluster]
+    log_level: info
+    load_balancer_class: metallb.universe.tf/metallb
+    ip_pools:
+      - name: production-pool
+        addresses: ["192.168.100.240-192.168.100.250"]
+        auto_assign: true
+        avoid_buggy_ips: true
+      - name: staging-pool
+        addresses: ["192.168.101.240-192.168.101.250"]
+        auto_assign: false
+        avoid_buggy_ips: true
+    l2_advertisements:
+      - name: production-l2-ad
+        ip_address_pools: [production-pool]
+        node_selectors: []
+        interfaces: []
+      - name: staging-l2-ad
+        ip_address_pools: [staging-pool]
+        node_selectors:
+          - matchLabels:
+              kubernetes.io/hostname: worker-node-01
+        interfaces: [eth0]
+
+  # Advanced Ingress
+  - name: global-ingress
+    type: ingress
+    clusters: [production-cluster, staging-cluster]
+    domain: apps.example.com
+    replicas: 3
+    endpoint_strategy: LoadBalancerService
+    load_balancer_scope: External
+    connection_idle_timeout: 60s
+    default_certificate: global-ingress-tls
+    client_timeout: 60s
+    server_timeout: 60s
+    tunnel_timeout: 2h
+    max_connections: 50000
+    certificate_issuer: letsencrypt-prod
+    certificate_duration: 2160h
+    certificate_renew_before: 720h
+    rate_limit_zone_size: 20m
+    rate_limit_requests_per_second: 50r/s
+    rate_limit_burst: 100
+    api_rate_limit_zone_size: 10m
+    api_rate_limit_requests_per_second: 20r/s
+    api_rate_limit_burst: 30
+    cross_cluster_routes:
+      - name: web-app-route
+        namespace: web-apps
+        host: web-app.apps.example.com
+        path: /
+        service_name: web-app-service
+        target_port: http
+        weight: 100
+        tls_termination: edge
+        insecure_policy: Redirect
+        wildcard_policy: None
+      - name: api-route
+        namespace: api-gateway
+        host: api.apps.example.com
+        path: /api
+        service_name: api-gateway-service
+        target_port: api
+        weight: 100
+        tls_termination: edge
+
+  # Cross-Cluster DNS
+  - name: global-dns
+    type: dns
+    clusters: [production-cluster, staging-cluster, development-cluster]
+    provider_type: aws
+    domain_filters: [example.com]
+    aws_zone_type: public
+    zones: [example.com]
+    policy: sync
+    txt_owner_id: global-dns-production
+    txt_prefix: external-dns-
+    txt_suffix: .external-dns
+    interval: 2m
+    log_level: info
+    log_format: json
+    dry_run: false
+    cluster_domain: cluster.example.com
+    external_domain: external.example.com
+    upstream_dns: [8.8.8.8, 8.8.4.4]
+    external_dns_servers: [1.1.1.1, 1.0.0.1]
+    record_ttl: 300
+    cluster_api_hostname: api.production.cluster.example.com
+    cluster_wildcard_hostname: "*.apps.production.cluster.example.com"
+    cluster_api_ip: 203.0.113.10
+    cluster_ingress_ip: 203.0.113.11
+    cluster_ips:
+      production-cluster: 203.0.113.10
+      staging-cluster: 203.0.113.20
+      development-cluster: 203.0.113.30
+    ingress_ips:
+      production-cluster: 203.0.113.11
+      staging-cluster: 203.0.113.21
+      development-cluster: 203.0.113.31
+    etcd_ips:
+      production-cluster: 203.0.113.12
+      staging-cluster: 203.0.113.22
+      development-cluster: 203.0.113.32
+
+# OpenShift Operators
+openshift_operators:
+  - name: cluster-monitoring
+    type: monitoring
+    clusters: [production-cluster, staging-cluster, development-cluster]
+    prometheus_retention: 30d
+    prometheus_storage_size: 100Gi
+    alertmanager_storage_size: 10Gi
+    grafana_enabled: true
+    grafana_storage_size: 5Gi
+    node_exporter_enabled: true
+    kube_state_metrics_enabled: true
+    custom_alerts_enabled: true
+    notification_config:
+      slack_webhook: https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
+      email_config:
+        smtp_server: smtp.example.com
+        smtp_port: 587
+        from_address: alerts@example.com
+        to_addresses: [sre@example.com, ops@example.com]
+
+  - name: cluster-logging
+    type: logging
+    clusters: [production-cluster, staging-cluster]
+    log_retention: 7d
+    elasticsearch_storage_size: 200Gi
+    elasticsearch_replicas: 3
+    kibana_enabled: true
+    fluentd_enabled: true
+    log_forwarding_enabled: true
+    external_log_store:
+      type: elasticsearch
+      endpoint: https://elasticsearch.example.com:9200
+
+  - name: service-mesh
+    type: service-mesh
+    clusters: [production-cluster, staging-cluster]
+    version: v2.6
+    tracing_enabled: true
+    kiali_enabled: true
+    grafana_integration: true
+    prometheus_integration: true
+    mtls_enabled: true
+
+# OpenShift Security
+openshift_security:
+  - name: global-security-policies
+    type: rbac
+    clusters: [production-cluster, staging-cluster, development-cluster]
+    service_accounts:
+      - name: web-app-sa
+        namespace: web-apps
+      - name: api-gateway-sa
+        namespace: api-gateway
+    roles:
+      - name: web-app-role
+        namespace: web-apps
+        rules:
+          - api_groups: [""]
+            resources: [pods, services, configmaps, secrets]
+            verbs: [get, list, watch]
+          - api_groups: [apps]
+            resources: [deployments, replicasets]
+            verbs: [get, list, watch]
+    cluster_roles:
+      - name: monitoring-reader
+        rules:
+          - api_groups: [""]
+            resources: [nodes, pods, services, endpoints]
+            verbs: [get, list, watch]
+    role_bindings:
+      - name: web-app-binding
+        namespace: web-apps
+        role_ref: web-app-role
+        subjects:
+          - kind: ServiceAccount
+            name: web-app-sa
+            namespace: web-apps
+
+  - name: certificate-management
+    type: certificates
+    clusters: [production-cluster, staging-cluster]
+    cert_manager_email: admin@example.com
+    cluster_issuers:
+      - name: letsencrypt-prod
+        type: acme
+        server: https://acme-v02.api.letsencrypt.org/directory
+        email: admin@example.com
+        private_key_secret: letsencrypt-prod-private-key
+    certificates:
+      - name: wildcard-apps-cert
+        secret_name: wildcard-apps-tls
+        issuer_ref: letsencrypt-prod
+        dns_names:
+          - "*.apps.example.com"
+          - "apps.example.com"
+        duration: 2160h
+        renew_before: 360h
+
+# OpenShift Storage
+openshift_storage:
+  - name: backup-restore
+    type: oadp
+    clusters: [production-cluster, staging-cluster]
+    backup_storage_provider: aws
+    backup_storage_bucket: openshift-backups-prod
+    backup_storage_region: us-east-1
+    backup_retention_days: 30
+    backup_schedules:
+      - name: daily-backup
+        schedule: "0 2 * * *"
+        included_namespaces: [web-apps, api-gateway, default]
+        included_resources: [persistentvolumes, persistentvolumeclaims, secrets, configmaps]
+        storage_location: primary-backup-location
+        volume_snapshot_location: primary-snapshot-location
+      - name: weekly-full-backup
+        schedule: "0 3 * * 0"
+        included_namespaces: ["*"]
+        storage_location: primary-backup-location
+        volume_snapshot_location: primary-snapshot-location
+
+# OpenShift Applications
+openshift_applications:
+  - name: web-application
+    type: deployment
+    cluster: production-cluster
+    namespace: web-apps
+    image: registry.example.com/web-app:v2.1.0
+    replicas: 5
+    port: 8080
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://db.example.com:5432/webapp
+      REDIS_URL: redis://redis.example.com:6379
+      LOG_LEVEL: info
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    security:
+      tls_enabled: true
+      read_only_root_filesystem: true
+    scaling:
+      min_replicas: 3
+      max_replicas: 10
+      target_cpu_utilization: 70
+    monitoring:
+      enabled: true
+      metrics_port: 9090
+      health_check_path: /health
+      readiness_check_path: /ready
+
+  - name: api-gateway
+    type: deployment
+    cluster: production-cluster
+    namespace: api-gateway
+    image: registry.example.com/api-gateway:v1.5.2
+    replicas: 3
+    port: 8080
+    environment:
+      ENV: production
+      API_RATE_LIMIT: "1000"
+      JWT_SECRET: "${jwt_secret}"
+    resources:
+      requests:
+        cpu: 300m
+        memory: 512Mi
+      limits:
+        cpu: 1500m
+        memory: 2Gi
+
+  - name: microservices-platform
+    type: argocd
+    clusters: [production-cluster, staging-cluster]
+    git_repo: https://github.com/example/microservices-manifests
+    git_branch: main
+    git_path: overlays/production
+    auto_sync: true
+    sync_policy:
+      auto_prune: true
+      self_heal: true
+    destination_namespace: microservices
+    helm_values:
+      global:
+        environment: production
+        imageTag: v2.0.0
+      database:
+        replicas: 3
+        storage_size: 100Gi
+      cache:
+        enabled: true
+        replicas: 2 

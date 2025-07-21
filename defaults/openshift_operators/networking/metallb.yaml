@@ -1,0 +1,76 @@
+# OpenShift MetalLB Operator Default Configuration
+# Advanced load balancing and networking
+
+# Subscription configuration
+subscription:
+  channel: "stable"
+  name: "metallb-operator"
+  source: "redhat-operators"
+  sourceNamespace: "openshift-marketplace"
+  installPlanApproval: "Automatic"
+
+# Default configuration values
+defaults:
+  name: "metallb-operator"
+  enable_bgp: false
+  enable_layer2: true
+  log_level: "info"
+  node_selector: {}
+  tolerations: []
+
+# MetalLB instance configuration
+instance:
+  name: "metallb"
+  log_level: "info"
+  node_selector: {}
+  tolerations: []
+
+# Address pools (empty by default)
+address_pools: []
+
+# L2 advertisements (empty by default)
+l2_advertisements: []
+
+# BGP advertisements (empty by default)
+bgp_advertisements: []
+
+# BGP peers (empty by default)
+bgp_peers: []
+
+# Example configurations (commented out)
+# address_pools:
+#   - name: "metallb-pool"
+#     addresses:
+#       - "192.168.1.240-192.168.1.250"
+#     auto_assign: true
+#     avoid_buggy_ips: false
+#
+# l2_advertisements:
+#   - name: "metallb-l2-ad"
+#     ip_address_pools:
+#       - "metallb-pool"
+#     node_selectors: []
+#     interfaces: []
+#
+# bgp_advertisements:
+#   - name: "metallb-bgp-ad"
+#     ip_address_pools:
+#       - "metallb-pool"
+#     aggregation_length: 32
+#     local_pref: 0
+#     communities: []
+#     peers: []
+#
+# bgp_peers:
+#   - name: "bgp-peer-1"
+#     my_asn: 64512
+#     peer_asn: 64512
+#     peer_address: "192.168.1.1"
+#     source_address: "192.168.1.2"
+#     peer_port: 179
+#     hold_time: "90s"
+#     keepalive_time: "30s"
+#     router_id: "192.168.1.2"
+#     password: ""
+#     bfd_profile: ""
+#     ebgp_multi_hop: false 

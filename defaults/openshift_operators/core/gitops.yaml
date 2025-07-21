@@ -1,0 +1,84 @@
+# OpenShift GitOps Operator Default Configuration
+# ArgoCD configuration
+
+# Subscription configuration
+subscription:
+  channel: "latest"
+  name: "openshift-gitops-operator"
+  source: "redhat-operators"
+  sourceNamespace: "openshift-marketplace"
+  installPlanApproval: "Automatic"
+
+# Default configuration values
+defaults:
+  name: "openshift-gitops"
+  enable_cluster_admin: false
+  enable_dex: true
+  enable_rbac: true
+  server_route_enabled: true
+  server_insecure: false
+  default_rbac_policy: ""
+
+# ArgoCD Server configuration
+server:
+  route:
+    enabled: true
+    tls:
+      termination: "reencrypt"
+      insecureEdgeTerminationPolicy: "Redirect"
+  service:
+    type: "ClusterIP"
+  
+# ArgoCD Controller configuration  
+controller:
+  env:
+    - name: "ARGOCD_CONTROLLER_REPLICAS"
+      value: "1"
+  resources:
+    limits:
+      cpu: "2000m"
+      memory: "2Gi"
+    requests:
+      cpu: "250m"
+      memory: "1Gi"
+
+# ArgoCD Repo Server configuration
+repoServer:
+  autoscaling:
+    enabled: false
+  resources:
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+
+# ArgoCD Redis configuration
+redis:
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+    requests:
+      cpu: "250m"
+      memory: "128Mi"
+
+# ArgoCD ApplicationSet Controller configuration
+applicationSet:
+  resources:
+    limits:
+      cpu: "2"
+      memory: "1Gi"
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+
+# ArgoCD Applications (empty by default)
+applications: []
+
+# ArgoCD ApplicationSets (empty by default)
+application_sets: []
+
+# ArgoCD Projects (empty by default)
+projects: [] 

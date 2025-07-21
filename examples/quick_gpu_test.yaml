@@ -1,0 +1,70 @@
+---
+# Quick GPU Test - Minimal Example
+# Simple test of GPU instances across cloud providers
+
+yamlforge:
+  cloud_workspace:
+    name: "quick-gpu-test"
+    description: "Quick test of minimal GPU instances"
+
+  instances:
+    # Find the absolute cheapest GPU across all clouds
+    - name: "cheapest-gpu"
+      provider: "cheapest"
+      cores: 4
+      memory: 16384
+      gpu_count: 1
+      region: "us-east-1"
+      image: "RHEL9-latest"
+
+    # Find cheapest NVIDIA T4 specifically
+    - name: "cheapest-t4"
+      provider: "cheapest"
+      cores: 4
+      memory: 16384
+      gpu_count: 1
+      gpu_type: "NVIDIA T4"
+      region: "us-east-1"
+      image: "RHEL9-latest"
+
+    # Test each cloud's smallest GPU
+    - name: "aws-small-gpu"
+      provider: "aws"
+      size: "gpu_small"
+      region: "us-east-1"
+      image: "RHEL9-latest"
+
+    - name: "gcp-small-gpu"
+      provider: "gcp"
+      size: "gpu_small"
+      region: "us-central1"
+      image: "RHEL9-latest"
+
+    - name: "azure-small-gpu"
+      provider: "azure"
+      size: "gpu_small"
+      region: "eastus"
+      image: "RHEL9-latest"
+
+    - name: "ibm-small-gpu"
+      provider: "ibm_vpc"
+      size: "gpu_small"
+      region: "us-south"
+      image: "RHEL9-latest"
+
+    # NEW: GPU-only cost optimization (ignores CPU/memory)
+    - name: "pure-cheapest-gpu"
+      provider: "cheapest-gpu"    # NEW: GPU-focused meta provider
+      region: "us-east-1"
+      image: "RHEL9-latest"
+
+    # NEW: Cheapest T4 GPU specifically
+    - name: "pure-cheapest-t4"
+      provider: "cheapest-gpu"
+      gpu_type: "NVIDIA T4"
+      region: "us-east-1"
+      image: "RHEL9-latest"
+
+  tags:
+    purpose: "gpu_testing"
+    size: "minimal" 

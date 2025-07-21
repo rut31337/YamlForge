@@ -1,0 +1,471 @@
+# Image mappings for different cloud providers
+#
+# SUPPORTED IMAGE PATTERNS & PROVIDERS:
+#
+# MULTI-CLOUD PATTERNS (Dynamic Discovery + Static Fallback):
+#   RHEL9-latest, RHEL8-latest     → AWS, GCP, OCI, Alibaba + Azure, VMware (static)
+#   Ubuntu2204-latest, Ubuntu2004-latest → AWS, GCP, OCI, Alibaba + Azure, VMware (static)
+#   OracleLinux9-latest           → AWS, GCP, OCI, Alibaba + Azure, VMware (static)
+#
+# GOLD PATTERNS (Cloud Access - AWS Pattern-Based):
+#   RHEL9GOLD-latest, RHEL8GOLD-latest   → AWS (private), Azure, GCP (BYOS)
+#   RHEL96GOLD-latest, RHEL95GOLD-latest → AWS (private), Azure, GCP (BYOS)
+#
+# CLOUD-SPECIFIC PATTERNS:
+#   AlibabaLinux3-latest          → Alibaba Cloud only
+#
+# DYNAMIC DISCOVERY PROVIDERS: AWS, GCP, OCI, Alibaba (latest images auto-resolved)
+# STATIC MAPPING PROVIDERS: Azure (marketplace), VMware (templates)
+#
+# Resolution Priority: 1) Dynamic discovery → 2) Static mappings → 3) Provider defaults
+#
+# AWS RHEL Pattern-Based Images (Any Version):
+# - RHEL-8-GOLD-latest → RHEL-8.*_HVM-*Access* (major version)
+# - RHEL-9.4-GOLD-latest → RHEL-9.4.*_HVM_*Access* (major.minor version)
+# - RHEL-10.1-GOLD-latest → RHEL-10.1.*_HVM_*Access* (future versions)
+# - Explicit mappings below take priority, then fallback to pattern generation
+# - System will fail with clear error if AMI doesn't exist yet
+#
+# Multi-Cloud Support:
+# - Key entries (RHEL9-latest, RHEL8-latest, Ubuntu2204-latest, Ubuntu2004-latest)
+#   include explicit mappings for AWS, Azure, GCP, OCI, VMware, and Alibaba Cloud
+# - Other entries may be AWS/GCP only (legacy compatibility)
+
+images:
+  # RHEL Gold Images (Cloud Access)
+  # Patterns: RHEL9GOLD-latest, RHEL8GOLD-latest, RHEL96GOLD-latest, etc.
+  # Supported: AWS (private AMIs), Azure (BYOS), GCP (BYOS)
+  # Pattern Generation: RHEL-X.Y-GOLD-latest → RHEL-X.Y.*_HVM_*Access* (AWS)
+
+  # RHEL AI (private access) - Example of owner override
+  RHELAI12:
+    description: "RHEL AI 1.2"
+    aws:
+      name_pattern: "rhel-ai-nvidia-1.2*"
+      owner: "809721187735"  # Custom owner override (not in defaults/aws.yaml)
+      aws_filters:
+        - name: "is-public"
+          values: ["false"]
+
+  # RHEL 9 Gold Images (Cloud Access)
+  RHEL96GOLD-latest:
+    description: "RHEL 9.6 Gold Image with Cloud Access"
+    aws:
+      name_pattern: "RHEL-9.6.*_HVM_*Access*"
+
+  RHEL95GOLD-latest:
+    description: "RHEL 9.5 Gold Image"
+    aws:
+      name_pattern: "RHEL-9.5.*_HVM_*Access*"
+
+  RHEL94GOLD-latest:
+    description: "RHEL 9.4 Gold Image"
+    aws:
+      name_pattern: "RHEL-9.4.*_HVM_*Access*"
+
+  RHEL93GOLD-latest:
+    description: "RHEL 9.3 Gold Image"
+    aws:
+      name_pattern: "RHEL-9.3.*_HVM_*Access*"
+
+  RHEL92GOLD-latest:
+    description: "RHEL 9.2 Gold Image"
+    aws:
+      name_pattern: "RHEL-9.2.*_HVM_*Access*"
+
+  RHEL91GOLD-latest:
+    description: "RHEL 9.1 Gold Image"
+    aws:
+      name_pattern: "RHEL-9.1.*_HVM_*Access*"
+
+  RHEL90GOLD-latest:
+    description: "RHEL 9.0 Gold Image"
+    aws:
+      name_pattern: "RHEL-9.0.*_HVM_*Access*"
+
+  RHEL9GOLD-latest:
+    description: "RHEL 9 Gold Image with Cloud Access"
+    aws:
+      name_pattern: "RHEL-9.*_HVM-*Access*"
+    azure:
+      publisher: "redhat"
+      offer: "rhel-byos"
+      sku: "rhel-lvm9"
+      version: "latest"
+    gcp:
+      project: "rhel-byos-cloud"
+      family: "rhel-9-byos"
+
+  # RHEL 8 Gold Images (Cloud Access)
+  RHEL89GOLD-latest:
+    description: "RHEL 8.9 Gold Image"
+    aws:
+      name_pattern: "RHEL-8.9.*_HVM_*Access*"
+
+  RHEL88GOLD-latest:
+    description: "RHEL 8.8 Gold Image"
+    aws:
+      name_pattern: "RHEL-8.8.*_HVM_*Access*"
+
+  RHEL87GOLD-latest:
+    description: "RHEL 8.7 Gold Image"
+    aws:
+      name_pattern: "RHEL-8.7.*_HVM_*Access*"
+
+  RHEL86GOLD-latest:
+    description: "RHEL 8.6 Gold Image"
+    aws:
+      name_pattern: "RHEL-8.6.*_HVM_*Access*"
+
+  RHEL85GOLD-latest:
+    description: "RHEL 8.5 Gold Image"
+    aws:
+      name_pattern: "RHEL-8.5.*_HVM_*Access*"
+
+  RHEL8GOLD-latest:
+    description: "RHEL 8 Gold Image with Cloud Access"
+    aws:
+      name_pattern: "RHEL-8.*_HVM-*Access*"
+    azure:
+      publisher: "redhat"
+      offer: "rhel-byos"
+      sku: "rhel-lvm8"
+      version: "latest"
+    gcp:
+      project: "rhel-byos-cloud"
+      family: "rhel-8-byos"
+
+  # RHEL 7 Gold Images (Cloud Access)
+  RHEL79GOLD-latest:
+    description: "RHEL 7.9 Gold Image"
+    aws:
+      name_pattern: "RHEL-7.9_HVM_*Access*"
+
+  RHEL7GOLD-latest:
+    description: "RHEL 7 Gold Image"
+    aws:
+      name_pattern: "RHEL-7.*_HVM-*Access*"
+
+  # Public RHEL Images (multi-cloud support)
+  # Patterns: RHEL9-latest, RHEL8-latest, RHEL7-latest
+  # Dynamic Discovery: AWS, GCP, OCI, Alibaba → resolves to latest available RHEL images
+  # Static Mappings: Azure (marketplace SKUs), VMware (template names)
+
+  RHEL9-latest:
+    description: "RHEL 9 latest public image"
+    aws:
+      name_pattern: "RHEL-9.*"
+    azure:
+      publisher: "redhat"
+      offer: "rhel"
+      sku: "9-lvm-gen2"
+      version: "latest"
+    gcp:
+      project: "rhel-cloud"
+      family: "rhel-9"
+    oci:
+      image_name: "Red Hat Enterprise Linux 9"
+      operating_system: "Red Hat Enterprise Linux"
+    vmware:
+      template: "rhel9-template"
+    alibaba:
+      image_name: "rhel_9_0_x64_20G_alibase_20220629.vhd"
+
+  RHEL8-latest:
+    description: "RHEL 8 latest public image"
+    aws:
+      name_pattern: "RHEL-8.*"
+    azure:
+      publisher: "redhat"
+      offer: "rhel"
+      sku: "8-lvm-gen2"
+      version: "latest"
+    gcp:
+      project: "rhel-cloud"
+      family: "rhel-8"
+    oci:
+      image_name: "Red Hat Enterprise Linux 8"
+      operating_system: "Red Hat Enterprise Linux"
+    vmware:
+      template: "rhel8-template"
+    alibaba:
+      image_name: "rhel_8_5_x64_20G_alibase_20211230.vhd"
+
+  RHEL7-latest:
+    description: "RHEL 7 latest public image"
+    aws:
+      name_pattern: "RHEL-7.*"
+
+  # Specific RHEL versions (public)
+  RHEL94-latest:
+    description: "RHEL 9.4 latest public image"
+    aws:
+      name_pattern: "RHEL-9.4*"
+
+  RHEL93-latest:
+    description: "RHEL 9.3 latest public image"
+    aws:
+      name_pattern: "RHEL-9.3*"
+
+  RHEL92-latest:
+    description: "RHEL 9.2 latest public image"
+    aws:
+      name_pattern: "RHEL-9.2*"
+
+  RHEL91-latest:
+    description: "RHEL 9.1 latest public image"
+    aws:
+      name_pattern: "RHEL-9.1*"
+
+  RHEL90-latest:
+    description: "RHEL 9.0 latest public image"
+    aws:
+      name_pattern: "RHEL-9.0*"
+
+  RHEL89-latest:
+    description: "RHEL 8.9 latest public image"
+    aws:
+      name_pattern: "RHEL-8.9*"
+
+  RHEL88-latest:
+    description: "RHEL 8.8 latest public image"
+    aws:
+      name_pattern: "RHEL-8.8*"
+
+  RHEL87-latest:
+    description: "RHEL 8.7 latest public image"
+    aws:
+      name_pattern: "RHEL-8.7*"
+
+  RHEL86-latest:
+    description: "RHEL 8.6 latest public image"
+    aws:
+      name_pattern: "RHEL-8.6*"
+
+  RHEL85-latest:
+    description: "RHEL 8.5 latest public image"
+    aws:
+      name_pattern: "RHEL-8.5*"
+
+  RHEL84-latest:
+    description: "RHEL 8.4 latest public image"
+    aws:
+      name_pattern: "RHEL-8.4*"
+
+  RHEL83-latest:
+    description: "RHEL 8.3 latest public image"
+    aws:
+      name_pattern: "RHEL-8.3*"
+
+  RHEL82-latest:
+    description: "RHEL 8.2 latest public image"
+    aws:
+      name_pattern: "RHEL-8.2*"
+
+  RHEL81-latest:
+    description: "RHEL 8.1 latest public image"
+    aws:
+      name_pattern: "RHEL-8.1*"
+
+  RHEL80-latest:
+    description: "RHEL 8.0 latest public image"
+    aws:
+      name_pattern: "RHEL-8.0*"
+
+  RHEL79-latest:
+    description: "RHEL 7.9 latest public image"
+    aws:
+      name_pattern: "RHEL-7.9_HVM*"
+
+  # CentOS Stream Images
+  CentOS-Stream9-latest:
+    description: "CentOS Stream 9 latest"
+    aws:
+      name_pattern: "CentOS-Stream-ec2-9-*"
+
+  CentOS-Stream8-latest:
+    description: "CentOS Stream 8 latest"
+    aws:
+      name_pattern: "CentOS-Stream-ec2-8-*"
+
+  # Fedora Images
+  Fedora38-latest:
+    description: "Fedora 38 latest"
+    aws:
+      name_pattern: "Fedora-Cloud-Base-38-*"
+
+  Fedora37-latest:
+    description: "Fedora 37 latest"
+    aws:
+      name_pattern: "Fedora-Cloud-Base-37-*"
+
+  Fedora36-latest:
+    description: "Fedora 36 latest"
+    aws:
+      name_pattern: "Fedora-Cloud-Base-36-*"
+
+  # Ubuntu Images (Canonical)
+  # Multi-Cloud: Ubuntu2204-latest, Ubuntu2004-latest → AWS, GCP, OCI, Alibaba + Azure, VMware
+  # Legacy: Ubuntu-latest, Ubuntu1804-latest → AWS, GCP only
+  Ubuntu-latest:
+    description: "Ubuntu latest LTS"
+    aws:
+      name_pattern: "ubuntu/images/hvm-ssd/ubuntu-*-amd64-server-*"
+    gcp:
+      project: "ubuntu-os-cloud"
+      family: "ubuntu-2004-lts"
+
+  Ubuntu2204-latest:
+    description: "Ubuntu 22.04 LTS"
+    aws:
+      name_pattern: "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"
+    azure:
+      publisher: "canonical"
+      offer: "0001-com-ubuntu-server-jammy"
+      sku: "22_04-lts-gen2"
+      version: "latest"
+    gcp:
+      project: "ubuntu-os-cloud"
+      family: "ubuntu-2204-lts"
+    oci:
+      image_name: "Canonical Ubuntu 22.04"
+      operating_system: "Ubuntu"
+    vmware:
+      template: "ubuntu2204-template"
+    alibaba:
+      image_name: "ubuntu_22_04_x64_20G_alibase_20220824.vhd"
+
+  Ubuntu2004-latest:
+    description: "Ubuntu 20.04 LTS"
+    aws:
+      name_pattern: "ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"
+    azure:
+      publisher: "canonical"
+      offer: "0001-com-ubuntu-server-focal"
+      sku: "20_04-lts-gen2"
+      version: "latest"
+    gcp:
+      project: "ubuntu-os-cloud"
+      family: "ubuntu-2004-lts"
+    oci:
+      image_name: "Canonical Ubuntu 20.04"
+      operating_system: "Ubuntu"
+    vmware:
+      template: "ubuntu2004-template"
+    alibaba:
+      image_name: "ubuntu_20_04_x64_20G_alibase_20220824.vhd"
+
+  Ubuntu1804-latest:
+    description: "Ubuntu 18.04 LTS"
+    aws:
+      name_pattern: "ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-*"
+
+  # Windows Images
+  Windows2022-latest:
+    description: "Windows Server 2022"
+    aws:
+      name_pattern: "Windows_Server-2022-English-Full-Base-*"
+
+  Windows2019-latest:
+    description: "Windows Server 2019"
+    aws:
+      name_pattern: "Windows_Server-2019-English-Full-Base-*"
+
+  # Fedora Images
+  Fedora41-latest:
+    description: "Fedora 41"
+    aws:
+      name_pattern: "Fedora-Cloud-Base-41-*"
+    azure:
+      publisher: "fedora"
+      offer: "fedora-41"
+      sku: "41"
+      version: "latest"
+    gcp:
+      project: "fedora-cloud"
+      family: "fedora-41"
+
+  Fedora40-latest:
+    description: "Fedora 40"
+    aws:
+      name_pattern: "Fedora-Cloud-Base-40-*"
+    azure:
+      publisher: "fedora"
+      offer: "fedora-40"
+      sku: "40"
+      version: "latest"
+    gcp:
+      project: "fedora-cloud"
+      family: "fedora-40"
+
+  Fedora39-latest:
+    description: "Fedora 39"
+    aws:
+      name_pattern: "Fedora-Cloud-Base-39-*"
+    azure:
+      publisher: "fedora"
+      offer: "fedora-39"
+      sku: "39"
+      version: "latest"
+    gcp:
+      project: "fedora-cloud"
+      family: "fedora-39"
+
+  # Fedora Generic (latest stable)
+  Fedora-latest:
+    description: "Fedora (latest stable)"
+    aws:
+      name_pattern: "Fedora-Cloud-Base-4*"
+    azure:
+      publisher: "fedora"
+      offer: "fedora-40"
+      sku: "40"
+      version: "latest"
+    gcp:
+      project: "fedora-cloud"
+      family: "fedora-40"
+
+  # Example: Custom AMI with owner override
+  # This demonstrates how to specify a custom owner not in defaults/aws.yaml
+  # See RHELAI12 above for a real example of owner override
+  # Custom-AMI-Example:
+  #   description: "Custom private AMI from account 123456789012"
+  #   aws:
+  #     name_pattern: "my-custom-image-*"
+  #     owner: "123456789012"  # Custom owner not in defaults
+  #
+  # Example: Custom GOLD image (gets automatic is-public=false filter)
+  # Custom-RHEL9-GOLD:
+  #   description: "Custom RHEL 9 Gold build"
+  #   aws:
+  #     name_pattern: "custom-rhel-9-gold-*"
+  #     # No aws_filters needed - GOLD images get is-public=false automatically
+
+  # Oracle Linux (multi-cloud support)
+  # Pattern: OracleLinux9-latest → AWS, GCP, OCI, Alibaba + Azure, VMware
+  OracleLinux9-latest:
+    description: "Oracle Linux 9 (latest)"
+    aws:
+      name_pattern: "OL9.*"
+    azure:
+      publisher: "oracle"
+      offer: "oracle-linux"
+      sku: "ol-9"
+      version: "latest"
+    gcp:
+      project: "oracle-linux-cloud"
+      family: "oracle-linux-9"
+    oci:
+      image_name: "Oracle Linux 9"
+      operating_system: "Oracle Linux"
+    vmware:
+      template: "oracle9-template"
+    alibaba:
+      image_name: "aliyun_3_x64_20G_alibase_20230727.vhd"
+
+  # Alibaba Linux (Alibaba Cloud only)
+  # Pattern: AlibabaLinux3-latest → Alibaba Cloud only (proprietary OS)
+  AlibabaLinux3-latest:
+    description: "Alibaba Cloud Linux 3"
+    alibaba:
+      image_name: "aliyun_3_x64_20G_alibase_20230727.vhd" 

@@ -1,0 +1,33 @@
+yamlforge:
+  cloud_workspace:
+    name: "cross-project-dns"
+    description: "Lab with Cross-Project DNS Delegation"
+
+  # Override DNS configuration for cross-project setup
+  dns_config:
+    root_zone_management: true
+    root_zone:
+      domain: "mycompany.com"
+      zone_name: "mycompany-com-zone"
+      project_id: "dns-management-project-123"  # Different project
+      auto_create: false  # Assume zone already exists
+    delegation_ttl: 3600  # Custom TTL
+
+  users:
+    - email: "admin@mycompany.com"
+      roles: ["roles/editor"]
+      display_name: "Company Admin"
+      
+    - email: "contractor@external.com"
+      roles: ["roles/viewer"]
+      display_name: "External Contractor"
+
+  instances:
+    - name: "api-server"
+      provider: "gcp"
+      size: "medium"
+      region: "us-west1"
+      image: "Ubuntu-22.04"
+      tags:
+        purpose: "api-server"
+        environment: "production" 

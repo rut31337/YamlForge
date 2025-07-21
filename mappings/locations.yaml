@@ -1,0 +1,573 @@
+# Maps cloud-specific region names to standardized location format for cross-cloud deployments
+# Each location defines the native region names for each cloud provider
+# Updated with complete IBM Cloud regions per: https://cloud.ibm.com/docs/overview?topic=overview-locations
+
+# North America - East Coast
+us-east-1:
+  aws: "us-east-1"
+  azure: "East US"
+  gcp: "us-east1"
+  ibm_vpc: "us-east"           # Washington DC MZR
+  ibm_classic: "WDC04"
+
+us-east-2:
+  aws: "us-east-2"
+  azure: "East US 2"
+  gcp: "us-east4"
+  ibm_vpc: "us-east"           # Washington DC MZR
+  ibm_classic: "WDC06"
+
+# North America - Central/South
+us-south-1:
+  aws: "us-east-1"         # Closest AWS region
+  azure: "Central US"
+  gcp: "us-central1"
+  ibm_vpc: "us-south"          # Dallas MZR
+  ibm_classic: "DAL10"
+
+us-south-2:
+  aws: "us-east-1"
+  azure: "Central US"
+  gcp: "us-central1"
+  ibm_vpc: "us-south"          # Dallas MZR
+  ibm_classic: "DAL12"
+
+us-south-3:
+  aws: "us-east-1"
+  azure: "Central US"
+  gcp: "us-central1"
+  ibm_vpc: "us-south"          # Dallas MZR
+  ibm_classic: "DAL13"
+
+# North America - West Coast  
+us-west-1:
+  aws: "us-west-1"
+  azure: "West US"
+  gcp: "us-west1"
+  ibm_vpc: "us-south"          # Dallas MZR (closest available)
+  ibm_classic: "SJC03"    # San Jose
+
+us-west-2:
+  aws: "us-west-2"
+  azure: "West US 2"
+  gcp: "us-west2"
+  ibm_vpc: "us-south"          # Dallas MZR (closest available)
+  ibm_classic: "SJC04"    # San Jose
+
+# North America - Central
+us-central-1:
+  aws: "us-east-1"  # Closest AWS region
+  azure: "Central US"
+  gcp: "us-central1"
+  ibm_vpc: "us-south"          # Dallas MZR
+  ibm_classic: "DAL10"
+  
+  # Canada
+ca-central-1:
+  aws: "ca-central-1"
+  azure: "Canada Central"
+  gcp: "northamerica-northeast1"
+  ibm_vpc: "ca-tor"            # Toronto MZR
+  ibm_classic: "TOR01"
+
+ca-toronto-1:
+  aws: "ca-central-1"
+  azure: "Canada Central"
+  gcp: "northamerica-northeast1"
+  ibm_vpc: "ca-tor"            # Toronto MZR
+  ibm_classic: "TOR04"
+
+ca-montreal-1:
+  aws: "ca-central-1"
+  azure: "Canada East"
+  gcp: "northamerica-northeast1"
+  ibm_vpc: "ca-mon"            # Montreal SC-MZR
+  ibm_classic: "MON01"
+
+# Europe - Western
+eu-west-1:
+  aws: "eu-west-1"         # Ireland
+  azure: "West Europe"     # Netherlands
+  gcp: "europe-west1"      # Belgium
+  ibm_vpc: "eu-gb"             # London MZR
+  ibm_classic: "LON04"
+
+eu-west-2:
+  aws: "eu-west-2"         # London
+  azure: "UK South"        # London
+  gcp: "europe-west2"      # London
+  ibm_vpc: "eu-gb"             # London MZR
+  ibm_classic: "LON05"
+
+eu-west-3:
+  aws: "eu-west-3"         # Paris
+  azure: "France Central"  # Paris
+  gcp: "europe-west9"      # Paris
+  ibm_vpc: "eu-gb"             # London MZR (closest)
+  ibm_classic: "PAR01"     # Paris
+
+# Europe - Central
+eu-central-1:
+  aws: "eu-central-1"      # Frankfurt
+  azure: "Germany West Central"
+  gcp: "europe-west3"      # Frankfurt
+  ibm_vpc: "eu-de"             # Frankfurt MZR
+  ibm_classic: "FRA02"
+
+eu-central-2:
+  aws: "eu-central-1"      # Frankfurt
+  azure: "Germany West Central"
+  gcp: "europe-west3"      # Frankfurt
+  ibm_vpc: "eu-de"             # Frankfurt MZR
+  ibm_classic: "FRA04"
+
+# Europe - Northern
+eu-north-1:
+  aws: "eu-north-1"        # Stockholm
+  azure: "North Europe"    # Ireland
+  gcp: "europe-north1"     # Finland
+  ibm_vpc: "eu-gb"             # London MZR (closest)
+  ibm_classic: "LON06"
+
+# Europe - Southern
+eu-south-1:
+  aws: "eu-south-1"        # Milan
+  azure: "West Europe"     # Netherlands (closest)
+  gcp: "europe-west1"      # Belgium (closest)
+  ibm_vpc: "eu-de"             # Frankfurt MZR (closest)
+  ibm_classic: "MIL01"     # Milan
+
+# Europe - Spain
+eu-spain-1:
+  aws: "eu-west-3"         # Paris (closest)
+  azure: "France Central"  # Paris (closest)
+  gcp: "europe-west1"      # Belgium (closest)
+  ibm_vpc: "eu-es"             # Madrid MZR
+  ibm_classic: "MAD02"
+
+# Asia Pacific - East
+ap-east-1:
+  aws: "ap-east-1"         # Hong Kong
+  azure: "East Asia"       # Hong Kong
+  gcp: "asia-east1"        # Taiwan
+  ibm_vpc: "jp-tok"            # Tokyo MZR (closest)
+  ibm_classic: "SNG01"     # Singapore
+
+# Asia Pacific - Southeast
+ap-southeast-1:
+  aws: "ap-southeast-1"    # Singapore
+  azure: "Southeast Asia"  # Singapore
+  gcp: "asia-southeast1"   # Singapore
+  ibm_vpc: "jp-tok"            # Tokyo MZR (closest)
+  ibm_classic: "SNG01"     # Singapore
+
+ap-southeast-2:
+  aws: "ap-southeast-2"    # Sydney
+  azure: "Australia East"  # Sydney
+  gcp: "australia-southeast1"
+  ibm_vpc: "au-syd"            # Sydney MZR
+  ibm_classic: "SYD01"
+
+# Asia Pacific - Northeast
+ap-northeast-1:
+  aws: "ap-northeast-1"    # Tokyo
+  azure: "Japan East"      # Tokyo
+  gcp: "asia-northeast1"   # Tokyo
+  ibm_vpc: "jp-tok"            # Tokyo MZR
+  ibm_classic: "TOK02"
+
+ap-northeast-2:
+  aws: "ap-northeast-2"    # Seoul
+  azure: "Korea Central"   # Seoul
+  gcp: "asia-northeast3"   # Seoul
+  ibm_vpc: "jp-tok"            # Tokyo MZR (closest)
+  ibm_classic: "TOK04"
+
+ap-northeast-3:
+  aws: "ap-northeast-3"    # Osaka
+  azure: "Japan West"      # Osaka
+  gcp: "asia-northeast2"   # Osaka
+  ibm_vpc: "jp-osa"            # Osaka SC-MZR
+  ibm_classic: "OSA21"
+
+# Asia Pacific - South
+ap-south-1:
+  aws: "ap-south-1"        # Mumbai
+  azure: "Central India"   # Mumbai
+  gcp: "asia-south1"       # Mumbai
+  ibm_vpc: "jp-tok"            # Tokyo MZR (closest available)
+  ibm_classic: "CHE01"     # Chennai
+  
+  # South America
+sa-east-1:
+  aws: "sa-east-1"         # São Paulo
+  azure: "Brazil South"    # São Paulo
+  gcp: "southamerica-east1"
+  ibm_vpc: "br-sao"            # São Paulo MZR
+  ibm_classic: "SAO01"
+  
+  # Africa
+af-south-1:
+  aws: "af-south-1"        # Cape Town
+  azure: "South Africa North"
+  gcp: "africa-south1"     # South Africa
+  ibm_vpc: "eu-gb"             # London MZR (closest)
+  ibm_classic: "LON06"
+  
+  # Middle East
+me-south-1:
+  aws: "me-south-1"        # Bahrain
+  azure: "UAE North"       # Dubai
+  gcp: "me-west1"          # Israel
+  ibm_vpc: "eu-gb"             # London MZR (closest)
+  ibm_classic: "LON06"
+
+# ===== IBM Cloud Specific Region Mappings =====
+# Direct mappings for IBM Cloud MZRs and SC-MZRs
+
+# IBM Cloud MZR Regions
+us-south:
+  ibm_vpc: "us-south"          # Dallas MZR
+  aws: "us-east-1"
+  azure: "Central US"
+  gcp: "us-central1"
+
+us-east:
+  ibm_vpc: "us-east"           # Washington DC MZR
+  aws: "us-east-1"
+  azure: "East US"
+  gcp: "us-east1"
+
+br-sao:
+  ibm_vpc: "br-sao"            # São Paulo MZR
+  aws: "sa-east-1"
+  azure: "Brazil South"
+  gcp: "southamerica-east1"
+
+ca-tor:
+  ibm_vpc: "ca-tor"            # Toronto MZR
+  aws: "ca-central-1"
+  azure: "Canada Central"
+  gcp: "northamerica-northeast1"
+
+eu-gb:
+  ibm_vpc: "eu-gb"             # London MZR
+  aws: "eu-west-2"
+  azure: "UK South"
+  gcp: "europe-west2"
+
+eu-de:
+  ibm_vpc: "eu-de"             # Frankfurt MZR
+  aws: "eu-central-1"
+  azure: "Germany West Central"
+  gcp: "europe-west3"
+
+eu-es:
+  ibm_vpc: "eu-es"             # Madrid MZR
+  aws: "eu-west-3"
+  azure: "France Central"
+  gcp: "europe-west1"
+
+jp-tok:
+  ibm_vpc: "jp-tok"            # Tokyo MZR
+  aws: "ap-northeast-1"
+  azure: "Japan East"
+  gcp: "asia-northeast1"
+
+au-syd:
+  ibm_vpc: "au-syd"            # Sydney MZR
+  aws: "ap-southeast-2"
+  azure: "Australia East"
+  gcp: "australia-southeast1"
+
+# IBM Cloud SC-MZR Regions
+ca-mon:
+  ibm_vpc: "ca-mon"            # Montreal SC-MZR
+  aws: "ca-central-1"
+  azure: "Canada East"
+  gcp: "northamerica-northeast1"
+
+jp-osa:
+  ibm_vpc: "jp-osa"            # Osaka SC-MZR
+  aws: "ap-northeast-3"
+  azure: "Japan West"
+  gcp: "asia-northeast2"
+
+# ===== IBM Cloud Classic Infrastructure Data Centers =====
+# Specific data center mappings for Classic Infrastructure
+
+# North American Data Centers
+dal10:
+  ibm_classic: "DAL10"     # Dallas 10
+  ibm_vpc: "us-south"
+  aws: "us-east-1"
+  azure: "Central US"
+  gcp: "us-central1"
+
+dal12:
+  ibm_classic: "DAL12"     # Dallas 12
+  ibm_vpc: "us-south"
+  aws: "us-east-1"
+  azure: "Central US"
+  gcp: "us-central1"
+
+dal13:
+  ibm_classic: "DAL13"     # Dallas 13
+  ibm_vpc: "us-south"
+  aws: "us-east-1"
+  azure: "Central US"
+  gcp: "us-central1"
+
+wdc04:
+  ibm_classic: "WDC04"     # Washington DC 04
+  ibm_vpc: "us-east"
+  aws: "us-east-1"
+  azure: "East US"
+  gcp: "us-east1"
+
+wdc06:
+  ibm_classic: "WDC06"     # Washington DC 06
+  ibm_vpc: "us-east"
+  aws: "us-east-1"
+  azure: "East US"
+  gcp: "us-east1"
+
+wdc07:
+  ibm_classic: "WDC07"     # Washington DC 07
+  ibm_vpc: "us-east"
+  aws: "us-east-1"
+  azure: "East US"
+  gcp: "us-east1"
+
+tor01:
+  ibm_classic: "TOR01"     # Toronto 01
+  ibm_vpc: "ca-tor"
+  aws: "ca-central-1"
+  azure: "Canada Central"
+  gcp: "northamerica-northeast1"
+
+tor04:
+  ibm_classic: "TOR04"     # Toronto 04
+  ibm_vpc: "ca-tor"
+  aws: "ca-central-1"
+  azure: "Canada Central"
+  gcp: "northamerica-northeast1"
+
+tor05:
+  ibm_classic: "TOR05"     # Toronto 05
+  ibm_vpc: "ca-tor"
+  aws: "ca-central-1"
+  azure: "Canada Central"
+  gcp: "northamerica-northeast1"
+
+mon01:
+  ibm_classic: "MON01"     # Montreal 01
+  ibm_vpc: "ca-mon"
+  aws: "ca-central-1"
+  azure: "Canada East"
+  gcp: "northamerica-northeast1"
+
+sjc03:
+  ibm_classic: "SJC03"     # San Jose 03
+  ibm_vpc: "us-south"          # Dallas (closest)
+  aws: "us-west-1"
+  azure: "West US"
+  gcp: "us-west1"
+
+sjc04:
+  ibm_classic: "SJC04"     # San Jose 04
+  ibm_vpc: "us-south"          # Dallas (closest)
+  aws: "us-west-2"
+  azure: "West US 2"
+  gcp: "us-west2"
+
+sao01:
+  ibm_classic: "SAO01"     # São Paulo 01
+  ibm_vpc: "br-sao"
+  aws: "sa-east-1"
+  azure: "Brazil South"
+  gcp: "southamerica-east1"
+
+sao04:
+  ibm_classic: "SAO04"     # São Paulo 04
+  ibm_vpc: "br-sao"
+  aws: "sa-east-1"
+  azure: "Brazil South"
+  gcp: "southamerica-east1"
+
+sao05:
+  ibm_classic: "SAO05"     # São Paulo 05
+  ibm_vpc: "br-sao"
+  aws: "sa-east-1"
+  azure: "Brazil South"
+  gcp: "southamerica-east1"
+
+# European Data Centers
+lon02:
+  ibm_classic: "LON02"     # London 02
+  ibm_vpc: "eu-gb"
+  aws: "eu-west-2"
+  azure: "UK South"
+  gcp: "europe-west2"
+
+lon04:
+  ibm_classic: "LON04"     # London 04
+  ibm_vpc: "eu-gb"
+  aws: "eu-west-2"
+  azure: "UK South"
+  gcp: "europe-west2"
+
+lon05:
+  ibm_classic: "LON05"     # London 05
+  ibm_vpc: "eu-gb"
+  aws: "eu-west-2"
+  azure: "UK South"
+  gcp: "europe-west2"
+
+lon06:
+  ibm_classic: "LON06"     # London 06
+  ibm_vpc: "eu-gb"
+  aws: "eu-west-2"
+  azure: "UK South"
+  gcp: "europe-west2"
+
+fra02:
+  ibm_classic: "FRA02"     # Frankfurt 02
+  ibm_vpc: "eu-de"
+  aws: "eu-central-1"
+  azure: "Germany West Central"
+  gcp: "europe-west3"
+
+fra04:
+  ibm_classic: "FRA04"     # Frankfurt 04
+  ibm_vpc: "eu-de"
+  aws: "eu-central-1"
+  azure: "Germany West Central"
+  gcp: "europe-west3"
+
+fra05:
+  ibm_classic: "FRA05"     # Frankfurt 05
+  ibm_vpc: "eu-de"
+  aws: "eu-central-1"
+  azure: "Germany West Central"
+  gcp: "europe-west3"
+
+mad02:
+  ibm_classic: "MAD02"     # Madrid 02
+  ibm_vpc: "eu-es"
+  aws: "eu-west-3"
+  azure: "France Central"
+  gcp: "europe-west1"
+
+mad04:
+  ibm_classic: "MAD04"     # Madrid 04
+  ibm_vpc: "eu-es"
+  aws: "eu-west-3"
+  azure: "France Central"
+  gcp: "europe-west1"
+
+mad05:
+  ibm_classic: "MAD05"     # Madrid 05
+  ibm_vpc: "eu-es"
+  aws: "eu-west-3"
+  azure: "France Central"
+  gcp: "europe-west1"
+
+ams03:
+  ibm_classic: "AMS03"     # Amsterdam 03
+  ibm_vpc: "eu-gb"             # London (closest)
+  aws: "eu-west-1"
+  azure: "West Europe"
+  gcp: "europe-west1"
+
+par01:
+  ibm_classic: "PAR01"     # Paris 01
+  ibm_vpc: "eu-gb"             # London (closest)
+  aws: "eu-west-3"
+  azure: "France Central"
+  gcp: "europe-west9"
+
+mil01:
+  ibm_classic: "MIL01"     # Milan 01
+  ibm_vpc: "eu-de"             # Frankfurt (closest)
+  aws: "eu-south-1"
+  azure: "West Europe"
+  gcp: "europe-west1"
+
+# Asia Pacific Data Centers
+tok02:
+  ibm_classic: "TOK02"     # Tokyo 02
+  ibm_vpc: "jp-tok"
+  aws: "ap-northeast-1"
+  azure: "Japan East"
+  gcp: "asia-northeast1"
+
+tok04:
+  ibm_classic: "TOK04"     # Tokyo 04
+  ibm_vpc: "jp-tok"
+  aws: "ap-northeast-1"
+  azure: "Japan East"
+  gcp: "asia-northeast1"
+
+tok05:
+  ibm_classic: "TOK05"     # Tokyo 05
+  ibm_vpc: "jp-tok"
+  aws: "ap-northeast-1"
+  azure: "Japan East"
+  gcp: "asia-northeast1"
+
+osa21:
+  ibm_classic: "OSA21"     # Osaka 21
+  ibm_vpc: "jp-osa"
+  aws: "ap-northeast-3"
+  azure: "Japan West"
+  gcp: "asia-northeast2"
+
+osa22:
+  ibm_classic: "OSA22"     # Osaka 22
+  ibm_vpc: "jp-osa"
+  aws: "ap-northeast-3"
+  azure: "Japan West"
+  gcp: "asia-northeast2"
+
+osa23:
+  ibm_classic: "OSA23"     # Osaka 23
+  ibm_vpc: "jp-osa"
+  aws: "ap-northeast-3"
+  azure: "Japan West"
+  gcp: "asia-northeast2"
+
+syd01:
+  ibm_classic: "SYD01"     # Sydney 01
+  ibm_vpc: "au-syd"
+  aws: "ap-southeast-2"
+  azure: "Australia East"
+  gcp: "australia-southeast1"
+
+syd04:
+  ibm_classic: "SYD04"     # Sydney 04
+  ibm_vpc: "au-syd"
+  aws: "ap-southeast-2"
+  azure: "Australia East"
+  gcp: "australia-southeast1"
+
+syd05:
+  ibm_classic: "SYD05"     # Sydney 05
+  ibm_vpc: "au-syd"
+  aws: "ap-southeast-2"
+  azure: "Australia East"
+  gcp: "australia-southeast1"
+
+sng01:
+  ibm_classic: "SNG01"     # Singapore 01
+  ibm_vpc: "jp-tok"            # Tokyo (closest)
+  aws: "ap-southeast-1"
+  azure: "Southeast Asia"
+  gcp: "asia-southeast1"
+
+che01:
+  ibm_classic: "CHE01"     # Chennai 01
+  ibm_vpc: "jp-tok"            # Tokyo (closest)
+  aws: "ap-south-1"
+  azure: "Central India"
+  gcp: "asia-south1" 

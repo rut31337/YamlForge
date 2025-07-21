@@ -1,0 +1,24 @@
+yamlforge:
+  cloud_workspace:
+    name: "minimal-dns"
+    description: "Minimal configuration with automatic DNS management"
+
+  # Minimal DNS configuration - everything else auto-discovered/defaulted
+  dns_config:
+    root_zone:
+      domain: "mycompany.com"
+      # Everything else is automatic:
+      # - zone_name: auto-discovered via Google Cloud DNS API
+      # - project_id: uses credentials project_id  
+      # - root_zone_management: true (default)
+
+  users:
+    - email: "admin@mycompany.com"
+      roles: ["roles/editor"]
+
+  instances:
+    - name: "app-server"
+      provider: "gcp"
+      size: "small"
+      region: "us-west1"
+      image: "Ubuntu-22.04" 

@@ -1,0 +1,96 @@
+# VMware vSphere Default Configuration
+# Used when specific credentials or configurations are not available
+
+# Default datacenter configuration
+default_datacenter: "Datacenter"
+default_cluster: "Cluster"
+default_datastore: "datastore1"
+default_network: "VM Network"
+
+# Default resource pool settings
+resource_pool_settings:
+  cpu_share_level: "normal"
+  cpu_reservation: 1000
+  cpu_expandable: true
+  memory_share_level: "normal"
+  memory_reservation: 1024
+  memory_expandable: true
+
+# Default VM configurations by size
+default_vm_sizes:
+  micro:
+    cpus: 1
+    memory_mb: 2048
+    disk_gb: 20
+  small:
+    cpus: 2
+    memory_mb: 4096
+    disk_gb: 40
+  medium:
+    cpus: 4
+    memory_mb: 8192
+    disk_gb: 60
+  large:
+    cpus: 8
+    memory_mb: 16384
+    disk_gb: 80
+  xlarge:
+    cpus: 16
+    memory_mb: 32768
+    disk_gb: 100
+
+# Default template patterns
+default_templates:
+  rhel_8: "rhel8-template"
+  rhel_9: "rhel9-template"
+  centos_7: "centos7-template"
+  centos_8: "centos8-template"
+  ubuntu_20_04: "ubuntu2004-template"
+  ubuntu_22_04: "ubuntu2204-template"
+  windows_2019: "windows2019-template"
+  windows_2022: "windows2022-template"
+
+# Network configuration
+network_defaults:
+  adapter_type: "vmxnet3"
+  network_type: "static"  # or "dhcp"
+  domain: "local"
+
+# Storage configuration
+storage_defaults:
+  disk_type: "thin"
+  eagerly_scrub: false
+  controller_type: "pvscsi"
+  datastore_cluster: false
+
+# Guest OS defaults
+guest_os_defaults:
+  timezone: "UTC"
+  keyboard: "us"
+  language: "en_US"
+
+# Cloud-init defaults
+cloud_init_defaults:
+  enabled: true
+  datasource: "VMware"
+  transport: "guestinfo"
+
+# Security defaults
+security_defaults:
+  enable_secure_boot: false
+  enable_vtpm: false
+  firmware: "bios"  # or "efi"
+
+# VMware-specific features
+features:
+  enable_hot_add_cpu: true
+  enable_hot_add_memory: true
+  enable_disk_uuid: true
+  sync_time_with_host: true
+  tools_upgrade_policy: "manual"
+  
+# Folder organization
+folder_defaults:
+  vm_folder: "yamlforge-vms"
+  template_folder: "templates"
+  create_folders: true 

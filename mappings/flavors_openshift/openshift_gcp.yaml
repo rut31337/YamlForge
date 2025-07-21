@@ -1,0 +1,267 @@
+# GCP Machine Type Mappings for OpenShift
+# Maps OpenShift cluster sizes to GCP Compute Engine machine types
+# Optimized for OpenShift control plane and worker node requirements
+
+flavor_mappings:
+  # OpenShift Master/Control Plane Sizes
+  master_small:
+    n1-standard-2:
+      vcpus: 2
+      memory_gb: 7.5
+      cost_factor: 1.0
+      hourly_cost: 0.095
+      storage_gb: 100
+      use_case: "Development/Testing control plane"
+      machine_family: "n1-standard"
+    
+  master_medium:
+    n1-standard-4:
+      vcpus: 4
+      memory_gb: 15
+      cost_factor: 2.0
+      hourly_cost: 0.190
+      storage_gb: 100
+      use_case: "Production control plane - small to medium clusters"
+      machine_family: "n1-standard"
+    
+  master_large:
+    n1-standard-8:
+      vcpus: 8
+      memory_gb: 30
+      cost_factor: 4.0
+      hourly_cost: 0.380
+      storage_gb: 100
+      use_case: "Production control plane - large clusters"
+      machine_family: "n1-standard"
+
+  # OpenShift Worker Node Sizes  
+  worker_micro:
+    n1-standard-2:
+      vcpus: 2
+      memory_gb: 7.5
+      cost_factor: 1.0
+      hourly_cost: 0.095
+      storage_gb: 100
+      use_case: "Development/Testing workloads"
+      machine_family: "n1-standard"
+      
+  worker_small:
+    n1-standard-4:
+      vcpus: 4
+      memory_gb: 15
+      cost_factor: 2.0
+      hourly_cost: 0.190
+      storage_gb: 100
+      use_case: "Light production workloads"
+      machine_family: "n1-standard"
+      
+  worker_medium:
+    n1-standard-8:
+      vcpus: 8
+      memory_gb: 30
+      cost_factor: 4.0
+      hourly_cost: 0.380
+      storage_gb: 100
+      use_case: "Standard production workloads"
+      machine_family: "n1-standard"
+      
+  worker_large:
+    n1-standard-16:
+      vcpus: 16
+      memory_gb: 60
+      cost_factor: 8.0
+      hourly_cost: 0.760
+      storage_gb: 100
+      use_case: "Heavy production workloads"
+      machine_family: "n1-standard"
+      
+  worker_xlarge:
+    n1-standard-32:
+      vcpus: 32
+      memory_gb: 120
+      cost_factor: 16.0
+      hourly_cost: 1.520
+      storage_gb: 100
+      use_case: "Very heavy production workloads"
+      machine_family: "n1-standard"
+
+  # Compute-Optimized for CPU-intensive workloads
+  compute_medium:
+    c2-standard-8:
+      vcpus: 8
+      memory_gb: 32
+      cost_factor: 4.5
+      hourly_cost: 0.432
+      storage_gb: 100
+      use_case: "CPU-intensive applications"
+      machine_family: "c2-standard"
+      
+  compute_large:
+    c2-standard-16:
+      vcpus: 16
+      memory_gb: 64
+      cost_factor: 9.0
+      hourly_cost: 0.864
+      storage_gb: 100
+      use_case: "High-performance computing"
+      machine_family: "c2-standard"
+
+  # Memory-Optimized for memory-intensive workloads
+  memory_medium:
+    n1-highmem-8:
+      vcpus: 8
+      memory_gb: 52
+      cost_factor: 5.5
+      hourly_cost: 0.525
+      storage_gb: 100
+      use_case: "Memory-intensive applications"
+      machine_family: "n1-highmem"
+      
+  memory_large:
+    n1-highmem-16:
+      vcpus: 16
+      memory_gb: 104
+      cost_factor: 11.0
+      hourly_cost: 1.050
+      storage_gb: 100
+      use_case: "Large memory-intensive applications"
+      machine_family: "n1-highmem"
+
+  # GPU instances for AI/ML workloads
+  gpu_small:
+    n1-standard-4:
+      vcpus: 4
+      memory_gb: 15
+      gpu_count: 1
+      gpu_type: "nvidia-tesla-t4"
+      cost_factor: 15.0
+      hourly_cost: 0.540
+      storage_gb: 100
+      use_case: "ML inference and light training"
+      machine_family: "n1-standard"
+      
+  gpu_medium:
+    n1-standard-8:
+      vcpus: 8
+      memory_gb: 30
+      gpu_count: 1
+      gpu_type: "nvidia-tesla-v100"
+      cost_factor: 30.0
+      hourly_cost: 2.480
+      storage_gb: 100
+      use_case: "ML training and inference"
+      machine_family: "n1-standard"
+
+  # HyperShift specific defaults
+  hypershift_worker:
+    n1-standard-2:
+      vcpus: 2
+      memory_gb: 7.5
+      cost_factor: 1.0
+      hourly_cost: 0.095
+      storage_gb: 100
+      use_case: "HyperShift worker nodes"
+      machine_family: "n1-standard"
+
+# Default mappings for abstract sizes
+size_mappings:
+  # Control plane defaults
+  small_master: "master_small"
+  medium_master: "master_medium" 
+  large_master: "master_large"
+  
+  # Worker node defaults
+  micro: "worker_micro"
+  small: "worker_small"
+  medium: "worker_medium"
+  large: "worker_large"
+  xlarge: "worker_xlarge"
+  
+  # Specialized workloads
+  compute: "compute_medium"
+  memory: "memory_medium"
+  gpu: "gpu_small"
+
+# OpenShift cluster size configurations
+cluster_sizes:
+  micro:
+    master_count: 1
+    master_size: "master_small"
+    worker_count: 1
+    worker_size: "worker_micro"
+    total_cost_factor: 2.0
+    use_case: "Development/Testing - single node"
+    
+  small:
+    master_count: 3
+    master_size: "master_small"
+    worker_count: 2
+    worker_size: "worker_small"
+    total_cost_factor: 7.0
+    use_case: "Small production workloads"
+    
+  medium:
+    master_count: 3
+    master_size: "master_medium"
+    worker_count: 3
+    worker_size: "worker_medium"
+    total_cost_factor: 18.0
+    use_case: "Standard production workloads"
+    
+  large:
+    master_count: 3
+    master_size: "master_large"
+    worker_count: 5
+    worker_size: "worker_large"
+    total_cost_factor: 52.0
+    use_case: "Large production workloads"
+    
+  xlarge:
+    master_count: 3
+    master_size: "master_large"
+    worker_count: 8
+    worker_size: "worker_xlarge"
+    total_cost_factor: 140.0
+    use_case: "Very large production workloads"
+
+# Provider-specific settings
+provider_settings:
+  region_defaults:
+    primary: "us-central1"
+    secondary: "us-east1"
+    
+  availability_zones:
+    min_az: 3
+    preferred_az: ["us-central1-a", "us-central1-b", "us-central1-c"]
+    
+  storage:
+    default_type: "pd-ssd"
+    default_size: 100
+    
+  networking:
+    vpc_native_support: true
+    private_google_access: true
+    
+  gke_supported_types:
+    masters:
+      - "n1-standard-4"
+      - "n1-standard-8"
+      - "n1-standard-16"
+    workers:
+      - "n1-standard-2"
+      - "n1-standard-4"
+      - "n1-standard-8"
+      - "n1-standard-16"
+      - "n1-standard-32"
+      - "c2-standard-8"
+      - "c2-standard-16"
+      - "n1-highmem-8"
+      - "n1-highmem-16"
+      
+  preemptible_supported:
+    - "n1-standard-2"
+    - "n1-standard-4"
+    - "n1-standard-8"
+    - "n1-standard-16"
+    - "c2-standard-8"
+    - "c2-standard-16" 

@@ -1,0 +1,172 @@
+# YamlForge Core Configuration
+# Global settings that affect all deployments and provider behavior
+
+# Provider Selection Configuration
+provider_selection:
+  # Providers to EXCLUDE from "cheapest" provider selection
+  # This allows organizations to enforce compliance, security, or business policies
+  exclude_from_cheapest:
+    # Examples of common exclusions:
+    - "vmware"      # Exclude on-premises VMware from cost comparisons
+    - "alibaba"     # Exclude Alibaba Cloud for compliance reasons
+    # - "oci"         # Exclude Oracle Cloud for security policies
+    # - "ibm_classic" # Exclude legacy IBM Classic infrastructure
+    # []  # Empty list means all providers are considered
+
+  # Provider priority order for tie-breaking in cost comparisons
+  # When multiple providers have identical costs, prefer higher priority
+  priority_order:
+    - "ibm_classic"   # IBM Classic (legacy)
+    - "ibm_vpc"       # IBM Cloud VPC
+    - "gcp"           # Google Cloud Platform
+    - "aws"           # Amazon Web Services
+    - "azure"         # Microsoft Azure
+    - "vmware"        # VMware vSphere (on-premises)
+    - "oci"           # Oracle Cloud (often cheapest)
+    - "alibaba"       # Alibaba Cloud (competitive in APAC)
+
+# Cost Analysis Configuration
+cost_analysis:
+  # Default currency for cost calculations
+  default_currency: "USD"
+  
+  # Regional cost adjustment factors (multipliers)
+  # Some regions have different pricing due to local factors
+  regional_cost_factors:
+    # Asia-Pacific regions often have different pricing
+    "cn-hangzhou": 0.85    # Alibaba Cloud China regions often cheaper
+    "cn-shanghai": 0.85
+    "cn-beijing": 0.85
+    "ap-southeast-1": 1.05  # Singapore slightly more expensive
+    "ap-northeast-1": 1.1   # Japan more expensive
+    
+  # Provider-specific cost factors (for on-premises or special pricing)
+  provider_cost_factors:
+    # VMware on-premises costs are highly variable, default conservative estimate
+    "vmware": 0.8           # Assume 20% cheaper than cloud (amortized hardware)
+    # Add organization-specific volume discounts here
+    # "aws": 0.9            # 10% volume discount
+    # "azure": 0.85         # 15% enterprise agreement discount
+
+# Resource Tagging Defaults
+default_tags:
+  # Tags automatically applied to ALL resources across ALL providers
+  global_tags:
+    ManagedBy: "yamlforge"
+    Framework: "terraform"
+    CreatedBy: "yamlforge-v2"
+    
+  # Organization-specific tags (customize these)
+  organization_tags:
+    # Environment: "production"
+    # Department: "infrastructure"
+    # CostCenter: "12345"
+    # Project: "multi-cloud-initiative"
+    {}
+
+# Security and Compliance Settings
+security:
+  # Default security group rules to ALWAYS include
+  mandatory_security_rules:
+    # SSH access (can be customized per organization)
+    - protocol: "tcp"
+      port: 22
+      source: "10.0.0.0/8"     # Private networks only
+      description: "SSH management access"
+      
+  # Providers with specific compliance certifications
+  compliance_certified:
+    "aws":
+      - "SOC2"
+      - "FedRAMP"
+      - "HIPAA"
+      - "PCI-DSS"
+    "azure":
+      - "SOC2" 
+      - "FedRAMP"
+      - "HIPAA"
+      - "ISO27001"
+    "gcp":
+      - "SOC2"
+      - "ISO27001"
+      - "HIPAA"
+    "oci":
+      - "SOC2"
+      - "FedRAMP"
+      - "HIPAA"
+    "alibaba":
+      - "ISO27001"
+      - "China-Cybersecurity-Law"
+
+# Image and Template Preferences  
+image_preferences:
+  # Preferred operating system families in order of preference
+  os_family_priority:
+    - "rhel"          # Red Hat Enterprise Linux (enterprise standard)
+    - "ubuntu"        # Ubuntu (developer friendly)
+    - "centos"        # CentOS (free RHEL alternative)
+    - "oracle"        # Oracle Linux (for OCI optimizations)
+    - "alibaba"       # Alibaba Cloud Linux (for Alibaba optimizations)
+    
+  # Default to latest stable versions
+  prefer_latest_versions: true
+  
+  # Avoid beta/preview images in production
+  exclude_preview_images: true
+
+# Networking Defaults
+networking:
+  # Default CIDR blocks for new deployments
+  default_cidr_blocks:
+    vpc: "10.0.0.0/16"
+    subnet: "10.0.1.0/24"
+    
+  # Preferred availability zone distribution
+  multi_az_preference: true
+  min_availability_zones: 2
+  
+  # Default security posture
+  default_internet_access: true
+  default_private_subnets: false
+
+# Feature Flags
+features:
+  # Enable experimental features
+  experimental_features: false
+  
+  # Enable cost optimization recommendations
+  cost_optimization_suggestions: true
+  
+  # Enable automatic resource tagging
+  auto_tagging: true
+  
+  # Enable multi-region deployments
+  multi_region_support: true
+  
+  # Enable provider health checks before deployment
+  provider_health_checks: false
+
+# Deployment Behavior
+deployment:
+  # Default behavior for handling provider failures
+  provider_failure_behavior: "skip"  # "skip", "fail", "retry"
+  
+  # Maximum number of retries for failed provider operations
+  max_retries: 3
+  
+  # Timeout for provider operations (seconds)
+  provider_timeout: 300
+  
+  # Enable parallel provider operations
+  parallel_deployments: true
+
+# Logging and Monitoring
+logging:
+  # Log level for yamlforge operations
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  
+  # Enable detailed cost analysis logging
+  log_cost_analysis: true
+  
+  # Enable provider selection reasoning logs
+  log_provider_selection: true 

@@ -1,0 +1,82 @@
+# OpenShift OADP Operator Default Configuration
+# OpenShift API for Data Protection (backup/restore)
+
+# Subscription configuration
+subscription:
+  channel: "stable-1.2"
+  name: "redhat-oadp-operator"
+  source: "redhat-operators"
+  sourceNamespace: "openshift-marketplace"
+  installPlanApproval: "Automatic"
+
+# Default configuration values
+defaults:
+  name: "redhat-oadp-operator"
+  default_backup_ttl: "720h"  # 30 days
+  default_backup_provider: "aws"
+  enable_restic: true
+  resource_timeout: "10m"
+  
+  # Restic resource allocations
+  restic_cpu_limit: "1"
+  restic_memory_limit: "512Mi"
+  restic_cpu_request: "500m"
+  restic_memory_request: "256Mi"
+
+# Data Protection Application configuration
+dpa:
+  name: "dpa-sample"
+  default_plugins:
+    - "openshift"
+    - "aws"
+  resource_timeout: "10m"
+
+# Velero configuration
+velero:
+  resource_timeout: "10m"
+  default_plugins:
+    - "openshift"
+    - "aws"
+
+# Restic configuration
+restic:
+  enable: true
+  pod_config:
+    resource_allocations:
+      limits:
+        cpu: "1"
+        memory: "512Mi"
+      requests:
+        cpu: "500m"
+        memory: "256Mi"
+
+# Default backup storage locations (empty by default)
+backup_storage_locations: []
+
+# Default volume snapshot locations (empty by default)
+volume_snapshot_locations: []
+
+# Default backup schedules (empty by default)
+backup_schedules: []
+
+# Example configurations (commented out)
+# backup_storage_locations:
+#   - name: "aws-backup-location"
+#     provider: "aws"
+#     bucket: "my-backup-bucket"
+#     prefix: "openshift-backups"
+#     region: "us-east-1"
+#     default: true
+#
+# volume_snapshot_locations:
+#   - name: "aws-snapshot-location"
+#     provider: "aws"
+#     region: "us-east-1"
+#
+# backup_schedules:
+#   - name: "daily-backup"
+#     schedule: "0 2 * * *"  # Daily at 2 AM
+#     ttl: "720h"  # 30 days
+#     included_namespaces: []
+#     excluded_namespaces: ["openshift-*", "kube-*"]
+#     snapshot_volumes: true 

@@ -1,0 +1,232 @@
+# Alibaba Cloud ECS Instance Type Mappings for OpenShift
+# Maps OpenShift cluster sizes to Alibaba Cloud ECS instance types
+# Optimized for OpenShift control plane and worker node requirements
+
+flavor_mappings:
+  # OpenShift Master/Control Plane Sizes
+  master_small:
+    ecs.c6.xlarge:
+      vcpus: 4
+      memory_gb: 8
+      cost_factor: 1.0
+      hourly_cost: 0.195
+      storage_gb: 40
+      use_case: "Development/Testing control plane"
+      instance_family: "Compute Optimized"
+      
+  master_medium:
+    ecs.c6.2xlarge:
+      vcpus: 8
+      memory_gb: 16
+      cost_factor: 2.0
+      hourly_cost: 0.390
+      storage_gb: 40
+      use_case: "Production control plane"
+      instance_family: "Compute Optimized"
+      
+  master_large:
+    ecs.c6.4xlarge:
+      vcpus: 16
+      memory_gb: 32
+      cost_factor: 4.0
+      hourly_cost: 0.780
+      storage_gb: 40
+      use_case: "High-availability control plane"
+      instance_family: "Compute Optimized"
+
+  # OpenShift Worker Node Sizes
+  worker_micro:
+    ecs.t6-c1m2.large:
+      vcpus: 2
+      memory_gb: 4
+      cost_factor: 0.5
+      hourly_cost: 0.098
+      storage_gb: 40
+      use_case: "Minimal workloads"
+      instance_family: "Burstable Performance"
+      
+  worker_small:
+    ecs.t6-c2m4.large:
+      vcpus: 2
+      memory_gb: 8
+      cost_factor: 0.8
+      hourly_cost: 0.156
+      storage_gb: 40
+      use_case: "Light production workloads"
+      instance_family: "Burstable Performance"
+      
+  worker_medium:
+    ecs.t6-c4m8.large:
+      vcpus: 4
+      memory_gb: 16
+      cost_factor: 1.5
+      hourly_cost: 0.293
+      storage_gb: 40
+      use_case: "Standard production workloads"
+      instance_family: "Burstable Performance"
+      
+  worker_large:
+    ecs.t6-c8m16.large:
+      vcpus: 8
+      memory_gb: 32
+      cost_factor: 3.0
+      hourly_cost: 0.586
+      storage_gb: 40
+      use_case: "Heavy production workloads"
+      instance_family: "Burstable Performance"
+      
+  worker_xlarge:
+    ecs.t6-c16m32.large:
+      vcpus: 16
+      memory_gb: 64
+      cost_factor: 6.0
+      hourly_cost: 1.172
+      storage_gb: 40
+      use_case: "Very heavy production workloads"
+      instance_family: "Burstable Performance"
+
+  # Compute-Optimized
+  compute_medium:
+    ecs.c6.2xlarge:
+      vcpus: 8
+      memory_gb: 16
+      cost_factor: 2.0
+      hourly_cost: 0.390
+      storage_gb: 40
+      use_case: "CPU-intensive workloads"
+      instance_family: "Compute Optimized"
+
+  # Memory-Optimized
+  memory_medium:
+    ecs.r6.2xlarge:
+      vcpus: 8
+      memory_gb: 64
+      cost_factor: 2.5
+      hourly_cost: 0.488
+      storage_gb: 40
+      use_case: "Memory-intensive workloads"
+      instance_family: "Memory Optimized"
+
+  # GPU-Optimized
+  gpu_small:
+    ecs.gn6i.xlarge:
+      vcpus: 4
+      memory_gb: 15
+      cost_factor: 5.0
+      hourly_cost: 0.977
+      storage_gb: 40
+      use_case: "GPU workloads"
+      instance_family: "GPU Optimized"
+      gpu_count: 1
+      gpu_type: "NVIDIA T4"
+
+  # HyperShift Worker Nodes
+  hypershift_worker:
+    ecs.t6-c1m2.large:
+      vcpus: 2
+      memory_gb: 4
+      cost_factor: 0.5
+      hourly_cost: 0.098
+      storage_gb: 40
+      use_case: "HyperShift hosted workers"
+      instance_family: "Burstable Performance"
+
+# Default mappings for abstract sizes
+size_mappings:
+  # Control plane defaults
+  small_master: "master_small"
+  medium_master: "master_medium" 
+  large_master: "master_large"
+  
+  # Worker node defaults
+  micro: "worker_micro"
+  small: "worker_small"
+  medium: "worker_medium"
+  large: "worker_large"
+  xlarge: "worker_xlarge"
+  
+  # Specialized workloads
+  compute: "compute_medium"
+  memory: "memory_medium"
+  gpu: "gpu_small"
+
+# OpenShift cluster size configurations
+cluster_sizes:
+  micro:
+    master_count: 1
+    master_size: "master_small"
+    worker_count: 1
+    worker_size: "worker_micro"
+    total_cost_factor: 1.5
+    use_case: "Development/Testing - single node"
+    
+  small:
+    master_count: 3
+    master_size: "master_small"
+    worker_count: 2
+    worker_size: "worker_small"
+    total_cost_factor: 4.6
+    use_case: "Small production workloads"
+    
+  medium:
+    master_count: 3
+    master_size: "master_medium"
+    worker_count: 3
+    worker_size: "worker_medium"
+    total_cost_factor: 10.5
+    use_case: "Standard production workloads"
+    
+  large:
+    master_count: 3
+    master_size: "master_large"
+    worker_count: 5
+    worker_size: "worker_large"
+    total_cost_factor: 27.0
+    use_case: "Large production workloads"
+    
+  xlarge:
+    master_count: 3
+    master_size: "master_large"
+    worker_count: 8
+    worker_size: "worker_xlarge"
+    total_cost_factor: 60.0
+    use_case: "Very large production workloads"
+
+# Provider-specific settings
+provider_settings:
+  region_defaults:
+    primary: "cn-hangzhou"
+    secondary: "cn-beijing"
+    international: ["ap-southeast-1", "us-east-1", "eu-central-1"]
+    
+  availability_zones:
+    min_az: 3
+    preferred_az: ["cn-hangzhou-i", "cn-hangzhou-j", "cn-hangzhou-k"]
+    
+  storage:
+    system_disk:
+      category: "cloud_essd"
+      size: 40
+      performance_level: "PL1"
+    data_disk:
+      category: "cloud_essd"
+      size: 100
+      performance_level: "PL1"
+      
+  networking:
+    vpc_cidr: "192.168.0.0/16"
+    vswitch_cidr: "192.168.1.0/24"
+    security_group_type: "normal"
+    
+  billing:
+    internet_charge_type: "PayByTraffic"
+    internet_max_bandwidth_out: 100
+    instance_charge_type: "PostPaid"
+    
+  images:
+    openshift_supported: ["centos_7", "centos_8", "rhel_7", "rhel_8"]
+    
+  special_features:
+    enhanced_networking: true
+    eni_queue_number_support: true
+    cloud_assistant: true 

@@ -1,0 +1,71 @@
+---
+# Comprehensive Tagging System Example
+# Demonstrates unified tagging across all cloud providers
+
+yamlforge:
+  cloud_workspace:
+    name: "enterprise-tagging-demo"
+    description: "Enterprise tagging system demonstration"
+    tags:
+      guid: "etd-2024-001"
+      project: "enterprise-platform"
+      managed_by: "yamlforge"
+
+  instances:
+    # AWS instance with comprehensive tagging
+    - name: "aws-web-server"
+      provider: "aws"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      
+      # Instance-specific tags
+      tags:
+        role: "web-server"
+        tier: "frontend"
+        backup: "daily"
+
+    # Azure instance with Azure-specific tag format
+    - name: "azure-database-server"
+      provider: "azure"
+      size: "large"
+      image: "RHEL9-latest"
+      region: "eastus"
+      
+      tags:
+        role: "database"
+        tier: "backend"
+        backup: "hourly"
+        compliance: "pci-dss"
+
+    # GCP instance with label-style tags
+    - name: "gcp-api-server"
+      provider: "gcp"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "us-west1"
+      
+      tags:
+        role: "api-server"
+        tier: "middleware"
+        monitoring: "prometheus"
+
+    # IBM Cloud instance with string-value tags
+    - name: "ibm-worker-node"
+      provider: "ibm"
+      size: "small"
+      image: "RHEL9-latest"
+      region: "us-south"
+      
+      tags:
+        role: "worker"
+        tier: "compute"
+        scheduler: "kubernetes"
+
+  # Global tags applied to ALL instances across ALL providers
+  # These tags will be merged with instance-specific tags
+  tags:
+    environment: "production"
+    cost_center: "engineering"
+    compliance: "sox"
+    contact: "platform-team@company.com" 

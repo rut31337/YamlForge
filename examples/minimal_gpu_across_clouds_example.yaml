@@ -1,0 +1,226 @@
+---
+# Minimal GPU Across All Clouds Example
+# Demonstrates smallest GPU instances available on each supported cloud provider
+
+yamlforge:
+  cloud_workspace:
+    name: "minimal-gpu-multi-cloud"
+    description: "Minimal GPU instances across all supported cloud providers"
+    tags:
+      guid: "mgmc-2024-001"
+      use_case: "minimal_gpu_demo"
+      cost_optimization: "smallest_gpu_instances"
+
+  instances:
+    # AWS - Smallest GPU instances
+    - name: "aws-gpu-minimal-t4"
+      provider: "aws"
+      size: "gpu_small"           # Uses g4dn.xlarge (4 vCPU, 16GB, 1x NVIDIA T4)
+      region: "us-east-1"
+      image: "RHEL9-latest"
+      tags:
+        cloud: "aws"
+        gpu_type: "nvidia_t4"
+        instance_size: "minimal"
+        use_case: "development"
+
+    - name: "aws-gpu-minimal-amd"
+      provider: "aws"
+      size: "gpu_amd_small"       # Uses g4ad.xlarge (4 vCPU, 16GB, 1x AMD Radeon Pro V520)
+      region: "us-west-2"
+      image: "RHEL9-latest"
+      tags:
+        cloud: "aws"
+        gpu_type: "amd_radeon"
+        instance_size: "minimal"
+        use_case: "cost_effective_ml"
+
+    # Azure - Smallest GPU instances  
+    - name: "azure-gpu-minimal-t4"
+      provider: "azure"
+      size: "gpu_small"           # Uses Standard_NC4as_T4_v3 (4 vCPU, 28GB, 1x NVIDIA T4)
+      region: "eastus"
+      image: "RHEL9-latest"
+      tags:
+        cloud: "azure"
+        gpu_type: "nvidia_t4"
+        instance_size: "minimal"
+        use_case: "ml_inference"
+
+    - name: "azure-gpu-minimal-v100"
+      provider: "azure"
+      size: "gpu_v100_small"      # Uses Standard_NC6s_v3 (6 vCPU, 112GB, 1x NVIDIA V100)
+      region: "westus2"
+      image: "RHEL9-latest"
+      tags:
+        cloud: "azure"
+        gpu_type: "nvidia_v100"
+        instance_size: "minimal"
+        use_case: "training"
+
+    # GCP - Smallest GPU instances
+    - name: "gcp-gpu-minimal-t4"
+      provider: "gcp"
+      size: "gpu_small"           # Uses n1-standard-4-t4 (4 vCPU, 15GB, 1x NVIDIA T4)
+      region: "us-central1"
+      image: "RHEL9-latest"
+      tags:
+        cloud: "gcp"
+        gpu_type: "nvidia_t4"
+        instance_size: "minimal"
+        use_case: "ai_workload"
+
+    - name: "gcp-gpu-minimal-a100"
+      provider: "gcp"
+      size: "gpu_large"           # Uses a2-highgpu-1g (12 vCPU, 85GB, 1x NVIDIA A100)
+      region: "us-west1"
+      image: "RHEL9-latest"
+      tags:
+        cloud: "gcp"
+        gpu_type: "nvidia_a100"
+        instance_size: "minimal_a100"
+        use_case: "research"
+
+    # IBM VPC - Smallest GPU instances
+    - name: "ibm-vpc-gpu-minimal-l4"
+      provider: "ibm_vpc"
+      size: "gpu_small"           # Uses gx3-8x64x1l4 (8 vCPU, 64GB, 1x NVIDIA L4)
+      region: "us-south"
+      image: "RHEL9-latest"
+      tags:
+        cloud: "ibm_vpc"
+        gpu_type: "nvidia_l4"
+        instance_size: "minimal"
+        use_case: "edge_ai"
+
+    - name: "ibm-vpc-gpu-minimal-v100"
+      provider: "ibm_vpc"
+      size: "gpu_v100_small"      # Uses gx2-8x64x1v100 (8 vCPU, 64GB, 1x NVIDIA V100)
+      region: "eu-gb"
+      image: "RHEL9-latest"
+      tags:
+        cloud: "ibm_vpc"
+        gpu_type: "nvidia_v100"
+        instance_size: "minimal"
+        use_case: "hybrid_cloud"
+
+    # Cross-cloud comparison using cheapest provider
+    - name: "cheapest-minimal-gpu"
+      provider: "cheapest"        # Auto-selects most cost-effective option
+      cores: 4
+      memory: 16384              # 16GB RAM
+      gpu_count: 1               # Single GPU requirement
+      region: "us-east-1"
+      image: "RHEL9-latest"
+      tags:
+        optimization: "cost_first"
+        gpu_requirement: "any_single_gpu"
+        use_case: "budget_ml"
+
+    # Specific GPU type across clouds using cheapest
+    - name: "cheapest-t4-gpu"
+      provider: "cheapest"        # Finds cheapest T4 GPU across all clouds
+      cores: 4
+      memory: 16384
+      gpu_count: 1
+      gpu_type: "NVIDIA T4"      # Specific GPU type requirement
+      region: "us-east-1"
+      image: "RHEL9-latest"
+      tags:
+        optimization: "cost_optimized_t4"
+        gpu_requirement: "nvidia_t4_specific"
+        use_case: "standardized_inference"
+
+    # NEW: Pure GPU-focused optimization (ignores CPU/memory)
+    - name: "pure-cheapest-gpu"
+      provider: "cheapest-gpu"    # NEW: GPU-only cost optimization
+      region: "us-east-1"
+      image: "RHEL9-latest"
+      tags:
+        optimization: "gpu_only"
+        gpu_requirement: "absolute_cheapest"
+        use_case: "gpu_compute_only"
+
+    # NEW: Cheapest specific GPU type (ignores CPU/memory)
+    - name: "pure-cheapest-t4"
+      provider: "cheapest-gpu"    # NEW: GPU-only meta provider
+      gpu_type: "NVIDIA T4"      # Specific GPU type requirement
+      region: "us-east-1"
+      image: "RHEL9-latest"
+      tags:
+        optimization: "gpu_only_t4"
+        gpu_requirement: "nvidia_t4_pure"
+        use_case: "t4_inference_only"
+
+    # NEW: Cheapest high-performance GPU
+    - name: "pure-cheapest-v100"
+      provider: "cheapest-gpu"    # NEW: GPU-only optimization
+      gpu_type: "NVIDIA V100"    # High-performance GPU
+      region: "us-west-2"
+      image: "RHEL9-latest"
+      tags:
+        optimization: "gpu_only_v100"
+        gpu_requirement: "nvidia_v100_pure"
+        use_case: "training_only"
+
+  # Unified security group for all GPU instances
+  security_groups:
+    - name: "minimal-gpu-sg"
+      description: "Security group for minimal GPU instances across clouds"
+      rules:
+        - protocol: "tcp"
+          from_port: 22
+          to_port: 22
+          cidr: "0.0.0.0/0"
+          description: "SSH access"
+        - protocol: "tcp"
+          from_port: 8080
+          to_port: 8080
+          cidr: "0.0.0.0/0"
+          description: "Application port"
+        - protocol: "tcp"
+          from_port: 443
+          to_port: 443
+          cidr: "0.0.0.0/0"
+          description: "HTTPS"
+
+  tags:
+    project: "minimal-gpu-demo"
+    environment: "development"
+    gpu_strategy: "cross_cloud_minimal"
+    managed_by: "yamlforge"
+
+# Cloud Provider GPU Summary:
+# =============================
+# AWS:
+#   - NVIDIA T4: g4dn.xlarge (4 vCPU, 16GB, $0.526/hour)
+#   - AMD Radeon Pro V520: g4ad.xlarge (4 vCPU, 16GB, $0.379/hour)
+#
+# Azure:
+#   - NVIDIA T4: Standard_NC4as_T4_v3 (4 vCPU, 28GB, $0.526/hour)
+#   - NVIDIA V100: Standard_NC6s_v3 (6 vCPU, 112GB, $3.168/hour)
+#
+# GCP:
+#   - NVIDIA T4: n1-standard-4-t4 (4 vCPU, 15GB, $0.35/hour)
+#   - NVIDIA A100: a2-highgpu-1g (12 vCPU, 85GB, $2.933/hour)
+#
+# IBM VPC:
+#   - NVIDIA L4: gx3-8x64x1l4 (8 vCPU, 64GB, $1.42/hour)
+#   - NVIDIA V100: gx2-8x64x1v100 (8 vCPU, 64GB, $1.89/hour)
+#
+# Cost Winner: AWS AMD Radeon Pro V520 at $0.379/hour
+# Performance Winner: GCP NVIDIA A100 for high-end AI workloads
+#
+# NEW cheapest-gpu Meta Provider:
+# ===============================
+# The cheapest-gpu provider ignores CPU/memory constraints and focuses
+# purely on finding the cheapest GPU across all clouds:
+#
+# cheapest-gpu (any GPU): GCP NVIDIA T4 at $0.35/hour
+# cheapest-gpu T4: GCP NVIDIA T4 at $0.35/hour  
+# cheapest-gpu V100: IBM VPC NVIDIA V100 at $1.89/hour
+#
+# Key Differences:
+# - "cheapest": Considers CPU + memory + GPU together
+# - "cheapest-gpu": ONLY considers GPU cost (ignores CPU/memory)
+# - Perfect for GPU-intensive workloads where CPU/memory is secondary 

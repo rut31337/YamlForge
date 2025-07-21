@@ -1,0 +1,20 @@
+---
+# Simple Test Example
+# Basic single-instance deployment for testing
+
+yamlforge:
+  cloud_workspace:
+    name: "simple-test"
+    description: "Simple testing workspace"
+    tags:
+      guid: "st-2024-001"
+
+  instances:
+    - name: "test-server"
+      provider: "aws"
+      size: "small"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+
+  tags:
+    environment: "testing"

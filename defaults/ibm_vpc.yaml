@@ -1,0 +1,6 @@
+# IBM Cloud VPC Default Configuration  
+# Settings and features for IBM VPC Gen 2 integration
+ 
+# Features Configuration
+features:
+  # VPC specific features can be added here as needed 

@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Terraform
+*.tf
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+.terraform/
+.terraform.lock.hcl
+
+# Test files
+test_*.yaml
+test_*.yml
+test_*.tf
+test_*.py
+*_test.tf
+output_*.tf
+
+# Redundant cloud-specific flavor files (not the patterns file!)
+mappings/flavors/aws.yaml
+mappings/flavors/azure.yaml
+mappings/flavors/ibm_*.yaml
+# Note: mappings/cloud_patterns.yaml is NEEDED and should be committed
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Backup files
+*.backup
+*.bak
+*.orig 

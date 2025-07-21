@@ -1,0 +1,157 @@
+name: "Multi-Provider Self-Managed OpenShift"
+description: "Self-managed OpenShift clusters across different cloud providers and platforms"
+
+# Supporting infrastructure across providers
+instances:
+  - name: "jumphost-aws"
+    provider: "aws"
+    size: "small"
+    image: "RHEL9-latest"
+    region: "us-east-1"
+    
+  - name: "monitor-azure"
+    provider: "azure"
+    size: "small"
+    image: "RHEL9-latest"
+    region: "eastus"
+
+# Self-managed OpenShift on multiple providers
+openshift_clusters:
+  # Self-managed OpenShift on AWS
+  - name: "aws-self-managed"
+    type: "self-managed"
+    provider: "aws"                   # Deploy on AWS infrastructure
+    region: "us-east-1"
+    size: "medium"                    # 3 masters, 3 workers
+    version: "4.14.15"
+    
+    base_domain: "aws.openshift.example.com"
+    worker_count: 3
+    
+    # AWS-specific networking
+    networking:
+      machine_cidr: "10.0.0.0/16"
+      service_cidr: "172.30.0.0/16"
+      pod_cidr: "10.128.0.0/14"
+    
+    # Installation configuration
+    installation:
+      method: "upi"                   # User Provisioned Infrastructure
+      
+  # Self-managed OpenShift on Azure
+  - name: "azure-self-managed"
+    type: "self-managed"
+    provider: "azure"                 # Deploy on Azure infrastructure
+    region: "westeurope"
+    size: "medium"
+    version: "4.14.15"
+    
+    base_domain: "azure.openshift.example.com"
+    worker_count: 3
+    
+    # Azure-specific networking
+    networking:
+      machine_cidr: "10.1.0.0/16"
+      service_cidr: "172.30.0.0/16"
+      pod_cidr: "10.128.0.0/14"
+    
+  # Self-managed OpenShift on GCP
+  - name: "gcp-self-managed"
+    type: "self-managed"
+    provider: "gcp"                   # Deploy on GCP infrastructure
+    region: "us-central1"
+    zone: "us-central1-a"
+    size: "medium"
+    version: "4.14.15"
+    
+    base_domain: "gcp.openshift.example.com"
+    worker_count: 3
+    
+    # GCP-specific networking
+    networking:
+      machine_cidr: "10.2.0.0/16"
+      service_cidr: "172.30.0.0/16"
+      pod_cidr: "10.128.0.0/14"
+    
+  # Self-managed OpenShift on IBM Cloud VPC
+  - name: "ibm-self-managed"
+    type: "self-managed"
+    provider: "ibm_vpc"               # Deploy on IBM VPC infrastructure
+    region: "us-south"
+    zone: "us-south-1"
+    size: "medium"
+    version: "4.14.15"
+    
+    base_domain: "ibm.openshift.example.com"
+    worker_count: 3
+    
+  # Self-managed OpenShift on OCI
+  - name: "oci-self-managed"
+    type: "self-managed"
+    provider: "oci"                   # Deploy on OCI infrastructure
+    region: "us-ashburn-1"
+    size: "medium"
+    version: "4.14.15"
+    
+    base_domain: "oci.openshift.example.com"
+    worker_count: 3
+    
+  # Self-managed OpenShift on VMware
+  - name: "vmware-self-managed"
+    type: "self-managed"
+    provider: "vmware"                # Deploy on VMware infrastructure
+    region: "datacenter1"
+    size: "medium"
+    version: "4.14.15"
+    
+    base_domain: "vmware.openshift.example.com"
+    worker_count: 3
+    
+  # Self-managed OpenShift on Alibaba Cloud
+  - name: "alibaba-self-managed"
+    type: "self-managed"
+    provider: "alibaba"               # Deploy on Alibaba infrastructure
+    region: "cn-hangzhou"
+    size: "medium"
+    version: "4.14.15"
+    
+    base_domain: "alibaba.openshift.example.com"
+    worker_count: 3
+
+# Development clusters for cost optimization
+openshift_clusters_dev:
+  # Small development clusters
+  - name: "dev-aws"
+    type: "self-managed"
+    provider: "aws"
+    region: "us-west-2"               # Cheaper region
+    size: "small"                     # 3 masters, 2 workers
+    version: "4.14.15"
+    worker_count: 2
+    base_domain: "dev-aws.example.com"
+    
+  - name: "dev-cheapest"
+    type: "self-managed"
+    provider: "cheapest"              # Use cheapest provider logic!
+    size: "small"
+    version: "4.14.15"
+    worker_count: 2
+    base_domain: "dev-cheapest.example.com"
+
+# Networking configuration
+networking:
+  enable_cross_cloud: true
+  
+# Security configuration  
+security:
+  ssh_keys:
+    - name: "admin-key"
+      public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... admin@example.com"
+      
+# Tags applied to all resources
+tags:
+  Environment: "development"
+  Project: "multi-provider-openshift"
+  Owner: "platform-team"
+  CostCenter: "engineering"
+  Approach: "self-managed" 

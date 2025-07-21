@@ -1,0 +1,276 @@
+# Cloud-agnostic flavor names that map to appropriate native cloud instance types
+# These provide consistent naming across different cloud providers
+
+# Basic compute instances
+nano:
+  description: "Ultra-small instance for minimal workloads"
+  aws: "t3.nano"
+  azure: "Standard_B1ls"
+  gcp: "e2-micro" 
+  ibm_vpc: "bx2-2x8"
+  ibm_classic: "B1.1x2x25"
+
+micro:
+  description: "Small instance for lightweight applications"
+  aws: "t3.micro"
+  azure: "Standard_B1s"
+  gcp: "e2-micro"
+  ibm_vpc: "bx2-2x8"
+  ibm_classic: "B1.1x2x25"
+  oci: "VM.Standard.E3.Flex"
+  vmware: "micro-vm"
+  alibaba: "ecs.t6-c1m1.large"
+
+small:
+  description: "Small instance for development and testing"
+  aws: "t3.small"
+  azure: "Standard_B2s"
+  gcp: "e2-small"
+  ibm_vpc: "bx2-4x16"
+  ibm_classic: "B1.2x4x100"
+  oci: "VM.Standard.E4.Flex"
+  vmware: "small-vm"
+  alibaba: "ecs.t6-c1m2.large"
+
+medium:
+  description: "Medium instance for production workloads"
+  aws: "t3.medium"
+  azure: "Standard_B4ms"
+  gcp: "e2-medium"
+  ibm_vpc: "bx2-8x32"
+  ibm_classic: "B1.4x8x100"
+  oci: "VM.Standard.E4.Flex"
+  vmware: "medium-vm"
+  alibaba: "ecs.t6-c2m4.large"
+
+large:
+  description: "Large instance for resource-intensive applications"
+  aws: "t3.large"
+  azure: "Standard_D4s_v3"
+  gcp: "n1-standard-4"
+  ibm_vpc: "bx2-16x64"
+  ibm_classic: "B1.8x16x100"
+  oci: "VM.Standard.E4.Flex"
+  vmware: "large-vm"
+  alibaba: "ecs.t6-c4m8.large"
+
+xlarge:
+  description: "Extra large instance for high-performance workloads"
+  aws: "t3.xlarge"
+  azure: "Standard_D8s_v3"
+  gcp: "n1-standard-8"
+  ibm_vpc: "bx2-32x128"
+  ibm_classic: "B1.16x32x100"
+  oci: "VM.Standard.E4.Flex"
+  vmware: "xlarge-vm"
+  alibaba: "ecs.t6-c8m16.large"
+
+# Memory-optimized instances
+memory_large:
+  description: "Memory-optimized instance for data processing"
+  aws: "r5.large"
+  azure: "Standard_E4s_v3"
+  gcp: "n1-highmem-4"
+  ibm_vpc: "mx2-8x64"
+  ibm_classic: "M1.4x32x100"
+  oci: "VM.Standard.M3.Flex"
+  vmware: "memory-large-vm"
+  alibaba: "ecs.r6.xlarge"
+
+memory_xlarge:
+  description: "Large memory-optimized instance"
+  aws: "r5.xlarge"
+  azure: "Standard_E8s_v3"
+  gcp: "n1-highmem-8"
+  ibm_vpc: "mx2-16x128"
+  ibm_classic: "M1.8x64x100"
+  oci: "VM.Standard.M3.Flex"
+  vmware: "memory-large-vm"
+  alibaba: "ecs.r6.2xlarge"
+
+# Compute-optimized instances
+compute_large:
+  description: "Compute-optimized instance for CPU-intensive tasks"
+  aws: "c5.large"
+  azure: "Standard_F4s_v2"
+  gcp: "c2-standard-4"
+  ibm_vpc: "cx2-8x16"
+  ibm_classic: "C1.4x4x25"
+  oci: "VM.Standard.C3.Flex"
+  vmware: "compute-large-vm"
+  alibaba: "ecs.c6.2xlarge"
+
+compute_xlarge:
+  description: "Large compute-optimized instance"
+  aws: "c5.xlarge"
+  azure: "Standard_F8s_v2"
+  gcp: "c2-standard-8"
+  ibm_vpc: "cx2-16x32"
+  ibm_classic: "C1.8x8x25"
+  oci: "VM.Standard.C3.Flex"
+  vmware: "compute-large-vm"
+  alibaba: "ecs.c6.4xlarge"
+
+# GPU instances for AI/ML workloads
+gpu_small:
+  description: "Small GPU instance for development and light AI/ML workloads"
+  aws: "g4dn.xlarge"
+  azure: "Standard_NC4as_T4_v3"
+  gcp: "n1-standard-4-t4"
+  ibm_vpc: "gx3-8x64x1l4"
+  oci: "VM.GPU.A10.1"
+  vmware: "gpu-small-vm"
+  alibaba: "ecs.gn6i-c4g1.xlarge"
+
+gpu_medium:
+  description: "Medium GPU instance for training and inference"
+  aws: "g4dn.2xlarge"
+  azure: "Standard_NC8as_T4_v3"
+  gcp: "n1-standard-8-t4"
+  ibm_vpc: "gx3-16x128x1l4"
+  oci: "VM.GPU.A10.2"
+  vmware: "gpu-medium-vm"
+  alibaba: "ecs.gn6v-c8g1.2xlarge"
+
+gpu_large:
+  description: "Large GPU instance for intensive AI/ML training"
+  aws: "p3.2xlarge"
+  azure: "Standard_NC24s_v3"
+  gcp: "a2-highgpu-1g"
+  ibm_vpc: "gx3-32x256x1l40s"
+  oci: "VM.GPU.A10.2"
+  vmware: "gpu-large-vm"
+  alibaba: "ecs.gn7i-c32g1.8xlarge"
+
+gpu_xlarge:
+  description: "Extra large GPU instance for distributed training"
+  aws: "p3.8xlarge"
+  azure: "Standard_ND96asr_v4"
+  gcp: "a2-highgpu-2g"
+  ibm_vpc: "gx3-64x512x2l40s"
+  oci: "VM.GPU.A10.2"
+  vmware: "gpu-xlarge-vm"
+  alibaba: "ecs.gn7i-c32g1.8xlarge"
+
+gpu_multi:
+  description: "Multi-GPU instance for large-scale AI/ML workloads"
+  aws: "p4d.24xlarge"
+  azure: "Standard_ND96amsr_A100_v4"
+  gcp: "a2-highgpu-8g"
+  ibm_vpc: "gx3-128x1024x4l40s"
+  oci: "VM.GPU.A10.2"
+  vmware: "gpu-multi-vm"
+  alibaba: "ecs.gn7i-c32g1.8xlarge"
+
+# GPU Type-Specific Instances - NVIDIA T4 (Entry-level AI/ML)
+gpu_t4_small:
+  description: "Small NVIDIA T4 instance for development and inference"
+  aws: "g4dn.xlarge"
+  azure: "Standard_NC4as_T4_v3"
+  gcp: "n1-standard-4-t4"
+  ibm_vpc: "gx3-8x64x1l4"
+  oci: "VM.GPU.A10.1"
+  vmware: "gpu-t4-small-vm"
+  alibaba: "ecs.gn6i-c4g1.xlarge"
+
+gpu_t4_medium:
+  description: "Medium NVIDIA T4 instance for training and inference"
+  aws: "g4dn.2xlarge"
+  azure: "Standard_NC8as_T4_v3"
+  gcp: "n1-standard-8-t4"
+  ibm_vpc: "gx3-16x128x1l4"
+
+gpu_t4_large:
+  description: "Large NVIDIA T4 instance for intensive workloads"
+  aws: "g4dn.4xlarge"
+  azure: "Standard_NC16as_T4_v3"
+  gcp: "n1-standard-8-t4"
+  ibm_vpc: "gx3-16x128x1l4"
+
+# GPU Type-Specific Instances - NVIDIA V100 (High-performance training)
+gpu_v100_small:
+  description: "Small NVIDIA V100 instance for high-performance training"
+  aws: "p3.2xlarge"
+  azure: "Standard_NC6s_v3"
+  gcp: "n1-standard-8-v100"
+  ibm_vpc: "gx2-8x64x1v100"
+
+gpu_v100_medium:
+  description: "Medium NVIDIA V100 instance for intensive training"
+  aws: "p3.8xlarge"
+  azure: "Standard_NC12s_v3"
+  gcp: "n1-standard-16-v100"
+  ibm_vpc: "gx2-16x128x1v100"
+
+gpu_v100_large:
+  description: "Large NVIDIA V100 instance for distributed training"
+  aws: "p3.16xlarge"
+  azure: "Standard_NC24s_v3"
+  gcp: "n1-standard-16-v100"
+  ibm_vpc: "gx2-32x256x2v100"
+
+# GPU Type-Specific Instances - NVIDIA A100 (State-of-the-art AI/ML)
+gpu_a100_small:
+  description: "Small NVIDIA A100 instance for cutting-edge AI workloads"
+  aws: "p4d.24xlarge"
+  azure: "Standard_ND96asr_v4"
+  gcp: "a2-highgpu-1g"
+  ibm_vpc: "gx3-32x256x1l40s"
+
+gpu_a100_medium:
+  description: "Medium NVIDIA A100 instance for large model training"
+  aws: "p4d.24xlarge"
+  azure: "Standard_ND96amsr_A100_v4"
+  gcp: "a2-highgpu-2g"
+  ibm_vpc: "gx3-64x512x2l40s"
+
+gpu_a100_large:
+  description: "Large NVIDIA A100 instance for enterprise AI workloads"
+  aws: "p4d.24xlarge"
+  azure: "Standard_ND96amsr_A100_v4"
+  gcp: "a2-highgpu-4g"
+  ibm_vpc: "gx3-128x1024x4l40s"
+
+gpu_a100_xlarge:
+  description: "Extra large NVIDIA A100 instance for massive AI training"
+  aws: "p4d.24xlarge"
+  azure: "Standard_ND96amsr_A100_v4"
+  gcp: "a2-highgpu-8g"
+  ibm_vpc: "gx3-128x1024x4l40s"
+
+# GPU Type-Specific Instances - AMD Radeon Pro (Cost-effective alternative)
+# Note: AMD GPUs are only available on AWS
+gpu_amd_small:
+  description: "Small AMD Radeon Pro instance for cost-effective GPU compute (AWS only)"
+  aws: "g4ad.xlarge"
+
+gpu_amd_medium:
+  description: "Medium AMD Radeon Pro instance for cost-effective GPU compute (AWS only)"
+  aws: "g4ad.2xlarge"
+
+# High-memory instances  
+highmem_large:
+  description: "High-memory instance for in-memory databases"
+  aws: "r5.2xlarge"
+  azure: "Standard_E16s_v3"
+  gcp: "n1-highmem-16"
+  ibm_vpc: "mx2-32x256"
+  ibm_classic: "M1.16x128x100"
+
+# Storage-optimized instances
+storage_large:
+  description: "Storage-optimized instance for high I/O workloads"
+  aws: "i3.large"
+  azure: "Standard_L8s_v2"
+  gcp: "n1-standard-4"  # With local SSD
+  ibm_vpc: "bx2-16x64"
+  ibm_classic: "BL1.8x16x100"  # Local storage optimized
+
+# Network-optimized instances
+network_large:
+  description: "Network-optimized instance for high throughput"
+  aws: "c5n.large"
+  azure: "Standard_D4s_v3"
+  gcp: "n1-standard-4"
+  ibm_vpc: "bx2-8x32"
+  ibm_classic: "B1.4x8x100" 

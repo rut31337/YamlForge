@@ -1,0 +1,62 @@
+# OpenShift Submariner Operator Default Configuration
+# Cross-cluster connectivity and multi-cluster networking
+
+# Subscription configuration
+subscription:
+  channel: "stable-0.16"
+  name: "submariner"
+  source: "redhat-operators"
+  sourceNamespace: "openshift-marketplace"
+  installPlanApproval: "Automatic"
+
+# Default configuration values
+defaults:
+  name: "submariner"
+  enable_broker: true
+  cluster_id: "cluster1"
+  service_cidr: "10.96.0.0/16"
+  cluster_cidr: "10.244.0.0/16"
+  repository: "quay.io/submariner"
+  version: "release-0.16"
+  ce_ipsec_natt_port: 4500
+  ce_ipsec_ike_port: 500
+  ce_ipsec_debug: false
+  nat_enabled: true
+  debug: false
+  load_balancer_enabled: false
+  color_codes: "blue"
+  health_check_enabled: true
+  health_check_interval: 1
+  max_packet_loss_count: 5
+
+# Broker configuration
+broker:
+  globalnet_enabled: false
+  default_globalnet_cluster_size: 8192
+  globalnet_cidr: "242.0.0.0/8"
+  default_custom_domains: []
+
+# Connection health check configuration
+connection_health_check:
+  enabled: true
+  interval_seconds: 1
+  max_packet_loss_count: 5
+
+# Service exports (empty by default)
+service_exports: []
+
+# Gateways (empty by default)
+gateways: []
+
+# Example configurations (commented out)
+# service_exports:
+#   - name: "nginx-service-export"
+#     service_name: "nginx"
+#     namespace: "default"
+#
+# gateways:
+#   - name: "gateway-1"
+#     ha_enabled: true
+#     connections:
+#       - endpoint: "192.168.1.100"
+#         subnets: ["10.0.0.0/16"] 

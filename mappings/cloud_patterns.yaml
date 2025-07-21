@@ -1,0 +1,115 @@
+# Cloud-Specific Flavor Patterns
+# Used to detect if a flavor is cloud-specific vs generic
+
+aws:
+  # x86_64 instance families
+  x86_patterns:
+    - "c4"    # Compute Optimized
+    - "c5"    # Compute Optimized  
+    - "c5a"   # AMD Compute Optimized
+    - "c5ad"  # AMD Compute with NVMe SSD
+    - "c5d"   # Compute with NVMe SSD
+    - "c5n"   # Compute with enhanced networking
+    - "c6a"   # AMD Compute 3rd gen
+    - "c6i"   # Intel Compute 3rd gen
+    - "c6id"  # Intel Compute with NVMe SSD
+    - "c6in"  # Intel Compute with enhanced networking
+    - "c7a"   # AMD Compute 4th gen
+    - "c7i"   # Intel Compute 4th gen
+    - "m4"    # General Purpose
+    - "m5"    # General Purpose
+    - "m5a"   # AMD General Purpose
+    - "m5ad"  # AMD General Purpose with NVMe SSD
+    - "m5d"   # General Purpose with NVMe SSD
+    - "m5dn"  # General Purpose with NVMe SSD and enhanced networking
+    - "m5n"   # General Purpose with enhanced networking
+    - "m5zn"  # High-frequency General Purpose
+    - "m6a"   # AMD General Purpose 3rd gen
+    - "m6i"   # Intel General Purpose 3rd gen
+    - "m6id"  # Intel General Purpose with NVMe SSD
+    - "m6idn" # Intel General Purpose with NVMe SSD and enhanced networking
+    - "m6in"  # Intel General Purpose with enhanced networking
+    - "m7a"   # AMD General Purpose 4th gen
+    - "m7i"   # Intel General Purpose 4th gen
+    - "t2"    # Burstable Performance
+    - "t3"    # Burstable Performance 3rd gen
+    - "t3a"   # AMD Burstable Performance
+    - "r4"    # Memory Optimized
+    - "r5"    # Memory Optimized
+    - "r5a"   # AMD Memory Optimized
+    - "r5ad"  # AMD Memory Optimized with NVMe SSD
+    - "r5b"   # Memory Optimized with EBS-optimized
+    - "r5d"   # Memory Optimized with NVMe SSD
+    - "r5dn"  # Memory Optimized with NVMe SSD and enhanced networking
+    - "r5n"   # Memory Optimized with enhanced networking
+    - "r6a"   # AMD Memory Optimized 3rd gen
+    - "r6i"   # Intel Memory Optimized 3rd gen
+    - "r6id"  # Intel Memory Optimized with NVMe SSD
+    - "r6idn" # Intel Memory Optimized with NVMe SSD and enhanced networking
+    - "r6in"  # Intel Memory Optimized with enhanced networking
+
+  # ARM64 instance families (Graviton)
+  arm_patterns:
+    - "c6g"   # ARM Compute Optimized
+    - "c6gd"  # ARM Compute with NVMe SSD
+    - "c6gn"  # ARM Compute with enhanced networking
+    - "c7g"   # ARM Compute 3rd gen
+    - "c7gd"  # ARM Compute 3rd gen with NVMe SSD
+    - "c7gn"  # ARM Compute 3rd gen with enhanced networking
+    - "m6g"   # ARM General Purpose
+    - "m6gd"  # ARM General Purpose with NVMe SSD
+    - "m7g"   # ARM General Purpose 3rd gen
+    - "m7gd"  # ARM General Purpose 3rd gen with NVMe SSD
+    - "t4g"   # ARM Burstable Performance
+    - "r6g"   # ARM Memory Optimized
+    - "r6gd"  # ARM Memory Optimized with NVMe SSD
+
+azure:
+  # Azure VM size patterns
+  patterns:
+    - "Standard_A"    # Basic A-series
+    - "Standard_B"    # Burstable B-series
+    - "Standard_D"    # General purpose D-series
+    - "Standard_E"    # Memory optimized E-series
+    - "Standard_F"    # Compute optimized F-series
+    - "Standard_G"    # Memory and storage optimized G-series
+    - "Standard_H"    # High performance compute H-series
+    - "Standard_L"    # Storage optimized L-series
+    - "Standard_M"    # Memory optimized M-series
+    - "Standard_N"    # GPU N-series
+
+gcp:
+  # Google Cloud machine type patterns
+  patterns:
+    - "e2-"           # E2 general-purpose
+    - "n1-"           # N1 general-purpose
+    - "n2-"           # N2 general-purpose  
+    - "n2d-"          # N2D AMD general-purpose
+    - "c2-"           # C2 compute-optimized
+    - "c2d-"          # C2D AMD compute-optimized
+    - "m1-"           # M1 memory-optimized
+    - "m2-"           # M2 memory-optimized
+    - "a2-"           # A2 GPU instances
+
+ibm_classic:
+  # IBM Cloud Classic patterns
+  patterns:
+    - "B1."           # Balanced
+    - "BL1."          # Balanced Local Storage
+    - "BL2."          # Balanced Local Storage v2
+    - "C1."           # Compute
+    - "AC1."          # Compute with GPU
+    - "M1."           # Memory
+
+ibm_vpc:
+  # IBM Cloud VPC patterns  
+  patterns:
+    - "bx2-"          # Balanced
+    - "bx3d-"         # Balanced with NVMe SSD
+    - "cx2-"          # Compute
+    - "cx3d-"         # Compute with NVMe SSD
+    - "mx2-"          # Memory
+    - "mx3d-"         # Memory with NVMe SSD
+    - "vx2d-"         # Very High Memory with NVMe SSD
+    - "gx2-"          # GPU
+    - "gx3-"          # GPU v3 

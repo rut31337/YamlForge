@@ -1,0 +1,91 @@
+---
+# Instance Name Validation Example
+# Demonstrates how yamlforge validates instance names to prevent Terraform conflicts
+
+yamlforge:
+  cloud_workspace:
+    name: "instance-name-validation"
+    description: "Example demonstrating instance name validation across providers"
+
+  # ✅ VALID: Same names on different providers are allowed
+  instances:
+    - name: "web-server"
+      provider: "aws"
+      size: "medium"
+      region: "us-east-1"
+      image: "RHEL9-latest"
+      tags:
+        environment: "production"
+        role: "web"
+
+    - name: "web-server"        # ✅ Same name OK - different provider
+      provider: "azure"
+      size: "medium"
+      region: "eastus"
+      image: "RHEL9-latest"
+      tags:
+        environment: "production"
+        role: "web"
+
+    - name: "database-primary"
+      provider: "gcp"
+      size: "large"
+      region: "us-central1"
+      image: "RHEL9-latest"
+      tags:
+        environment: "production"
+        role: "database"
+
+    - name: "gpu-workstation"
+      provider: "cheapest-gpu"    # Meta provider - will resolve to actual provider
+      gpu_type: "NVIDIA T4"
+      region: "us-east-1"
+      image: "RHEL9-latest"
+      tags:
+        environment: "development"
+        role: "ml"
+
+  tags:
+    project: "name-validation-demo"
+    managed_by: "yamlforge"
+
+# Validation Rules:
+# ================
+# ✅ ALLOWED:
+# - Same instance names on DIFFERENT cloud providers
+# - Unique names within each provider
+# - Meta providers (cheapest, cheapest-gpu) that resolve to different providers
+#
+# ❌ NOT ALLOWED (will error):
+# - Duplicate names within the SAME cloud provider
+# - Meta providers that resolve to the same provider with same names
+#
+# Examples of what would cause errors:
+# ------------------------------------
+# instances:
+#   - name: "duplicate-name"
+#     provider: "aws"
+#     size: "medium"
+#   - name: "duplicate-name"    # ❌ ERROR: Same name, same provider
+#     provider: "aws"
+#     size: "large"
+#
+# instances:
+#   - name: "gpu-server"
+#     provider: "cheapest-gpu"
+#     gpu_type: "NVIDIA T4"     # Resolves to GCP
+#   - name: "gpu-server"        # ❌ ERROR: If this also resolves to GCP
+#     provider: "gcp"
+#     size: "gpu_small"
+#
+# Error Message Example:
+# =====================
+# Error: Duplicate instance name 'web-server' found for provider 'aws'.
+# Instance names must be unique within each cloud provider to avoid
+# Terraform resource conflicts.
+#
+# Why This Validation Exists:
+# ===========================
+# Terraform requires unique resource names within each provider.
+# Without this validation, you would get Terraform errors like:
+# "Error: resource 'aws_instance.web-server' conflicts with existing resource" 

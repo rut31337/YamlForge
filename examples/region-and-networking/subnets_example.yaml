@@ -1,0 +1,323 @@
+---
+# Subnets Configuration Example
+# Demonstrates comprehensive subnet configuration across cloud providers
+
+yamlforge:
+  cloud_workspace:
+    name: "subnet-architecture-demo"
+    description: "Subnet architecture demonstration"
+
+  # Global network configuration
+  network:
+    name: "enterprise-network"
+    cidr: "10.0.0.0/8"
+    description: "Enterprise multi-cloud network"
+
+  # Subnet definitions for different tiers and purposes
+  subnets:
+    # Production subnets
+    prod-web-subnet-1:
+      cidr: "10.1.1.0/24"
+      description: "Production web tier subnet 1"
+      environment: "production"
+      tier: "web"
+      availability_zone: "a"
+      
+    prod-web-subnet-2:
+      cidr: "10.1.2.0/24"
+      description: "Production web tier subnet 2"
+      environment: "production"
+      tier: "web"
+      availability_zone: "b"
+      
+    prod-app-subnet-1:
+      cidr: "10.1.10.0/24"
+      description: "Production app tier subnet 1"
+      environment: "production"
+      tier: "application"
+      availability_zone: "a"
+      
+    prod-app-subnet-2:
+      cidr: "10.1.11.0/24"
+      description: "Production app tier subnet 2"
+      environment: "production"
+      tier: "application"
+      availability_zone: "b"
+      
+    prod-data-subnet-1:
+      cidr: "10.1.20.0/24"
+      description: "Production database tier subnet 1"
+      environment: "production"
+      tier: "database"
+      availability_zone: "a"
+      
+    prod-data-subnet-2:
+      cidr: "10.1.21.0/24"
+      description: "Production database tier subnet 2"
+      environment: "production"
+      tier: "database"
+      availability_zone: "b"
+
+    # Staging subnets
+    staging-web-subnet:
+      cidr: "10.2.1.0/24"
+      description: "Staging web tier subnet"
+      environment: "staging"
+      tier: "web"
+      
+    staging-app-subnet:
+      cidr: "10.2.10.0/24"
+      description: "Staging app tier subnet"
+      environment: "staging"
+      tier: "application"
+      
+    staging-data-subnet:
+      cidr: "10.2.20.0/24"
+      description: "Staging database tier subnet"
+      environment: "staging"
+      tier: "database"
+
+    # Development subnets
+    dev-subnet:
+      cidr: "10.3.0.0/16"
+      description: "Development environment subnet"
+      environment: "development"
+      tier: "all"
+
+    # Management subnets
+    mgmt-subnet:
+      cidr: "10.0.1.0/24"
+      description: "Management and monitoring subnet"
+      environment: "management"
+      tier: "infrastructure"
+
+  instances:
+    # Production web tier instances
+    - name: "prod-web-1"
+      provider: "aws"
+      size: "large"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      subnet: "prod-web-subnet-1"
+      security_groups:
+        - "web-sg"
+      tags:
+        environment: "production"
+        tier: "web"
+        
+    - name: "prod-web-2"
+      provider: "aws"
+      size: "large"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      subnet: "prod-web-subnet-2"
+      security_groups:
+        - "web-sg"
+      tags:
+        environment: "production"
+        tier: "web"
+
+    # Production app tier instances
+    - name: "prod-app-1"
+      provider: "azure"
+      size: "large"
+      image: "RHEL9-latest"
+      region: "eastus"
+      subnet: "prod-app-subnet-1"
+      security_groups:
+        - "app-sg"
+      tags:
+        environment: "production"
+        tier: "application"
+        
+    - name: "prod-app-2"
+      provider: "azure"
+      size: "large"
+      image: "RHEL9-latest"
+      region: "eastus"
+      subnet: "prod-app-subnet-2"
+      security_groups:
+        - "app-sg"
+      tags:
+        environment: "production"
+        tier: "application"
+
+    # Production database tier instances
+    - name: "prod-database-primary"
+      provider: "gcp"
+      size: "xlarge"
+      image: "RHEL9-latest"
+      region: "us-central1"
+      zone: "us-central1-a"
+      subnet: "prod-data-subnet-1"
+      security_groups:
+        - "data-sg"
+      tags:
+        environment: "production"
+        tier: "database"
+        role: "primary"
+        
+    - name: "prod-database-replica"
+      provider: "gcp"
+      size: "xlarge"
+      image: "RHEL9-latest"
+      region: "us-central1"
+      zone: "us-central1-b"
+      subnet: "prod-data-subnet-2"
+      security_groups:
+        - "data-sg"
+      tags:
+        environment: "production"
+        tier: "database"
+        role: "replica"
+
+    # Staging environment instances
+    - name: "staging-web"
+      provider: "ibm_vpc"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "us-south"
+      zone: "us-south-1"
+      subnet: "staging-web-subnet"
+      security_groups:
+        - "staging-sg"
+      tags:
+        environment: "staging"
+        tier: "web"
+        
+    - name: "staging-app"
+      provider: "ibm_vpc"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "us-south"
+      zone: "us-south-2"
+      subnet: "staging-app-subnet"
+      security_groups:
+        - "staging-sg"
+      tags:
+        environment: "staging"
+        tier: "application"
+
+    # Development instances
+    - name: "dev-full-stack"
+      provider: "cheapest"
+      cores: 4
+      memory: 8192
+      image: "RHEL9-latest"
+      subnet: "dev-subnet"
+      security_groups:
+        - "dev-sg"
+      tags:
+        environment: "development"
+        tier: "all"
+        cost_optimized: "true"
+
+    # Management instances
+    - name: "monitoring-server"
+      provider: "aws"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      subnet: "mgmt-subnet"
+      security_groups:
+        - "mgmt-sg"
+      tags:
+        environment: "management"
+        tier: "infrastructure"
+        role: "monitoring"
+
+  # Security groups for different subnets
+  security_groups:
+    web-sg:
+      description: "Web tier security group"
+      rules:
+        - protocol: "tcp"
+          port: 80
+          source: "0.0.0.0/0"
+        - protocol: "tcp"
+          port: 443
+          source: "0.0.0.0/0"
+        - protocol: "tcp"
+          port: 22
+          source: "10.0.1.0/24"  # Management subnet
+          
+    app-sg:
+      description: "Application tier security group"
+      rules:
+        - protocol: "tcp"
+          port: 8080
+          source: "10.1.1.0/24,10.1.2.0/24"  # Web subnets
+        - protocol: "tcp"
+          port: 8443
+          source: "10.1.1.0/24,10.1.2.0/24"  # Web subnets
+        - protocol: "tcp"
+          port: 22
+          source: "10.0.1.0/24"  # Management subnet
+          
+    data-sg:
+      description: "Database tier security group"
+      rules:
+        - protocol: "tcp"
+          port: 3306
+          source: "10.1.10.0/24,10.1.11.0/24"  # App subnets
+        - protocol: "tcp"
+          port: 5432
+          source: "10.1.10.0/24,10.1.11.0/24"  # App subnets
+        - protocol: "tcp"
+          port: 22
+          source: "10.0.1.0/24"  # Management subnet
+          
+    staging-sg:
+      description: "Staging environment security group"
+      rules:
+        - protocol: "tcp"
+          port: 80
+          source: "10.2.0.0/16"
+        - protocol: "tcp"
+          port: 443
+          source: "10.2.0.0/16"
+        - protocol: "tcp"
+          port: 8080
+          source: "10.2.0.0/16"
+        - protocol: "tcp"
+          port: 22
+          source: "10.0.1.0/24"  # Management subnet
+          
+    dev-sg:
+      description: "Development environment security group"
+      rules:
+        - protocol: "tcp"
+          port: 80
+          source: "10.3.0.0/16"
+        - protocol: "tcp"
+          port: 443
+          source: "10.3.0.0/16"
+        - protocol: "tcp"
+          port: 8080
+          source: "10.3.0.0/16"
+        - protocol: "tcp"
+          port: 22
+          source: "10.0.1.0/24,10.3.0.0/16"
+          
+    mgmt-sg:
+      description: "Management subnet security group"
+      rules:
+        - protocol: "tcp"
+          port: 22
+          source: "10.0.0.0/8"
+        - protocol: "tcp"
+          port: 443
+          source: "10.0.0.0/8"
+        - protocol: "tcp"
+          port: 9090
+          source: "10.0.0.0/8"  # Prometheus
+        - protocol: "tcp"
+          port: 3000
+          source: "10.0.0.0/8"  # Grafana
+
+  tags:
+    network_architecture: "multi_tier"
+    subnet_strategy: "environment_based"
+    security_model: "zero_trust"
+    high_availability: "multi_az"
+    environment: "enterprise" 

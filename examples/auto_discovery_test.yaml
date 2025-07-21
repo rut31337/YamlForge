@@ -1,0 +1,48 @@
+yamlforge:
+  cloud_workspace:
+    name: "auto-discovery-test"
+    description: "Test automatic zone name discovery with defaults"
+
+  # DNS config with minimal configuration - should auto-discover zone name
+  dns_config:
+    # root_zone_management: true (enabled by default now)
+    root_zone:
+      domain: "example.com"
+      # zone_name not specified - should auto-discover
+      # project_id not specified - should use credentials project
+    delegation_ttl: 3600
+
+  # User management with company domain
+  user_management:
+    company_domain: "example.com"
+    enable_domain_ownership: true
+
+  users:
+    # Company domain user - gets Owner due to domain match
+    - email: "admin@example.com"
+      roles: ["roles/editor"]
+      display_name: "Company Admin"
+      
+    # External user - gets exact roles
+    - email: "partner@external.org"
+      roles: ["roles/viewer"]
+      display_name: "External Partner"
+
+  instances:
+    - name: "web-server"
+      provider: "gcp"
+      size: "medium"
+      region: "us-central1"
+      image: "Ubuntu-22.04"
+      tags:
+        purpose: "web-server"
+        environment: "production"
+        
+    - name: "api-server"
+      provider: "gcp"
+      size: "small"
+      region: "us-central1"
+      image: "Ubuntu-22.04"
+      tags:
+        purpose: "api-server"
+        environment: "production" 

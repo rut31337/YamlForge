@@ -1,0 +1,197 @@
+# Oracle Cloud Infrastructure (OCI) Shape Mappings
+# Maps agnosticd abstract sizes to OCI shapes
+# Reference: https://docs.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm
+
+flavor_mappings:
+  # Micro instances
+  micro:
+    VM.Standard.E3.Flex:
+      vcpus: 1
+      memory_gb: 8
+      cost_factor: 0.15
+      hourly_cost: 0.0255
+      shape_type: "flexible"
+      ocpus: 1
+      memory_gbs: 8
+    VM.Standard.E2.1:
+      vcpus: 1
+      memory_gb: 8
+      cost_factor: 0.2
+      hourly_cost: 0.0340
+      shape_type: "fixed"
+
+  # Small instances  
+  small:
+    VM.Standard.E4.Flex:
+      vcpus: 2
+      memory_gb: 16
+      cost_factor: 0.3
+      hourly_cost: 0.0510
+      shape_type: "flexible"
+      ocpus: 2
+      memory_gbs: 16
+    VM.Standard.E3.Flex:
+      vcpus: 2
+      memory_gb: 16
+      cost_factor: 0.35
+      hourly_cost: 0.0510
+      shape_type: "flexible"
+      ocpus: 2
+      memory_gbs: 16
+
+  # Medium instances
+  medium:
+    VM.Standard.E4.Flex:
+      vcpus: 4
+      memory_gb: 32
+      cost_factor: 0.6
+      hourly_cost: 0.1020
+      shape_type: "flexible"
+      ocpus: 4
+      memory_gbs: 32
+    VM.Standard.E2.4:
+      vcpus: 4
+      memory_gb: 32
+      cost_factor: 0.65
+      hourly_cost: 0.1360
+      shape_type: "fixed"
+
+  # Large instances
+  large:
+    VM.Standard.E4.Flex:
+      vcpus: 8
+      memory_gb: 64
+      cost_factor: 1.2
+      hourly_cost: 0.2040
+      shape_type: "flexible"
+      ocpus: 8
+      memory_gbs: 64
+    VM.Standard.E2.8:
+      vcpus: 8
+      memory_gb: 64
+      cost_factor: 1.3
+      hourly_cost: 0.2720
+      shape_type: "fixed"
+
+  # Extra large instances
+  xlarge:
+    VM.Standard.E4.Flex:
+      vcpus: 16
+      memory_gb: 128
+      cost_factor: 2.4
+      hourly_cost: 0.4080
+      shape_type: "flexible"
+      ocpus: 16
+      memory_gbs: 128
+    VM.Standard.E2.16:
+      vcpus: 16
+      memory_gb: 128
+      cost_factor: 2.6
+      hourly_cost: 0.5440
+      shape_type: "fixed"
+
+  # Compute-optimized instances
+  compute_large:
+    VM.Standard.C3.Flex:
+      vcpus: 8
+      memory_gb: 32
+      cost_factor: 1.1
+      hourly_cost: 0.1886
+      shape_type: "flexible"
+      ocpus: 8
+      memory_gbs: 32
+
+  # Memory-optimized instances  
+  memory_large:
+    VM.Standard.M3.Flex:
+      vcpus: 8
+      memory_gb: 128
+      cost_factor: 1.8
+      hourly_cost: 0.3264
+      shape_type: "flexible"
+      ocpus: 8
+      memory_gbs: 128
+
+  # GPU instances
+  gpu_small:
+    VM.GPU.A10.1:
+      vcpus: 15
+      memory_gb: 240
+      cost_factor: 3.5
+      hourly_cost: 1.2750
+      shape_type: "fixed"
+      gpu_count: 1
+      gpu_type: "NVIDIA A10"
+      gpu_memory_gb: 24
+
+  gpu_medium:
+    VM.GPU.A10.2:
+      vcpus: 30
+      memory_gb: 480
+      cost_factor: 7.0
+      hourly_cost: 2.5500
+      shape_type: "fixed"
+      gpu_count: 2
+      gpu_type: "NVIDIA A10"
+      gpu_memory_gb: 48
+
+# Machine types for direct specification
+machine_types:
+  # Standard shapes
+  VM.Standard.E2.1:
+    vcpus: 1
+    memory_gb: 8
+    hourly_cost: 0.0340
+
+  VM.Standard.E2.2:
+    vcpus: 2
+    memory_gb: 16
+    hourly_cost: 0.0680
+
+  VM.Standard.E2.4:
+    vcpus: 4
+    memory_gb: 32
+    hourly_cost: 0.1360
+
+  VM.Standard.E2.8:
+    vcpus: 8
+    memory_gb: 64
+    hourly_cost: 0.2720
+
+  # Flexible shapes (default configurations)
+  VM.Standard.E3.Flex:
+    vcpus: 1
+    memory_gb: 8
+    hourly_cost: 0.0255
+
+  VM.Standard.E4.Flex:
+    vcpus: 2
+    memory_gb: 16
+    hourly_cost: 0.0510
+
+  # Compute optimized
+  VM.Standard.C3.Flex:
+    vcpus: 4
+    memory_gb: 16
+    hourly_cost: 0.0943
+
+  # Memory optimized
+  VM.Standard.M3.Flex:
+    vcpus: 4
+    memory_gb: 64
+    hourly_cost: 0.1632
+
+  # GPU shapes
+  VM.GPU.A10.1:
+    vcpus: 15
+    memory_gb: 240
+    hourly_cost: 1.2750
+    gpu_count: 1
+    gpu_type: "NVIDIA A10"
+
+  VM.GPU.A10.2:
+    vcpus: 30
+    memory_gb: 480
+    hourly_cost: 2.5500
+    gpu_count: 2
+    gpu_type: "NVIDIA A10" 

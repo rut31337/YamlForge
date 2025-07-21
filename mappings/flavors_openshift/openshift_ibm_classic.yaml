@@ -1,0 +1,204 @@
+# IBM Classic Bare Metal Instance Mappings for OpenShift
+# Maps OpenShift cluster sizes to IBM Classic bare metal instances
+# Optimized for OpenShift control plane and worker node requirements
+
+flavor_mappings:
+  # OpenShift Master/Control Plane Sizes  
+  master_small:
+    B1.4x8x100:
+      vcpus: 4
+      memory_gb: 8
+      cost_factor: 1.2
+      monthly_cost: 199
+      storage_gb: 100
+      use_case: "Development/Testing control plane"
+      disk_type: "SSD"
+      
+  master_medium:
+    B1.8x16x100:
+      vcpus: 8
+      memory_gb: 16
+      cost_factor: 2.5
+      monthly_cost: 399
+      storage_gb: 100
+      use_case: "Production control plane"
+      disk_type: "SSD"
+      
+  master_large:
+    B1.16x32x100:
+      vcpus: 16
+      memory_gb: 32
+      cost_factor: 5.0
+      monthly_cost: 799
+      storage_gb: 100
+      use_case: "High-availability control plane"
+      disk_type: "SSD"
+
+  # OpenShift Worker Node Sizes
+  worker_micro:
+    B1.2x4x100:
+      vcpus: 2
+      memory_gb: 4
+      cost_factor: 0.8
+      monthly_cost: 149
+      storage_gb: 100
+      use_case: "Minimal workloads"
+      disk_type: "SSD"
+      
+  worker_small:
+    B1.4x8x100:
+      vcpus: 4
+      memory_gb: 8
+      cost_factor: 1.2
+      monthly_cost: 199
+      storage_gb: 100
+      use_case: "Light production workloads"
+      disk_type: "SSD"
+      
+  worker_medium:
+    B1.8x16x100:
+      vcpus: 8
+      memory_gb: 16
+      cost_factor: 2.5
+      monthly_cost: 399
+      storage_gb: 100
+      use_case: "Standard production workloads"
+      disk_type: "SSD"
+      
+  worker_large:
+    B1.16x32x100:
+      vcpus: 16
+      memory_gb: 32
+      cost_factor: 5.0
+      monthly_cost: 799
+      storage_gb: 100
+      use_case: "Heavy production workloads"
+      disk_type: "SSD"
+      
+  worker_xlarge:
+    B1.32x64x100:
+      vcpus: 32
+      memory_gb: 64
+      cost_factor: 10.0
+      monthly_cost: 1599
+      storage_gb: 100
+      use_case: "Very heavy production workloads"
+      disk_type: "SSD"
+
+  # Compute-Optimized
+  compute_medium:
+    B1.8x16x100:
+      vcpus: 8
+      memory_gb: 16
+      cost_factor: 2.5
+      monthly_cost: 399
+      storage_gb: 100
+      use_case: "CPU-intensive workloads"
+      disk_type: "SSD"
+
+  # Memory-Optimized
+  memory_medium:
+    B1.8x32x100:
+      vcpus: 8
+      memory_gb: 32
+      cost_factor: 3.0
+      monthly_cost: 499
+      storage_gb: 100
+      use_case: "Memory-intensive workloads"
+      disk_type: "SSD"
+
+  # HyperShift Worker Nodes
+  hypershift_worker:
+    B1.2x4x100:
+      vcpus: 2
+      memory_gb: 4
+      cost_factor: 0.8
+      monthly_cost: 149
+      storage_gb: 100
+      use_case: "HyperShift hosted workers"
+      disk_type: "SSD"
+
+# Default mappings for abstract sizes
+size_mappings:
+  # Control plane defaults
+  small_master: "master_small"
+  medium_master: "master_medium" 
+  large_master: "master_large"
+  
+  # Worker node defaults
+  micro: "worker_micro"
+  small: "worker_small"
+  medium: "worker_medium"
+  large: "worker_large"
+  xlarge: "worker_xlarge"
+  
+  # Specialized workloads
+  compute: "compute_medium"
+  memory: "memory_medium"
+  gpu: "worker_large"
+
+# OpenShift cluster size configurations
+cluster_sizes:
+  micro:
+    master_count: 1
+    master_size: "master_small"
+    worker_count: 1
+    worker_size: "worker_micro"
+    total_cost_factor: 2.0
+    use_case: "Development/Testing - single node"
+    
+  small:
+    master_count: 3
+    master_size: "master_small"
+    worker_count: 2
+    worker_size: "worker_small"
+    total_cost_factor: 6.0
+    use_case: "Small production workloads"
+    
+  medium:
+    master_count: 3
+    master_size: "master_medium"
+    worker_count: 3
+    worker_size: "worker_medium"
+    total_cost_factor: 15.0
+    use_case: "Standard production workloads"
+    
+  large:
+    master_count: 3
+    master_size: "master_large"
+    worker_count: 5
+    worker_size: "worker_large"
+    total_cost_factor: 40.0
+    use_case: "Large production workloads"
+    
+  xlarge:
+    master_count: 3
+    master_size: "master_large"
+    worker_count: 8
+    worker_size: "worker_xlarge"
+    total_cost_factor: 95.0
+    use_case: "Very large production workloads"
+
+# Provider-specific settings
+provider_settings:
+  datacenters:
+    primary: ["dal10", "dal12", "dal13"]
+    secondary: ["wdc04", "wdc06", "wdc07"]
+    available: ["ams01", "ams03", "che01", "dal10", "dal12", "dal13", "fra02", "fra04", "fra05", "hkg02", "lon02", "lon04", "lon06", "mel01", "mex01", "mil01", "mon01", "osl01", "par01", "sao01", "seo01", "sjc01", "sjc03", "sjc04", "sng01", "syd01", "syd04", "tok02", "tok04", "tor01", "wdc04", "wdc06", "wdc07"]
+    
+  networking:
+    vlans:
+      public_required: true
+      private_required: true
+    load_balancer:
+      type: "LBaaS"
+      required: true
+      
+  storage:
+    default_type: "SAN"
+    alternate_type: "LOCAL"
+    boot_drive: "SSD"
+    
+  billing:
+    type: "monthly"
+    hourly_available: false 

@@ -1,0 +1,27 @@
+---
+# Quick GPU Test - Minimal Example
+# Simple test of GPU instances across cloud providers
+
+yamlforge:
+  cloud_workspace:
+    name: "quick-gpu-test"
+    description: "Quick test of minimal GPU instances"
+
+  instances:
+    # NEW: Cheapest T4 GPU specifically
+    - name: "pure-cheapest-t4"
+      provider: "cheapest-gpu"
+      gpu_type: "NVIDIA T4"
+      region: "us-east-1"
+      image: "RHEL9-latest"
+
+    # Cheapest
+    - name: "pure-cheapest"
+      provider: "cheapest"
+      size: "small"
+      region: "us-east-1"
+      image: "RHEL9-latest"
+
+  tags:
+    purpose: "gpu_testing"
+    size: "micro" 

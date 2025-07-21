@@ -1,0 +1,46 @@
+# OpenShift Logging Operator Default Configuration
+# ELK/EFK stack configuration
+
+# Subscription configuration
+subscription:
+  channel: "stable"
+  name: "cluster-logging"
+  source: "redhat-operators"
+  sourceNamespace: "openshift-marketplace"
+  installPlanApproval: "Automatic"
+
+# ElasticSearch Subscription
+elasticsearch_subscription:
+  channel: "stable"
+  name: "elasticsearch-operator"
+  source: "redhat-operators"
+  sourceNamespace: "openshift-marketplace"
+
+# Default configuration values
+defaults:
+  name: "cluster-logging"
+  log_retention: "7d"
+  storage_size: "200Gi"
+  elasticsearch_node_count: 3
+  redundancy_policy: "SingleRedundancy"
+  collection_type: "fluentd"  # fluentd or vector
+
+# Storage configuration
+storage:
+  storageClassName: "gp3"
+
+# LogStore configuration
+logStore:
+  type: "elasticsearch"
+  
+# Visualization configuration
+visualization:
+  type: "kibana"
+  replicas: 1
+
+# Collection configuration
+collection:
+  type: "fluentd"
+
+# Log forwarders (empty by default)
+log_forwarders: [] 

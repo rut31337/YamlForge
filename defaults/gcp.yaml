@@ -1,0 +1,74 @@
+# GCP Default Configuration
+# Settings and features for GCP integration
+
+# Default APIs to enable for all GCP projects
+default_apis:
+  - "cloudresourcemanager.googleapis.com"
+  - "compute.googleapis.com"
+  - "deploymentmanager.googleapis.com"
+  - "dns.googleapis.com"
+  - "iam.googleapis.com"
+  - "iamcredentials.googleapis.com"
+  - "oslogin.googleapis.com"
+  - "secretmanager.googleapis.com"
+  - "servicemanagement.googleapis.com"
+  - "serviceusage.googleapis.com"
+  - "storage.googleapis.com"
+
+# Project Configuration Defaults
+project_defaults:
+  # Default GCP admin group that gets project ownership
+  admin_group: "gcp-admins@example.com"
+  
+  # Default billing account ID (should be overridden in credentials or environment)
+  billing_account_id: "${GCP_BILLING_ACCOUNT_ID}"
+  
+  # Default organization ID (should be overridden in credentials or environment)
+  organization_id: "${GCP_ORGANIZATION_ID}"
+  
+  # Default service account name for project ownership
+  project_service_account: "yamlforge-automation"
+  
+  # Default service account key storage path
+  service_account_key_path: "/tmp/yamlforge-keys"
+
+# User Management Configuration
+user_management:
+  # Company/organization domain for automatic ownership privileges
+  # Users with email addresses from this domain automatically get Owner role
+  # This is separate from DNS zone management
+  company_domain: "example.com"
+  
+  # Whether to enable domain-based ownership assignment
+  enable_domain_ownership: true
+
+# DNS Configuration
+dns_config:
+  # Root zone management settings (enabled by default - set to false to disable)
+  root_zone_management: true
+  
+  # Root zone configuration for automatic delegation
+  root_zone:
+    # DNS zone name (without trailing dot)
+    domain: "example.com"
+    
+    # Google Cloud DNS managed zone name (auto-discovered if not specified)
+    # Leave empty to automatically find the zone that manages this domain
+    zone_name: ""
+    
+    # Project ID where root zone is hosted
+    # Defaults to project_id from credentials/gcp.yaml if not specified
+    # Set explicitly only if root zone is in a different project
+    project_id: ""
+    
+    # Whether to automatically create root zone if it doesn't exist
+    auto_create: false
+  
+  # TTL for DNS records
+  default_ttl: 300
+  
+  # TTL specifically for NS delegation records
+  delegation_ttl: 86400
+  
+  # Subdomain naming pattern
+  subdomain_pattern: "{guid}.{root_domain}" 

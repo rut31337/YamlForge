@@ -1,0 +1,267 @@
+# Azure VM Size Mappings for OpenShift
+# Maps OpenShift cluster sizes to Azure VM sizes
+# Optimized for OpenShift control plane and worker node requirements
+
+flavor_mappings:
+  # OpenShift Master/Control Plane Sizes
+  master_small:
+    Standard_D2s_v3:
+      vcpus: 2
+      memory_gb: 8
+      cost_factor: 1.0
+      hourly_cost: 0.096
+      storage_gb: 16
+      use_case: "Development/Testing control plane"
+      storage_type: "Premium SSD"
+    
+  master_medium:
+    Standard_D4s_v3:
+      vcpus: 4
+      memory_gb: 16
+      cost_factor: 2.0
+      hourly_cost: 0.192
+      storage_gb: 32
+      use_case: "Production control plane - small to medium clusters"
+      storage_type: "Premium SSD"
+    
+  master_large:
+    Standard_D8s_v3:
+      vcpus: 8
+      memory_gb: 32
+      cost_factor: 4.0
+      hourly_cost: 0.384
+      storage_gb: 64
+      use_case: "Production control plane - large clusters"
+      storage_type: "Premium SSD"
+
+  # OpenShift Worker Node Sizes  
+  worker_micro:
+    Standard_D2s_v3:
+      vcpus: 2
+      memory_gb: 8
+      cost_factor: 1.0
+      hourly_cost: 0.096
+      storage_gb: 32
+      use_case: "Development/Testing workloads"
+      storage_type: "Premium SSD"
+      
+  worker_small:
+    Standard_D4s_v3:
+      vcpus: 4
+      memory_gb: 16
+      cost_factor: 2.0
+      hourly_cost: 0.192
+      storage_gb: 64
+      use_case: "Light production workloads"
+      storage_type: "Premium SSD"
+      
+  worker_medium:
+    Standard_D8s_v3:
+      vcpus: 8
+      memory_gb: 32
+      cost_factor: 4.0
+      hourly_cost: 0.384
+      storage_gb: 128
+      use_case: "Standard production workloads"
+      storage_type: "Premium SSD"
+      
+  worker_large:
+    Standard_D16s_v3:
+      vcpus: 16
+      memory_gb: 64
+      cost_factor: 8.0
+      hourly_cost: 0.768
+      storage_gb: 256
+      use_case: "Heavy production workloads"
+      storage_type: "Premium SSD"
+      
+  worker_xlarge:
+    Standard_D32s_v3:
+      vcpus: 32
+      memory_gb: 128
+      cost_factor: 16.0
+      hourly_cost: 1.536
+      storage_gb: 512
+      use_case: "Very heavy production workloads"
+      storage_type: "Premium SSD"
+
+  # Compute-Optimized for CPU-intensive workloads
+  compute_medium:
+    Standard_F8s_v2:
+      vcpus: 8
+      memory_gb: 16
+      cost_factor: 3.5
+      hourly_cost: 0.338
+      storage_gb: 64
+      use_case: "CPU-intensive applications"
+      storage_type: "Premium SSD"
+      
+  compute_large:
+    Standard_F16s_v2:
+      vcpus: 16
+      memory_gb: 32
+      cost_factor: 7.0
+      hourly_cost: 0.676
+      storage_gb: 128
+      use_case: "High-performance computing"
+      storage_type: "Premium SSD"
+
+  # Memory-Optimized for memory-intensive workloads
+  memory_medium:
+    Standard_E8s_v3:
+      vcpus: 8
+      memory_gb: 64
+      cost_factor: 5.0
+      hourly_cost: 0.504
+      storage_gb: 128
+      use_case: "Memory-intensive applications"
+      storage_type: "Premium SSD"
+      
+  memory_large:
+    Standard_E16s_v3:
+      vcpus: 16
+      memory_gb: 128
+      cost_factor: 10.0
+      hourly_cost: 1.008
+      storage_gb: 256
+      use_case: "Large memory-intensive applications"
+      storage_type: "Premium SSD"
+
+  # GPU instances for AI/ML workloads
+  gpu_small:
+    Standard_NC6s_v3:
+      vcpus: 6
+      memory_gb: 112
+      gpu_count: 1
+      gpu_type: "NVIDIA Tesla V100"
+      cost_factor: 25.0
+      hourly_cost: 3.06
+      storage_gb: 736
+      use_case: "ML inference and light training"
+      storage_type: "Premium SSD"
+      
+  gpu_medium:
+    Standard_NC12s_v3:
+      vcpus: 12
+      memory_gb: 224
+      gpu_count: 2
+      gpu_type: "NVIDIA Tesla V100"
+      cost_factor: 50.0
+      hourly_cost: 6.12
+      storage_gb: 1472
+      use_case: "ML training and inference"
+      storage_type: "Premium SSD"
+
+  # HyperShift specific defaults
+  hypershift_worker:
+    Standard_D2s_v3:
+      vcpus: 2
+      memory_gb: 8
+      cost_factor: 1.0
+      hourly_cost: 0.096
+      storage_gb: 32
+      use_case: "HyperShift worker nodes"
+      storage_type: "Premium SSD"
+
+# Default mappings for abstract sizes
+size_mappings:
+  # Control plane defaults
+  small_master: "master_small"
+  medium_master: "master_medium" 
+  large_master: "master_large"
+  
+  # Worker node defaults
+  micro: "worker_micro"
+  small: "worker_small"
+  medium: "worker_medium"
+  large: "worker_large"
+  xlarge: "worker_xlarge"
+  
+  # Specialized workloads
+  compute: "compute_medium"
+  memory: "memory_medium"
+  gpu: "gpu_small"
+
+# OpenShift cluster size configurations
+cluster_sizes:
+  micro:
+    master_count: 1
+    master_size: "master_small"
+    worker_count: 1
+    worker_size: "worker_micro"
+    total_cost_factor: 2.0
+    use_case: "Development/Testing - single node"
+    
+  small:
+    master_count: 3
+    master_size: "master_small"
+    worker_count: 2
+    worker_size: "worker_small"
+    total_cost_factor: 7.0
+    use_case: "Small production workloads"
+    
+  medium:
+    master_count: 3
+    master_size: "master_medium"
+    worker_count: 3
+    worker_size: "worker_medium"
+    total_cost_factor: 18.0
+    use_case: "Standard production workloads"
+    
+  large:
+    master_count: 3
+    master_size: "master_large"
+    worker_count: 5
+    worker_size: "worker_large"
+    total_cost_factor: 52.0
+    use_case: "Large production workloads"
+    
+  xlarge:
+    master_count: 3
+    master_size: "master_large"
+    worker_count: 8
+    worker_size: "worker_xlarge"
+    total_cost_factor: 140.0
+    use_case: "Very large production workloads"
+
+# Provider-specific settings
+provider_settings:
+  region_defaults:
+    primary: "eastus"
+    secondary: "westus2"
+    
+  availability_zones:
+    min_az: 3
+    preferred_az: ["1", "2", "3"]
+    
+  storage:
+    default_type: "Premium_LRS"
+    managed_disk: true
+    
+  networking:
+    accelerated_networking_supported:
+      - "Standard_D2s_v3"
+      - "Standard_D4s_v3" 
+      - "Standard_D8s_v3"
+      - "Standard_D16s_v3"
+      - "Standard_D32s_v3"
+      - "Standard_F8s_v2"
+      - "Standard_F16s_v2"
+      - "Standard_E8s_v3"
+      - "Standard_E16s_v3"
+      
+  aro_supported_sizes:
+    masters:
+      - "Standard_D4s_v3"
+      - "Standard_D8s_v3"
+      - "Standard_D16s_v3"
+    workers:
+      - "Standard_D2s_v3"
+      - "Standard_D4s_v3"
+      - "Standard_D8s_v3"
+      - "Standard_D16s_v3"
+      - "Standard_D32s_v3"
+      - "Standard_F8s_v2"
+      - "Standard_F16s_v2"
+      - "Standard_E8s_v3"
+      - "Standard_E16s_v3" 

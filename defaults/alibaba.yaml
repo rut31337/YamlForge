@@ -1,0 +1,112 @@
+# Alibaba Cloud Default Configuration
+# Used when specific credentials or configurations are not available
+
+# Default regions and zones
+default_region: "cn-hangzhou"
+default_zones:
+  cn-hangzhou:
+    - "cn-hangzhou-a"
+    - "cn-hangzhou-b"
+    - "cn-hangzhou-c"
+  cn-shanghai:
+    - "cn-shanghai-a"
+    - "cn-shanghai-b"
+    - "cn-shanghai-c"
+  cn-beijing:
+    - "cn-beijing-a"
+    - "cn-beijing-b"
+    - "cn-beijing-c"
+
+# Default instance types
+default_instance_types:
+  micro:
+    type: "ecs.t6-c1m1.large"
+    cpu: 1
+    memory_gb: 1
+  small:
+    type: "ecs.t6-c1m2.large"
+    cpu: 1
+    memory_gb: 2
+  medium:
+    type: "ecs.t6-c2m4.large"
+    cpu: 2
+    memory_gb: 4
+  large:
+    type: "ecs.t6-c4m8.large"
+    cpu: 4
+    memory_gb: 8
+  xlarge:
+    type: "ecs.t6-c8m16.large"
+    cpu: 8
+    memory_gb: 16
+
+# Default image patterns
+default_images:
+  alibaba_linux_3: "aliyun_3_x64_20G_alibase_20230727.vhd"
+  centos_7: "centos_7_9_x64_20G_alibase_20220824.vhd"
+  centos_8: "centos_8_4_x64_20G_alibase_20220824.vhd"
+  rhel_8: "rhel_8_5_x64_20G_alibase_20211230.vhd"
+  rhel_9: "rhel_9_0_x64_20G_alibase_20220629.vhd"
+  ubuntu_20_04: "ubuntu_20_04_x64_20G_alibase_20220824.vhd"
+  ubuntu_22_04: "ubuntu_22_04_x64_20G_alibase_20220824.vhd"
+
+# Network configuration defaults
+network_defaults:
+  vpc_cidr: "10.0.0.0/16"
+  vswitch_cidr: "10.0.1.0/24"
+  internet_bandwidth: 10
+  internet_charge_type: "PayByTraffic"
+  
+# Storage defaults
+storage_defaults:
+  system_disk_category: "cloud_essd"
+  system_disk_size: 40
+  data_disk_category: "cloud_essd"
+  data_disk_size: 100
+
+# Security defaults
+security_defaults:
+  allow_ssh: true
+  ssh_port: 22
+  allow_http: true
+  allow_https: true
+  default_rule_priority: 1
+
+# Instance defaults
+instance_defaults:
+  charge_type: "PostPaid"
+  security_enhancement_strategy: "Active"
+  deletion_protection: false
+
+# Load balancer defaults  
+load_balancer_defaults:
+  address_type: "internet"
+  load_balancer_spec: "slb.s1.small"
+  bandwidth: 10
+  
+# EIP defaults
+eip_defaults:
+  bandwidth: 10
+  internet_charge_type: "PayByTraffic"
+  payment_type: "PayAsYouGo"
+  isp: "BGP"
+
+# Auto scaling defaults
+auto_scaling_defaults:
+  min_size: 1
+  max_size: 10
+  default_cooldown: 300
+  removal_policy: "OldestInstance"
+
+# Alibaba Cloud-specific features
+features:
+  enable_monitoring: true
+  enable_log_service: false
+  enable_auto_snapshot: false
+  enable_security_group_rules: true
+  
+# Resource naming defaults
+naming_defaults:
+  prefix: "yamlforge"
+  environment_tag: true
+  auto_suffix: true 

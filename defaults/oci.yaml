@@ -1,0 +1,72 @@
+# Oracle Cloud Infrastructure (OCI) Default Configuration
+# Used when specific credentials or configurations are not available
+
+# Default regions and availability domains
+default_region: "us-ashburn-1"
+availability_domains:
+  us-ashburn-1:
+    - "us-ashburn-1-AD-1"
+    - "us-ashburn-1-AD-2" 
+    - "us-ashburn-1-AD-3"
+  us-phoenix-1:
+    - "us-phoenix-1-AD-1"
+    - "us-phoenix-1-AD-2"
+    - "us-phoenix-1-AD-3"
+
+# Default compartment configuration
+default_compartment: "root"
+
+# Default shape configurations
+default_shapes:
+  micro:
+    shape: "VM.Standard.E3.Flex"
+    ocpus: 1
+    memory_gb: 8
+  small:
+    shape: "VM.Standard.E4.Flex"
+    ocpus: 2
+    memory_gb: 16
+  medium:
+    shape: "VM.Standard.E4.Flex"
+    ocpus: 4
+    memory_gb: 32
+  large:
+    shape: "VM.Standard.E4.Flex"
+    ocpus: 8
+    memory_gb: 64
+
+# Default image patterns
+default_images:
+  oracle_linux_8: "Oracle-Linux-8.8-2023.08.31-0"
+  oracle_linux_9: "Oracle-Linux-9.2-2023.08.31-0"
+  rhel_8: "Red-Hat-Enterprise-Linux-8-2023.08.31-0"
+  rhel_9: "Red-Hat-Enterprise-Linux-9-2023.08.31-0"
+  ubuntu_20_04: "Canonical-Ubuntu-20.04-2023.08.31-0"
+  ubuntu_22_04: "Canonical-Ubuntu-22.04-2023.08.31-0"
+
+# Network configuration defaults
+network_defaults:
+  vcn_cidr: "10.0.0.0/16"
+  subnet_cidr: "10.0.1.0/24"
+  internet_gateway: true
+  nat_gateway: false
+
+# Storage defaults
+storage_defaults:
+  boot_volume_size_gb: 50
+  boot_volume_type: "cloud_essd"
+  backup_policy: "bronze"
+
+# Security defaults
+security_defaults:
+  allow_ssh: true
+  ssh_port: 22
+  allow_http: true
+  allow_https: true
+
+# OCI-specific features
+features:
+  use_flexible_shapes: true
+  enable_monitoring: true
+  enable_logging: false
+  auto_backup: false 

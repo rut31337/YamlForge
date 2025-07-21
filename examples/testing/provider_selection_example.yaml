@@ -1,0 +1,36 @@
+---
+# Provider Selection Example
+# Demonstrates selective cloud provider usage (AWS-only deployment)
+
+yamlforge:
+  cloud_workspace:
+    name: "aws-only-deployment"
+    description: "Single-cloud AWS deployment workspace"
+    tags:
+      guid: "aod-2024-001"
+
+  instances:
+    # Only AWS instances - will generate AWS-specific Terraform only
+    - name: "aws-web-server-1"
+      provider: "aws"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      
+    - name: "aws-web-server-2"
+      provider: "aws"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "us-west-2"
+      
+    - name: "aws-database-server"
+      provider: "aws"
+      size: "large"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+
+  # Global configuration
+  tags:
+    deployment_type: "single_cloud"
+    provider: "aws_only"
+    environment: "production" 

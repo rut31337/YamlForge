@@ -1,0 +1,79 @@
+# OpenShift Serverless Operator Default Configuration
+# Knative Serving and Eventing configuration
+
+# Subscription configuration
+subscription:
+  channel: "stable"
+  name: "serverless-operator"
+  source: "redhat-operators"
+  sourceNamespace: "openshift-marketplace"
+  installPlanApproval: "Automatic"
+
+# Default configuration values
+defaults:
+  name: "openshift-serverless"
+  enable_serving: true
+  enable_eventing: true
+  enable_kafka: false
+  serving_namespace: "knative-serving"
+  eventing_namespace: "knative-eventing"
+  
+  # Knative Serving defaults
+  domain_mapping: true
+  auto_tls: false
+  scale_to_zero_grace_period: "30s"
+  ingress_class: "kourier.ingress.networking.knative.dev"
+
+# Knative Serving configuration
+serving:
+  config:
+    autoscaler:
+      scale-to-zero-grace-period: "30s"
+      stable-window: "60s"
+      panic-window: "6s"
+      target-concurrency-per-pod: "100"
+    defaults:
+      revision-timeout-seconds: "300"
+    deployment:
+      registriesSkippingTagResolving: "kind.local,ko.local,dev.local"
+    domain:
+      # Domain configuration will be added by applications
+    features:
+      kubernetes.podspec-fieldref: "enabled"
+      kubernetes.podspec-volumes-emptydir: "enabled"
+    gc:
+      stale-revision-create-delay: "24h"
+      stale-revision-timeout: "15h"
+    logging:
+      loglevel.controller: "info"
+      loglevel.autoscaler: "info"
+    observability:
+      metrics.backend-destination: "prometheus"
+    tracing:
+      backend: "none"
+      zipkin-endpoint: ""
+
+# Knative Eventing configuration
+eventing:
+  config:
+    br-default-channel:
+      channelTemplateSpec: |
+        apiVersion: messaging.knative.dev/v1
+        kind: InMemoryChannel
+    features:
+      kreference-group: "enabled"
+    leaderelection:
+      lease-duration: "60s"
+      renew-deadline: "40s"
+      retry-period: "10s"
+    logging:
+      loglevel.controller: "info"
+    observability:
+      metrics.backend-destination: "prometheus"
+
+# Kafka configuration (when enabled)
+kafka:
+  bootstrap_servers: "my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+
+# Example services (empty by default)
+example_services: [] 

@@ -1,0 +1,55 @@
+---
+# Cloud-Agnostic Workspace Example
+# Demonstrates unified workspace organization across all cloud providers
+
+yamlforge:
+  # Cloud-agnostic workspace organization
+  # Maps to each cloud's native resource grouping concept:
+  # - Azure: Resource Groups  
+  # - GCP: Projects (creates new projects dynamically)
+  # - IBM Cloud: Resource Groups
+  # - AWS: Organization tagging
+  cloud_workspace:
+    name: "enterprise-web-platform"
+    description: "Production web platform with multi-cloud deployment"
+    tags:
+      guid: "ewp-prod-2024-001"
+      cost_center: "engineering"
+      environment: "production"
+      owner: "platform-team"
+      compliance: "sox"
+
+  instances:
+    # AWS instance - will use common_tags from workspace organization
+    - name: "aws-web-server"
+      provider: "aws"
+      size: "small"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      
+    # Azure instance - will use Azure Resource Group: "enterprise-web-platform"  
+    - name: "azure-web-server"
+      provider: "azure"
+      size: "small"
+      image: "RHEL9-latest"
+      region: "eastus"
+      
+    # GCP instance - maps to GCP Project organization
+    - name: "gcp-web-server"
+      provider: "gcp"
+      size: "small"
+      image: "RHEL9-latest"
+      region: "us-central1"
+      
+    # IBM Cloud instance - will use IBM Resource Group: "enterprise-web-platform"
+    - name: "ibm-web-server"
+      provider: "ibm"
+      size: "small"
+      image: "RHEL9-latest"
+      region: "us-south"
+
+  # Global tags applied to all instances
+  tags:
+    application: "web-platform"
+    tier: "production"
+    monitoring: "enabled" 

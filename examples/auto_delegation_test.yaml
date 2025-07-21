@@ -1,0 +1,49 @@
+yamlforge:
+  cloud_workspace:
+    name: "auto-dns-lab"
+    description: "Lab with Automatic DNS Delegation"
+
+  # User management configuration
+  users:
+    - email: "admin@example.com"
+      roles: ["roles/editor"]
+      display_name: "Lab Administrator"
+      
+    - email: "user1@external.edu"
+      roles: ["roles/viewer", "roles/compute.instanceAdmin"]
+      display_name: "External User One"
+
+  instances:
+    - name: "web-server"
+      provider: "gcp"
+      size: "medium"
+      region: "us-central1"
+      image: "Ubuntu-22.04"
+      tags:
+        purpose: "web-server"
+        environment: "lab"
+        
+    - name: "database"
+      provider: "gcp"
+      size: "large"
+      region: "us-central1"
+      image: "Ubuntu-22.04"
+      tags:
+        purpose: "database"
+        environment: "lab"
+
+  security_groups:
+    - name: "web-access"
+      description: "Web server access"
+      rules:
+        - from_port: 80
+          to_port: 80
+          protocol: tcp
+          cidr_blocks: ["0.0.0.0/0"]
+          description: "HTTP access"
+          
+        - from_port: 443
+          to_port: 443
+          protocol: tcp
+          cidr_blocks: ["0.0.0.0/0"]
+          description: "HTTPS access" 

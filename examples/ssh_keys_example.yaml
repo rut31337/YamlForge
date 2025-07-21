@@ -1,0 +1,97 @@
+---
+# SSH Keys Configuration Example
+# Demonstrates global SSH key configuration for multi-cloud deployments
+
+yamlforge:
+  cloud_workspace:
+    name: "ssh-keys-demo"
+    description: "SSH keys demonstration workspace"
+  
+  # Global SSH Keys Configuration
+  # SSH keys are now configured globally in YAML instead of Terraform variables
+  ssh_keys:
+    # Simple format: just the public key string
+    default: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7... user@example.com"
+    
+    # Full format: complete configuration
+    admin:
+      public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDJ... admin@company.com"
+      username: "admin"
+      comment: "Administrator access key"
+    
+    # Developer access key with custom username
+    developer:
+      public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDX... dev@company.com"
+      username: "devuser"
+      comment: "Developer access"
+
+  # Security groups for instances
+  security_groups:
+    ssh-access:
+      description: "SSH access from corporate network"
+      rules:
+        - protocol: tcp
+          port: 22
+          source: "10.0.0.0/8"
+    
+    web-access:
+      description: "Web server access"
+      rules:
+        - protocol: tcp
+          port: 80
+          source: "0.0.0.0/0"
+        - protocol: tcp
+          port: 443
+          source: "0.0.0.0/0"
+
+  # Multi-cloud instances with different SSH key configurations
+  instances:
+    # AWS instance using default SSH key
+    - name: "aws-web-server"
+      provider: "aws"
+      region: "us-east-1"
+      size: "medium"
+      image: "RHEL9-latest"
+      security_groups: ["ssh-access", "web-access"]
+      # Uses 'default' SSH key automatically
+    
+    # Azure instance using specific SSH key
+    - name: "azure-database"
+      provider: "azure"
+      region: "eastus"
+      size: "large"
+      image: "RHEL9-latest"
+      security_groups: ["ssh-access"]
+      ssh_key: "admin"  # Explicitly use the 'admin' SSH key
+    
+    # GCP instance using developer SSH key
+    - name: "gcp-api-server"
+      provider: "gcp"
+      region: "us-west1"
+      size: "medium"
+      image: "RHEL9-latest"
+      security_groups: ["ssh-access", "web-access"]
+      ssh_key: "developer"  # Use the 'developer' SSH key
+    
+    # IBM VPC instance using default SSH key
+    - name: "ibm-worker-node"
+      provider: "ibm_vpc"
+      region: "us-south"
+      size: "small"
+      image: "RHEL9-latest"
+      security_groups: ["ssh-access"]
+      # Uses 'default' SSH key automatically
+    
+    # IBM Classic instance with admin SSH key
+    - name: "ibm-classic-backup"
+      provider: "ibm_classic"
+      region: "dal10"
+      size: "medium"
+      image: "RHEL9-latest"
+      ssh_key: "admin"  # Use the 'admin' SSH key
+
+  # Global tags applied to all instances
+  tags:
+    environment: "development"
+    project: "ssh-keys-demo"
+    managed_by: "yamlforge" 

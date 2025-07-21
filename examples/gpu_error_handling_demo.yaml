@@ -1,0 +1,68 @@
+---
+# GPU Error Handling Demonstration
+# Shows clear error messages for GPU flavors on unsupported providers
+
+yamlforge:
+  cloud_workspace:
+    name: "gpu-error-demo"
+    description: "Demonstration of GPU error handling"
+
+  instances:
+    # ❌ This will error - AMD GPU on Azure (not supported)
+    - name: "amd-on-azure-error"
+      provider: "azure"
+      size: "gpu_amd_small"        # AMD only available on AWS
+      region: "eastus"
+      image: "RHEL9-latest"
+      # Expected error: "AMD GPU flavor 'gpu_amd_small' is only available on AWS"
+
+    # ❌ This will error - AMD GPU on GCP (not supported)
+    - name: "amd-on-gcp-error"
+      provider: "gcp"
+      size: "gpu_amd_medium"       # AMD only available on AWS
+      region: "us-central1"
+      image: "RHEL9-latest"
+      # Expected error: "AMD GPU flavor 'gpu_amd_medium' is only available on AWS"
+
+    # ❌ This will error - AMD GPU on IBM VPC (not supported)
+    - name: "amd-on-ibm-error"
+      provider: "ibm_vpc"
+      size: "gpu_amd_small"        # AMD only available on AWS
+      region: "us-south"
+      image: "RHEL9-latest"
+      # Expected error: "AMD GPU flavor 'gpu_amd_small' is only available on AWS"
+
+    # ✅ This works - AMD GPU on AWS (supported)
+    - name: "amd-on-aws-success"
+      provider: "aws"
+      size: "gpu_amd_small"        # AMD available on AWS
+      region: "us-east-1"
+      image: "RHEL9-latest"
+      # Expected: g4ad.xlarge instance type
+
+    # ✅ Alternative solutions that work
+    - name: "t4-on-azure-alternative"
+      provider: "azure"
+      size: "gpu_t4_small"         # Use T4 instead of AMD
+      region: "eastus"
+      image: "RHEL9-latest"
+
+    - name: "cheapest-amd-alternative"
+      provider: "cheapest"
+      cores: 4
+      memory: 16384
+      gpu_count: 1
+      gpu_type: "AMD Radeon Pro V520"  # Use cheapest provider for AMD
+      region: "us-east-1"
+      image: "RHEL9-latest"
+
+    # ✅ Generic GPU alternatives that work everywhere
+    - name: "generic-gpu-small"
+      provider: "azure"
+      size: "gpu_small"            # Generic GPU, works on all providers
+      region: "eastus"
+      image: "RHEL9-latest"
+
+  tags:
+    purpose: "error_handling_demo"
+    gpu_types: "amd_specific_testing" 

@@ -1,0 +1,222 @@
+# OpenShift Default Configuration
+# Default settings for OpenShift cluster deployments across all providers
+
+# Global OpenShift settings
+openshift:
+  # Default OpenShift version
+  version: "4.14.15"
+  
+  # Default cluster sizing
+  sizing:
+    micro:
+      description: "Single node development cluster"
+      masters: 1
+      workers: 1
+      master_size: "medium"
+      worker_size: "medium"
+      
+    small:
+      description: "Small production cluster"
+      masters: 3
+      workers: 2
+      master_size: "large"
+      worker_size: "large"
+      
+    medium:
+      description: "Medium production cluster"
+      masters: 3
+      workers: 3
+      master_size: "large"
+      worker_size: "xlarge"
+      
+    large:
+      description: "Large production cluster"
+      masters: 3
+      workers: 5
+      master_size: "xlarge"
+      worker_size: "xlarge"
+      
+    xlarge:
+      description: "Extra large production cluster"
+      masters: 3
+      workers: 8
+      master_size: "xlarge"
+      worker_size: "2xlarge"
+
+  # Default base networking configuration (can be overridden in input YAML)
+  default_base_networking:
+    # Standard OpenShift networking
+    service_cidr: "172.30.0.0/16"
+    pod_cidr: "10.128.0.0/14"
+    host_prefix: 23
+    
+    # Provider-specific defaults
+    rosa-classic:
+      machine_cidr: "10.0.0.0/16"
+      
+    rosa-hcp:
+      machine_cidr: "10.0.0.0/16"
+      
+    aro:
+      vnet_cidr: "10.1.0.0/16"
+      master_subnet_cidr: "10.1.0.0/24"
+      worker_subnet_cidr: "10.1.1.0/24"
+      
+    openshift-dedicated:
+      machine_cidr: "10.0.0.0/16"
+      
+    self_managed:
+      machine_cidr: "10.2.0.0/16"
+
+  # Default feature settings
+  features:
+    # Security settings
+    private_cluster: false
+    fips_enabled: false
+    encryption_at_rest: true
+    
+    # High availability
+    multi_az: true
+    
+    # Auto-scaling
+    auto_scaling:
+      enabled: false
+      min_factor: 1.0    # min_replicas = replicas * min_factor
+      max_factor: 2.0    # max_replicas = replicas * max_factor
+
+  # Common addons
+  addons:
+    rosa:
+      # Available ROSA addons
+      available:
+        - "cluster-logging-operator"
+        - "aws-load-balancer-operator"
+        - "aws-ebs-csi-driver-operator"
+        - "aws-efs-csi-driver-operator"
+        - "aws-cloudwatch-agent"
+      # Default addons to install
+      default: []
+      
+    aro:
+      # ARO has fewer addon options
+      available: []
+      default: []
+
+  # Default tags/labels
+  tags:
+    Environment: "production"
+    ManagedBy: "yamlforge"
+    Platform: "openshift"
+
+# Provider-specific defaults
+rosa:
+  # AWS regions where ROSA is available
+  supported_regions:
+    - "us-east-1"
+    - "us-east-2"
+    - "us-west-1"
+    - "us-west-2"
+    - "eu-west-1"
+    - "eu-west-2"
+    - "eu-central-1"
+    - "ap-southeast-1"
+    - "ap-southeast-2"
+    - "ap-northeast-1"
+    
+  # Default machine types for ROSA
+  machine_types:
+    small: "m5.large"
+    medium: "m5.xlarge"
+    large: "m5.2xlarge"
+    xlarge: "m5.4xlarge"
+    
+  # ROSA-specific features
+  features:
+    aws_private_link: false
+    
+aro:
+  # Azure regions where ARO is available
+  supported_regions:
+    - "East US"
+    - "East US 2"
+    - "West US 2"
+    - "West Europe"
+    - "North Europe"
+    - "UK South"
+    - "Australia East"
+    
+  # Default VM sizes for ARO
+  vm_sizes:
+    masters:
+      small: "Standard_D8s_v3"
+      medium: "Standard_D8s_v3"
+      large: "Standard_D16s_v3"
+      xlarge: "Standard_D32s_v3"
+    workers:
+      small: "Standard_D4s_v3"
+      medium: "Standard_D8s_v3"
+      large: "Standard_D16s_v3"
+      xlarge: "Standard_D32s_v3"
+      
+  # Default disk sizes
+  disk_sizes:
+    master: 128
+    worker: 128
+
+openshift_dedicated:
+  # Dedicated can run on multiple clouds
+  supported_clouds:
+    - "aws"
+    - "azure"
+    - "gcp"
+    
+  # Support levels
+  support_levels:
+    - "standard"
+    - "premium"
+    
+  # Compliance options
+  compliance:
+    - "SOC2"
+    - "HIPAA"
+    - "PCI-DSS"
+
+self_managed:
+  # Minimum requirements for self-managed OpenShift
+  minimum_requirements:
+    masters:
+      cpu_cores: 4
+      memory_gb: 16
+      disk_gb: 120
+    workers:
+      cpu_cores: 2
+      memory_gb: 8
+      disk_gb: 120
+      
+  # Supported installation methods
+  installation_methods:
+    - "upi"  # User Provisioned Infrastructure
+    - "ipi"  # Installer Provisioned Infrastructure (where supported)
+    
+  # Supported platforms
+  platforms:
+    - "aws"
+    - "azure"
+    - "gcp"
+    - "vmware"
+    - "baremetal"
+
+hypershift:
+  # HyperShift management cluster requirements
+  management_cluster:
+    minimum_workers: 3
+    minimum_size: "large"
+    
+  # Maximum hosted clusters per management cluster
+  max_hosted_clusters: 50
+  
+  # Supported hosting platforms
+  hosting_platforms:
+    - "aws"
+    - "azure"
+    - "kubevirt" 

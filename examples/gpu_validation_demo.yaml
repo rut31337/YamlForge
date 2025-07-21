@@ -1,0 +1,95 @@
+---
+# GPU Type Validation Demonstration
+# Shows comprehensive error handling for invalid GPU types
+
+yamlforge:
+  cloud_workspace:
+    name: "gpu-validation-demo"
+    description: "GPU type validation and error handling demo"
+
+  instances:
+    # ❌ This will error - Unknown GPU type (H100 not in our mappings)
+    - name: "unknown-gpu-h100"
+      provider: "cheapest"
+      cores: 32
+      memory: 131072
+      gpu_count: 2
+      gpu_type: "NVIDIA H100"     # Not available in our mappings
+      region: "us-east-1"
+      image: "RHEL9-latest"
+      # Expected error: Lists all available GPU types
+
+    # ❌ This will error - Completely unknown vendor
+    - name: "unknown-gpu-intel"
+      provider: "cheapest"
+      cores: 8
+      memory: 32768
+      gpu_count: 1
+      gpu_type: "Intel Arc A770"  # Intel GPUs not supported
+      region: "us-west-2"
+      image: "RHEL9-latest"
+      # Expected error: Lists all available GPU types
+
+    # ❌ This will error - Non-existent NVIDIA GPU
+    - name: "unknown-gpu-rtx"
+      provider: "cheapest"
+      cores: 16
+      memory: 65536
+      gpu_count: 1
+      gpu_type: "NVIDIA RTX 4090"  # Gaming GPU not available in cloud
+      region: "eu-west-1"
+      image: "RHEL9-latest"
+      # Expected error: Lists all available GPU types
+
+    # ✅ These work - Valid GPU types
+    - name: "valid-full-name"
+      provider: "cheapest"
+      cores: 8
+      memory: 32768
+      gpu_count: 1
+      gpu_type: "NVIDIA T4"       # Full valid name
+      region: "us-east-1"
+      image: "RHEL9-latest"
+
+    - name: "valid-short-name"
+      provider: "cheapest"
+      cores: 16
+      memory: 65536
+      gpu_count: 1
+      gpu_type: "A100"            # Short valid name
+      region: "us-west-2"
+      image: "RHEL9-latest"
+
+    - name: "valid-amd"
+      provider: "cheapest"
+      cores: 4
+      memory: 16384
+      gpu_count: 1
+      gpu_type: "AMD Radeon Pro V520"  # Valid AMD GPU
+      region: "us-central-1"
+      image: "RHEL9-latest"
+
+    # ✅ Alternative approaches that work
+    - name: "no-gpu-type-specified"
+      provider: "cheapest"
+      cores: 8
+      memory: 32768
+      gpu_count: 1
+      # No gpu_type - finds cheapest GPU regardless of type
+      region: "us-east-1"
+      image: "RHEL9-latest"
+
+    - name: "generic-gpu-size"
+      provider: "azure"
+      size: "gpu_large"           # Use generic GPU size instead
+      region: "eastus"
+      image: "RHEL9-latest"
+
+  tags:
+    purpose: "gpu_validation_demo"
+    test_type: "error_handling"
+
+# Notes for testing:
+# 1. Run with the first 3 instances to see error messages
+# 2. Run with the valid instances to see successful cost analysis  
+# 3. Compare approaches: specific GPU types vs generic sizes vs no constraints 

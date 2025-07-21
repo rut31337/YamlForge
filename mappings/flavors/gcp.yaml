@@ -1,0 +1,307 @@
+# GCP Machine Type Mappings
+# Maps agnosticd abstract sizes to GCP machine types
+# Reference: https://cloud.google.com/compute/docs/machine-types
+
+flavor_mappings:
+  # Micro instances
+  micro:
+    e2-micro:
+      vcpus: 0.25
+      memory_gb: 1
+      cost_factor: 0.1
+      hourly_cost: 0.0084
+
+  # Small instances  
+  small:
+    e2-small:
+      vcpus: 0.5
+      memory_gb: 2
+      cost_factor: 0.2
+      hourly_cost: 0.0168
+    n1-standard-1:
+      vcpus: 1
+      memory_gb: 3.75
+      cost_factor: 0.3
+      hourly_cost: 0.0475
+
+  # Medium instances
+  medium:
+    e2-medium:
+      vcpus: 1
+      memory_gb: 4
+      cost_factor: 0.4
+      hourly_cost: 0.0335
+    n1-standard-2:
+      vcpus: 2
+      memory_gb: 7.5
+      cost_factor: 0.5
+      hourly_cost: 0.095
+    n2-standard-2:
+      vcpus: 2
+      memory_gb: 8
+      cost_factor: 0.5
+      hourly_cost: 0.0947
+
+  # Large instances
+  large:
+    e2-standard-4:
+      vcpus: 4
+      memory_gb: 16
+      cost_factor: 0.8
+      hourly_cost: 0.1340
+    n1-standard-4:
+      vcpus: 4
+      memory_gb: 15
+      cost_factor: 0.9
+      hourly_cost: 0.19
+    n2-standard-4:
+      vcpus: 4
+      memory_gb: 16
+      cost_factor: 0.9
+      hourly_cost: 0.1894
+
+  # XLarge instances
+  xlarge:
+    e2-standard-8:
+      vcpus: 8
+      memory_gb: 32
+      cost_factor: 1.0
+      hourly_cost: 0.268
+    n1-standard-8:
+      vcpus: 8
+      memory_gb: 30
+      cost_factor: 1.1
+      hourly_cost: 0.38
+    n2-standard-8:
+      vcpus: 8
+      memory_gb: 32
+      cost_factor: 1.1
+      hourly_cost: 0.3788
+
+  # 2XLarge instances
+  2xlarge:
+    n1-standard-16:
+      vcpus: 16
+      memory_gb: 60
+      cost_factor: 1.5
+      hourly_cost: 0.76
+    n2-standard-16:
+      vcpus: 16
+      memory_gb: 64
+      cost_factor: 1.5
+      hourly_cost: 0.7576
+    c2-standard-16:
+      vcpus: 16
+      memory_gb: 64
+      cost_factor: 1.6
+      hourly_cost: 0.7907
+
+  # Compute optimized
+  compute_large:
+    c2-standard-4:
+      vcpus: 4
+      memory_gb: 16
+      cost_factor: 1.2
+      hourly_cost: 0.1977
+    c2-standard-8:
+      vcpus: 8
+      memory_gb: 32
+      cost_factor: 1.3
+      hourly_cost: 0.3954
+
+  # Memory optimized
+  memory_large:
+    n1-highmem-4:
+      vcpus: 4
+      memory_gb: 26
+      cost_factor: 1.1
+      hourly_cost: 0.2537
+    n2-highmem-4:
+      vcpus: 4
+      memory_gb: 32
+      cost_factor: 1.2
+      hourly_cost: 0.2485
+    m1-megamem-96:
+      vcpus: 96
+      memory_gb: 1433.6
+      cost_factor: 5.0
+      hourly_cost: 16.4736
+
+  # High performance
+  performance:
+    c2-standard-30:
+      vcpus: 30
+      memory_gb: 120
+      cost_factor: 2.0
+      hourly_cost: 1.4825
+    c2d-standard-32:
+      vcpus: 32
+      memory_gb: 128
+      cost_factor: 2.1
+      hourly_cost: 1.5552
+
+  # GPU instances
+  gpu_small:
+    n1-standard-4-t4:
+      vcpus: 4
+      memory_gb: 15
+      gpu_count: 1
+      gpu_type: "NVIDIA T4"
+      gpu_memory_gb: 16
+      cost_factor: 1.5
+      hourly_cost: 0.35
+
+  gpu_medium:
+    n1-standard-8-t4:
+      vcpus: 8
+      memory_gb: 30
+      gpu_count: 1
+      gpu_type: "NVIDIA T4"
+      gpu_memory_gb: 16
+      cost_factor: 2.0
+      hourly_cost: 0.557
+
+  gpu_large:
+    a2-highgpu-1g:
+      vcpus: 12
+      memory_gb: 85
+      gpu_count: 1
+      gpu_type: "NVIDIA A100"
+      gpu_memory_gb: 40
+      cost_factor: 4.0
+      hourly_cost: 2.933
+
+  gpu_xlarge:
+    a2-highgpu-2g:
+      vcpus: 24
+      memory_gb: 170
+      gpu_count: 2
+      gpu_type: "NVIDIA A100"
+      gpu_memory_gb: 80
+      cost_factor: 8.0
+      hourly_cost: 5.866
+
+  gpu_multi:
+    a2-highgpu-8g:
+      vcpus: 96
+      memory_gb: 680
+      gpu_count: 8
+      gpu_type: "NVIDIA A100"
+      gpu_memory_gb: 320
+      cost_factor: 20.0
+      hourly_cost: 23.464
+
+# Direct machine type mapping (when using cloud-specific flavors)
+machine_types:
+  # E2 series (general purpose, cost-optimized)
+  e2-micro: { vcpus: 0.25, memory_gb: 1, hourly_cost: 0.0084 }
+  e2-small: { vcpus: 0.5, memory_gb: 2, hourly_cost: 0.0168 }
+  e2-medium: { vcpus: 1, memory_gb: 4, hourly_cost: 0.0335 }
+  e2-standard-2: { vcpus: 2, memory_gb: 8, hourly_cost: 0.067 }
+  e2-standard-4: { vcpus: 4, memory_gb: 16, hourly_cost: 0.134 }
+  e2-standard-8: { vcpus: 8, memory_gb: 32, hourly_cost: 0.268 }
+  e2-standard-16: { vcpus: 16, memory_gb: 64, hourly_cost: 0.536 }
+  e2-standard-32: { vcpus: 32, memory_gb: 128, hourly_cost: 1.072 }
+
+  # N1 series (general purpose)
+  n1-standard-1: { vcpus: 1, memory_gb: 3.75, hourly_cost: 0.0475 }
+  n1-standard-2: { vcpus: 2, memory_gb: 7.5, hourly_cost: 0.095 }
+  n1-standard-4: { vcpus: 4, memory_gb: 15, hourly_cost: 0.19 }
+  n1-standard-8: { vcpus: 8, memory_gb: 30, hourly_cost: 0.38 }
+  n1-standard-16: { vcpus: 16, memory_gb: 60, hourly_cost: 0.76 }
+  n1-standard-32: { vcpus: 32, memory_gb: 120, hourly_cost: 1.52 }
+  n1-standard-64: { vcpus: 64, memory_gb: 240, hourly_cost: 3.04 }
+  n1-standard-96: { vcpus: 96, memory_gb: 360, hourly_cost: 4.56 }
+
+  # N1 high memory
+  n1-highmem-2: { vcpus: 2, memory_gb: 13, hourly_cost: 0.1268 }
+  n1-highmem-4: { vcpus: 4, memory_gb: 26, hourly_cost: 0.2537 }
+  n1-highmem-8: { vcpus: 8, memory_gb: 52, hourly_cost: 0.5074 }
+  n1-highmem-16: { vcpus: 16, memory_gb: 104, hourly_cost: 1.0148 }
+  n1-highmem-32: { vcpus: 32, memory_gb: 208, hourly_cost: 2.0296 }
+  n1-highmem-64: { vcpus: 64, memory_gb: 416, hourly_cost: 4.0592 }
+  n1-highmem-96: { vcpus: 96, memory_gb: 624, hourly_cost: 6.0888 }
+
+  # N1 high CPU
+  n1-highcpu-2: { vcpus: 2, memory_gb: 1.8, hourly_cost: 0.0709 }
+  n1-highcpu-4: { vcpus: 4, memory_gb: 3.6, hourly_cost: 0.1418 }
+  n1-highcpu-8: { vcpus: 8, memory_gb: 7.2, hourly_cost: 0.2836 }
+  n1-highcpu-16: { vcpus: 16, memory_gb: 14.4, hourly_cost: 0.5672 }
+  n1-highcpu-32: { vcpus: 32, memory_gb: 28.8, hourly_cost: 1.1344 }
+  n1-highcpu-64: { vcpus: 64, memory_gb: 57.6, hourly_cost: 2.2688 }
+  n1-highcpu-96: { vcpus: 96, memory_gb: 86.4, hourly_cost: 3.4032 }
+
+  # N2 series (general purpose, newer)
+  n2-standard-2: { vcpus: 2, memory_gb: 8, hourly_cost: 0.0947 }
+  n2-standard-4: { vcpus: 4, memory_gb: 16, hourly_cost: 0.1894 }
+  n2-standard-8: { vcpus: 8, memory_gb: 32, hourly_cost: 0.3788 }
+  n2-standard-16: { vcpus: 16, memory_gb: 64, hourly_cost: 0.7576 }
+  n2-standard-32: { vcpus: 32, memory_gb: 128, hourly_cost: 1.5152 }
+  n2-standard-48: { vcpus: 48, memory_gb: 192, hourly_cost: 2.2728 }
+  n2-standard-64: { vcpus: 64, memory_gb: 256, hourly_cost: 3.0304 }
+  n2-standard-80: { vcpus: 80, memory_gb: 320, hourly_cost: 3.788 }
+  n2-standard-128: { vcpus: 128, memory_gb: 512, hourly_cost: 6.0608 }
+
+  # N2 high memory
+  n2-highmem-2: { vcpus: 2, memory_gb: 16, hourly_cost: 0.1242 }
+  n2-highmem-4: { vcpus: 4, memory_gb: 32, hourly_cost: 0.2485 }
+  n2-highmem-8: { vcpus: 8, memory_gb: 64, hourly_cost: 0.497 }
+  n2-highmem-16: { vcpus: 16, memory_gb: 128, hourly_cost: 0.994 }
+  n2-highmem-32: { vcpus: 32, memory_gb: 256, hourly_cost: 1.988 }
+  n2-highmem-48: { vcpus: 48, memory_gb: 384, hourly_cost: 2.982 }
+  n2-highmem-64: { vcpus: 64, memory_gb: 512, hourly_cost: 3.976 }
+  n2-highmem-80: { vcpus: 80, memory_gb: 640, hourly_cost: 4.97 }
+  n2-highmem-128: { vcpus: 128, memory_gb: 864, hourly_cost: 8.4312 }
+
+  # N2 high CPU
+  n2-highcpu-2: { vcpus: 2, memory_gb: 2, hourly_cost: 0.0711 }
+  n2-highcpu-4: { vcpus: 4, memory_gb: 4, hourly_cost: 0.1422 }
+  n2-highcpu-8: { vcpus: 8, memory_gb: 8, hourly_cost: 0.2844 }
+  n2-highcpu-16: { vcpus: 16, memory_gb: 16, hourly_cost: 0.5688 }
+  n2-highcpu-32: { vcpus: 32, memory_gb: 32, hourly_cost: 1.1376 }
+  n2-highcpu-48: { vcpus: 48, memory_gb: 48, hourly_cost: 1.7064 }
+  n2-highcpu-64: { vcpus: 64, memory_gb: 64, hourly_cost: 2.2752 }
+  n2-highcpu-80: { vcpus: 80, memory_gb: 80, hourly_cost: 2.844 }
+
+  # C2 series (compute optimized)
+  c2-standard-4: { vcpus: 4, memory_gb: 16, hourly_cost: 0.1977 }
+  c2-standard-8: { vcpus: 8, memory_gb: 32, hourly_cost: 0.3954 }
+  c2-standard-16: { vcpus: 16, memory_gb: 64, hourly_cost: 0.7907 }
+  c2-standard-30: { vcpus: 30, memory_gb: 120, hourly_cost: 1.4825 }
+  c2-standard-60: { vcpus: 60, memory_gb: 240, hourly_cost: 2.965 }
+
+  # C2D series (AMD compute optimized)
+  c2d-standard-2: { vcpus: 2, memory_gb: 8, hourly_cost: 0.0864 }
+  c2d-standard-4: { vcpus: 4, memory_gb: 16, hourly_cost: 0.1728 }
+  c2d-standard-8: { vcpus: 8, memory_gb: 32, hourly_cost: 0.3456 }
+  c2d-standard-16: { vcpus: 16, memory_gb: 64, hourly_cost: 0.6912 }
+  c2d-standard-32: { vcpus: 32, memory_gb: 128, hourly_cost: 1.3824 }
+  c2d-standard-56: { vcpus: 56, memory_gb: 224, hourly_cost: 2.4192 }
+  c2d-standard-112: { vcpus: 112, memory_gb: 448, hourly_cost: 4.8384 }
+
+  # C2D high memory
+  c2d-highmem-2: { vcpus: 2, memory_gb: 16, hourly_cost: 0.1136 }
+  c2d-highmem-4: { vcpus: 4, memory_gb: 32, hourly_cost: 0.2272 }
+  c2d-highmem-8: { vcpus: 8, memory_gb: 64, hourly_cost: 0.4544 }
+  c2d-highmem-16: { vcpus: 16, memory_gb: 128, hourly_cost: 0.9088 }
+  c2d-highmem-32: { vcpus: 32, memory_gb: 256, hourly_cost: 1.8176 }
+  c2d-highmem-56: { vcpus: 56, memory_gb: 448, hourly_cost: 3.1808 }
+  c2d-highmem-112: { vcpus: 112, memory_gb: 896, hourly_cost: 6.3616 }
+
+  # M1 series (memory optimized)
+  m1-ultramem-40: { vcpus: 40, memory_gb: 961, hourly_cost: 6.8368 }
+  m1-ultramem-80: { vcpus: 80, memory_gb: 1922, hourly_cost: 13.6736 }
+  m1-ultramem-160: { vcpus: 160, memory_gb: 3844, hourly_cost: 27.3472 }
+  m1-megamem-96: { vcpus: 96, memory_gb: 1433.6, hourly_cost: 16.4736 }
+
+  # M2 series (memory optimized, newer)
+  m2-ultramem-208: { vcpus: 208, memory_gb: 5888, hourly_cost: 35.5008 }
+  m2-ultramem-416: { vcpus: 416, memory_gb: 11776, hourly_cost: 71.0016 }
+  m2-megamem-416: { vcpus: 416, memory_gb: 5888, hourly_cost: 47.3344 }
+
+  # A2 series (GPU)
+  a2-highgpu-1g: { vcpus: 12, memory_gb: 85, gpu_count: 1, gpu_type: "NVIDIA A100", gpu_memory_gb: 40, hourly_cost: 2.933 }
+  a2-highgpu-2g: { vcpus: 24, memory_gb: 170, gpu_count: 2, gpu_type: "NVIDIA A100", gpu_memory_gb: 80, hourly_cost: 5.866 }
+  a2-highgpu-4g: { vcpus: 48, memory_gb: 340, gpu_count: 4, gpu_type: "NVIDIA A100", gpu_memory_gb: 160, hourly_cost: 11.732 }
+  a2-highgpu-8g: { vcpus: 96, memory_gb: 680, gpu_count: 8, gpu_type: "NVIDIA A100", gpu_memory_gb: 320, hourly_cost: 23.464 }
+  a2-megagpu-16g: { vcpus: 96, memory_gb: 1360, gpu_count: 16, gpu_type: "NVIDIA A100", gpu_memory_gb: 640, hourly_cost: 46.928 } 

@@ -1,0 +1,208 @@
+# VMware vSphere Virtual Machine Mappings
+# Maps agnosticd abstract sizes to VMware VM configurations
+# Note: VMware pricing is highly variable (on-premises hardware costs)
+# These represent typical resource allocations and estimated costs
+
+flavor_mappings:
+  # Micro instances
+  micro:
+    micro-vm:
+      vcpus: 1
+      memory_gb: 2
+      disk_gb: 20
+      cost_factor: 0.1
+      hourly_cost: 0.0200  # Estimated amortized hardware cost
+      vm_type: "standard"
+
+  # Small instances  
+  small:
+    small-vm:
+      vcpus: 2
+      memory_gb: 4
+      disk_gb: 40
+      cost_factor: 0.2
+      hourly_cost: 0.0400
+      vm_type: "standard"
+
+  # Medium instances
+  medium:
+    medium-vm:
+      vcpus: 4
+      memory_gb: 8
+      disk_gb: 60
+      cost_factor: 0.4
+      hourly_cost: 0.0800
+      vm_type: "standard"
+
+  # Large instances
+  large:
+    large-vm:
+      vcpus: 8
+      memory_gb: 16
+      disk_gb: 80
+      cost_factor: 0.8
+      hourly_cost: 0.1600
+      vm_type: "standard"
+
+  # Extra large instances
+  xlarge:
+    xlarge-vm:
+      vcpus: 16
+      memory_gb: 32
+      disk_gb: 100
+      cost_factor: 1.6
+      hourly_cost: 0.3200
+      vm_type: "standard"
+
+  # High-memory instances
+  memory_large:
+    memory-large-vm:
+      vcpus: 8
+      memory_gb: 32
+      disk_gb: 80
+      cost_factor: 1.0
+      hourly_cost: 0.2000
+      vm_type: "memory-optimized"
+
+  # Compute-optimized instances
+  compute_large:
+    compute-large-vm:
+      vcpus: 16
+      memory_gb: 16
+      disk_gb: 80
+      cost_factor: 1.2
+      hourly_cost: 0.2400
+      vm_type: "compute-optimized"
+
+  # Development/testing instances
+  dev_small:
+    dev-small-vm:
+      vcpus: 1
+      memory_gb: 1
+      disk_gb: 20
+      cost_factor: 0.05
+      hourly_cost: 0.0100
+      vm_type: "development"
+
+  # High-performance workstation
+  workstation:
+    workstation-vm:
+      vcpus: 12
+      memory_gb: 64
+      disk_gb: 500
+      cost_factor: 2.5
+      hourly_cost: 0.5000
+      vm_type: "workstation"
+
+# Machine types for direct specification
+# These represent common VM configurations in vSphere environments
+machine_types:
+  # Standard configurations
+  standard-1cpu-2gb:
+    vcpus: 1
+    memory_gb: 2
+    disk_gb: 20
+    hourly_cost: 0.0200
+
+  standard-2cpu-4gb:
+    vcpus: 2
+    memory_gb: 4
+    disk_gb: 40
+    hourly_cost: 0.0400
+
+  standard-4cpu-8gb:
+    vcpus: 4
+    memory_gb: 8
+    disk_gb: 60
+    hourly_cost: 0.0800
+
+  standard-8cpu-16gb:
+    vcpus: 8
+    memory_gb: 16
+    disk_gb: 80
+    hourly_cost: 0.1600
+
+  # High-memory configurations
+  highmem-4cpu-16gb:
+    vcpus: 4
+    memory_gb: 16
+    disk_gb: 60
+    hourly_cost: 0.1000
+
+  highmem-8cpu-32gb:
+    vcpus: 8
+    memory_gb: 32
+    disk_gb: 80
+    hourly_cost: 0.2000
+
+  # Compute-optimized configurations
+  compute-8cpu-8gb:
+    vcpus: 8
+    memory_gb: 8
+    disk_gb: 60
+    hourly_cost: 0.1200
+
+  compute-16cpu-16gb:
+    vcpus: 16
+    memory_gb: 16
+    disk_gb: 80
+    hourly_cost: 0.2400
+
+  # Development configurations
+  dev-1cpu-1gb:
+    vcpus: 1
+    memory_gb: 1
+    disk_gb: 20
+    hourly_cost: 0.0100
+
+  dev-2cpu-2gb:
+    vcpus: 2
+    memory_gb: 2
+    disk_gb: 30
+    hourly_cost: 0.0200
+
+# Template mappings for common VM templates
+templates:
+  # RHEL templates
+  rhel8-template:
+    description: "Red Hat Enterprise Linux 8"
+    guest_os: "rhel8_64Guest"
+    tools_version: "latest"
+
+  rhel9-template:
+    description: "Red Hat Enterprise Linux 9"
+    guest_os: "rhel9_64Guest"
+    tools_version: "latest"
+
+  # CentOS templates
+  centos7-template:
+    description: "CentOS 7"
+    guest_os: "centos7_64Guest"
+    tools_version: "latest"
+
+  centos8-template:
+    description: "CentOS 8"
+    guest_os: "centos8_64Guest"
+    tools_version: "latest"
+
+  # Ubuntu templates
+  ubuntu2004-template:
+    description: "Ubuntu 20.04 LTS"
+    guest_os: "ubuntu64Guest"
+    tools_version: "latest"
+
+  ubuntu2204-template:
+    description: "Ubuntu 22.04 LTS"
+    guest_os: "ubuntu64Guest"
+    tools_version: "latest"
+
+  # Windows templates
+  windows2019-template:
+    description: "Windows Server 2019"
+    guest_os: "windows2019srv_64Guest"
+    tools_version: "latest"
+
+  windows2022-template:
+    description: "Windows Server 2022"
+    guest_os: "windows2022srvNext_64Guest"
+    tools_version: "latest" 

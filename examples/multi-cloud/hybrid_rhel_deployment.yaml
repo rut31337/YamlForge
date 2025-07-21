@@ -1,0 +1,212 @@
+---
+# Hybrid RHEL Deployment Example
+# Demonstrates enterprise RHEL deployment across multiple cloud providers
+
+yamlforge:
+  cloud_workspace:
+    name: "enterprise-hybrid-rhel"
+    description: "Enterprise hybrid RHEL deployment across multiple clouds"
+    tags:
+      guid: "ehr-2024-001"
+      enterprise: "true"
+      compliance: "sox-pci"
+      environment: "production"
+      dr_enabled: "true"
+
+  instances:
+    # AWS Production Frontend (East Coast)
+    - name: "aws-prod-web-1"
+      provider: "aws"
+      size: "large"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      availability_zone: "us-east-1a"
+      tags:
+        tier: "frontend"
+        environment: "production"
+        provider_role: "primary"
+        
+    - name: "aws-prod-web-2"
+      provider: "aws"
+      size: "large"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      availability_zone: "us-east-1b"
+      tags:
+        tier: "frontend"
+        environment: "production"
+        provider_role: "primary"
+
+    # Azure Application Layer (Central)
+    - name: "azure-prod-app-1"
+      provider: "azure"
+      size: "large"
+      image: "RHEL9-latest"
+      region: "centralus"
+      tags:
+        tier: "application"
+        environment: "production"
+        provider_role: "primary"
+        
+    - name: "azure-prod-app-2"
+      provider: "azure"
+      size: "large"
+      image: "RHEL9-latest"
+      region: "eastus2"
+      tags:
+        tier: "application"
+        environment: "production"
+        provider_role: "secondary"
+
+    # GCP Data Layer (Global Distribution)
+    - name: "gcp-prod-data-1"
+      provider: "gcp"
+      size: "xlarge"
+      image: "RHEL9-latest"
+      region: "us-central1"
+      zone: "us-central1-a"
+      tags:
+        tier: "database"
+        environment: "production"
+        provider_role: "primary"
+        
+    - name: "gcp-prod-data-2"
+      provider: "gcp"
+      size: "xlarge"
+      image: "RHEL9-latest"
+      region: "us-west1"
+      zone: "us-west1-b"
+      tags:
+        tier: "database"
+        environment: "production"
+        provider_role: "replica"
+
+    # IBM Cloud Analytics & AI (Specialized workloads)
+    - name: "ibm-prod-analytics-1"
+      provider: "ibm_vpc"
+      size: "xlarge"
+      image: "RHEL9-latest"
+      region: "us-south"
+      zone: "us-south-1"
+      tags:
+        tier: "analytics"
+        environment: "production"
+        workload: "ai_ml"
+        
+    - name: "ibm-prod-analytics-2"
+      provider: "ibm_vpc"
+      size: "xlarge"
+      image: "RHEL9-latest"
+      region: "us-east"
+      zone: "us-east-1"
+      tags:
+        tier: "analytics"
+        environment: "production"
+        workload: "big_data"
+
+    # Disaster Recovery Instances (Cost-optimized)
+    - name: "aws-dr-web"
+      provider: "aws"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "us-west-2"
+      tags:
+        tier: "frontend"
+        environment: "dr"
+        provider_role: "standby"
+        
+    - name: "azure-dr-app"
+      provider: "azure"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "westus2"
+      tags:
+        tier: "application"
+        environment: "dr"
+        provider_role: "standby"
+
+    # Development Environment (Cost-optimized using cheapest)
+    - name: "dev-frontend"
+      provider: "cheapest"
+      cores: 2
+      memory: 4096
+      image: "RHEL9-latest"
+      tags:
+        tier: "frontend"
+        environment: "development"
+        cost_optimized: "true"
+        
+    - name: "dev-backend"
+      provider: "cheapest"
+      cores: 4
+      memory: 8192
+      image: "RHEL9-latest"
+      tags:
+        tier: "application"
+        environment: "development"
+        cost_optimized: "true"
+
+    # RHEL Gold/BYOS for compliance
+    - name: "aws-gold-compliance"
+      provider: "aws"
+      size: "medium"
+      image: "RHEL9-gold"
+      region: "us-gov-east-1"
+      tags:
+        tier: "compliance"
+        environment: "production"
+        licensing: "byos"
+        compliance_zone: "fedramp"
+
+  # Network configuration for hybrid deployment
+  network:
+    name: "enterprise-hybrid-network"
+    cross_cloud_connectivity: true
+    vpn_gateways:
+      - provider: "aws"
+        region: "us-east-1"
+      - provider: "azure" 
+        region: "centralus"
+      - provider: "gcp"
+        region: "us-central1"
+      - provider: "ibm_vpc"
+        region: "us-south"
+
+  # Security groups for tier-based access
+  security_groups:
+    web-tier:
+      description: "Web tier security group"
+      rules:
+        - protocol: "tcp"
+          port: 80
+          source_ranges: ["0.0.0.0/0"]
+        - protocol: "tcp" 
+          port: 443
+          source_ranges: ["0.0.0.0/0"]
+          
+    app-tier:
+      description: "Application tier security group"
+      rules:
+        - protocol: "tcp"
+          port: 8080
+          source_groups: ["web-tier"]
+        - protocol: "tcp"
+          port: 8443
+          source_groups: ["web-tier"]
+          
+    data-tier:
+      description: "Database tier security group"
+      rules:
+        - protocol: "tcp"
+          port: 5432
+          source_groups: ["app-tier"]
+        - protocol: "tcp"
+          port: 3306
+          source_groups: ["app-tier"]
+
+  tags:
+    architecture: "hybrid_multi_cloud"
+    deployment_pattern: "n_tier"
+    data_classification: "confidential"
+    backup_strategy: "cross_cloud"
+    monitoring: "enterprise" 

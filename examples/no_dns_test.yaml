@@ -1,0 +1,27 @@
+yamlforge:
+  cloud_workspace:
+    name: "no-dns-lab"
+    description: "Lab without DNS management"
+
+  # Explicitly disable DNS management
+  dns_config:
+    root_zone_management: false
+
+  users:
+    - email: "admin@anywhere.com"
+      roles: ["roles/editor"]
+      display_name: "Admin User"
+      
+    - email: "user@example.com"
+      roles: ["roles/viewer"]
+      display_name: "Regular User"
+
+  instances:
+    - name: "simple-server"
+      provider: "gcp"
+      size: "small"
+      region: "us-central1"
+      image: "Ubuntu-22.04"
+      tags:
+        purpose: "simple-server"
+        environment: "test" 

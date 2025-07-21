@@ -1,0 +1,268 @@
+# Alibaba Cloud ECS Instance Type Mappings
+# Maps agnosticd abstract sizes to Alibaba Cloud ECS instance types
+# Reference: https://www.alibabacloud.com/help/en/ecs/user-guide/instance-families
+
+flavor_mappings:
+  # Micro instances
+  micro:
+    ecs.t6-c1m1.large:
+      vcpus: 1
+      memory_gb: 1
+      cost_factor: 0.1
+      hourly_cost: 0.0270
+      instance_family: "t6"
+      instance_category: "burstable"
+    ecs.t5-lc1m1.small:
+      vcpus: 1
+      memory_gb: 0.5
+      cost_factor: 0.08
+      hourly_cost: 0.0216
+      instance_family: "t5"
+      instance_category: "burstable"
+
+  # Small instances  
+  small:
+    ecs.t6-c1m2.large:
+      vcpus: 1
+      memory_gb: 2
+      cost_factor: 0.15
+      hourly_cost: 0.0405
+      instance_family: "t6"
+      instance_category: "burstable"
+    ecs.t6-c2m4.large:
+      vcpus: 2
+      memory_gb: 4
+      cost_factor: 0.2
+      hourly_cost: 0.0540
+      instance_family: "t6"
+      instance_category: "burstable"
+
+  # Medium instances
+  medium:
+    ecs.t6-c2m4.large:
+      vcpus: 2
+      memory_gb: 4
+      cost_factor: 0.25
+      hourly_cost: 0.0675
+      instance_family: "t6"
+      instance_category: "burstable"
+    ecs.c6.large:
+      vcpus: 2
+      memory_gb: 4
+      cost_factor: 0.3
+      hourly_cost: 0.0810
+      instance_family: "c6"
+      instance_category: "compute-optimized"
+
+  # Large instances
+  large:
+    ecs.t6-c4m8.large:
+      vcpus: 4
+      memory_gb: 8
+      cost_factor: 0.5
+      hourly_cost: 0.1350
+      instance_family: "t6"
+      instance_category: "burstable"
+    ecs.c6.xlarge:
+      vcpus: 4
+      memory_gb: 8
+      cost_factor: 0.6
+      hourly_cost: 0.1620
+      instance_family: "c6"
+      instance_category: "compute-optimized"
+
+  # Extra large instances
+  xlarge:
+    ecs.t6-c8m16.large:
+      vcpus: 8
+      memory_gb: 16
+      cost_factor: 1.0
+      hourly_cost: 0.2700
+      instance_family: "t6"
+      instance_category: "burstable"
+    ecs.c6.2xlarge:
+      vcpus: 8
+      memory_gb: 16
+      cost_factor: 1.2
+      hourly_cost: 0.3240
+      instance_family: "c6"
+      instance_category: "compute-optimized"
+
+  # Memory-optimized instances
+  memory_large:
+    ecs.r6.xlarge:
+      vcpus: 4
+      memory_gb: 32
+      cost_factor: 0.8
+      hourly_cost: 0.2160
+      instance_family: "r6"
+      instance_category: "memory-optimized"
+    ecs.r6.2xlarge:
+      vcpus: 8
+      memory_gb: 64
+      cost_factor: 1.6
+      hourly_cost: 0.4320
+      instance_family: "r6"
+      instance_category: "memory-optimized"
+
+  # Compute-optimized instances
+  compute_large:
+    ecs.c6.2xlarge:
+      vcpus: 8
+      memory_gb: 16
+      cost_factor: 1.0
+      hourly_cost: 0.2700
+      instance_family: "c6"
+      instance_category: "compute-optimized"
+    ecs.c6.4xlarge:
+      vcpus: 16
+      memory_gb: 32
+      cost_factor: 2.0
+      hourly_cost: 0.5400
+      instance_family: "c6"
+      instance_category: "compute-optimized"
+
+  # General purpose instances
+  general_large:
+    ecs.g6.xlarge:
+      vcpus: 4
+      memory_gb: 16
+      cost_factor: 0.7
+      hourly_cost: 0.1890
+      instance_family: "g6"
+      instance_category: "general-purpose"
+    ecs.g6.2xlarge:
+      vcpus: 8
+      memory_gb: 32
+      cost_factor: 1.4
+      hourly_cost: 0.3780
+      instance_family: "g6"
+      instance_category: "general-purpose"
+
+  # GPU instances
+  gpu_small:
+    ecs.gn6i-c4g1.xlarge:
+      vcpus: 4
+      memory_gb: 15
+      cost_factor: 2.5
+      hourly_cost: 0.6750
+      instance_family: "gn6i"
+      instance_category: "gpu"
+      gpu_count: 1
+      gpu_type: "NVIDIA T4"
+      gpu_memory_gb: 16
+
+  gpu_medium:
+    ecs.gn6v-c8g1.2xlarge:
+      vcpus: 8
+      memory_gb: 32
+      cost_factor: 4.0
+      hourly_cost: 1.0800
+      instance_family: "gn6v"
+      instance_category: "gpu"
+      gpu_count: 1
+      gpu_type: "NVIDIA V100"
+      gpu_memory_gb: 32
+
+# Machine types for direct specification
+machine_types:
+  # Burstable performance instances (t6 family)
+  ecs.t6-c1m1.large:
+    vcpus: 1
+    memory_gb: 1
+    hourly_cost: 0.0270
+
+  ecs.t6-c1m2.large:
+    vcpus: 1
+    memory_gb: 2
+    hourly_cost: 0.0405
+
+  ecs.t6-c2m4.large:
+    vcpus: 2
+    memory_gb: 4
+    hourly_cost: 0.0675
+
+  ecs.t6-c4m8.large:
+    vcpus: 4
+    memory_gb: 8
+    hourly_cost: 0.1350
+
+  ecs.t6-c8m16.large:
+    vcpus: 8
+    memory_gb: 16
+    hourly_cost: 0.2700
+
+  # Compute optimized instances (c6 family)
+  ecs.c6.large:
+    vcpus: 2
+    memory_gb: 4
+    hourly_cost: 0.0810
+
+  ecs.c6.xlarge:
+    vcpus: 4
+    memory_gb: 8
+    hourly_cost: 0.1620
+
+  ecs.c6.2xlarge:
+    vcpus: 8
+    memory_gb: 16
+    hourly_cost: 0.3240
+
+  ecs.c6.4xlarge:
+    vcpus: 16
+    memory_gb: 32
+    hourly_cost: 0.6480
+
+  # Memory optimized instances (r6 family)
+  ecs.r6.large:
+    vcpus: 2
+    memory_gb: 16
+    hourly_cost: 0.1080
+
+  ecs.r6.xlarge:
+    vcpus: 4
+    memory_gb: 32
+    hourly_cost: 0.2160
+
+  ecs.r6.2xlarge:
+    vcpus: 8
+    memory_gb: 64
+    hourly_cost: 0.4320
+
+  # General purpose instances (g6 family)
+  ecs.g6.large:
+    vcpus: 2
+    memory_gb: 8
+    hourly_cost: 0.0945
+
+  ecs.g6.xlarge:
+    vcpus: 4
+    memory_gb: 16
+    hourly_cost: 0.1890
+
+  ecs.g6.2xlarge:
+    vcpus: 8
+    memory_gb: 32
+    hourly_cost: 0.3780
+
+  # GPU instances
+  ecs.gn6i-c4g1.xlarge:
+    vcpus: 4
+    memory_gb: 15
+    hourly_cost: 0.6750
+    gpu_count: 1
+    gpu_type: "NVIDIA T4"
+
+  ecs.gn6v-c8g1.2xlarge:
+    vcpus: 8
+    memory_gb: 32
+    hourly_cost: 1.0800
+    gpu_count: 1
+    gpu_type: "NVIDIA V100"
+
+  ecs.gn7i-c32g1.8xlarge:
+    vcpus: 32
+    memory_gb: 188
+    hourly_cost: 2.7000
+    gpu_count: 1
+    gpu_type: "NVIDIA A10" 

@@ -1,0 +1,143 @@
+---
+# IBM VPC Infrastructure Example
+# Demonstrates comprehensive IBM Cloud VPC deployment with networking
+
+yamlforge:
+  cloud_workspace:
+    name: "ibm-vpc-comprehensive"
+    description: "IBM VPC comprehensive deployment example"
+
+  # VPC networking configuration
+  network:
+    name: "ibm-vpc-network"
+    cidr: "10.240.0.0/16"
+    
+  subnets:
+    web-subnet:
+      cidr: "10.240.1.0/24"
+      zone: "us-south-1"
+      description: "Web tier subnet"
+      
+    app-subnet:
+      cidr: "10.240.2.0/24"
+      zone: "us-south-2"
+      description: "Application tier subnet"
+      
+    data-subnet:
+      cidr: "10.240.3.0/24"
+      zone: "us-south-3"
+      description: "Database tier subnet"
+
+  instances:
+    # Web tier instances
+    - name: "ibm-web-server-1"
+      provider: "ibm_vpc"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "us-south"
+      zone: "us-south-1"
+      subnet: "web-subnet"
+      security_groups:
+        - "web-sg"
+      
+    - name: "ibm-web-server-2"
+      provider: "ibm_vpc"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "us-south"
+      zone: "us-south-2"
+      subnet: "web-subnet"
+      security_groups:
+        - "web-sg"
+
+    # Application tier instances
+    - name: "ibm-app-server-1"
+      provider: "ibm_vpc"
+      size: "large"
+      image: "RHEL9-latest"
+      region: "us-south"
+      zone: "us-south-2"
+      subnet: "app-subnet"
+      security_groups:
+        - "app-sg"
+      
+    - name: "ibm-app-server-2"
+      provider: "ibm_vpc"
+      size: "large"
+      image: "RHEL9-latest"
+      region: "us-south"
+      zone: "us-south-3"
+      subnet: "app-subnet"
+      security_groups:
+        - "app-sg"
+
+    # Database tier instances
+    - name: "ibm-database-primary"
+      provider: "ibm_vpc"
+      cores: 8
+      memory: 32768
+      image: "RHEL9-latest"
+      region: "us-south"
+      zone: "us-south-3"
+      subnet: "data-subnet"
+      security_groups:
+        - "data-sg"
+      
+    - name: "ibm-database-replica"
+      provider: "ibm_vpc"
+      cores: 8
+      memory: 32768
+      image: "RHEL9-latest"
+      region: "us-south"
+      zone: "us-south-1"
+      subnet: "data-subnet"
+      security_groups:
+        - "data-sg"
+
+  # Security groups for different tiers
+  security_groups:
+    web-sg:
+      description: "Web tier security group"
+      rules:
+        - protocol: "tcp"
+          port: 80
+          source: "0.0.0.0/0"
+        - protocol: "tcp"
+          port: 443
+          source: "0.0.0.0/0"
+        - protocol: "tcp"
+          port: 22
+          source: "10.240.0.0/16"
+          
+    app-sg:
+      description: "Application tier security group"
+      rules:
+        - protocol: "tcp"
+          port: 8080
+          source: "10.240.1.0/24"  # From web subnet
+        - protocol: "tcp"
+          port: 8443
+          source: "10.240.1.0/24"  # From web subnet
+        - protocol: "tcp"
+          port: 22
+          source: "10.240.0.0/16"
+          
+    data-sg:
+      description: "Database tier security group"
+      rules:
+        - protocol: "tcp"
+          port: 3306
+          source: "10.240.2.0/24"  # From app subnet
+        - protocol: "tcp"
+          port: 5432
+          source: "10.240.2.0/24"  # From app subnet
+        - protocol: "tcp"
+          port: 22
+          source: "10.240.0.0/16"
+
+  tags:
+    cloud_provider: "ibm_vpc"
+    architecture: "three_tier"
+    high_availability: "enabled"
+    multi_zone: "true"
+    environment: "production" 
