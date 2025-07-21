@@ -1,13 +1,16 @@
 """
-YamlForge - Enterprise Multi-Cloud Infrastructure Converter
+YamlForge - Multi-Cloud Infrastructure as Code and PaaS Management Suite
 
-A powerful enterprise-grade tool for converting YAML infrastructure definitions
-to native cloud provider Terraform configurations, supporting AWS, Azure, GCP,
-and IBM Cloud with advanced enterprise features.
+A comprehensive enterprise-grade platform for managing multi-cloud infrastructure
+and Platform-as-a-Service deployments through unified YAML definitions.
+
+Supports all major cloud providers: AWS, Azure, GCP, IBM Cloud, Oracle Cloud,
+Alibaba Cloud, and VMware with advanced OpenShift/Kubernetes PaaS management.
 
 Main Components:
-- Core: Shared functionality and base classes
-- Providers: Cloud-specific implementations for AWS, Azure, GCP, and IBM
+- Core: Shared functionality and base classes  
+- Providers: Cloud-specific implementations for all major cloud platforms
+- OpenShift: Complete PaaS management with operator and application lifecycle
 """
 
 from .core.credentials import CredentialsManager

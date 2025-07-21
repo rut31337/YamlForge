@@ -26,12 +26,12 @@ def read_readme():
 setup(
     name="yamlforge",
     version="0.99.0a1",
-    description="Enterprise Multi-Cloud Infrastructure Converter - Convert unified YAML to provider-specific Terraform",
+    description="Multi-Cloud Infrastructure as Code and PaaS Management Suite",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
     author="YamlForge Team",
     author_email="team@yamlforge.io",
-    url="https://github.com/your-org/yamlforge",
+    url="https://github.com/rut31337/YamlForge",
     license="Apache-2.0",
     
     # Package configuration
@@ -92,5 +92,5 @@ setup(
     ],
     
     # Keywords for discovery
-    keywords="terraform multi-cloud infrastructure yaml converter aws azure gcp openshift",
+    keywords="terraform multi-cloud infrastructure-as-code paas management yaml aws azure gcp openshift kubernetes",
 ) 
