@@ -1,6 +1,12 @@
-# YamlForge - Enterprise Multi-Cloud Infrastructure Converter
+# YamlForge - Multi-Cloud Infrastructure as Code and PaaS Management Suite
 
-A powerful enterprise-grade tool for converting YAML infrastructure definitions to native cloud provider Terraform configurations, supporting AWS, Azure, and GCP with advanced enterprise features.
+> **⚠️ ALPHA SOFTWARE WARNING ⚠️**  
+> **This is v0.99 ALPHA - Work in Progress**  
+> **This software may not work as expected and could break at any time.**  
+> **Use at your own risk. Not recommended for production environments.**  
+> **Features are experimental and subject to major changes.**
+
+A comprehensive enterprise-grade platform for managing multi-cloud infrastructure and Platform-as-a-Service deployments through unified YAML definitions, supporting AWS, Azure, GCP, IBM Cloud, Oracle Cloud, Alibaba Cloud, VMware, and advanced OpenShift/Kubernetes PaaS management.
 
 ## 🚀 Features
 
@@ -28,6 +34,30 @@ A powerful enterprise-grade tool for converting YAML infrastructure definitions 
 - **Red Hat Cloud Access compliance** with proper BYOS image mapping
 - **agnosticd naming compliance** following enterprise best practices
 - **Architecture detection** for x86_64 and ARM64 deployments
+
+## 🔴 Alpha Status & Disclaimer
+
+**YamlForge v0.99 is ALPHA SOFTWARE** - This means:
+
+- ❌ **Not Production Ready** - Do not use in production environments
+- ⚠️ **Breaking Changes Expected** - APIs, configs, and features may change drastically
+- 🐛 **Bugs & Issues** - Expect functionality to be incomplete or broken
+- 📚 **Limited Documentation** - Many features may be undocumented or poorly documented
+- 🧪 **Experimental Features** - Core functionality is still being developed and tested
+- 💥 **No Stability Guarantees** - Updates may completely break existing configurations
+
+### What This Means for You:
+- Use only for **testing, development, and experimentation**
+- Always **backup your work** before updating
+- **Contribute feedback** but don't expect immediate fixes
+- **Monitor the repository** for major changes and updates
+- **Test thoroughly** in safe environments before any real usage
+
+### Getting Support:
+- Issues and bugs are **expected** in alpha software
+- Create GitHub issues for problems, but expect limited support
+- Contributions and pull requests are welcome
+- Join discussions to help shape the final product
 
 ## 🎯 Quick Start
 

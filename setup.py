@@ -26,7 +26,7 @@ def read_readme():
 setup(
     name="yamlforge",
     version="0.99.0a1",
-    description="Multi-Cloud Infrastructure as Code and PaaS Management Suite",
+    description="Multi-Cloud Infrastructure as Code and PaaS Management Suite (ALPHA - Work in Progress)",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
     author="YamlForge Team",
@@ -76,7 +76,7 @@ setup(
     
     # Classifiers for PyPI
     classifiers=[
-        "Development Status :: 4 - Beta",
+        "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "Intended Audience :: System Administrators", 
         "License :: OSI Approved :: Apache Software License",
