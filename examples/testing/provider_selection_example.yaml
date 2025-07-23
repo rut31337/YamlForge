@@ -2,12 +2,13 @@
 # Provider Selection Example
 # Demonstrates selective cloud provider usage (AWS-only deployment)
 
+guid: "aws01"
+
 yamlforge:
   cloud_workspace:
     name: "aws-only-deployment"
     description: "Single-cloud AWS deployment workspace"
     tags:
-      guid: "aod-2024-001"
 
   instances:
     # Only AWS instances - will generate AWS-specific Terraform only

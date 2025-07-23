@@ -7,7 +7,7 @@ yamlforge:
     name: "minimal-gpu-multi-cloud"
     description: "Minimal GPU instances across all supported cloud providers"
     tags:
-      guid: "mgmc-2024-001"
+      guid: "gpu01"
       use_case: "minimal_gpu_demo"
       cost_optimization: "smallest_gpu_instances"
 

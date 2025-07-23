@@ -1,0 +1,629 @@
+---
+# AWS OpenShift Comprehensive Example
+# Demonstrates complete OpenShift deployment on AWS using YamlForge
+# Includes ROSA (Classic & HCP), supporting infrastructure, operators, and applications
+
+yamlforge:
+  cloud_workspace:
+    name: "aws-openshift-platform"
+    description: "Complete OpenShift platform deployment on AWS with ROSA, operators, and applications"
+    tags:
+      environment: "production"
+      project: "openshift-platform"
+      owner: "platform-team"
+      cost_center: "infrastructure"
+      guid: "aws01"
+
+  # Supporting AWS Infrastructure
+  # Jump host for cluster management and CI/CD
+  instances:
+    - name: "openshift-jumphost"
+      provider: "aws"
+      size: "medium"                    # t3.medium equivalent
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      availability_zone: "us-east-1a"
+      security_groups: ["management", "ssh"]
+      tags:
+        role: "jumphost"
+        cluster_support: "openshift"
+      user_data_script: |
+        #!/bin/bash
+        # Install OpenShift CLI tools
+        yum update -y
+        yum install -y curl wget git jq unzip
+        
+        # Install OpenShift CLI
+        curl -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz | tar -xz -C /usr/local/bin/
+        chmod +x /usr/local/bin/oc
+        
+        # Install kubectl
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+        
+        # Install AWS CLI v2
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+        unzip awscliv2.zip
+        ./aws/install
+        
+        # Install ROSA CLI
+        curl -L https://mirror.openshift.com/pub/openshift-v4/clients/rosa/latest/rosa-linux.tar.gz | tar -xz -C /usr/local/bin/
+        chmod +x /usr/local/bin/rosa
+        
+        # Install Helm
+        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        
+        # Install Tekton CLI
+        curl -LO https://github.com/tektoncd/cli/releases/latest/download/tkn_$(uname -s)_$(uname -m).tar.gz
+        tar xzf tkn_$(uname -s)_$(uname -m).tar.gz -C /usr/local/bin/ tkn
+
+    # CI/CD Worker Node for build workloads
+    - name: "cicd-worker"
+      provider: "aws"
+      size: "large"                     # c5.xlarge equivalent
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      availability_zone: "us-east-1b"
+      security_groups: ["management", "build"]
+      tags:
+        role: "cicd"
+        workload: "builds"
+      user_data_script: |
+        #!/bin/bash
+        yum update -y
+        yum install -y docker podman buildah skopeo
+        systemctl enable --now docker
+        usermod -aG docker ec2-user
+
+  # OpenShift Clusters
+  openshift_clusters:
+    # Production ROSA HCP (Hosted Control Plane) - Latest and recommended
+    - name: "production-rosa-hcp"
+      type: "rosa-hcp"                 # ROSA with Hosted Control Plane
+      provider: "aws"
+      region: "us-east-1"
+      version: "4.15.0"               # Latest stable version
+      size: "large"                   # Required: large = production-ready sizing
+      
+      # Worker Configuration for HCP (no masters needed)
+      worker_count: 4
+      min_replicas: 3
+      max_replicas: 10
+      
+      # Auto-scaling configuration
+      auto_scaling:
+        enabled: true
+        min_replicas: 3
+        max_replicas: 10
+        
+      # Machine pool configuration
+      machine_pools:
+        - name: "production-workers"
+          replicas: 4
+          min_replicas: 3
+          max_replicas: 10
+          instance_type: "m5.xlarge"   # 4 vCPU, 16GB RAM
+          availability_zones: ["us-east-1a", "us-east-1b", "us-east-1c"]
+        
+      # Networking Configuration
+      networking:
+        machine_cidr: "10.0.0.0/16"
+        service_cidr: "172.30.0.0/16"
+        pod_cidr: "10.128.0.0/14"
+        host_prefix: 23
+        
+      # Security Configuration
+      security:
+        private_cluster: false          # Public endpoints for demo
+        enable_fips: false
+        additional_trust_bundle: |
+          -----BEGIN CERTIFICATE-----
+          # Custom CA certificate if needed
+          -----END CERTIFICATE-----
+          
+      # Add-ons and Features
+      features:
+        monitoring: true
+        logging: true
+        private_link: true
+        multi_az: true
+        
+      tags:
+        environment: "production"
+        cluster_type: "rosa-hcp"
+        criticality: "high"
+
+    # Development ROSA Classic for compatibility testing
+    - name: "development-rosa-classic"
+      type: "rosa-classic"             # Traditional ROSA deployment
+      provider: "aws"
+      region: "us-west-2"
+      version: "4.14.15"              # Stable LTS version
+      size: "medium"                  # Required: medium = development sizing
+      
+      # Worker configuration for Classic ROSA
+      worker_count: 3
+      
+      # Machine pool configuration
+      machine_pools:
+        - name: "dev-workers"
+          replicas: 3
+          instance_type: "m5.large"    # 2 vCPU, 8GB RAM for dev
+          availability_zones: ["us-west-2a", "us-west-2b", "us-west-2c"]
+        
+      networking:
+        machine_cidr: "10.1.0.0/16"
+        
+      features:
+        monitoring: true
+        logging: false                 # Reduce costs for dev
+        
+      tags:
+        environment: "development"
+        cluster_type: "rosa-classic"
+        criticality: "low"
+
+  # OpenShift Operators - Deploy on production cluster
+  openshift_operators:
+    # Core Monitoring Stack
+    - type: "monitoring"
+      name: "cluster-monitoring-stack"
+      target_cluster: "production-rosa-hcp"
+      namespace: "openshift-monitoring"
+      
+      prometheus:
+        retention: "30d"
+        storage_class: "gp3-csi"
+        storage_size: "50Gi"
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "2Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+            
+      grafana:
+        enabled: true
+        storage_size: "10Gi"
+        admin_password: "secure-password-123"
+        
+      alertmanager:
+        storage_size: "10Gi"
+        config: |
+          global:
+            slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+          route:
+            group_by: ['alertname']
+            group_wait: 10s
+            group_interval: 10s
+            repeat_interval: 1h
+            receiver: 'web.hook'
+          receivers:
+          - name: 'web.hook'
+            slack_configs:
+            - channel: '#alerts'
+              title: 'OpenShift Alert'
+
+    # Cluster Logging with OpenShift Logging Operator
+    - type: "logging"
+      name: "cluster-logging-stack"
+      target_cluster: "production-rosa-hcp"
+      namespace: "openshift-logging"
+      
+      log_store:
+        type: "elasticsearch"
+        storage_class: "gp3-csi"
+        storage_size: "200Gi"
+        redundancy_policy: "SingleRedundancy"
+        
+      collection:
+        type: "fluentd"
+        resources:
+          limits:
+            memory: "736Mi"
+          requests:
+            cpu: "100m"
+            memory: "736Mi"
+            
+      visualization:
+        type: "kibana"
+        replicas: 2
+
+    # Red Hat Service Mesh (Istio)
+    - type: "service-mesh"
+      name: "istio-system"
+      target_cluster: "production-rosa-hcp"
+      namespace: "istio-system"
+      
+      control_plane:
+        version: "v2.4"
+        security:
+          data_plane:
+            mtls: true
+        tracing:
+          type: "Jaeger"
+        addons:
+          grafana:
+            enabled: true
+          prometheus:
+            enabled: true
+          kiali:
+            enabled: true
+            
+      gateways:
+        - name: "main-gateway"
+          hosts: ["*.apps.production-rosa-hcp.example.com"]
+          
+    # GitOps with Red Hat OpenShift GitOps (ArgoCD)
+    - type: "gitops"
+      name: "openshift-gitops"
+      target_cluster: "production-rosa-hcp"
+      namespace: "openshift-gitops"
+      
+      repositories:
+        - url: "https://github.com/your-org/openshift-manifests"
+          path: "production/"
+          target_revision: "main"
+        - url: "https://github.com/your-org/helm-charts"
+          path: "charts/"
+          target_revision: "main"
+          
+      applications:
+        - name: "production-apps"
+          source:
+            repo_url: "https://github.com/your-org/openshift-manifests"
+            path: "applications/"
+          destination:
+            server: "https://kubernetes.default.svc"
+            namespace: "production"
+
+    # CI/CD with Red Hat OpenShift Pipelines (Tekton)
+    - type: "pipelines"
+      name: "tekton-pipelines"
+      target_cluster: "production-rosa-hcp"
+      namespace: "openshift-pipelines"
+      
+      triggers:
+        enabled: true
+      chains:
+        enabled: true
+      hub:
+        enabled: true
+
+    # Certificate Management
+    - type: "cert-manager"
+      name: "automated-certificates"
+      target_cluster: "production-rosa-hcp"
+      namespace: "cert-manager"
+      
+      default_issuer_email: "platform-team@company.com"
+      enabled_acme_providers:
+        - "letsencrypt-prod"
+        - "letsencrypt-staging"
+        
+      cluster_issuers:
+        - name: "letsencrypt-prod"
+          acme:
+            server: "https://acme-v02.api.letsencrypt.org/directory"
+            private_key_secret: "letsencrypt-prod"
+            solvers:
+            - http01:
+                ingress:
+                  class: "nginx"
+
+    # Backup and Disaster Recovery with OADP
+    - type: "oadp"
+      name: "cluster-backup"
+      target_cluster: "production-rosa-hcp"
+      namespace: "openshift-adp"
+      
+      backup_locations:
+        - name: "aws-backup"
+          provider: "aws"
+          bucket: "openshift-cluster-backups"
+          region: "us-east-1"
+          
+      volume_snapshot_locations:
+        - name: "aws-snapshots"
+          provider: "aws"
+          region: "us-east-1"
+          
+      backup_schedules:
+        - name: "daily-backup"
+          schedule: "0 1 * * *"  # Daily at 1 AM
+          include_namespaces: ["production", "staging"]
+          ttl: "720h"            # 30 days
+
+    # Advanced Cluster Management
+    - type: "advanced-cluster-management"
+      name: "rhacm"
+      target_cluster: "production-rosa-hcp"
+      namespace: "open-cluster-management"
+      
+      managed_clusters:
+        - name: "development-rosa-classic"
+          auto_import: true
+          
+      policies:
+        - name: "security-policy"
+          categories: ["AC-Access Control"]
+          controls: ["AC-3"]
+          standards: ["NIST-CSF"]
+
+  # Application Deployments
+  openshift_applications:
+    # Frontend Web Application
+    - name: "web-frontend"
+      target_cluster: "production-rosa-hcp"
+      namespace: "production"
+      
+      deployment:
+        replicas: 3
+        strategy:
+          type: "RollingUpdate"
+          rolling_update:
+            max_surge: 1
+            max_unavailable: 1
+            
+        containers:
+          - name: "web"
+            image: "nginx:1.25"
+            ports: [80, 443]
+            resources:
+              requests:
+                cpu: "100m"
+                memory: "128Mi"
+              limits:
+                cpu: "500m"
+                memory: "512Mi"
+                
+        env:
+          API_URL: "https://api.production-rosa-hcp.example.com"
+          ENVIRONMENT: "production"
+          
+      service:
+        type: "ClusterIP"
+        ports:
+          - port: 80
+            target_port: 80
+            
+      route:
+        host: "web.apps.production-rosa-hcp.example.com"
+        tls:
+          termination: "edge"
+          
+      horizontal_pod_autoscaler:
+        min_replicas: 3
+        max_replicas: 10
+        target_cpu_utilization: 70
+
+    # API Backend Service
+    - name: "api-backend"
+      target_cluster: "production-rosa-hcp"
+      namespace: "production"
+      
+      deployment:
+        replicas: 2
+        containers:
+          - name: "api"
+            image: "node:18-alpine"
+            ports: [3000]
+            resources:
+              requests:
+                cpu: "200m"
+                memory: "256Mi"
+              limits:
+                cpu: "1"
+                memory: "1Gi"
+                
+        env:
+          NODE_ENV: "production"
+          DB_HOST: "postgresql.production.svc.cluster.local"
+          
+      service:
+        type: "ClusterIP"
+        ports:
+          - port: 3000
+            target_port: 3000
+
+    # PostgreSQL Database
+    - name: "postgresql-database"
+      target_cluster: "production-rosa-hcp"
+      namespace: "production"
+      
+      deployment:
+        replicas: 1
+        containers:
+          - name: "postgres"
+            image: "postgres:15"
+            ports: [5432]
+            env:
+              POSTGRES_DB: "appdb"
+              POSTGRES_USER: "appuser"
+              POSTGRES_PASSWORD: "secure-db-password"
+              
+        storage:
+          size: "100Gi"
+          storage_class: "gp3-csi"
+          mount_path: "/var/lib/postgresql/data"
+          
+      service:
+        type: "ClusterIP"
+        ports:
+          - port: 5432
+            target_port: 5432
+
+    # Redis Cache
+    - name: "redis-cache"
+      target_cluster: "production-rosa-hcp"
+      namespace: "production"
+      
+      deployment:
+        replicas: 1
+        containers:
+          - name: "redis"
+            image: "redis:7-alpine"
+            ports: [6379]
+            resources:
+              requests:
+                cpu: "100m"
+                memory: "128Mi"
+              limits:
+                cpu: "500m"
+                memory: "512Mi"
+
+  # Day 2 Operations
+  day2_operations:
+    target_cluster: "production-rosa-hcp"
+    
+    # Cluster Upgrade Management
+    upgrades:
+      schedule: "0 2 * * 0"           # Weekly on Sunday at 2 AM
+      channel: "stable-4.15"
+      auto_approve_minor: true
+      auto_approve_patch: true
+      maintenance_window:
+        start: "02:00"
+        duration: "4h"
+        timezone: "UTC"
+        
+    # Backup Policies
+    backup:
+      schedule: "0 1 * * *"           # Daily at 1 AM
+      retention: "30d"
+      include_resources:
+        - "persistentvolumes"
+        - "persistentvolumeclaims"
+        - "secrets"
+        - "configmaps"
+      exclude_namespaces:
+        - "kube-system"
+        - "openshift-*"
+        
+    # Monitoring and Alerting
+    monitoring:
+      alert_manager:
+        slack_webhook: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+        pagerduty_key: "your-pagerduty-integration-key"
+        
+      prometheus:
+        retention: "15d"
+        scrape_interval: "30s"
+        
+      custom_alerts:
+        - name: "HighPodCPUUsage"
+          condition: "avg by (pod) (cpu_usage_percent) > 80"
+          duration: "5m"
+          severity: "warning"
+          
+        - name: "ClusterNodeNotReady"
+          condition: "kube_node_status_condition{condition=\"Ready\",status=\"true\"} == 0"
+          duration: "1m"
+          severity: "critical"
+
+  # Security Configuration
+  security:
+    # Pod Security Standards
+    pod_security:
+      enforce: "restricted"
+      audit: "restricted"
+      warn: "restricted"
+      exemptions:
+        usernames: ["system:serviceaccount:openshift-monitoring:prometheus-k8s"]
+        namespaces: ["openshift-monitoring", "openshift-logging"]
+        
+    # Network Policies
+    network_policies:
+      default_deny: true
+      allow_dns: true
+      custom_policies:
+        - name: "allow-web-to-api"
+          pod_selector:
+            app: "web-frontend"
+          ingress:
+            - from:
+                pod_selector:
+                  app: "api-backend"
+              ports:
+                - port: 80
+                  protocol: "TCP"
+                  
+    # RBAC Configuration
+    rbac:
+      - name: "developers"
+        kind: "Group"
+        permissions: ["get", "list", "watch", "create", "update", "patch"]
+        resources: ["pods", "services", "deployments", "configmaps"]
+        namespaces: ["development", "staging"]
+        
+      - name: "platform-admins"
+        kind: "Group"
+        permissions: ["*"]
+        resources: ["*"]
+        namespaces: ["*"]
+        cluster_role: true
+
+  # Cost Optimization
+  cost_optimization:
+    # Spot Instances for non-critical workloads
+    spot_instances:
+      enabled: true
+      max_price: "0.10"
+      instance_types: ["m5.large", "m5.xlarge", "c5.large"]
+      
+    # Cluster Autoscaling
+    autoscaling:
+      enabled: true
+      min_nodes: 3
+      max_nodes: 20
+      scale_down_delay: "10m"
+      scale_down_threshold: 0.5
+      
+    # Resource Quotas
+    resource_quotas:
+      production:
+        requests.cpu: "10"
+        requests.memory: "20Gi"
+        limits.cpu: "20"
+        limits.memory: "40Gi"
+        persistentvolumeclaims: "10"
+
+  # Networking
+  security_groups:
+    - name: "management"
+      description: "Management access for OpenShift administrators"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "10.0.0.0/8"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "443"
+          source: "0.0.0.0/0"
+          
+    - name: "ssh"
+      description: "SSH access for jump host"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+          
+    - name: "build"
+      description: "Build and CI/CD traffic"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "8080-8090"
+          source: "10.0.0.0/16"
+
+  # Tags applied to all resources
+  tags:
+    project: "openshift-platform"
+    environment: "production"
+    owner: "platform-team"
+    cost_center: "infrastructure"
+    backup: "required"
+    compliance: "required" 

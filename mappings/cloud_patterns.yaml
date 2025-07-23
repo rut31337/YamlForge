@@ -1,6 +1,37 @@
 # Cloud-Specific Flavor Patterns
 # Used to detect if a flavor is cloud-specific vs generic
 
+# Oracle Cloud Infrastructure (OCI)
+oci:
+  # x86_64 instance families
+  x86_patterns:
+    - "VM.Standard"      # Standard instances
+    - "VM.DenseIO"       # Dense I/O instances
+    - "VM.GPU"           # GPU instances
+    - "BM.Standard"      # Bare metal standard
+    - "BM.DenseIO"       # Bare metal dense I/O
+    - "BM.GPU"           # Bare metal GPU
+
+# Alibaba Cloud
+alibaba:
+  # x86_64 instance families
+  x86_patterns:
+    - "ecs.t"            # Burstable instances
+    - "ecs.g"            # General purpose
+    - "ecs.c"            # Compute optimized
+    - "ecs.r"            # Memory optimized
+    - "ecs.i"            # Local SSD
+    - "ecs.d"            # Big data
+    - "ecs.hfc"          # High frequency compute
+    - "ecs.hfg"          # High frequency general
+
+# VMware vSphere
+vmware:
+  # vSphere instance patterns (custom VM sizes)
+  x86_patterns:
+    - "vm-"              # Custom VM prefix
+    - "template-"        # VM template prefix
+
 aws:
   # x86_64 instance families
   x86_patterns:

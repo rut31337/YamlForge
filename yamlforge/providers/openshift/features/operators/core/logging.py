@@ -98,6 +98,7 @@ resource "kubernetes_manifest" "{clean_name}_subscription" {{
 
 # Cluster Logging Instance
 resource "kubernetes_manifest" "{clean_name}_instance" {{
+  count    = var.deploy_day2_operations ? 1 : 0
   manifest = {{
     apiVersion = "logging.coreos.com/v1"
     kind       = "ClusterLogging"

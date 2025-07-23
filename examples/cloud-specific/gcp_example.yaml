@@ -1,13 +1,14 @@
 ---
-# GCP Cloud Example
-# Demonstrates GCP-specific features and configurations
+# GCP-Specific Features Example
+# Demonstrates GCP-specific functionality and configuration
+
+guid: "gcp01"
 
 yamlforge:
   cloud_workspace:
-    name: "gcp-cloud-demo"
+    name: "gcp-specific-demo"
     description: "GCP-specific features demonstration workspace"
     tags:
-      guid: "gcd-2024-001"
 
   instances:
     # Standard GCP instances

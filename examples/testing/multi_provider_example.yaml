@@ -7,7 +7,7 @@ yamlforge:
     name: "multi-cloud-selective"
     description: "Selective multi-cloud deployment workspace"
     tags:
-      guid: "mcs-2024-001"
+      guid: "mlt01"
 
   instances:
     # AWS instances

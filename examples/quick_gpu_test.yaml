@@ -15,7 +15,7 @@ yamlforge:
       memory: 16384
       gpu_count: 1
       region: "us-east-1"
-      image: "RHEL9-latest"
+      image: "RHEL-10-GOLD-latest"
 
     # Find cheapest NVIDIA T4 specifically
     - name: "cheapest-t4"

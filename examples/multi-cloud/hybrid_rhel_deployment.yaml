@@ -7,7 +7,7 @@ yamlforge:
     name: "enterprise-hybrid-rhel"
     description: "Enterprise hybrid RHEL deployment across multiple clouds"
     tags:
-      guid: "ehr-2024-001"
+      guid: "hyb01"
       enterprise: "true"
       compliance: "sox-pci"
       environment: "production"

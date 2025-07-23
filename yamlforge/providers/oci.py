@@ -190,13 +190,36 @@ class OCIProvider:
         # Get SSH key configuration for this instance
         ssh_key_config = self.converter.get_instance_ssh_key(instance, yaml_data or {})
 
+        # Get OCI NSG references with regional awareness
+        oci_nsg_refs = []
+        sg_names = instance.get('security_groups', [])
+        for sg_name in sg_names:
+            clean_sg = sg_name.replace("-", "_").replace(".", "_")
+            clean_region = oci_region.replace("-", "_").replace(".", "_")
+            oci_nsg_refs.append(f"oci_core_network_security_group.{clean_sg}_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id")
+
+        oci_nsg_refs_str = "[" + ", ".join(oci_nsg_refs) + "]" if oci_nsg_refs else "[]"
+
         vm_config = f'''
 # OCI Compute Instance: {instance_name}
-resource "oci_core_instance" "{clean_name}" {{
-  availability_domain = "{availability_domain}"
+resource "oci_core_instance" "{clean_name}_{self.converter.get_validated_guid(yaml_data)}" {{
+  availability_domain = data.oci_identity_availability_domains.default.availability_domains[0].name
   compartment_id      = var.oci_compartment_id
-  display_name        = "{instance_name}"
-  shape               = "{oci_shape}"
+  shape              = "{oci_shape}"
+  
+  create_vnic_details {{
+    subnet_id        = oci_core_subnet.main_subnet_{oci_region.replace("-", "_").replace(".", "_")}_{self.converter.get_validated_guid(yaml_data)}.id
+    display_name     = "{instance_name}-vnic"
+    assign_public_ip = true
+    nsg_ids          = {oci_nsg_refs_str}
+  }}
+
+  source_details {{
+    source_type = "image"
+    source_id   = "{oci_image}"
+  }}
+
+  display_name = "{instance_name}"
 
   # Shape configuration for flexible shapes
   shape_config {{
@@ -265,7 +288,7 @@ data "oci_core_images" "{clean_name}_image" {{
 
         return vm_config
 
-    def generate_oci_networking(self, deployment_name, deployment_config, region):
+    def generate_oci_networking(self, deployment_name, deployment_config, region, yaml_data=None):
         """Generate OCI networking resources for specific region."""
         network_config = deployment_config.get('network', {})
         network_name = network_config.get('name', f"{deployment_name}-vcn")
@@ -275,134 +298,128 @@ data "oci_core_images" "{clean_name}_image" {{
         clean_region = region.replace("-", "_").replace(".", "_")
 
         return f'''
-# OCI Virtual Cloud Network: {network_name} (Region: {region})
-resource "oci_core_vcn" "main_vcn_{clean_region}" {{
-  compartment_id = var.oci_compartment_id
+# OCI VCN: {network_name} (Region: {region})
+resource "oci_core_vcn" "main_vcn_{clean_region}_{self.converter.get_validated_guid(yaml_data)}" {{
   cidr_block     = "{cidr_block}"
+  compartment_id = var.oci_compartment_id
   display_name   = "{network_name}-{region}"
-  dns_label      = "mainvcn{clean_region.lower()}"
-
+  
   freeform_tags = {{
     "Environment" = "agnosticd"
-    "Region"      = "{region}"
+    "ManagedBy" = "yamlforge"
   }}
 }}
 
 # OCI Internet Gateway
-resource "oci_core_internet_gateway" "main_igw_{clean_region}" {{
+resource "oci_core_internet_gateway" "main_igw_{clean_region}_{self.converter.get_validated_guid(yaml_data)}" {{
   compartment_id = var.oci_compartment_id
-  vcn_id         = oci_core_vcn.main_vcn_{clean_region}.id
+  vcn_id         = oci_core_vcn.main_vcn_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id
   display_name   = "{network_name}-igw-{region}"
   enabled        = true
-
+  
   freeform_tags = {{
     "Environment" = "agnosticd"
-    "Region"      = "{region}"
+    "ManagedBy" = "yamlforge"
   }}
 }}
 
 # OCI Route Table
-resource "oci_core_route_table" "main_rt_{clean_region}" {{
+resource "oci_core_route_table" "main_rt_{clean_region}_{self.converter.get_validated_guid(yaml_data)}" {{
   compartment_id = var.oci_compartment_id
-  vcn_id         = oci_core_vcn.main_vcn_{clean_region}.id
+  vcn_id         = oci_core_vcn.main_vcn_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id
   display_name   = "{network_name}-rt-{region}"
-
+  
   route_rules {{
     destination       = "0.0.0.0/0"
     destination_type  = "CIDR_BLOCK"
-    network_entity_id = oci_core_internet_gateway.main_igw_{clean_region}.id
+    network_entity_id = oci_core_internet_gateway.main_igw_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id
   }}
-
+  
   freeform_tags = {{
     "Environment" = "agnosticd"
-    "Region"      = "{region}"
+    "ManagedBy" = "yamlforge"
   }}
 }}
 
 # OCI Security List
-resource "oci_core_security_list" "main_sl_{clean_region}" {{
+resource "oci_core_security_list" "main_sl_{clean_region}_{self.converter.get_validated_guid(yaml_data)}" {{
   compartment_id = var.oci_compartment_id
-  vcn_id         = oci_core_vcn.main_vcn_{clean_region}.id
+  vcn_id         = oci_core_vcn.main_vcn_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id
   display_name   = "{network_name}-sl-{region}"
-
-  # Allow SSH ingress
+  
+  egress_security_rules {{
+    destination = "0.0.0.0/0"
+    protocol    = "all"
+  }}
+  
   ingress_security_rules {{
     protocol = "6"  # TCP
     source   = "0.0.0.0/0"
-
+    
     tcp_options {{
       min = 22
       max = 22
     }}
   }}
-
-  # Allow HTTP ingress
+  
   ingress_security_rules {{
     protocol = "6"  # TCP
     source   = "0.0.0.0/0"
-
+    
     tcp_options {{
       min = 80
       max = 80
     }}
   }}
-
-  # Allow HTTPS ingress
+  
   ingress_security_rules {{
     protocol = "6"  # TCP
     source   = "0.0.0.0/0"
-
+    
     tcp_options {{
       min = 443
       max = 443
     }}
   }}
-
-  # Allow all egress
-  egress_security_rules {{
-    protocol    = "all"
-    destination = "0.0.0.0/0"
-  }}
-
+  
   freeform_tags = {{
     "Environment" = "agnosticd"
-    "Region"      = "{region}"
+    "ManagedBy" = "yamlforge"
   }}
 }}
 
 # OCI Subnet
-resource "oci_core_subnet" "main_subnet_{clean_region}" {{
+resource "oci_core_subnet" "main_subnet_{clean_region}_{self.converter.get_validated_guid(yaml_data)}" {{
+  cidr_block        = "{cidr_block}"
   compartment_id    = var.oci_compartment_id
-  vcn_id            = oci_core_vcn.main_vcn_{clean_region}.id
-  cidr_block        = "10.0.1.0/24"
+  vcn_id            = oci_core_vcn.main_vcn_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id
   display_name      = "{network_name}-subnet-{region}"
-  dns_label         = "mainsubnet{clean_region.lower()}"
-  route_table_id    = oci_core_route_table.main_rt_{clean_region}.id
-  security_list_ids = [oci_core_security_list.main_sl_{clean_region}.id]
-
+  route_table_id    = oci_core_route_table.main_rt_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id
+  security_list_ids = [oci_core_security_list.main_sl_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id]
+  
   freeform_tags = {{
     "Environment" = "agnosticd"
-    "Region"      = "{region}"
+    "ManagedBy" = "yamlforge"
   }}
 }}
 '''
 
-    def generate_oci_security_group(self, sg_name, rules, region):
+    def generate_oci_security_group(self, sg_name, rules, region, yaml_data=None):
         """Generate OCI network security group with rules for specific region."""
         clean_name = sg_name.replace("-", "_").replace(".", "_")
         clean_region = region.replace("-", "_").replace(".", "_")
         regional_sg_name = f"{clean_name}_{clean_region}"
 
-        sg_config = f'''
+        security_group_config = f'''
 # OCI Network Security Group: {sg_name} (Region: {region})
-resource "oci_core_network_security_group" "{regional_sg_name}" {{
+resource "oci_core_network_security_group" "{regional_sg_name}_{self.converter.get_validated_guid(yaml_data)}" {{
   compartment_id = var.oci_compartment_id
-  vcn_id         = oci_core_vcn.main_vcn_{clean_region}.id
+  vcn_id         = oci_core_vcn.main_vcn_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id
   display_name   = "{sg_name}-{region}"
-
+  
   freeform_tags = {{
     "Environment" = "agnosticd"
-    "Region"      = "{region}"
+    "ManagedBy" = "yamlforge"
   }}
 }}
 
@@ -413,7 +430,7 @@ resource "oci_core_network_security_group" "{regional_sg_name}" {{
             rule_data = self.converter.generate_native_security_group_rule(rule, 'oci')
             direction = "INGRESS" if rule_data['direction'] == 'ingress' else "EGRESS"
             
-            sg_config += f'''
+            security_group_config += f'''
 # OCI NSG Rule: {sg_name} - Rule {i+1}
 resource "oci_core_network_security_group_security_rule" "{regional_sg_name}_rule_{i+1}" {{
   network_security_group_id = oci_core_network_security_group.{regional_sg_name}.id
@@ -431,7 +448,7 @@ resource "oci_core_network_security_group_security_rule" "{regional_sg_name}_rul
 }}
 '''
 
-        return sg_config
+        return security_group_config
 
     def format_oci_tags(self, tags):
         """Format tags for OCI (freeform tags)."""

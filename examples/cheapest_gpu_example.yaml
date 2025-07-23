@@ -2,12 +2,13 @@
 # Cheapest GPU Meta Provider Example
 # Demonstrates the cheapest-gpu provider that ignores cores/memory and focuses purely on GPU costs
 
+guid: "cgp01"
+
 yamlforge:
   cloud_workspace:
     name: "cheapest-gpu-demo"
     description: "GPU-focused cost optimization ignoring CPU/memory constraints"
     tags:
-      guid: "cgd-2024-001"
       use_case: "gpu_cost_optimization"
       strategy: "ignore_cpu_memory"
 

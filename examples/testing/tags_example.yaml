@@ -2,12 +2,13 @@
 # Comprehensive Tagging System Example
 # Demonstrates unified tagging across all cloud providers
 
+guid: "tag01"
+
 yamlforge:
   cloud_workspace:
     name: "enterprise-tagging-demo"
     description: "Enterprise tagging system demonstration"
     tags:
-      guid: "etd-2024-001"
       project: "enterprise-platform"
       managed_by: "yamlforge"
 

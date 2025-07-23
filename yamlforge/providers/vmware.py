@@ -139,7 +139,7 @@ data "vsphere_virtual_machine" "template" {{
 }}
 
 # VMware vSphere Virtual Machine: {instance_name}
-resource "vsphere_virtual_machine" "{clean_name}" {{
+resource "vsphere_virtual_machine" "{clean_name}_{self.converter.get_validated_guid(yaml_data)}" {{
   name             = "{instance_name}"
   resource_pool_id = data.vsphere_compute_cluster.cluster.resource_pool_id
   datastore_id     = data.vsphere_datastore.datastore.id
@@ -187,7 +187,7 @@ EOF
 
         return vm_config
 
-    def generate_vmware_networking(self, deployment_name, deployment_config, datacenter):
+    def generate_vmware_networking(self, deployment_name, deployment_config, region, yaml_data=None):
         """Generate VMware vSphere networking resources for specific datacenter."""
         network_config = deployment_config.get('network', {})
         network_name = network_config.get('name', f"{deployment_name}-network")
@@ -220,28 +220,41 @@ EOF
 # Configure network references in variables instead
 '''
 
-    def generate_vmware_resource_pool(self, deployment_name, deployment_config, datacenter):
+    def generate_vmware_resource_pool(self, deployment_name, deployment_config, datacenter, yaml_data=None):
         """Generate VMware vSphere resource pool for deployment isolation."""
         clean_deployment = self.converter.clean_name(deployment_name)
         clean_datacenter = datacenter.replace("-", "_").replace(".", "_")
 
-        return f'''
-# VMware vSphere Resource Pool: {deployment_name} (Datacenter: {datacenter})
-resource "vsphere_resource_pool" "{clean_deployment}_pool_{clean_datacenter}" {{
-  name                    = "{deployment_name}-pool-{datacenter}"
+        create_folders = deployment_config.get('create_folders', False)
+
+        vmware_config = f'''
+# VMware vSphere Resource Pool: {deployment_name}
+resource "vsphere_resource_pool" "{clean_deployment}_pool_{clean_datacenter}_{self.converter.get_validated_guid(yaml_data)}" {{
+  name                    = "{deployment_name}-pool"
   parent_resource_pool_id = data.vsphere_compute_cluster.cluster.resource_pool_id
-
-  cpu_share_level         = "normal"
-  cpu_reservation         = 1000
-  cpu_expandable          = true
-
-  memory_share_level      = "normal" 
-  memory_reservation      = 1024
-  memory_expandable       = true
-
-  tags = ["environment:agnosticd", "managed-by:yamlforge"]
+  
+  cpu_share_level    = "normal"
+  memory_share_level = "normal"
+  
+  cpu_expandable    = true
+  memory_expandable = true
 }}
+
 '''
+        
+        # Add folder management if specified
+        if create_folders:
+            vmware_config += f'''
+# VMware vSphere Folder: {deployment_name}
+resource "vsphere_folder" "{clean_deployment}_folder_{clean_datacenter}_{self.converter.get_validated_guid(yaml_data)}" {{
+  path          = "{deployment_name}"
+  type          = "vm"
+  datacenter_id = data.vsphere_datacenter.datacenter.id
+}}
+
+'''
+
+        return vmware_config
 
     def format_vmware_tags(self, tags):
         """Format tags for VMware vSphere (custom attributes)."""

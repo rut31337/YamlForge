@@ -11,63 +11,71 @@ class OpenShiftSecurityProvider(BaseOpenShiftProvider):
     """OpenShift Security provider for security and compliance"""
     
     def generate_security_features(self, yaml_data: Dict, clusters: List[Dict]) -> str:
-        """Generate OpenShift security features for clusters"""
+        """Generate OpenShift security features"""
         
-        security_config = yaml_data.get('openshift_security', {})
+        security_config = yaml_data.get('security_features', {})
         if not security_config:
             return ""
         
-        terraform_config = ""
-        
-        # Generate Pod Security Standards
-        if security_config.get('pod_security'):
-            terraform_config += self.generate_pod_security_standards(security_config['pod_security'])
-        
-        # Generate Compliance Operator
-        if security_config.get('compliance'):
-            terraform_config += self.generate_compliance_operator(security_config['compliance'])
-        
-        # Generate Network Policies
-        if security_config.get('network_policies'):
-            terraform_config += self.generate_network_policies(security_config['network_policies'])
-        
-        return terraform_config
-    
-    def generate_pod_security_standards(self, pod_security_config: Dict) -> str:
-        """Generate Pod Security Standards configuration"""
+        cluster_names = [cluster.get('name') for cluster in clusters if cluster.get('name')]
         
         terraform_config = '''
 # =============================================================================
-# POD SECURITY STANDARDS
+# SECURITY FEATURES
 # =============================================================================
-
-# Pod Security Policy Configuration
-resource "kubernetes_manifest" "pod_security_policy" {
-  manifest = {
-    apiVersion = "v1"
-    kind       = "ConfigMap"
-    metadata = {
-      name      = "pod-security-policy"
-      namespace = "openshift-config"
-    }
-    data = {
-      "config.yaml" = yamlencode({
-        podSecurityPolicy = {
-          type = "Restricted"
-          restrictedProfile = {
-            audit = "restricted"
-            warn  = "restricted"
-            enforce = "restricted"
-          }
-        }
-      })
-    }
-  }
-}
 
 '''
         
+        # Generate security features for each cluster
+        for cluster_name in cluster_names:
+            clean_cluster_name = self.clean_name(cluster_name)
+            
+            # Pod Security Standards
+            pod_security_config = security_config.get('pod_security_standards', {})
+            if pod_security_config:
+                terraform_config += self.generate_pod_security_standards(pod_security_config, cluster_name, clean_cluster_name)
+            
+            # Compliance Operator
+            compliance_config = security_config.get('compliance_operator', {})
+            if compliance_config:
+                terraform_config += self.generate_compliance_operator(compliance_config, cluster_name, clean_cluster_name)
+            
+            # Network Policies
+            network_policies_config = security_config.get('network_policies', [])
+            if network_policies_config:
+                terraform_config += self.generate_network_policies(network_policies_config, cluster_name, clean_cluster_name)
+        
         return terraform_config
+    
+    def generate_pod_security_standards(self, pod_security_config: Dict, cluster_name: str, clean_cluster_name: str) -> str:
+        """Generate Pod Security Standards configuration"""
+        
+        enforce_level = pod_security_config.get('enforce', 'restricted')
+        audit_level = pod_security_config.get('audit', 'restricted')
+        warn_level = pod_security_config.get('warn', 'restricted')
+        
+        return f'''
+# Pod Security Standards for {cluster_name}
+resource "kubernetes_manifest" "pod_security_config_{clean_cluster_name}" {{
+  provider = kubernetes.{clean_cluster_name}_admin
+  
+  manifest = {{
+    apiVersion = "config.openshift.io/v1"
+    kind       = "APIServer"
+    metadata = {{
+      name = "cluster"
+    }}
+    spec = {{
+      audit = {{
+        profile = "{audit_level}"
+      }}
+    }}
+  }}
+  
+  depends_on = [kubernetes_service_account.{clean_cluster_name}_admin]
+}}
+
+'''
     
     def generate_compliance_operator(self, compliance_config: Dict) -> str:
         """Generate OpenShift Compliance Operator configuration"""

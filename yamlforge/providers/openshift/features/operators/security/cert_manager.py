@@ -1,7 +1,7 @@
 """
 OpenShift cert-manager Operator for yamlforge
 Supports certificate management and TLS automation with multiple ACME providers including EAB and automatic fallback
-EAB credentials automatically sourced from credentials/cert-manager-template.yaml - single source of truth
+EAB credentials automatically sourced from credentials/cert-manager.yaml - single source of truth
 """
 
 import os
@@ -21,7 +21,7 @@ class CertManagerOperator(BaseOpenShiftProvider):
     
     def _load_eab_template(self) -> Dict:
         """Load EAB configuration from credential template - single source of truth"""
-        template_file = Path("credentials/cert-manager-template.yaml")
+        template_file = Path("credentials/cert-manager.yaml")
         
         if not template_file.exists():
             print(f"Warning: EAB template not found at {template_file}")
@@ -41,7 +41,7 @@ class CertManagerOperator(BaseOpenShiftProvider):
                 print(f"Warning: No eab_automation section found in {template_file}")
                 return {}
                 
-            print(f"Info: Loaded EAB configuration from {template_file}")
+            # Debug: EAB configuration loaded successfully from {template_file}
             return eab_automation
             
         except Exception as e:
@@ -76,7 +76,7 @@ class CertManagerOperator(BaseOpenShiftProvider):
 # =============================================================================
 # Clusters: {', '.join(target_clusters) if target_clusters else 'All clusters'}
 # Supports multiple ACME providers: Let's Encrypt, ZeroSSL (EAB), SSL.com (EAB), Buypass, Google
-# EAB (External Account Binding) credentials automatically sourced from credentials/cert-manager-template.yaml
+# EAB (External Account Binding) credentials automatically sourced from credentials/cert-manager.yaml
 # Automatic fallback between providers on failures (rate limits, outages, etc.)
 # SINGLE SOURCE OF TRUTH - EAB configuration read from credential template only
 
@@ -96,7 +96,7 @@ resource "kubernetes_manifest" "{clean_name}_namespace" {{
       annotations = {{
         "yamlforge.io/generated-by" = "yamlforge"
         "yamlforge.io/config-source" = "defaults/openshift_operators/security/cert_manager.yaml"
-        "yamlforge.io/eab-source" = "credentials/cert-manager-template.yaml"
+        "yamlforge.io/eab-source" = "credentials/cert-manager.yaml"
         "yamlforge.io/single-source-of-truth" = "true"
       }}
     }}
@@ -165,7 +165,7 @@ resource "kubernetes_manifest" "{clean_name}_subscription" {{
 # AUTO-GENERATED EAB SECRETS (From Credential Template - Single Source)
 # =============================================================================
 # EAB credentials are automatically sourced from environment variables
-# as configured in credentials/cert-manager-template.yaml (single source of truth):
+# as configured in credentials/cert-manager.yaml (single source of truth):
 # - No manual secret creation required
 # - No configuration copying required
 # - Credentials are securely injected from environment
@@ -189,7 +189,7 @@ resource "kubernetes_manifest" "{clean_name}_subscription" {{
                     terraform_config += f'''
 # {provider_name.upper()} EAB Credentials (Auto-Generated from Template)
 # Environment Variables: {kid_env}, {hmac_env}
-# Configuration Source: credentials/cert-manager-template.yaml (single source of truth)
+# Configuration Source: credentials/cert-manager.yaml (single source of truth)
 resource "kubernetes_manifest" "{clean_name}_eab_secret_{self.clean_name(provider_name)}" {{
   manifest = {{
     apiVersion = "v1"
@@ -208,7 +208,7 @@ resource "kubernetes_manifest" "{clean_name}_eab_secret_{self.clean_name(provide
         "yamlforge.io/provider" = "{provider_name}"
         "yamlforge.io/env-source" = "{kid_env}, {hmac_env}"
         "yamlforge.io/generated-by" = "yamlforge"
-        "yamlforge.io/config-source" = "credentials/cert-manager-template.yaml"
+        "yamlforge.io/config-source" = "credentials/cert-manager.yaml"
         "yamlforge.io/single-source-of-truth" = "true"
       }}
     }}
@@ -256,7 +256,7 @@ variable "{hmac_env.lower()}" {{
 # =============================================================================
 # ClusterIssuers are automatically configured based on enabled providers
 # EAB providers automatically reference auto-generated secrets from template configuration
-# Single source of truth: credentials/cert-manager-template.yaml
+# Single source of truth: credentials/cert-manager.yaml
 
 '''
         
@@ -294,7 +294,7 @@ resource "kubernetes_manifest" "{clean_name}_issuer_{provider_clean_name}" {{
         "cert-manager.io/fallback-enabled" = "true"
         "yamlforge.io/eab-automated" = "true"
         "yamlforge.io/secret-name" = "{secret_name}"
-        "yamlforge.io/config-source" = "credentials/cert-manager-template.yaml"
+        "yamlforge.io/config-source" = "credentials/cert-manager.yaml"
         "yamlforge.io/single-source-of-truth" = "true"
       }}
     }}

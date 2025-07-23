@@ -1,6 +1,7 @@
 """
 ROSA (Red Hat OpenShift Service on AWS) Provider for yamlforge
 Supports both ROSA Classic and ROSA with Hosted Control Planes (HCP)
+Supports both ROSA CLI and RHCS Terraform provider deployment methods
 """
 
 from typing import Dict
@@ -13,291 +14,535 @@ class ROSAProvider(BaseOpenShiftProvider):
     def generate_rosa_classic_cluster(self, cluster_config: Dict) -> str:
         """Generate ROSA Classic cluster Terraform configuration"""
         
-        cluster_name = cluster_config.get('name', 'rosa-cluster')
+        cluster_name = cluster_config.get('name')
+        if not cluster_name:
+            raise ValueError("ROSA cluster 'name' must be specified")
+        
         clean_name = self.clean_name(cluster_name)
-        region = cluster_config.get('region', 'us-east-1')
-        version = self.validate_openshift_version(cluster_config.get('version', ''))
-        size_config = self.get_cluster_size_config(
-            cluster_config.get('size', 'medium'), 'rosa-classic'
-        )
+        
+        region = cluster_config.get('region')
+        if not region:
+            raise ValueError(f"ROSA cluster '{cluster_name}' must specify 'region'")
+            
+        version = cluster_config.get('version')
+        # Get auto_upgrade_unsupported from global defaults
+        auto_upgrade_unsupported = self.openshift_defaults.get('openshift', {}).get('auto_upgrade_unsupported', False)
+        version = self.validate_openshift_version(version, auto_upgrade_unsupported=auto_upgrade_unsupported)
+        
+        size = cluster_config.get('size')
+        if not size:
+            raise ValueError(f"ROSA cluster '{cluster_name}' must specify 'size'")
+        size_config = self.get_cluster_size_config(size, 'rosa-classic')
         
         # Get machine pool configuration
-        worker_count = cluster_config.get('worker_count', size_config['worker_count'])
-        min_replicas = cluster_config.get('min_replicas', worker_count)
-        max_replicas = cluster_config.get('max_replicas', worker_count * 2)
+        worker_count = cluster_config.get('worker_count')
+        if worker_count is None:
+            worker_count = size_config['worker_count']  # Use size config as fallback
+        
+        # Enforce ROSA Classic multi-AZ requirement: minimum 3 worker nodes
+        multi_az = cluster_config.get('multi_az', True)  # Default to multi-AZ
+        if multi_az and worker_count < 3:
+            print(f"Warning: ROSA Classic multi-AZ clusters require at least 3 worker nodes. Adjusting from {worker_count} to 3. Update your input YAML!")
+            worker_count = 3
+        
+        min_replicas = cluster_config.get('min_replicas')
+        if min_replicas is None:
+            min_replicas = worker_count
+            
+        max_replicas = cluster_config.get('max_replicas')
+        if max_replicas is None:
+            max_replicas = worker_count * 2
         
         # Get machine types using OpenShift-optimized flavor mappings
         machine_type = self.get_openshift_machine_type('aws', size_config['worker_size'], 'worker')
         
-        terraform_config = f'''
-# =============================================================================
-# ROSA CLASSIC CLUSTER: {cluster_name}
-# =============================================================================
-
-# ROSA Classic Cluster
-resource "rhcs_cluster_rosa_classic" "{clean_name}" {{
-  name               = "{cluster_name}"
-  cloud_region       = "{region}"
-  aws_account_id     = var.aws_account_id
-  availability_zones = data.aws_availability_zones.{clean_name}.names
-  
-  # Cluster Configuration
-  openshift_version = "{version}"
-  multi_az          = true
-  
-  # Machine Pool Configuration
-  compute_machine_type = "{machine_type}"
-  replicas            = {worker_count}
-  
-  # Networking
-'''
-
-        # Get merged networking configuration (defaults + user overrides)
-        networking = self.get_merged_networking_config(cluster_config, 'rosa-classic')
+        # Get GUID for consistent resource naming
+        guid = self.converter.get_validated_guid()
         
-        terraform_config += f'''
-  machine_cidr = "{networking.get('machine_cidr')}"
-  service_cidr = "{networking.get('service_cidr')}"
-  pod_cidr     = "{networking.get('pod_cidr')}"
-  host_prefix  = {networking.get('host_prefix')}
-  
-  # Access Configuration
-  private = {str(cluster_config.get('private', False)).lower()}
-  
-  # Properties
-  properties = {{
-    rosa_creator_arn = var.aws_rosa_creator_arn
-  }}
-  
-  # Tags
-  tags = {{
-    Environment = var.environment
-    ManagedBy   = "yamlforge"
-    Cloud       = "aws"
-    Platform    = "rosa-classic"
-  }}
-}}
+        # Check deployment method from defaults
+        rosa_deployment = self.openshift_defaults.get('openshift', {}).get('rosa_deployment', {})
+        deployment_method = rosa_deployment.get('method', 'terraform')  # Default to terraform
+        
+        if deployment_method == 'terraform':
+            return self._generate_rosa_classic_terraform(cluster_config, clean_name, region, version, 
+                                                        machine_type, worker_count, multi_az, guid)
+        else:  # CLI method
+            return self._generate_rosa_classic_cli(cluster_config, clean_name, region, version, 
+                                                  machine_type, worker_count, multi_az, guid)
 
-# Get availability zones for the region
-data "aws_availability_zones" "{clean_name}" {{
-  state = "available"
-}}
-
-'''
-
-        # Add auto-scaling machine pool if different from base
-        if min_replicas != max_replicas:
-            terraform_config += f'''
-# Auto-scaling machine pool for {cluster_name}
-resource "rhcs_machine_pool" "{clean_name}_workers" {{
-  cluster      = rhcs_cluster_rosa_classic.{clean_name}.id
-  name         = "workers"
-  machine_type = "{machine_type}"
-  replicas     = {worker_count}
-  
-  autoscaling = {{
-    enabled      = true
-    min_replicas = {min_replicas}
-    max_replicas = {max_replicas}
-  }}
-  
-  labels = {{
-    "node-role" = "worker"
-    "environment" = var.environment
-  }}
-}}
-
-'''
-
-        # Add cluster addons if specified
-        addons = cluster_config.get('addons', [])
-        for addon in addons:
-            terraform_config += f'''
-# ROSA Classic Addon: {addon}
-resource "rhcs_cluster_rosa_classic_addon" "{clean_name}_{addon.replace('-', '_')}" {{
-  cluster = rhcs_cluster_rosa_classic.{clean_name}.id
-  name    = "{addon}"
-}}
-
-'''
-
-        return terraform_config
-
-    def generate_rosa_hcp_cluster(self, cluster_config: Dict) -> str:
+    def generate_rosa_hcp_cluster(self, cluster_config: Dict, yaml_data: Dict) -> str:
         """Generate ROSA with Hosted Control Planes (HCP) cluster Terraform configuration"""
         
-        cluster_name = cluster_config.get('name', 'rosa-hcp-cluster')
+        cluster_name = cluster_config.get('name')
+        if not cluster_name:
+            raise ValueError("ROSA HCP cluster 'name' must be specified")
+        
         clean_name = self.clean_name(cluster_name)
-        region = cluster_config.get('region', 'us-east-1')
-        version = self.validate_openshift_version(cluster_config.get('version', ''))
-        size_config = self.get_cluster_size_config(
-            cluster_config.get('size', 'medium'), 'rosa-hcp'
-        )
+        
+        region = cluster_config.get('region')
+        if not region:
+            raise ValueError(f"ROSA HCP cluster '{cluster_name}' must specify 'region'")
+            
+        version = cluster_config.get('version')
+        # Get auto_upgrade_unsupported from global defaults
+        auto_upgrade_unsupported = self.openshift_defaults.get('openshift', {}).get('auto_upgrade_unsupported', False)
+        version = self.validate_openshift_version(version, auto_upgrade_unsupported=auto_upgrade_unsupported)
+        
+        size = cluster_config.get('size')
+        if not size:
+            raise ValueError(f"ROSA HCP cluster '{cluster_name}' must specify 'size'")
+        size_config = self.get_cluster_size_config(size, 'rosa-hcp')
         
         # Get machine pool configuration
-        worker_count = cluster_config.get('worker_count', size_config['worker_count'])
-        min_replicas = cluster_config.get('min_replicas', worker_count)
-        max_replicas = cluster_config.get('max_replicas', worker_count * 2)
+        worker_count = cluster_config.get('worker_count')
+        if worker_count is None:
+            worker_count = size_config['worker_count']  # Use size config as fallback
+        
+        min_replicas = cluster_config.get('min_replicas')
+        if min_replicas is None:
+            min_replicas = worker_count
+            
+        max_replicas = cluster_config.get('max_replicas')
+        if max_replicas is None:
+            max_replicas = worker_count * 2
         
         # Get machine types using OpenShift-optimized flavor mappings
         machine_type = self.get_openshift_machine_type('aws', size_config['worker_size'], 'worker')
+        
+        # Get GUID for consistent resource naming
+        guid = self.converter.get_validated_guid(yaml_data)
         
         terraform_config = f'''
 # =============================================================================
 # ROSA HCP CLUSTER: {cluster_name}
 # =============================================================================
 
-# ROSA HCP Cluster (Hosted Control Planes)
-resource "rhcs_cluster_rosa_hcp" "{clean_name}" {{
-  name               = "{cluster_name}"
-  cloud_region       = "{region}"
-  openshift_version  = "{version}"
-  
-  # AWS Settings
-  aws_account_id     = var.aws_account_id
-  aws_billing_account_id = var.aws_billing_account_id
-  
-  # Availability zones
-  availability_zones = ["{region}a", "{region}b", "{region}c"]
-  
-  # Compute configuration (workers only - control plane is hosted)
-  compute_machine_type = "{machine_type}"
-  replicas            = {worker_count}
-  
-  # Networking
+# ROSA HCP cluster will be created using ROSA CLI commands
+# See the generated rosa-setup.sh script for cluster creation
+
+# Local values for ROSA HCP cluster reference
+locals {{
+  rosa_hcp_cluster_name_{clean_name} = "{cluster_name}"
+  rosa_hcp_region_{clean_name} = "{region}"
+  rosa_hcp_version_{clean_name} = "{version}"
+  rosa_hcp_machine_type_{clean_name} = "{machine_type}"
+  rosa_hcp_replicas_{clean_name} = {worker_count}
+  rosa_hcp_subnet_ids_{clean_name} = local.public_subnet_ids_{region.replace('-', '_')}_{guid}
+}}
+
+# Placeholder outputs for ROSA HCP cluster (will be populated after CLI creation)
+output "rosa_hcp_cluster_id_{clean_name}" {{
+  description = "ROSA HCP cluster ID for {cluster_name}"
+  value = "Run rosa describe cluster {cluster_name} to get cluster details"
+}}
+
+output "rosa_hcp_api_url_{clean_name}" {{
+  description = "ROSA HCP API URL for {cluster_name}"
+  value = "Run rosa describe cluster {cluster_name} --output json | jq -r '.api.url'"
+}}
+
+output "rosa_hcp_console_url_{clean_name}" {{
+  description = "ROSA HCP console URL for {cluster_name}"
+  value = "Run rosa describe cluster {cluster_name} --output json | jq -r '.console.url'"
+}}
+
 '''
 
-        # Get merged networking configuration (defaults + user overrides)  
-        networking = self.get_merged_networking_config(cluster_config, 'rosa-hcp')
+        # Check deployment method from defaults
+        rosa_deployment = self.openshift_defaults.get('openshift', {}).get('rosa_deployment', {})
+        deployment_method = rosa_deployment.get('method', 'terraform')  # Default to terraform
         
+        if deployment_method == 'terraform':
+            return self._generate_rosa_hcp_terraform(cluster_config, clean_name, region, version, 
+                                                    machine_type, worker_count, guid, yaml_data)
+        else:  # CLI method
+            return self._generate_rosa_hcp_cli(cluster_config, clean_name, region, version, 
+                                              machine_type, worker_count, guid, yaml_data)
+    
+    def _generate_rosa_classic_terraform(self, cluster_config: Dict, clean_name: str, region: str, 
+                                        version: str, machine_type: str, worker_count: int, 
+                                        multi_az: bool, guid: str) -> str:
+        """Generate ROSA Classic cluster using RHCS Terraform provider with automated STS roles"""
+        cluster_name = cluster_config.get('name')
+        
+        # Get networking configuration
+        networking = self.get_merged_networking_config(cluster_config, 'rosa-classic')
+        
+        # Get private cluster setting
+        private_cluster = cluster_config.get('private', False)
+        
+        # Get auto-scaling configuration
+        auto_scaling = cluster_config.get('auto_scaling', {})
+        auto_scaling_enabled = auto_scaling.get('enabled', False)
+        
+        # Always use deployment separation for ROSA Classic clusters to enable phased deployment
+        needs_rosa_separation = cluster_config.get('_needs_rosa_separation', False)
+        needs_hypershift_separation = cluster_config.get('_needs_hypershift_separation', False)
+        deployment_group = cluster_config.get('_deployment_group', 'rosa_classic')
+        
+        # Always use deployment variables for ROSA clusters to enable phased deployment
+        if deployment_group == 'hypershift_mgmt':
+            deployment_condition = 'var.deploy_hypershift_mgmt ? 1 : 0'
+        else:
+            deployment_condition = 'var.deploy_rosa_classic ? 1 : 0'
+        
+        # Generate the required providers configuration
+        aws_provider = self.converter.get_aws_provider()
+        providers_config = aws_provider.generate_rosa_required_providers()
+        
+        # Generate OIDC configuration
+        oidc_config = aws_provider.generate_rosa_oidc_config(cluster_name, region, guid)
+        
+        # Generate STS account roles
+        sts_roles_config = aws_provider.generate_rosa_sts_roles()
+        
+        # Generate operator roles
+        operator_roles_config = aws_provider.generate_rosa_operator_roles(cluster_name, region, guid)
+        
+        terraform_config = f'''
+# =============================================================================
+# ROSA CLASSIC CLUSTER: {cluster_name} (Fully Automated with STS)
+# =============================================================================
+
+{providers_config}
+
+{oidc_config}
+
+{sts_roles_config}
+
+{operator_roles_config}
+
+# Local variables for operator role configuration
+locals {{
+  operator_role_prefix = "{cluster_name}"
+  oidc_config_id      = rhcs_rosa_oidc_config.oidc_config.id
+}}
+
+# ROSA Classic cluster using RHCS Terraform provider with automated STS
+resource "rhcs_cluster_rosa_classic" "{clean_name}" {{
+  count = {deployment_condition}
+  
+  name               = "{cluster_name}"
+  cloud_region       = "{region}"
+  version            = "{version}"
+  
+  # Required availability zones - use filtered local variable from YamlForge
+  availability_zones = local.selected_azs_{region.replace('-', '_')}_{guid}
+  
+  # Machine configuration
+  aws_account_id           = data.aws_caller_identity.current.account_id
+  compute_machine_type     = "{machine_type}"
+  replicas                 = {worker_count}
+  
+  # Networking
+  machine_cidr = "{networking.get('machine_cidr', '10.0.0.0/16')}"
+  service_cidr = "{networking.get('service_cidr', '172.30.0.0/16')}" 
+  pod_cidr     = "{networking.get('pod_cidr', '10.128.0.0/14')}"
+  host_prefix  = {networking.get('host_prefix', 23)}
+  
+  # High availability and private cluster
+  multi_az = {str(multi_az).lower()}
+  private  = {str(private_cluster).lower()}
+'''
+
+        # Add networking infrastructure dependencies if not using existing VPC
+        if not cluster_config.get('use_existing_vpc', False):
+            terraform_config += f'''
+  # Network dependencies - use public subnet IDs (YamlForge generates public subnets)
+  aws_subnet_ids = local.public_subnet_ids_{region.replace('-', '_')}_{guid}
+'''
+
         terraform_config += f'''
-  machine_cidr = "{networking.get('machine_cidr')}"
   
-  # HCP-specific settings
-  etcd_encryption = {str(cluster_config.get('etcd_encryption', True)).lower()}
-  
-  # Access Configuration
-  private = {str(cluster_config.get('private', False)).lower()}
+  # STS configuration with automatically created roles
+  sts = {{
+    operator_role_prefix = local.operator_role_prefix
+    role_arn            = aws_iam_role.rosa_installer_role.arn
+    support_role_arn    = aws_iam_role.rosa_support_role.arn
+    instance_iam_roles = {{
+      master_role_arn = aws_iam_role.rosa_master_role.arn
+      worker_role_arn = aws_iam_role.rosa_worker_role.arn
+    }}
+    oidc_config_id = rhcs_rosa_oidc_config.oidc_config.id
+  }}
   
   # Properties
   properties = {{
-    rosa_creator_arn = var.aws_rosa_creator_arn
+    rosa_creator_arn = data.aws_caller_identity.current.arn
   }}
-  
-  # Lifecycle management
-  disable_waiting_in_destroy = false
-  destroy_timeout = 60
   
   # Tags
   tags = {{
-'''
+    Environment = var.environment
+    ManagedBy   = "yamlforge"
+    Platform    = "rosa-classic"
+    GUID        = "{guid}"
+    Region      = "{region}"
+  }}
+  
+  # Wait for all prerequisites to be ready
+  depends_on = [
+    aws_vpc.main_vpc_{region.replace('-', '_')}_{guid},
+    aws_subnet.public_subnet_{region.replace('-', '_')}_{guid},
+    aws_internet_gateway.main_igw_{region.replace('-', '_')}_{guid},
+    aws_iam_role.rosa_installer_role,
+    aws_iam_role.rosa_support_role,
+    aws_iam_role.rosa_worker_role,
+    aws_iam_role.rosa_master_role,
+    rhcs_rosa_oidc_config.oidc_config,
+    rhcs_rosa_operator_roles.operator_roles
+  ]
+}}
 
-        # Add tags
-        tags = cluster_config.get('tags', {})
-        default_tags = {
-            'Environment': cluster_config.get('environment', 'development'),
-            'Project': cluster_config.get('project', cluster_name),
-            'OpenShift-Type': 'rosa-hcp',
-            'yamlforge-managed': 'true'
-        }
-        all_tags = {**default_tags, **tags}
+# Outputs for ROSA Classic cluster
+output "rosa_classic_cluster_id_{clean_name}" {{
+  description = "ROSA Classic cluster ID for {cluster_name}"
+  value = length(rhcs_cluster_rosa_classic.{clean_name}) > 0 ? rhcs_cluster_rosa_classic.{clean_name}[0].id : ""
+}}
+
+output "rosa_classic_api_url_{clean_name}" {{
+  description = "ROSA Classic API URL for {cluster_name}"
+  value = length(rhcs_cluster_rosa_classic.{clean_name}) > 0 ? rhcs_cluster_rosa_classic.{clean_name}[0].api_url : ""
+}}
+
+output "rosa_classic_console_url_{clean_name}" {{
+  description = "ROSA Classic console URL for {cluster_name}"
+  value = length(rhcs_cluster_rosa_classic.{clean_name}) > 0 ? rhcs_cluster_rosa_classic.{clean_name}[0].console_url : ""
+}}
+
+output "rosa_classic_oidc_endpoint_{clean_name}" {{
+  description = "ROSA Classic OIDC endpoint for {cluster_name}"
+  value = length(rhcs_cluster_rosa_classic.{clean_name}) > 0 ? rhcs_rosa_oidc_config.oidc_config.oidc_endpoint_url : ""
+}}
+
+'''
+        return terraform_config
+
+    def _generate_rosa_classic_cli(self, cluster_config: Dict, clean_name: str, region: str, 
+                                  version: str, machine_type: str, worker_count: int, 
+                                  multi_az: bool, guid: str) -> str:
+        """Generate ROSA Classic cluster using ROSA CLI (legacy method)"""
+        cluster_name = cluster_config.get('name')
         
-        for key, value in all_tags.items():
-            terraform_config += f'    "{key}" = "{value}"\n'
+        terraform_config = f'''
+# =============================================================================
+# ROSA CLASSIC CLUSTER: {cluster_name} (ROSA CLI Method)
+# =============================================================================
 
-        terraform_config += '''  }
-}
+# ROSA Classic cluster will be created using ROSA CLI commands
+# See the generated rosa-setup.sh script for cluster creation
+
+# Local values for ROSA Classic cluster reference
+locals {{
+  rosa_classic_cluster_name_{clean_name} = "{cluster_name}"
+  rosa_classic_region_{clean_name} = "{region}"
+  rosa_classic_version_{clean_name} = "{version}"
+  rosa_classic_machine_type_{clean_name} = "{machine_type}"
+  rosa_classic_replicas_{clean_name} = {worker_count}
+}}
+
+# Placeholder outputs for ROSA Classic cluster (will be populated after CLI creation)
+output "rosa_classic_cluster_id_{clean_name}" {{
+  description = "ROSA Classic cluster ID for {cluster_name}"
+  value = "Run rosa describe cluster {cluster_name} to get cluster details"
+}}
+
+output "rosa_classic_api_url_{clean_name}" {{
+  description = "ROSA Classic API URL for {cluster_name}"
+  value = "Run rosa describe cluster {cluster_name} --output json | jq -r '.api.url'"
+}}
+
+output "rosa_classic_console_url_{clean_name}" {{
+  description = "ROSA Classic console URL for {cluster_name}"
+  value = "Run rosa describe cluster {cluster_name} --output json | jq -r '.console.url'"
+}}
 
 '''
+        return terraform_config
 
-        # Add machine pool for auto-scaling (if enabled)
-        if cluster_config.get('auto_scaling', {}).get('enabled', False):
-            min_replicas = cluster_config.get('auto_scaling', {}).get('min_replicas', min_replicas)
-            max_replicas = cluster_config.get('auto_scaling', {}).get('max_replicas', max_replicas)
-            
-            terraform_config += f'''
-# ROSA HCP Machine Pool with Auto-scaling
-resource "rhcs_machine_pool" "{clean_name}_workers" {{
-  cluster      = rhcs_cluster_rosa_hcp.{clean_name}.id
-  name         = "workers"
-  machine_type = "{machine_type}"
+    def _generate_rosa_hcp_terraform(self, cluster_config: Dict, clean_name: str, region: str, 
+                                    version: str, machine_type: str, worker_count: int, 
+                                    guid: str, yaml_data: Dict) -> str:
+        """Generate ROSA HCP cluster using RHCS Terraform provider with automated STS roles"""
+        cluster_name = cluster_config.get('name')
+        
+        # Get networking configuration
+        networking = self.get_merged_networking_config(cluster_config, 'rosa-hcp')
+        
+        # Get private cluster setting
+        private_cluster = cluster_config.get('private', False)
+        
+        # Get auto-scaling configuration
+        auto_scaling = cluster_config.get('auto_scaling', {})
+        auto_scaling_enabled = auto_scaling.get('enabled', False)
+        
+        # Always use deployment separation for ROSA HCP clusters to enable phased deployment
+        needs_rosa_separation = cluster_config.get('_needs_rosa_separation', False)
+        deployment_group = cluster_config.get('_deployment_group', 'rosa_hcp')
+        
+        # Always use deployment variables for ROSA clusters to enable phased deployment
+        deployment_condition = 'var.deploy_rosa_hcp ? 1 : 0'
+        
+        # Generate the required providers configuration
+        aws_provider = self.converter.get_aws_provider()
+        providers_config = aws_provider.generate_rosa_required_providers()
+        
+        # Generate OIDC configuration
+        oidc_config = aws_provider.generate_rosa_oidc_config(cluster_name, region, guid, yaml_data)
+        
+        # Generate STS account roles
+        sts_roles_config = aws_provider.generate_rosa_sts_roles(yaml_data)
+        
+        # Generate operator roles
+        operator_roles_config = aws_provider.generate_rosa_operator_roles(cluster_name, region, guid, yaml_data)
+        
+        terraform_config = f'''
+# =============================================================================
+# ROSA HCP CLUSTER: {cluster_name} (Fully Automated with STS)
+# =============================================================================
+
+{providers_config}
+
+{oidc_config}
+
+{sts_roles_config}
+
+{operator_roles_config}
+
+# Local variables for operator role configuration
+locals {{
+  operator_role_prefix = "{cluster_name}"
+  oidc_config_id      = rhcs_rosa_oidc_config.oidc_config.id
+}}
+
+# ROSA HCP cluster using RHCS Terraform provider with automated STS
+resource "rhcs_cluster_rosa_hcp" "{clean_name}" {{
+  count = {deployment_condition}
   
-  # Auto-scaling configuration
-  autoscaling = {{
-    enabled      = true
-    min_replicas = {min_replicas}
-    max_replicas = {max_replicas}
+  name               = "{cluster_name}"
+  cloud_region       = "{region}"
+  version            = "{version}"
+  
+  # Required availability zones - use filtered local variable from YamlForge
+  availability_zones = local.selected_azs_{region.replace('-', '_')}_{guid}
+  
+  # Machine configuration
+  aws_account_id           = data.aws_caller_identity.current.account_id
+  aws_billing_account_id   = data.aws_caller_identity.current.account_id
+  compute_machine_type     = "{machine_type}"
+  replicas                 = {worker_count}
+  
+  # Private cluster
+  private = {str(private_cluster).lower()}
+  
+  # Network dependencies - use public subnet IDs (YamlForge generates public subnets)
+  aws_subnet_ids = local.public_subnet_ids_{region.replace('-', '_')}_{guid}
+  
+  # OIDC configuration automatically created
+  oidc_config_id = rhcs_rosa_oidc_config.oidc_config.id
+  
+  # STS configuration with automatically created roles
+  sts = {{
+    operator_role_prefix = local.operator_role_prefix
+    role_arn            = aws_iam_role.rosa_installer_role.arn
+    support_role_arn    = aws_iam_role.rosa_support_role.arn
+    instance_iam_roles = {{
+      master_role_arn = aws_iam_role.rosa_master_role.arn
+      worker_role_arn = aws_iam_role.rosa_worker_role.arn
+    }}
   }}
   
-  # Availability zones
-  availability_zones = ["{region}a", "{region}b", "{region}c"]
-  
-  # Node labels
-  labels = {{
-    "node-role.kubernetes.io/worker" = ""
-    "cluster" = "{cluster_name}"
+  # Properties
+  properties = {{
+    rosa_creator_arn = data.aws_caller_identity.current.arn
   }}
   
-  # Taints (if specified)
-'''
-
-            # Add taints if specified
-            taints = cluster_config.get('machine_pools', [{}])[0].get('taints', [])
-            if taints:
-                terraform_config += '  taints = [\n'
-                for taint in taints:
-                    terraform_config += f'''    {{
-      key    = "{taint.get('key', '')}"
-      value  = "{taint.get('value', '')}"
-      effect = "{taint.get('effect', 'NoSchedule')}"
-    }},
-'''
-                terraform_config += '  ]\n'
-            
-            terraform_config += '}\n\n'
-
-        # Add OIDC configuration (required for HCP)
-        terraform_config += f'''
-# OIDC Configuration (required for ROSA HCP)
-resource "rhcs_rosa_oidc_config" "{clean_name}_oidc" {{
-  managed            = true
-  secret_arn        = var.aws_rosa_oidc_secret_arn
-  issuer_url        = rhcs_cluster_rosa_hcp.{clean_name}.sts.oidc_endpoint_url
-  thumbprint_list   = rhcs_cluster_rosa_hcp.{clean_name}.sts.thumbprint_list
-  
+  # Tags
   tags = {{
-    "Name" = "{cluster_name}-oidc"
-    "Cluster" = "{cluster_name}"
+    Environment = var.environment
+    ManagedBy   = "yamlforge"
+    Platform    = "rosa-hcp"
+    GUID        = "{guid}"
+    Region      = "{region}"
   }}
-}}
-
-'''
-
-        # Add operator roles (required for HCP)
-        terraform_config += f'''
-# Operator Roles (required for ROSA HCP)
-resource "rhcs_rosa_operator_roles" "{clean_name}_operator_roles" {{
-  cluster_id    = rhcs_cluster_rosa_hcp.{clean_name}.id
-  operator_role_prefix = "{clean_name}"
   
-  depends_on = [rhcs_rosa_oidc_config.{clean_name}_oidc]
+  # Wait for all prerequisites to be ready
+  depends_on = [
+    aws_vpc.main_vpc_{region.replace('-', '_')}_{guid},
+    aws_subnet.public_subnet_{region.replace('-', '_')}_{guid},
+    aws_internet_gateway.main_igw_{region.replace('-', '_')}_{guid},
+    aws_iam_role.rosa_installer_role,
+    aws_iam_role.rosa_support_role,
+    aws_iam_role.rosa_worker_role,
+    aws_iam_role.rosa_master_role,
+    rhcs_rosa_oidc_config.oidc_config,
+    rhcs_rosa_operator_roles.operator_roles
+  ]
+}}
+
+# Outputs for ROSA HCP cluster
+output "rosa_hcp_cluster_id_{clean_name}" {{
+  description = "ROSA HCP cluster ID for {cluster_name}"
+  value = length(rhcs_cluster_rosa_hcp.{clean_name}) > 0 ? rhcs_cluster_rosa_hcp.{clean_name}[0].id : ""
+}}
+
+output "rosa_hcp_api_url_{clean_name}" {{
+  description = "ROSA HCP API URL for {cluster_name}"
+  value = length(rhcs_cluster_rosa_hcp.{clean_name}) > 0 ? rhcs_cluster_rosa_hcp.{clean_name}[0].api_url : ""
+}}
+
+output "rosa_hcp_console_url_{clean_name}" {{
+  description = "ROSA HCP console URL for {cluster_name}"
+  value = length(rhcs_cluster_rosa_hcp.{clean_name}) > 0 ? rhcs_cluster_rosa_hcp.{clean_name}[0].console_url : ""
+}}
+
+output "rosa_hcp_oidc_endpoint_{clean_name}" {{
+  description = "ROSA HCP OIDC endpoint for {cluster_name}"
+  value = length(rhcs_cluster_rosa_hcp.{clean_name}) > 0 ? rhcs_rosa_oidc_config.oidc_config.oidc_endpoint_url : ""
 }}
 
 '''
+        return terraform_config
 
-        # Add addons (if specified)
-        addons = cluster_config.get('addons', [])
-        if addons:
-            terraform_config += f'''
-# ROSA HCP Cluster Addons
-'''
-            for addon in addons:
-                terraform_config += f'''
-resource "rhcs_hcp_cluster_addon" "{clean_name}_{addon.replace('-', '_')}" {{
-  cluster = rhcs_cluster_rosa_hcp.{clean_name}.id
-  name    = "{addon}"
+    def _generate_rosa_hcp_cli(self, cluster_config: Dict, clean_name: str, region: str, 
+                              version: str, machine_type: str, worker_count: int, 
+                              guid: str, yaml_data: Dict) -> str:
+        """Generate ROSA HCP cluster using ROSA CLI (legacy method)"""
+        cluster_name = cluster_config.get('name')
+        
+        terraform_config = f'''
+# =============================================================================
+# ROSA HCP CLUSTER: {cluster_name} (ROSA CLI Method)
+# =============================================================================
+
+# ROSA HCP cluster will be created using ROSA CLI commands
+# See the generated rosa-setup.sh script for cluster creation
+
+# Local values for ROSA HCP cluster reference
+locals {{
+  rosa_hcp_cluster_name_{clean_name} = "{cluster_name}"
+  rosa_hcp_region_{clean_name} = "{region}"
+  rosa_hcp_version_{clean_name} = "{version}"
+  rosa_hcp_machine_type_{clean_name} = "{machine_type}"
+  rosa_hcp_replicas_{clean_name} = {worker_count}
+  rosa_hcp_subnet_ids_{clean_name} = local.public_subnet_ids_{region.replace('-', '_')}_{guid}
+}}
+
+# Placeholder outputs for ROSA HCP cluster (will be populated after CLI creation)
+output "rosa_hcp_cluster_id_{clean_name}" {{
+  description = "ROSA HCP cluster ID for {cluster_name}"
+  value = "Run rosa describe cluster {cluster_name} to get cluster details"
+}}
+
+output "rosa_hcp_api_url_{clean_name}" {{
+  description = "ROSA HCP API URL for {cluster_name}"
+  value = "Run rosa describe cluster {cluster_name} --output json | jq -r '.api.url'"
+}}
+
+output "rosa_hcp_console_url_{clean_name}" {{
+  description = "ROSA HCP console URL for {cluster_name}"
+  value = "Run rosa describe cluster {cluster_name} --output json | jq -r '.console.url'"
 }}
 
 '''
-
         return terraform_config 

@@ -32,6 +32,6 @@ yamlforge:
       image: "RHEL9-latest"
 
   tags:
-      guid: "architectu-2024-001"
+      guid: "arc01"
     architecture_test: "enabled"
     environment: "testing" 

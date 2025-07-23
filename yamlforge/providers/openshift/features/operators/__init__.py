@@ -61,12 +61,19 @@ class OpenShiftOperatorProvider(BaseOpenShiftProvider):
         
         terraform_config = ""
         
+        # Get list of cluster names for operators that don't specify target clusters
+        cluster_names = [cluster.get('name') for cluster in clusters if cluster.get('name')]
+        
         for operator in operators_config:
             operator_name = operator.get('name')
             operator_type = operator.get('type')
-            target_clusters = operator.get('clusters', [])
+            target_clusters = operator.get('clusters', cluster_names)  # Default to all clusters
             
-            # Core operators
+            # Ensure target_clusters is a list
+            if not target_clusters:
+                target_clusters = cluster_names
+            
+            # Core operators - all require admin permissions
             if operator_type == 'monitoring':
                 terraform_config += self.monitoring_operator.generate_monitoring_operator(operator, target_clusters)
             elif operator_type == 'logging':
@@ -82,22 +89,22 @@ class OpenShiftOperatorProvider(BaseOpenShiftProvider):
             elif operator_type == 'gitops':
                 terraform_config += self.gitops_operator.generate_gitops_operator(operator, target_clusters)
             
-            # Security operators
+            # Security operators - require admin permissions
             elif operator_type == 'cert-manager':
-                terraform_config += self.cert_manager_operator.generate_cert_manager_operator(operator, target_clusters)
+                terraform_config += self.cert_manager_operator.generate_cert_manager_operator(operator, clusters)
             
-            # Networking operators
-            elif operator_type == 'submariner':
-                terraform_config += self.submariner_operator.generate_submariner_operator(operator, target_clusters)
+            # Networking operators - require admin permissions
             elif operator_type == 'metallb':
                 terraform_config += self.metallb_operator.generate_metallb_operator(operator, target_clusters)
+            elif operator_type == 'submariner':
+                terraform_config += self.submariner_operator.generate_submariner_operator(operator, target_clusters)
             
-            # Backup operators
+            # Backup operators - require admin permissions
             elif operator_type == 'oadp':
                 terraform_config += self.oadp_operator.generate_oadp_operator(operator, target_clusters)
             
             else:
-                print(f"Warning: Unsupported operator type: {operator_type}")
+                print(f"Warning: Unknown operator type '{operator_type}' for operator '{operator_name}'")
         
         return terraform_config
 

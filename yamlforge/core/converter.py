@@ -5,7 +5,10 @@ Contains the main YamlForgeConverter class that orchestrates multi-cloud
 infrastructure generation using provider-specific implementations.
 """
 
+import os
+import re
 import yaml
+import subprocess
 from pathlib import Path
 
 from .credentials import CredentialsManager
@@ -25,8 +28,10 @@ class YamlForgeConverter:
 
     def __init__(self, images_file="mappings/images.yaml"):
         """Initialize the converter with mappings and provider modules."""
+        # Check Terraform version early
+        self.validate_terraform_version()
+        
         self.images = self.load_images(images_file)
-        self.sizes = self.load_sizes("mappings/sizes.yaml")
         self.locations = self.load_locations("mappings/locations.yaml")
         self.flavors = self.load_flavors("mappings/flavors")
         # Load OpenShift-specific flavors from dedicated directory
@@ -38,7 +43,7 @@ class YamlForgeConverter:
         # Initialize credentials manager
         self.credentials = CredentialsManager()
 
-        # Initialize provider modules
+        # Initialize provider modules (GUID will be set when processing YAML)
         self.aws_provider = AWSProvider(self)
         self.azure_provider = AzureProvider(self)
         self.gcp_provider = GCPProvider(self)
@@ -51,6 +56,185 @@ class YamlForgeConverter:
         # Initialize OpenShift provider
         self.openshift_provider = OpenShiftProvider(self)
 
+        # Current YAML data for GUID extraction
+        self.current_yaml_data = None
+
+    def _has_rosa_clusters(self, yaml_data):
+        """Check if YAML configuration contains any ROSA clusters."""
+        if not yaml_data or 'openshift_clusters' not in yaml_data:
+            return False
+        
+        for cluster in yaml_data['openshift_clusters']:
+            cluster_type = cluster.get('type', '').lower()
+            if cluster_type in ['rosa-classic', 'rosa-hcp', 'rosa']:
+                return True
+        return False
+
+    def validate_terraform_version(self):
+        """Validate that Terraform is installed and meets minimum version requirements."""
+        try:
+            # Run terraform version command
+            result = subprocess.run(['terraform', '--version'], 
+                                  capture_output=True, text=True, timeout=10)
+            
+            if result.returncode != 0:
+                raise ValueError(
+                    "❌ Terraform Version Error: Failed to execute 'terraform --version'\n\n"
+                    "💡 Please ensure Terraform is installed and available in your PATH:\n\n"
+                    "1️⃣  Download and install Terraform:\n"
+                    "   https://developer.hashicorp.com/terraform/downloads\n\n"
+                    "2️⃣  Or use package managers:\n"
+                    "   # macOS (Homebrew)\n"
+                    "   brew install terraform\n\n"
+                    "   # Linux (Ubuntu/Debian)\n"
+                    "   wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg\n"
+                    "   echo \"deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main\" | sudo tee /etc/apt/sources.list.d/hashicorp.list\n"
+                    "   sudo apt update && sudo apt install terraform\n\n"
+                    "3️⃣  Verify installation:\n"
+                    "   terraform --version"
+                )
+            
+            # Parse version from output (e.g., "Terraform v1.12.2")
+            version_output = result.stdout.strip()
+            version_match = re.search(r'Terraform v(\d+)\.(\d+)\.(\d+)', version_output)
+            
+            if not version_match:
+                raise ValueError(
+                    f"❌ Terraform Version Error: Could not parse version from output:\n{version_output}\n\n"
+                    "💡 Please ensure you have a standard Terraform installation."
+                )
+            
+            major, minor, patch = map(int, version_match.groups())
+            current_version = (major, minor, patch)
+            
+            # Minimum required version: 1.12.0 (based on our testing)
+            min_version = (1, 12, 0)
+            
+            if current_version < min_version:
+                current_version_str = f"{major}.{minor}.{patch}"
+                min_version_str = f"{min_version[0]}.{min_version[1]}.{min_version[2]}"
+                
+                raise ValueError(
+                    f"❌ Terraform Version Error: Version {current_version_str} is too old\n\n"
+                    f"🔄 Required: Terraform v{min_version_str} or newer\n"
+                    f"📦 Current: Terraform v{current_version_str}\n\n"
+                    "💡 YamlForge requires a modern Terraform version to resolve provider dependencies correctly.\n\n"
+                    "🚀 Upgrade Terraform:\n\n"
+                    "1️⃣  Download latest version:\n"
+                    "   https://developer.hashicorp.com/terraform/downloads\n\n"
+                    "2️⃣  Or use tfswitch for easy version management:\n"
+                    "   curl -L https://raw.githubusercontent.com/warrensbox/terraform-switcher/release/install.sh | bash\n"
+                    "   tfswitch\n\n"
+                    "3️⃣  Update via package managers:\n"
+                    "   # macOS (Homebrew)\n"
+                    "   brew upgrade terraform\n\n"
+                    "   # Linux (Ubuntu/Debian)\n"
+                    "   sudo apt update && sudo apt upgrade terraform\n\n"
+                    "4️⃣  Verify upgrade:\n"
+                    "   terraform --version\n\n"
+                    "📋 Why this matters: Older Terraform versions have known issues with\n"
+                    "   ROSA/OpenShift provider dependency resolution that cause deployment failures."
+                )
+            
+            # Success - version is acceptable
+            current_version_str = f"{major}.{minor}.{patch}"
+            print(f"Detected Terraform version {current_version_str} (meets minimum requirement)")
+            
+        except subprocess.TimeoutExpired:
+            raise ValueError(
+                "❌ Terraform Version Error: Command 'terraform --version' timed out\n\n"
+                "💡 This might indicate a problem with your Terraform installation.\n"
+                "   Please verify Terraform is properly installed and functional."
+            )
+        except FileNotFoundError:
+            raise ValueError(
+                "❌ Terraform Version Error: 'terraform' command not found\n\n"
+                "💡 Terraform is required to deploy the generated configurations.\n\n"
+                "🚀 Install Terraform:\n\n"
+                "1️⃣  Download from official site:\n"
+                "   https://developer.hashicorp.com/terraform/downloads\n\n"
+                "2️⃣  Or use package managers:\n"
+                "   # macOS (Homebrew)\n"
+                "   brew install terraform\n\n"
+                "   # Linux (Ubuntu/Debian)\n"
+                "   wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg\n"
+                "   echo \"deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main\" | sudo tee /etc/apt/sources.list.d/hashicorp.list\n"
+                "   sudo apt update && sudo apt install terraform\n\n"
+                "   # Windows (Chocolatey)\n"
+                "   choco install terraform\n\n"
+                "3️⃣  Verify installation:\n"
+                "   terraform --version\n\n"
+                "📋 Note: YamlForge generates Terraform configurations, so Terraform\n"
+                "   is essential for deploying your infrastructure."
+            )
+        except Exception as e:
+            raise ValueError(
+                f"❌ Terraform Version Error: Unexpected error checking Terraform version:\n{str(e)}\n\n"
+                "💡 Please ensure Terraform is properly installed and accessible."
+            )
+
+    def get_validated_guid(self, yaml_data=None):
+        """Get GUID from environment variable or root-level YAML config with validation."""
+        # Try environment variable first (highest priority)
+        guid = os.environ.get('GUID', '').strip()
+        
+        # If not in environment, try to get from YAML root level
+        if not guid and yaml_data:
+            guid = yaml_data.get('guid', '')
+        
+        # Validate GUID format if provided
+        if guid:
+            # Normalize to lowercase first
+            guid = guid.lower()
+            if not self.validate_guid_format(guid):
+                raise ValueError(
+                    f"Invalid GUID format: '{guid}'. "
+                    f"GUID must be exactly 5 characters, alphanumeric only (a-z, 0-9) "
+                    f"to comply with DNS RFC and Kubernetes standards. "
+                    f"Examples: 'abc12', 'web01', 'k8s99', '12345'"
+                )
+            return guid
+        else:
+            raise ValueError(
+                "GUID is required but not provided.\n\n"
+                "💡 Please choose one of these options:\n\n"
+                "1️⃣  Set environment variable (recommended):\n"
+                "   export GUID=web01\n\n"
+                "2️⃣  Add to YAML root level:\n"
+                "   guid: \"web01\"\n"
+                "   yamlforge:\n"
+                "     ...\n\n"
+                "📋 GUID Requirements:\n"
+                "   • Exactly 5 characters\n"
+                "   • Lowercase alphanumeric only (a-z, 0-9)\n"
+                "   • Examples: web01, app42, test1, dev99\n\n"
+                "🎯 Quick Start:\n"
+                "   export GUID=test1 && ./yamlforge.py your-config.yaml -d output/"
+            )
+
+    def validate_guid_format(self, guid):
+        """Validate that GUID meets DNS RFC and Kubernetes standards."""
+        if not guid:
+            return False
+        
+        # Must be exactly 5 characters
+        if len(guid) != 5:
+            return False
+        
+        # Must be lowercase alphanumeric only (a-z, 0-9)
+        if not re.match(r'^[a-z0-9]{5}$', guid):
+            return False
+        
+        return True
+
+    def set_yaml_data(self, yaml_data):
+        """Set current YAML data for GUID extraction and notify providers."""
+        self.current_yaml_data = yaml_data
+        
+        # Update GUID in providers that need it
+        if hasattr(self.gcp_provider, 'update_guid'):
+            self.gcp_provider.update_guid(self.get_validated_guid(yaml_data))
+
     def load_images(self, file_path):
         """Load image mappings from YAML file."""
         try:
@@ -61,21 +245,7 @@ class YamlForgeConverter:
             print(f"Warning: {file_path} not found. Using empty image mappings.")
             return {}
 
-    def load_sizes(self, file_path):
-        """Load size mappings from YAML file."""
-        try:
-            with open(file_path, 'r') as f:
-                data = yaml.safe_load(f)
-                # Handle both old format (dict with 'sizes' key) and new format (list)
-                if isinstance(data, dict):
-                    return data.get('sizes', {})
-                elif isinstance(data, list):
-                    return data  # Return the list directly
-                else:
-                    return {}
-        except FileNotFoundError:
-            print(f"Warning: {file_path} not found. Using empty size mappings.")
-            return {}
+
 
     def load_locations(self, file_path):
         """Load location mappings from YAML file."""
@@ -275,7 +445,84 @@ class YamlForgeConverter:
                     hypershift_provider = cluster.get('provider', 'aws')
                     providers_in_use.add(hypershift_provider)
 
+        # Check OpenShift clusters and add required providers
+        openshift_clusters = yaml_data.get('openshift_clusters', [])
+        if openshift_clusters:
+            # Always need these for OpenShift
+            providers_in_use.update(['kubernetes', 'helm'])
+            
+            # Check ROSA deployment method to determine if RHCS provider is needed
+            rosa_deployment = yaml_data.get('rosa_deployment', {})
+            deployment_method = rosa_deployment.get('method', 'terraform')  # default to terraform
+            
+            for cluster in openshift_clusters:
+                cluster_type = cluster.get('type', '')
+                
+                # ROSA clusters with Terraform method need RHCS provider
+                if cluster_type in ['rosa-classic', 'rosa-hcp'] and deployment_method == 'terraform':
+                    providers_in_use.add('rhcs')
+                
+                # Add kubectl for self-managed and HyperShift
+                if cluster_type in ['self-managed', 'hypershift']:
+                    providers_in_use.add('kubectl')
+                
+                # Add Azure-specific providers for ARO
+                if cluster_type == 'aro':
+                    providers_in_use.add('azapi')
+                
+                # Add cloud provider for the cluster
+                if cluster_type in ['rosa-classic', 'rosa-hcp']:
+                    providers_in_use.add('aws')
+                elif cluster_type == 'aro':
+                    providers_in_use.add('azure')
+                elif cluster_type == 'openshift-dedicated':
+                    cloud_provider = cluster.get('cloud_provider')
+                    if cloud_provider:
+                        providers_in_use.add(cloud_provider)
+                elif cluster_type in ['self-managed', 'hypershift']:
+                    cloud_provider = cluster.get('provider')
+                    if cloud_provider:
+                        providers_in_use.add(cloud_provider)
+
         return sorted(list(providers_in_use))
+
+    def validate_provider_setup(self, yaml_data):
+        """Validate cloud provider setup early to catch issues before processing."""
+        required_providers = self.detect_required_providers(yaml_data)
+        
+        # Check each required provider
+        for provider in required_providers:
+            if provider == 'aws':
+                # Check if user wants to skip validation
+                yamlforge_config = yaml_data.get('yamlforge', {})
+                aws_config = yamlforge_config.get('aws', {})
+                use_data_sources = aws_config.get('use_data_sources', False)
+                
+                if not use_data_sources:
+                    # Only validate if not using data source fallback
+                    try:
+                        self.aws_provider.validate_aws_setup()
+                    except ValueError as e:
+                        # Re-raise with context about which instances need AWS
+                        aws_instances = []
+                        for instance in yaml_data.get('instances', []):
+                            instance_provider = instance.get('provider')
+                            if instance_provider == 'aws':
+                                aws_instances.append(instance.get('name', 'unnamed'))
+                            elif instance_provider in ['cheapest', 'cheapest-gpu']:
+                                # These might resolve to AWS
+                                aws_instances.append(f"{instance.get('name', 'unnamed')} (via {instance_provider})")
+                        
+                        instance_list = ', '.join(aws_instances) if aws_instances else 'OpenShift clusters'
+                        
+                        error_msg = str(e).replace("❌ AWS Provider Error:", f"❌ AWS Provider Error (needed for: {instance_list}):")
+                        raise ValueError(error_msg) from e
+            
+            # Add validation for other providers as needed
+            # elif provider == 'azure':
+            #     self.azure_provider.validate_azure_setup()
+            # elif provider == 'gcp':
+            #     self.gcp_provider.validate_gcp_setup()
 
     def validate_instance_names(self, instances):
         """Validate that no two instances have the same name within the same cloud provider."""
@@ -316,6 +563,9 @@ class YamlForgeConverter:
 
     def generate_terraform_project(self, yaml_data):
         """Generate organized Terraform project files with full regional infrastructure."""
+        # Set YAML data for GUID extraction
+        self.set_yaml_data(yaml_data)
+        
         files = {}
         required_providers = self.detect_required_providers(yaml_data)
 
@@ -325,8 +575,8 @@ class YamlForgeConverter:
         # Generate variables file
         variables_content = self.generate_variables_tf(required_providers, yaml_data)
 
-        # Generate terraform.tfvars example
-        tfvars_content = self.generate_tfvars_example(required_providers)
+        # Generate terraform.tfvars example  
+        tfvars_content = self.generate_tfvars_example(required_providers, yaml_data)
 
         files['main.tf'] = main_content
         files['variables.tf'] = variables_content
@@ -336,12 +586,16 @@ class YamlForgeConverter:
 
     def generate_complete_terraform(self, yaml_data, required_providers):
         """Generate complete Terraform configuration with regional infrastructure."""
+        # Ensure YAML data is set for GUID extraction
+        if self.current_yaml_data != yaml_data:
+            self.set_yaml_data(yaml_data)
+            
         terraform_content = f'''# Generated by YamlForge v2.0 - Regional Multi-Cloud Infrastructure
 # Required providers: {', '.join(required_providers)}
 # Regional security groups and networking included
 
 terraform {{
-  required_version = ">= 1.0"
+  required_version = ">= 1.12.0"
   required_providers {{'''
 
         # Add provider configurations
@@ -388,6 +642,30 @@ terraform {{
       source  = "aliyun/alicloud"
       version = "~> 1.0"
     }'''
+            elif provider == 'rhcs':
+                terraform_content += '''
+    rhcs = {
+      source  = "terraform-redhat/rhcs"
+      version = ">= 1.0.1"
+    }'''
+            elif provider == 'kubernetes':
+                terraform_content += '''
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.23"
+    }'''
+            elif provider == 'helm':
+                terraform_content += '''
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.11"
+    }'''
+            elif provider == 'kubectl':
+                terraform_content += '''
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+      version = "~> 1.14"
+    }'''
 
         terraform_content += '''
   }
@@ -398,10 +676,21 @@ terraform {{
         # Add provider configurations for each required provider
         for provider in required_providers:
             if provider == 'aws':
+                # Check if we have ROSA Classic clusters that need AWS credentials
+                has_rosa_classic = False
+                if yaml_data and 'openshift_clusters' in yaml_data:
+                    for cluster in yaml_data['openshift_clusters']:
+                        if cluster.get('type') == 'rosa-classic':
+                            has_rosa_classic = True
+                            break
+                
                 terraform_content += '''# AWS Provider Configuration
 provider "aws" {
   region = var.aws_region
 }
+
+# AWS Caller Identity for account information
+data "aws_caller_identity" "current" {}
 
 '''
             elif provider == 'azure':
@@ -458,6 +747,14 @@ provider "alicloud" {
 }
 
 '''
+            elif provider == 'rhcs':
+                terraform_content += '''# Red Hat Cloud Services Provider Configuration
+provider "rhcs" {
+  token = var.rhcs_token
+  url   = var.rhcs_url
+}
+
+'''
 
         # Generate GCP project management if GCP is used
         if 'gcp' in required_providers:
@@ -500,6 +797,8 @@ provider "alicloud" {
         for i, instance in enumerate(instances):
             terraform_content += self.generate_virtual_machine(instance, i+1, yaml_data)
 
+        # ROSA clusters use ROSA CLI instead of Terraform providers
+
         # Generate OpenShift clusters
         terraform_content += '''
 # ========================================
@@ -526,6 +825,13 @@ variable "aws_region" {
   type        = string
   default     = "us-east-1"
 }
+
+# ROSA clusters use ROSA CLI - no AWS account ID variable needed
+
+# Official Red Hat Terraform modules handle AWS billing account ID automatically
+
+# ROSA clusters use ROSA CLI for authentication and cluster creation
+# AWS credentials are configured via environment variables or AWS profiles
 
 '''
 
@@ -676,29 +982,153 @@ variable "alibaba_region" {
 
 '''
 
-        # Add OpenShift variables if clusters are present
+        if 'rhcs' in required_providers:
+            variables_content += '''# Red Hat Cloud Services Variables
+variable "rhcs_token" {
+  description = "Red Hat OpenShift Cluster Manager offline token"
+  type        = string
+  sensitive   = true
+}
+
+variable "rhcs_url" {
+  description = "Red Hat OpenShift Cluster Manager URL"
+  type        = string
+  default     = "https://api.openshift.com"
+}
+
+'''
+
+                # Add OpenShift variables if clusters are present
         if yaml_data:
             openshift_clusters = yaml_data.get('openshift_clusters', [])
             if openshift_clusters:
-                variables_content += self.openshift_provider.generate_openshift_variables(yaml_data)
+                variables_content += self.openshift_provider.generate_openshift_variables(openshift_clusters)
+
+        # Add common infrastructure variables
+        variables_content += '''# =============================================================================
+# COMMON INFRASTRUCTURE VARIABLES
+# =============================================================================
+
+variable "ssh_public_key" {
+  description = "SSH public key for instance access"
+  type        = string
+}
+
+variable "key_name" {
+  description = "Name of the SSH key pair"
+  type        = string
+  default     = "default-key"
+}
+
+variable "environment" {
+  description = "Environment tag for resources"
+  type        = string
+  default     = "development"
+}
+
+'''
 
         return variables_content
 
-    def generate_tfvars_example(self, required_providers):
+    def generate_tfvars_example(self, required_providers, yaml_data=None):
         """Generate terraform.tfvars example file."""
+        # Get default SSH key
+        ssh_key_info = self.credentials.get_default_ssh_key()
+        
         tfvars_content = '''# Terraform Variables Configuration
 # Copy this file to terraform.tfvars and customize with your values
 # Generated by YamlForge v2.0
 
-# SSH public key for instance access (required)
+'''
+        
+        # Add SSH key section
+        if ssh_key_info.get('available'):
+            # Mask the SSH key for security (show first 20 and last 10 characters)
+            ssh_key = ssh_key_info.get('public_key', '')
+            if len(ssh_key) > 40:
+                masked_key = ssh_key[:20] + "..." + ssh_key[-10:]
+            else:
+                masked_key = ssh_key[:10] + "..." if len(ssh_key) > 10 else ssh_key
+                
+            tfvars_content += f'''# SSH public key for instance access
+# Automatically detected from: {ssh_key_info.get('source')}
+ssh_public_key = "{ssh_key}"
+
+'''
+        else:
+            tfvars_content += '''# SSH public key for instance access (required)
+# Set SSH_PUBLIC_KEY environment variable or add to defaults/core.yaml
+# Examples:
+#   export SSH_PUBLIC_KEY="$(cat ~/.ssh/id_rsa.pub)"
+#   export SSH_PUBLIC_KEY="ssh-rsa AAAAB3NzaC1yc2EAAAA... user@host"
 ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAA... your-public-key-here"
 
 '''
 
         if 'aws' in required_providers:
-            tfvars_content += '''# AWS Configuration
-aws_region = "us-east-1"
-key_name   = "my-key-pair"
+            # Get AWS credentials with auto-discovery
+            aws_creds = self.credentials.get_aws_credentials()
+            
+            tfvars_content += '''# =============================================================================
+# AWS CONFIGURATION
+# =============================================================================
+
+'''
+            
+            # Try to auto-detect AWS credentials from environment variables
+            access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
+            secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+            aws_region = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
+            aws_billing_account_id = os.getenv('AWS_BILLING_ACCOUNT_ID')
+            
+
+            
+            # ROSA CLI uses AWS credentials from environment variables or AWS CLI profiles
+            tfvars_content += f'''# AWS Region Configuration
+aws_region = "{aws_region}"
+
+# ROSA CLI uses AWS credentials from environment variables or AWS CLI profiles
+# No need to set aws_access_key_id or aws_secret_access_key in Terraform
+
+'''
+            
+            # AWS account information - try environment variables first, then AWS SDK
+            account_id_from_env = None
+            user_arn_from_env = None
+            billing_account_id = aws_billing_account_id
+            
+            if aws_creds.get('available'):
+                # Use auto-discovered values from AWS SDK
+                account_id_from_env = aws_creds.get('account_id')
+                user_arn_from_env = aws_creds.get('user_arn', '')
+                # Use environment variable for billing account ID if set, otherwise use account ID
+                billing_account_id = billing_account_id or account_id_from_env
+                
+                tfvars_content += f'''# AWS Account Information (auto-detected from AWS credentials)
+# ROSA clusters use ROSA CLI for authentication and cluster creation
+# aws_account_id        = "{account_id_from_env}"
+# aws_billing_account_id = "{billing_account_id}"
+
+'''
+            else:
+                # Fall back to environment variables if AWS SDK not available
+                if billing_account_id:
+                    tfvars_content += f'''# AWS Account Information (partially from environment variables)
+# aws_account_id        = "your-account-id"  # AWS SDK not available
+# Official Red Hat modules automatically handle AWS account information
+# aws_rosa_creator_arn  = "arn:aws:iam::account:user/your-username"
+
+# ROSA clusters use ROSA CLI for authentication (no manual role configuration needed)
+# aws_rosa_installer_role_arn = "arn:aws:iam::your-account-id:role/ManagedOpenShift-Installer-Role"
+# aws_rosa_support_role_arn   = "arn:aws:iam::your-account-id:role/ManagedOpenShift-Support-Role"
+# aws_rosa_worker_role_arn    = "arn:aws:iam::your-account-id:role/ManagedOpenShift-Worker-Role"
+# aws_rosa_master_role_arn    = "arn:aws:iam::your-account-id:role/ManagedOpenShift-ControlPlane-Role"
+
+'''
+                else:
+                    tfvars_content += '''# AWS Account Information for ROSA Clusters
+# ROSA clusters use ROSA CLI for authentication and cluster creation
+# AWS credentials configured via environment variables or AWS CLI profiles
 
 '''
 
@@ -754,10 +1184,144 @@ alibaba_region     = "cn-hangzhou"
 
 '''
 
+        if 'rhcs' in required_providers:
+            # Try to get RHCS token from environment variable
+            rhcs_token = os.getenv('REDHAT_OPENSHIFT_TOKEN') or os.getenv('ROSA_TOKEN') or os.getenv('OCM_TOKEN')
+            
+            tfvars_content += '''# =============================================================================
+# RED HAT CLOUD SERVICES CONFIGURATION
+# =============================================================================
+
+'''
+            
+            if rhcs_token:
+                # Mask the token for security (show first 10 and last 10 characters)
+                if len(rhcs_token) > 30:
+                    masked_token = rhcs_token[:10] + "..." + rhcs_token[-10:]
+                else:
+                    masked_token = rhcs_token[:5] + "..." if len(rhcs_token) > 10 else rhcs_token
+                
+                tfvars_content += f'''# Red Hat OpenShift Cluster Manager Token
+# Automatically detected from environment variable
+rhcs_token = "{rhcs_token}"
+rhcs_url   = "https://api.openshift.com"
+
+'''
+            else:
+                tfvars_content += '''# Red Hat OpenShift Cluster Manager Token (required for ROSA)
+# Get your token from: https://console.redhat.com/openshift/token/rosa
+# Set REDHAT_OPENSHIFT_TOKEN environment variable or configure here
+rhcs_token = "your-offline-token-here"
+rhcs_url   = "https://api.openshift.com"
+
+'''
+
+        # Add OpenShift credentials if OpenShift clusters are present  
+        # Note: yaml_data is not available in this method, check if rhcs provider is in required_providers
+        has_openshift = 'rhcs' in required_providers
+        if has_openshift:
+            tfvars_content += '''# =============================================================================
+# RED HAT OPENSHIFT CLUSTER MANAGER CREDENTIALS
+# =============================================================================
+
+'''
+            
+            # Try to auto-detect Red Hat OpenShift token from multiple sources
+            redhat_token = (
+                os.getenv('REDHAT_OPENSHIFT_TOKEN') or 
+                os.getenv('OCM_TOKEN') or 
+                os.getenv('ROSA_TOKEN')
+            )
+            redhat_url = os.getenv('REDHAT_OPENSHIFT_URL', 'https://api.openshift.com')
+            
+            if redhat_token:
+                tfvars_content += f'''# Red Hat OpenShift credentials (auto-detected from environment)
+redhat_openshift_token = "{redhat_token}"
+redhat_openshift_url   = "{redhat_url}"
+
+'''
+            else:
+                tfvars_content += '''# Red Hat OpenShift credentials (required for ROSA clusters)
+# Get your token from: https://console.redhat.com/openshift/token
+# Set environment variable: REDHAT_OPENSHIFT_TOKEN, OCM_TOKEN, or ROSA_TOKEN
+# Or uncomment and fill in:
+# redhat_openshift_token = "your_offline_token_from_console.redhat.com"
+# redhat_openshift_url   = "https://api.openshift.com"
+
+'''
+
         return tfvars_content
+
+    def convert(self, config, output_dir, verbose=False):
+        """Convert YAML configuration to Terraform and write files to output directory."""
+        self.verbose = verbose
+        # Set YAML data for GUID extraction
+        self.set_yaml_data(config)
+        
+        # Validate cloud provider setup early
+        self.validate_provider_setup(config)
+        
+        required_providers = self.detect_required_providers(config)
+
+
+        # Generate the complete terraform configuration
+        terraform_config = self.generate_complete_terraform(config, required_providers)
+        
+        # Write the main.tf file
+        main_tf_path = os.path.join(output_dir, 'main.tf')
+        with open(main_tf_path, 'w') as f:
+            f.write(terraform_config)
+        
+        # Generate and write variables.tf
+        variables_config = self.generate_variables_tf(required_providers, config)
+        variables_path = os.path.join(output_dir, 'variables.tf')
+        with open(variables_path, 'w') as f:
+            f.write(variables_config)
+        
+        # Generate and write terraform.tfvars
+        tfvars_config = self.generate_tfvars_example(required_providers, config)
+        tfvars_path = os.path.join(output_dir, 'terraform.tfvars')
+        with open(tfvars_path, 'w') as f:
+            f.write(tfvars_config)
+            
+        # Generate ROSA CLI setup script if ROSA clusters are present
+        if self.openshift_provider._has_rosa_clusters(config):
+            rosa_script = self.openshift_provider.generate_rosa_cli_script(config)
+            script_path = os.path.join(output_dir, 'rosa-setup.sh')
+            with open(script_path, 'w') as f:
+                f.write(rosa_script)
+            # Make script executable
+            os.chmod(script_path, 0o755)
+            
+            # Generate ROSA cleanup script
+            cleanup_script = self.openshift_provider.generate_rosa_cleanup_script(config)
+            if cleanup_script:
+                cleanup_path = os.path.join(output_dir, 'rosa-cleanup.sh')
+                with open(cleanup_path, 'w') as f:
+                    f.write(cleanup_script)
+                # Make script executable
+                os.chmod(cleanup_path, 0o755)
+            
+            if self.verbose:
+                print(f"Generated files:")
+                print(f"  - {main_tf_path}")
+                print(f"  - {variables_path}")
+                print(f"  - {tfvars_path}")
+                print(f"  - {script_path}")
+                if cleanup_script:
+                    print(f"  - {cleanup_path}")
+        else:
+            if self.verbose:
+                print(f"Generated files:")
+                print(f"  - {main_tf_path}")
+                print(f"  - {variables_path}")
+                print(f"  - {tfvars_path}")
 
     def convert_yaml_to_terraform(self, config):
         """Convert YAML configuration to Terraform (compatibility method)."""
+        # Set YAML data for GUID extraction
+        self.set_yaml_data(config)
+        
         required_providers = self.detect_required_providers(config)
 
         # Use the complete terraform generation for full functionality
@@ -1618,7 +2182,18 @@ alibaba_region     = "cn-hangzhou"
     def analyze_regional_security_groups(self, config):
         """Analyze which security groups are needed in which regions."""
         regional_sgs = {}
-        security_groups = config.get('security_groups', {})
+        
+        # Convert security groups list to dictionary for easier lookup
+        security_groups_raw = config.get('security_groups', [])
+        security_groups = {}
+        
+        # Handle both list and dictionary formats
+        if isinstance(security_groups_raw, list):
+            for sg in security_groups_raw:
+                if isinstance(sg, dict) and 'name' in sg:
+                    security_groups[sg['name']] = sg
+        elif isinstance(security_groups_raw, dict):
+            security_groups = security_groups_raw
 
         # Analyze instances to determine SG regional requirements
         for instance in config.get('instances', []):
@@ -1639,7 +2214,19 @@ alibaba_region     = "cn-hangzhou"
     def generate_regional_security_groups(self, config):
         """Generate security groups for each region where they're needed."""
         regional_analysis = self.analyze_regional_security_groups(config)
-        security_groups = config.get('security_groups', {})
+        
+        # Convert security groups list to dictionary for easier lookup (same as in analyze method)
+        security_groups_raw = config.get('security_groups', [])
+        security_groups = {}
+        
+        # Handle both list and dictionary formats
+        if isinstance(security_groups_raw, list):
+            for sg in security_groups_raw:
+                if isinstance(sg, dict) and 'name' in sg:
+                    security_groups[sg['name']] = sg
+        elif isinstance(security_groups_raw, dict):
+            security_groups = security_groups_raw
+            
         sg_terraform = ""
 
         for region, region_data in regional_analysis.items():
@@ -1651,13 +2238,17 @@ alibaba_region     = "cn-hangzhou"
 
                 # Generate region-specific security group
                 if provider == 'aws':
-                    sg_terraform += self.aws_provider.generate_aws_security_group(sg_name, rules, region)
+                    sg_terraform += self.aws_provider.generate_aws_security_group(sg_name, rules, region, config)
                 elif provider == 'azure':
-                    sg_terraform += self.azure_provider.generate_azure_security_group(sg_name, rules, region)
+                    sg_terraform += self.azure_provider.generate_azure_security_group(sg_name, rules, region, config)
                 elif provider == 'gcp':
                     sg_terraform += self.gcp_provider.generate_gcp_firewall_rules(sg_name, rules, region)
                 elif provider == 'ibm_vpc':
-                    sg_terraform += self.ibm_vpc_provider.generate_ibm_security_group(sg_name, rules, region)
+                    sg_terraform += self.ibm_vpc_provider.generate_ibm_security_group(sg_name, rules, region, config)
+                elif provider == 'oci':
+                    sg_terraform += self.oci_provider.generate_oci_security_group(sg_name, rules, region, config)
+                elif provider == 'alibaba':
+                    sg_terraform += self.alibaba_provider.generate_alibaba_security_group(sg_name, rules, region, config)
 
         return sg_terraform
 
@@ -1700,13 +2291,21 @@ alibaba_region     = "cn-hangzhou"
 
             # Generate regional networking
             if provider == 'aws':
-                networking_terraform += self.aws_provider.generate_aws_networking(deployment_name, deployment_config, region)
+                networking_terraform += self.aws_provider.generate_aws_networking(deployment_name, deployment_config, region, config)
             elif provider == 'azure':
-                networking_terraform += self.azure_provider.generate_azure_networking(deployment_name, deployment_config, region)
+                networking_terraform += self.azure_provider.generate_azure_networking(deployment_name, deployment_config, region, config)
             elif provider == 'gcp':
                 networking_terraform += self.gcp_provider.generate_gcp_networking(deployment_name, deployment_config, region)
             elif provider == 'ibm_vpc':
-                networking_terraform += self.ibm_vpc_provider.generate_ibm_vpc_networking(deployment_name, deployment_config, region)
+                networking_terraform += self.ibm_vpc_provider.generate_ibm_vpc_networking(deployment_name, deployment_config, region, config)
+            elif provider == 'ibm_classic':
+                networking_terraform += self.ibm_classic_provider.generate_ibm_classic_networking(deployment_name, deployment_config, region, config)
+            elif provider == 'oci':
+                networking_terraform += self.oci_provider.generate_oci_networking(deployment_name, deployment_config, region, config)
+            elif provider == 'vmware':
+                networking_terraform += self.vmware_provider.generate_vmware_networking(deployment_name, deployment_config, region, config)
+            elif provider == 'alibaba':
+                networking_terraform += self.alibaba_provider.generate_alibaba_networking(deployment_name, deployment_config, region, config)
 
         return networking_terraform
 
@@ -1718,15 +2317,88 @@ alibaba_region     = "cn-hangzhou"
 
     def extract_rhel_info(self, image_key):
         """Extract RHEL version and architecture from image key."""
-        return "9", "x86_64"
+        import re
+        
+        # Default values
+        default_version = "9"
+        default_arch = "x86_64"
+        
+        # Try to extract RHEL version from the image key
+        # Patterns to match: RHEL-9, RHEL-10.0, RHEL-8.9, RHEL9, RHEL10, etc.
+        rhel_patterns = [
+            r'RHEL-?(\d+(?:\.\d+)?)',  # RHEL-10.0, RHEL-9, RHEL9, etc.
+            r'rhel-?(\d+(?:\.\d+)?)',  # rhel-10.0, rhel-9, rhel9, etc.
+        ]
+        
+        version = default_version
+        for pattern in rhel_patterns:
+            match = re.search(pattern, image_key, re.IGNORECASE)
+            if match:
+                version = match.group(1)
+                break
+        
+        # Try to extract architecture from the image key
+        # Common patterns: x86_64, amd64, arm64, aarch64
+        arch_patterns = [
+            r'(x86_64|amd64)',     # x86_64 or amd64
+            r'(arm64|aarch64)',    # ARM 64-bit
+        ]
+        
+        architecture = default_arch
+        for pattern in arch_patterns:
+            match = re.search(pattern, image_key, re.IGNORECASE)
+            if match:
+                architecture = match.group(1)
+                # Normalize architecture names
+                if architecture.lower() in ['amd64']:
+                    architecture = 'x86_64'
+                elif architecture.lower() in ['aarch64']:
+                    architecture = 'arm64'
+                break
+        
+        return version, architecture
 
     def extract_fedora_version(self, image_key):
         """Extract Fedora version from image key."""
-        return "39"
+        import re
+        
+        # Default version
+        default_version = "39"
+        
+        # Try to extract Fedora version from the image key
+        # Patterns to match: Fedora-39, Fedora39, FEDORA-40, etc.
+        fedora_patterns = [
+            r'fedora-?(\d+)',  # fedora-39, fedora39, etc.
+            r'FEDORA-?(\d+)',  # FEDORA-39, FEDORA39, etc.
+        ]
+        
+        for pattern in fedora_patterns:
+            match = re.search(pattern, image_key)
+            if match:
+                return match.group(1)
+        
+        return default_version
 
     def generate_rhel_pattern_config(self, image_key):
         """Generate RHEL pattern configuration for dynamic discovery."""
-        return None
+        # Extract RHEL info to generate appropriate pattern
+        rhel_version, architecture = self.extract_rhel_info(image_key)
+        
+        # Determine if this is a GOLD/BYOS image
+        is_gold = "GOLD" in image_key.upper() or "BYOS" in image_key.upper()
+        
+        if is_gold:
+            name_pattern = f"RHEL-{rhel_version}*_HVM*Access*"
+            owner_key = "redhat_gold"
+        else:
+            name_pattern = f"RHEL-{rhel_version}*_HVM*"
+            owner_key = "redhat_public"
+        
+        return {
+            'name_pattern': name_pattern,
+            'owner_key': owner_key,
+            'architecture': architecture
+        }
 
     def determine_default_owner_key(self, image_key):
         """Determine default owner key for image discovery."""

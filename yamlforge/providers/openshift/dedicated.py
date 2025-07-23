@@ -13,17 +13,32 @@ class OpenShiftDedicatedProvider(BaseOpenShiftProvider):
     def generate_dedicated_cluster(self, cluster_config: Dict) -> str:
         """Generate OpenShift Dedicated cluster"""
         
-        cluster_name = cluster_config.get('name', 'dedicated-cluster')
+        cluster_name = cluster_config.get('name')
+        if not cluster_name:
+            raise ValueError("OpenShift Dedicated cluster 'name' must be specified")
+        
         clean_name = self.clean_name(cluster_name)
-        cloud_provider = cluster_config.get('cloud_provider', 'aws')
-        region = cluster_config.get('region', 'us-east-1')
-        version = self.validate_openshift_version(cluster_config.get('version', ''))
-        size_config = self.get_cluster_size_config(
-            cluster_config.get('size', 'medium'), 'openshift-dedicated'
-        )
+        
+        cloud_provider = cluster_config.get('cloud_provider')
+        if not cloud_provider:
+            raise ValueError(f"OpenShift Dedicated cluster '{cluster_name}' must specify 'cloud_provider'")
+            
+        region = cluster_config.get('region')
+        if not region:
+            raise ValueError(f"OpenShift Dedicated cluster '{cluster_name}' must specify 'region'")
+            
+        version = cluster_config.get('version')
+        if not version:
+            raise ValueError(f"OpenShift Dedicated cluster '{cluster_name}' must specify 'version'")
+        version = self.validate_openshift_version(version)
+        
+        size = cluster_config.get('size')
+        if not size:
+            raise ValueError(f"OpenShift Dedicated cluster '{cluster_name}' must specify 'size'")
+        size_config = self.get_cluster_size_config(size, 'openshift-dedicated')
         
         # OpenShift Dedicated configuration
-        dedicated_config = cluster_config.get('dedicated', {})
+        dedicated_config = cluster_config.get('dedicated') or {}
         support_level = dedicated_config.get('support_level', 'standard')
         maintenance_window = dedicated_config.get('maintenance_window', 'sunday-2am')
         
@@ -41,14 +56,14 @@ resource "rhcs_cluster_dedicated" "{clean_name}" {{
   
   # Cluster sizing
   compute_machine_type = "{self.get_dedicated_machine_type(cloud_provider, size_config['worker_size'])}"
-  replicas            = {cluster_config.get('worker_count', size_config['worker_count'])}
+  replicas            = {cluster_config.get('worker_count') or size_config['worker_count']}
   
   # Dedicated-specific configuration
   support_level      = "{support_level}"
   maintenance_window = "{maintenance_window}"
   
   # High availability
-  multi_az = {str(cluster_config.get('multi_az', True)).lower()}
+  multi_az = {str(cluster_config.get('multi_az') or True).lower()}
   
   # Compliance options
 '''

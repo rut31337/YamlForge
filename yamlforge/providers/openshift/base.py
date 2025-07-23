@@ -23,16 +23,36 @@ class BaseOpenShiftProvider:
         'hypershift': None,           # Control plane can be anywhere
     }
     
-    # Default OpenShift versions
-    SUPPORTED_VERSIONS = [
-        '4.14.15', '4.14.12', '4.14.10',
-        '4.13.25', '4.13.20', '4.13.15',
-        '4.12.35', '4.12.30'
-    ]
+    # OpenShift versions are dynamically fetched from Red Hat API
+    # No static fallback versions - API connectivity required
     
-    def __init__(self, converter):
+    def __init__(self, converter=None):
+        """Initialize the base OpenShift provider"""
         self.converter = converter
+        # Load OpenShift defaults for service account permissions
+        self.openshift_defaults = self._load_openshift_defaults()
+        # Maintain backward compatibility
         self.openshift_config = self.load_config()
+    
+    def _load_openshift_defaults(self):
+        """Load OpenShift defaults configuration"""
+        import yaml
+        import os
+        
+        defaults_path = os.path.join(os.path.dirname(__file__), '../../..', 'defaults', 'openshift.yaml')
+        try:
+            with open(defaults_path, 'r') as f:
+                return yaml.safe_load(f)
+        except FileNotFoundError:
+            # Return minimal defaults if file not found
+            return {
+                'security': {
+                    'service_accounts': {
+                        'cluster_admin_limited': {'permissions': []},
+                        'app_deployer': {'permissions': []}
+                    }
+                }
+            }
         
     def load_config(self):
         """Load OpenShift configuration from defaults YAML file."""
@@ -50,6 +70,11 @@ class BaseOpenShiftProvider:
             raise Exception("defaults/openshift.yaml is empty or invalid")
 
         return defaults_config.get('openshift', {})
+    
+    def get_token_duration(self) -> str:
+        """Get token duration from OpenShift defaults configuration."""
+        token_config = self.openshift_defaults.get('security', {}).get('service_accounts', {}).get('token_expiration', {})
+        return token_config.get('default_duration', '8760h')  # Default to 1 year if not configured
         
     def load_operator_config(self, operator_type: str) -> Dict:
         """Load operator-specific configuration from YAML file."""
@@ -72,22 +97,32 @@ class BaseOpenShiftProvider:
         """Get the cloud provider for an OpenShift cluster type"""
         return self.OPENSHIFT_PROVIDER_MAP.get(cluster_type)
         
-    def validate_openshift_version(self, version: str) -> str:
-        """Validate and normalize OpenShift version"""
-        if not version:
-            return self.SUPPORTED_VERSIONS[0]  # Latest stable
+    def validate_openshift_version(self, version: str, auto_upgrade_unsupported: bool = False) -> str:
+        """
+        Validate OpenShift version using dynamic ROSA version management
+        
+        Args:
+            version: OpenShift version to validate
+            auto_upgrade_unsupported: If False (default), fail on unsupported versions; if True, auto-upgrade to latest
             
-        if version in self.SUPPORTED_VERSIONS:
-            return version
+        Returns:
+            Validated version string
             
-        # Try to find a close match
-        major_minor = '.'.join(version.split('.')[:2])
-        for supported in self.SUPPORTED_VERSIONS:
-            if supported.startswith(major_minor):
-                return supported
-                
-        # Default to latest if no match
-        return self.SUPPORTED_VERSIONS[0]
+        Raises:
+            ValueError: If version is unsupported and auto_upgrade_unsupported is False
+        """
+        try:
+            # Import the dynamic version manager
+            from .rosa_dynamic import DynamicROSAVersionProvider
+            dynamic_provider = DynamicROSAVersionProvider()
+            
+            # Use get_recommended_version which handles all cases including the auto_upgrade flag
+            return dynamic_provider.get_recommended_version(version, auto_upgrade_unsupported=auto_upgrade_unsupported)
+            
+        except Exception as e:
+            # If dynamic provider fails, this is a critical error
+            raise ValueError(f"Cannot validate OpenShift version '{version}': {e}. "
+                           f"Ensure REDHAT_OPENSHIFT_TOKEN is set and API connectivity is available.")
         
     def get_cluster_size_config(self, size: str, cluster_type: str) -> Dict[str, Any]:
         """Get cluster sizing configuration based on yamlforge size"""
@@ -157,7 +192,7 @@ class BaseOpenShiftProvider:
         base_networking = self.get_default_base_networking(cluster_type)
         
         # Merge with user-provided networking configuration
-        user_networking = cluster_config.get('networking', {})
+        user_networking = cluster_config.get('networking') or {}
         merged_networking = base_networking.copy()
         merged_networking.update(user_networking)
         
@@ -179,15 +214,15 @@ class BaseOpenShiftProvider:
                 providers_needed.add('azapi')  # Azure API
             if cluster_type == 'self-managed':
                 # Self-managed can run on any provider, check the provider field
-                self_managed_provider = cluster.get('provider', 'aws')
+                self_managed_provider = cluster.get('provider')
                 providers_needed.add(self_managed_provider)
             if cluster_type == 'openshift-dedicated':
                 # Dedicated can run on multiple clouds, check cloud_provider
-                dedicated_cloud = cluster.get('cloud_provider', 'aws')
+                dedicated_cloud = cluster.get('cloud_provider')
                 providers_needed.add(dedicated_cloud)
             if cluster_type == 'hypershift':
                 # HyperShift worker nodes can run on any provider
-                hypershift_provider = cluster.get('provider', 'aws')
+                hypershift_provider = cluster.get('provider')
                 providers_needed.add(hypershift_provider)
                 # Also need kubectl provider for HyperShift CRDs
                 providers_needed.add('kubectl')
@@ -199,61 +234,17 @@ class BaseOpenShiftProvider:
             providers_needed.update(['kubernetes', 'helm', 'kubectl'])
             
         terraform_config = '''
-terraform {
-  required_providers {'''
+# OpenShift Provider Configuration
 
-        # Add required providers
-        if 'rhcs' in providers_needed:
-            terraform_config += '''
-    rhcs = {
-      source  = "terraform-redhat/rhcs"
-      version = "~> 1.6"
-    }'''
-            
-        if 'azapi' in providers_needed:
-            terraform_config += '''
-    azapi = {
-      source  = "Azure/azapi"
-      version = "~> 1.0"
-    }'''
-            
-        if 'kubernetes' in providers_needed:
-            terraform_config += '''
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 2.20"
-    }'''
-            
-        if 'helm' in providers_needed:
-            terraform_config += '''
-    helm = {
-      source  = "hashicorp/helm"
-      version = "~> 2.10"
-    }'''
-            
-        if 'kubectl' in providers_needed:
-            terraform_config += '''
-    kubectl = {
-      source  = "gavinbunney/kubectl"
-      version = "~> 1.14"
-    }'''
+'''
 
+        # Note: Required providers are managed by the core converter
         terraform_config += '''
-  }
-}
 
 '''
 
-        # Add provider configurations
-        if 'rhcs' in providers_needed:
-            terraform_config += '''
-# Red Hat Cloud Services Provider
-provider "rhcs" {
-  token = var.redhat_openshift_token
-  url   = var.redhat_openshift_url
-}
-
-'''
+        # Provider configurations are handled by the core converter
+        # The OpenShift provider just returns its configuration blocks
 
         return terraform_config
         
@@ -265,17 +256,9 @@ provider "rhcs" {
 # OPENSHIFT CREDENTIALS
 # =============================================================================
 
-variable "redhat_openshift_token" {
-  description = "Red Hat OpenShift Cluster Manager API token"
-  type        = string
-  sensitive   = true
-}
+# ROSA clusters use ROSA CLI for authentication - no OpenShift variables needed
 
-variable "redhat_openshift_url" {
-  description = "Red Hat OpenShift Cluster Manager API URL"
-  type        = string
-  default     = "https://api.openshift.com"
-}
+
 
 # =============================================================================
 # OPENSHIFT CONFIGURATION
@@ -284,14 +267,50 @@ variable "redhat_openshift_url" {
 variable "openshift_version" {
   description = "Default OpenShift version to deploy"
   type        = string
-  default     = "4.14.15"
+          default     = "4.18.19"
+}
+
+variable "deploy_day2_operations" {
+  description = "Deploy Day-2 operations (monitoring, GitOps, operators). Set to true when clusters are ready."
+  type        = bool
+  default     = false
+}
+
+variable "deploy_rosa_classic" {
+  description = "Deploy ROSA Classic clusters"
+  type        = bool
+  default     = false
+}
+
+variable "deploy_rosa_hcp" {
+  description = "Deploy ROSA HCP clusters (separate from Classic to avoid Terraform conflicts)"
+  type        = bool
+  default     = false
+}
+
+variable "deploy_hypershift_mgmt" {
+  description = "Deploy HyperShift management clusters"
+  type        = bool
+  default     = false
+}
+
+variable "deploy_hypershift_hosted" {
+  description = "Deploy HyperShift hosted clusters (requires management clusters to be ready)"
+  type        = bool
+  default     = false
+}
+
+variable "rosa_oidc_config_id" {
+  description = "OIDC configuration ID for ROSA clusters (shared between Classic and HCP)"
+  type        = string
+  default     = ""
 }
 
 '''
 
         # Add cluster-specific variables
         for cluster in cluster_configs:
-            cluster_name = cluster.get('name', 'default')
+            cluster_name = cluster.get('name')
             clean_name = re.sub(r'[^a-zA-Z0-9_]', '_', cluster_name)
             
             variables += f'''
@@ -372,3 +391,721 @@ variable "openshift_{clean_name}_token" {{
             raise ValueError(f"OpenShift machine type '{size}' for provider '{provider}' (role: {role}) not found in YAML configurations.\n\nAvailable machine types:\n" + "\n".join(flavor_info) + f"\n\nPlease check mappings/flavors/openshift_{provider}.yaml or add the missing size mapping.")
         else:
             raise ValueError(f"No flavor configurations found for provider '{provider}'. Please ensure the appropriate YAML files are present in mappings/flavors/.") 
+
+    def generate_application_service_account(self, cluster_name: str) -> str:
+        """Generate service account and token secret for application deployment."""
+        clean_name = self.clean_name(cluster_name)
+        token_duration = self.get_token_duration()
+        
+        return f'''
+# =============================================================================
+# APPLICATION DEPLOYMENT SERVICE ACCOUNT: {cluster_name}
+# =============================================================================
+
+# Service Account for deploying applications to {cluster_name}
+resource "kubernetes_service_account" "{clean_name}_app_deployer" {{
+  count = var.deploy_day2_operations ? 1 : 0
+  
+  metadata {{
+    name      = "yamlforge-app-deployer"
+    namespace = "default"
+    annotations = {{
+      "yamlforge.io/cluster" = "{cluster_name}"
+      "yamlforge.io/purpose" = "application-deployment"
+    }}
+  }}
+}}
+
+# ClusterRole for application deployment permissions
+resource "kubernetes_cluster_role" "{clean_name}_app_deployer_role" {{
+  count = var.deploy_day2_operations ? 1 : 0
+  
+  metadata {{
+    name = "yamlforge-app-deployer"
+    annotations = {{
+      "yamlforge.io/cluster" = "{cluster_name}"
+    }}
+  }}
+
+  rule {{
+    api_groups = [""]
+    resources  = ["namespaces", "services", "configmaps", "secrets", "persistentvolumeclaims"]
+    verbs      = ["get", "list", "create", "update", "patch", "delete"]
+  }}
+  
+  rule {{
+    api_groups = ["apps"]
+    resources  = ["deployments", "replicasets", "daemonsets", "statefulsets"]
+    verbs      = ["get", "list", "create", "update", "patch", "delete"]
+  }}
+  
+  rule {{
+    api_groups = ["networking.k8s.io"]
+    resources  = ["ingresses", "networkpolicies"]
+    verbs      = ["get", "list", "create", "update", "patch", "delete"]
+  }}
+  
+  rule {{
+    api_groups = ["route.openshift.io"]
+    resources  = ["routes"]
+    verbs      = ["get", "list", "create", "update", "patch", "delete"]
+  }}
+  
+  rule {{
+    api_groups = ["argoproj.io"]
+    resources  = ["applications", "applicationsets"]
+    verbs      = ["get", "list", "create", "update", "patch", "delete"]
+  }}
+  
+  rule {{
+    api_groups = ["helm.cattle.io"]
+    resources  = ["helmcharts", "helmchartconfigs"]
+    verbs      = ["get", "list", "create", "update", "patch", "delete"]
+  }}
+}}
+
+# ClusterRoleBinding to grant permissions to service account
+resource "kubernetes_cluster_role_binding" "{clean_name}_app_deployer_binding" {{
+  count = var.deploy_day2_operations ? 1 : 0
+  provider = kubernetes.{clean_name}
+  
+  metadata {{
+    name = "yamlforge-app-deployer"
+    annotations = {{
+      "yamlforge.io/cluster" = "{cluster_name}"
+    }}
+  }}
+
+  role_ref {{
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = kubernetes_cluster_role.{clean_name}_app_deployer_role.metadata[0].name
+  }}
+
+  subject {{
+    kind      = "ServiceAccount"
+    name      = kubernetes_service_account.{clean_name}_app_deployer.metadata[0].name
+    namespace = kubernetes_service_account.{clean_name}_app_deployer.metadata[0].namespace
+  }}
+}}
+
+# Service Account Token Secret (with expiration)
+resource "kubernetes_secret" "{clean_name}_app_deployer_token" {{
+  count = var.deploy_day2_operations ? 1 : 0
+  provider = kubernetes.{clean_name}
+  
+  metadata {{
+    name      = "yamlforge-app-deployer-token"
+    namespace = "default"
+    annotations = {{
+      "kubernetes.io/service-account.name" = kubernetes_service_account.{clean_name}_app_deployer.metadata[0].name
+      "kubernetes.io/service-account.token-expiration-time" = "{token_duration}"
+      "yamlforge.io/cluster" = "{cluster_name}"
+      "yamlforge.io/purpose" = "application-deployment-token"
+      "yamlforge.io/token-duration" = "{token_duration}"
+    }}
+  }}
+
+  type = "kubernetes.io/service-account-token"
+}}
+
+# Output the service account token for application deployment
+output "{clean_name}_app_deployer_token" {{
+  description = "Service account token for deploying applications to {cluster_name}"
+  value       = length(kubernetes_secret.{clean_name}_app_deployer_token) > 0 ? kubernetes_secret.{clean_name}_app_deployer_token[0].data["token"] : ""
+  sensitive   = true
+}}
+
+# Output the cluster CA certificate
+output "{clean_name}_ca_certificate" {{
+  description = "CA certificate for {cluster_name} cluster"
+  value       = length(kubernetes_secret.{clean_name}_app_deployer_token) > 0 ? kubernetes_secret.{clean_name}_app_deployer_token[0].data["ca.crt"] : ""
+  sensitive   = true
+}}''' 
+
+    def generate_application_providers(self, cluster_configs: List[Dict], deployment_method: str = 'terraform') -> str:
+        """Generate Kubernetes and Helm provider configurations for the 3-tier service account model."""
+        if not cluster_configs:
+            return ""
+            
+        provider_config = '''
+# =============================================================================
+# KUBERNETES & HELM PROVIDERS - 3-TIER SERVICE ACCOUNT MODEL
+# =============================================================================
+
+'''
+        
+        for cluster in cluster_configs:
+            cluster_name = cluster.get('name')
+            if not cluster_name:
+                continue
+                
+            clean_name = self.clean_name(cluster_name)
+            cluster_type = cluster.get('type')
+            if not cluster_type:
+                raise ValueError(f"Cluster type must be specified for cluster '{cluster_name}'. Supported types: rosa-classic, rosa-hcp, aro, openshift-dedicated, self-managed, hypershift")
+            
+            # Handle ROSA clusters based on deployment method
+            if cluster_type in ['rosa-classic', 'rosa-hcp']:
+                if deployment_method == 'cli':
+                    # CLI method - skip provider configuration
+                    provider_config += f'''
+# =============================================================================
+# ROSA CLUSTER: {cluster_name} (CLI Method)
+# =============================================================================
+# ROSA clusters are created via ROSA CLI after Terraform deployment
+# Provider configurations will be available after running: ./rosa-setup.sh
+# Use 'rosa describe cluster {cluster_name}' to get connection details
+
+'''
+                    continue
+                else:
+                    # Terraform method with phased deployment - skip providers for Phase 1
+                    provider_config += f'''
+# =============================================================================
+# ROSA CLUSTER: {cluster_name} (Terraform Method - Phased Deployment)
+# =============================================================================
+# Providers will be generated after cluster is deployed in Phase 2
+# Run: terraform apply -var="deploy_rosa_{cluster_type.replace('-', '_')}=true"
+# Then providers will be available for Day-2 operations
+
+'''
+                    continue
+            
+            # Determine cluster endpoint and deployment condition based on type
+            cluster_condition = '1'  # Default to always deployed
+            if cluster_type == 'rosa-classic':
+                cluster_endpoint = f"length(rhcs_cluster_rosa_classic.{clean_name}) > 0 ? rhcs_cluster_rosa_classic.{clean_name}[0].api_url : \"\""
+                cluster_condition = 'var.deploy_rosa_classic ? 1 : 0'
+            elif cluster_type == 'rosa-hcp':
+                cluster_endpoint = f"length(rhcs_cluster_rosa_hcp.{clean_name}) > 0 ? rhcs_cluster_rosa_hcp.{clean_name}[0].api_url : \"\""
+                cluster_condition = 'var.deploy_rosa_hcp ? 1 : 0'
+            elif cluster_type == 'aro':
+                cluster_endpoint = f"azapi_resource.{clean_name}.output.properties.apiserverProfile.url"
+            elif cluster_type == 'openshift-dedicated':
+                cluster_endpoint = f"rhcs_cluster_rosa_classic.{clean_name}.api_url"  # OSD uses similar API
+            elif cluster_type == 'self-managed':
+                # For self-managed clusters, determine by infrastructure provider
+                provider = cluster.get('provider')
+                if provider == 'aws':
+                    cluster_endpoint = f"module.{clean_name}_openshift.cluster_endpoint"
+                elif provider == 'gcp':
+                    cluster_endpoint = f"module.{clean_name}_openshift.cluster_endpoint"
+                elif provider == 'azure':
+                    cluster_endpoint = f"module.{clean_name}_openshift.cluster_endpoint"
+                else:
+                    cluster_endpoint = f"module.{clean_name}_openshift.cluster_endpoint"
+            elif cluster_type == 'hypershift':
+                cluster_endpoint = f"rhcs_cluster_rosa_hcp.{clean_name}.api_url"
+                cluster_condition = 'var.deploy_hypershift_hosted ? 1 : 0'
+            else:
+                # Generic fallback
+                cluster_endpoint = f"module.{clean_name}.cluster_endpoint"
+            
+            # Only generate providers if cluster will be deployed
+            if cluster_condition != '1':
+                provider_config += f'''
+# ===== CONDITIONAL PROVIDERS for {cluster_name} (only created when cluster exists) =====
+# These providers are only created when {cluster_condition.replace('?', 'is')} true
+
+'''
+            
+            provider_config += f'''
+# ===== FULL CLUSTER ADMIN PROVIDERS for {cluster_name} =====
+provider "kubernetes" {{
+  alias = "{clean_name}_cluster_admin"
+  count = {cluster_condition}
+  
+  host  = {cluster_endpoint}
+  token = {cluster_endpoint} != "" ? base64decode(kubernetes_secret.{clean_name}_cluster_admin_token[0].data["token"]) : ""
+  cluster_ca_certificate = {cluster_endpoint} != "" ? base64decode(kubernetes_secret.{clean_name}_cluster_admin_token[0].data["ca.crt"]) : ""
+  
+  insecure = false
+}}
+
+provider "helm" {{
+  alias = "{clean_name}_cluster_admin"
+  count = {cluster_condition}
+  
+  kubernetes {{
+    host  = {cluster_endpoint}
+    token = {cluster_endpoint} != "" ? base64decode(kubernetes_secret.{clean_name}_cluster_admin_token[0].data["token"]) : ""
+    cluster_ca_certificate = {cluster_endpoint} != "" ? base64decode(kubernetes_secret.{clean_name}_cluster_admin_token[0].data["ca.crt"]) : ""
+  }}
+}}
+
+# ===== LIMITED CLUSTER ADMIN PROVIDERS for {cluster_name} =====
+provider "kubernetes" {{
+  alias = "{clean_name}_cluster_admin_limited"
+  count = {cluster_condition}
+  
+  host  = {cluster_endpoint}
+  token = length(kubernetes_secret.{clean_name}_cluster_admin_limited_token) > 0 ? base64decode(kubernetes_secret.{clean_name}_cluster_admin_limited_token[0].data["token"]) : ""
+  cluster_ca_certificate = length(kubernetes_secret.{clean_name}_cluster_admin_limited_token) > 0 ? base64decode(kubernetes_secret.{clean_name}_cluster_admin_limited_token[0].data["ca.crt"]) : ""
+  
+  insecure = false
+}}
+
+provider "helm" {{
+  alias = "{clean_name}_cluster_admin_limited"
+  count = {cluster_condition}
+  
+  kubernetes {{
+    host  = {cluster_endpoint}
+    token = length(kubernetes_secret.{clean_name}_cluster_admin_limited_token) > 0 ? base64decode(kubernetes_secret.{clean_name}_cluster_admin_limited_token[0].data["token"]) : ""
+    cluster_ca_certificate = length(kubernetes_secret.{clean_name}_cluster_admin_limited_token) > 0 ? base64decode(kubernetes_secret.{clean_name}_cluster_admin_limited_token[0].data["ca.crt"]) : ""
+  }}
+}}
+
+# ===== APPLICATION DEPLOYER PROVIDERS for {cluster_name} =====
+provider "kubernetes" {{
+  alias = "{clean_name}_app_deployer"
+  count = {cluster_condition}
+  
+  host  = {cluster_endpoint}
+  token = {cluster_endpoint} != "" ? base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["token"]) : ""
+  cluster_ca_certificate = {cluster_endpoint} != "" ? base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["ca.crt"]) : ""
+  
+  insecure = false
+}}
+
+provider "helm" {{
+  alias = "{clean_name}_app_deployer"
+  count = {cluster_condition}
+  
+  kubernetes {{
+    host  = {cluster_endpoint}
+    token = {cluster_endpoint} != "" ? base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["token"]) : ""
+    cluster_ca_certificate = {cluster_endpoint} != "" ? base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["ca.crt"]) : ""
+  }}
+}}
+
+'''
+        
+        return provider_config
+    
+    def generate_application_only_providers(self, cluster_configs: List[Dict]) -> str:
+        """Generate Kubernetes and Helm provider configurations specifically for application deployment."""
+        if not cluster_configs:
+            return ""
+            
+        provider_config = '''
+# =============================================================================
+# KUBERNETES & HELM PROVIDERS FOR APPLICATION DEPLOYMENT
+# =============================================================================
+
+'''
+        
+        for cluster in cluster_configs:
+            cluster_name = cluster.get('name')
+            if not cluster_name:
+                continue
+                
+            clean_name = self.clean_name(cluster_name)
+            cluster_type = cluster.get('type', 'unknown')
+            provider = cluster.get('provider')
+            
+            # Determine the cluster endpoint based on OpenShift type
+            if cluster_type in ['rosa-classic', 'rosa-hcp']:
+                cluster_endpoint = f"rhcs_cluster_rosa_{cluster_type.replace('-', '_')}.{clean_name}.api_url"
+            elif cluster_type == 'aro':
+                cluster_endpoint = f"azapi_resource.{clean_name}.output.api_server_profile[0].url"
+            elif cluster_type == 'openshift-dedicated':
+                cluster_endpoint = f"rhcs_cluster_dedicated.{clean_name}.api_url"
+            else:
+                # For self-managed and hypershift, determine based on provider
+                if provider == 'aws':
+                    cluster_endpoint = f"module.{clean_name}.cluster_endpoint"
+                elif provider == 'azure':
+                    cluster_endpoint = f"azurerm_kubernetes_cluster.{clean_name}.kube_config.0.host"
+                else:
+                    cluster_endpoint = f"module.{clean_name}.cluster_endpoint"
+            
+            provider_config += f'''
+# Application Kubernetes Provider for {cluster_name} cluster
+provider "kubernetes" {{
+  alias = "{clean_name}"
+  
+  host  = {cluster_endpoint}
+  token = length(kubernetes_secret.{clean_name}_app_deployer_token) > 0 ? base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["token"]) : ""
+  cluster_ca_certificate = length(kubernetes_secret.{clean_name}_app_deployer_token) > 0 ? base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["ca.crt"]) : ""
+  
+  # Ignore TLS verification for development/testing
+  insecure = false
+}}
+
+# Application Helm Provider for {cluster_name} cluster
+provider "helm" {{
+  alias = "{clean_name}"
+  
+  kubernetes {{
+    host  = {cluster_endpoint}
+    token = length(kubernetes_secret.{clean_name}_app_deployer_token) > 0 ? base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["token"]) : ""
+    cluster_ca_certificate = length(kubernetes_secret.{clean_name}_app_deployer_token) > 0 ? base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["ca.crt"]) : ""
+  }}
+}}
+
+'''
+        
+        return provider_config
+
+    def generate_full_admin_service_account(self, cluster_config: Dict) -> str:
+        """Generate full cluster-admin service account with unlimited privileges."""
+        cluster_name = cluster_config.get('name')
+        clean_name = self.clean_name(cluster_name)
+        cluster_endpoint = self._get_cluster_endpoint_for_type(cluster_config)
+        token_duration = self.get_token_duration()
+        
+        return f'''
+# =============================================================================
+# FULL CLUSTER ADMIN SERVICE ACCOUNT: {cluster_name}
+# =============================================================================
+
+        # Full Cluster Admin Service Account (unrestricted access)
+resource "kubernetes_service_account" "{clean_name}_cluster_admin" {{
+  count = var.deploy_day2_operations ? 1 : 0
+  
+  metadata {{
+    name      = "cluster-admin"
+    namespace = "default"
+    annotations = {{
+      "yamlforge.io/cluster" = "{cluster_name}"
+      "yamlforge.io/cluster-type" = "{cluster_config.get('type')}"
+      "yamlforge.io/purpose" = "full-cluster-administration"
+      "yamlforge.io/scope" = "full-cluster-access"
+      "yamlforge.io/security-level" = "high-privilege"
+    }}
+  }}
+}}
+
+        # ClusterRoleBinding for full cluster-admin permissions
+resource "kubernetes_cluster_role_binding" "{clean_name}_cluster_admin_binding" {{
+  count = var.deploy_day2_operations ? 1 : 0
+  
+  metadata {{
+    name = "yamlforge-cluster-admin"
+    annotations = {{
+      "yamlforge.io/cluster" = "{cluster_name}"
+      "yamlforge.io/cluster-type" = "{cluster_config.get('type')}"
+      "yamlforge.io/purpose" = "full-cluster-administration"
+    }}
+  }}
+
+  role_ref {{
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = "cluster-admin"
+  }}
+
+  subject {{
+    kind      = "ServiceAccount"
+    name      = kubernetes_service_account.{clean_name}_cluster_admin[0].metadata[0].name
+    namespace = kubernetes_service_account.{clean_name}_cluster_admin[0].metadata[0].namespace
+  }}
+}}
+
+        # Full Admin Service Account Token Secret (with expiration)
+resource "kubernetes_secret" "{clean_name}_cluster_admin_token" {{
+  count = var.deploy_day2_operations ? 1 : 0
+  
+  metadata {{
+    name      = "cluster-admin-token"
+    namespace = "default"
+    annotations = {{
+      "kubernetes.io/service-account.name" = kubernetes_service_account.{clean_name}_cluster_admin[0].metadata[0].name
+      "kubernetes.io/service-account.token-expiration-time" = "{token_duration}"
+      "yamlforge.io/cluster" = "{cluster_name}"
+      "yamlforge.io/cluster-type" = "{cluster_config.get('type')}"
+      "yamlforge.io/purpose" = "full-cluster-administration-token"
+      "yamlforge.io/security-level" = "high-privilege"
+      "yamlforge.io/token-duration" = "{token_duration}"
+    }}
+  }}
+
+  type = "kubernetes.io/service-account-token"
+}}
+
+# Output the full admin service account token
+output "{clean_name}_cluster_admin_token" {{
+  description = "Full cluster admin token for {cluster_name} (UNRESTRICTED ACCESS) - Type: {cluster_config.get('type')}"
+  value       = length(kubernetes_secret.{clean_name}_cluster_admin_token) > 0 ? kubernetes_secret.{clean_name}_cluster_admin_token[0].data["token"] : ""
+  sensitive   = true
+}}'''
+
+    def generate_limited_admin_service_account(self, cluster_config: Dict) -> str:
+        """Generate limited cluster admin service account with restricted privileges."""
+        cluster_name = cluster_config.get('name')
+        clean_name = self.clean_name(cluster_name)
+        cluster_endpoint = self._get_cluster_endpoint_for_type(cluster_config)
+        token_duration = self.get_token_duration()
+        
+        # Get service account configuration from defaults
+        sa_config = self.openshift_defaults.get('security', {}).get('service_accounts', {}).get('cluster_admin_limited', {})
+        permissions = sa_config.get('permissions', [])
+        
+        # Generate ClusterRole rules from permissions
+        cluster_role_rules = ""
+        for permission in permissions:
+            api_groups = permission.get('api_groups', [''])
+            resources = permission.get('resources', [])
+            verbs = permission.get('verbs', [])
+            
+            # Convert Python lists to Terraform HCL syntax
+            api_groups_hcl = '[' + ', '.join(f'"{item}"' for item in api_groups) + ']'
+            resources_hcl = '[' + ', '.join(f'"{item}"' for item in resources) + ']'
+            verbs_hcl = '[' + ', '.join(f'"{item}"' for item in verbs) + ']'
+            
+            cluster_role_rules += f'''
+  rule {{
+    api_groups = {api_groups_hcl}
+    resources  = {resources_hcl}
+    verbs      = {verbs_hcl}
+  }}'''
+        
+        return f'''
+# =============================================================================
+# LIMITED CLUSTER ADMIN SERVICE ACCOUNT: {cluster_name}
+# =============================================================================
+
+        # Limited Cluster Admin Service Account (operators, Day2 operations)
+resource "kubernetes_service_account" "{clean_name}_cluster_admin_limited" {{
+  count = var.deploy_day2_operations ? 1 : 0
+  
+  metadata {{
+    name      = "cluster-admin-limited"
+    namespace = "default"
+    annotations = {{
+      "yamlforge.io/cluster" = "{cluster_name}"
+      "yamlforge.io/cluster-type" = "{cluster_config.get('type')}"
+      "yamlforge.io/purpose" = "limited-cluster-administration"
+      "yamlforge.io/scope" = "{sa_config.get('scope', 'operators,day2-operations,cluster-config')}"
+      "yamlforge.io/security-level" = "{sa_config.get('security_level', 'medium-privilege')}"
+    }}
+  }}
+}}
+
+        # Custom ClusterRole for limited admin permissions
+resource "kubernetes_cluster_role" "{clean_name}_cluster_admin_limited_role" {{
+  count = var.deploy_day2_operations ? 1 : 0
+  
+  metadata {{
+    name = "yamlforge-cluster-admin-limited"
+    annotations = {{
+      "yamlforge.io/cluster" = "{cluster_name}"
+      "yamlforge.io/cluster-type" = "{cluster_config.get('type')}"
+      "yamlforge.io/description" = "{sa_config.get('description', 'Limited cluster admin for operators and Day2 operations')}"
+    }}
+  }}{cluster_role_rules}
+}}
+
+        # ClusterRoleBinding for limited admin permissions
+resource "kubernetes_cluster_role_binding" "{clean_name}_cluster_admin_limited_binding" {{
+  count = var.deploy_day2_operations ? 1 : 0
+  
+  metadata {{
+    name = "yamlforge-cluster-admin-limited"
+    annotations = {{
+      "yamlforge.io/cluster" = "{cluster_name}"
+      "yamlforge.io/cluster-type" = "{cluster_config.get('type')}"
+      "yamlforge.io/purpose" = "limited-cluster-administration"
+    }}
+  }}
+
+  role_ref {{
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = kubernetes_cluster_role.{clean_name}_cluster_admin_limited_role[0].metadata[0].name
+  }}
+
+  subject {{
+    kind      = "ServiceAccount"
+    name      = kubernetes_service_account.{clean_name}_cluster_admin_limited[0].metadata[0].name
+    namespace = kubernetes_service_account.{clean_name}_cluster_admin_limited[0].metadata[0].namespace
+  }}
+}}
+
+        # Limited Admin Service Account Token Secret (with expiration)
+resource "kubernetes_secret" "{clean_name}_cluster_admin_limited_token" {{
+  count = var.deploy_day2_operations ? 1 : 0
+  
+  metadata {{
+    name      = "cluster-admin-limited-token"
+    namespace = "default"
+    annotations = {{
+      "kubernetes.io/service-account.name" = kubernetes_service_account.{clean_name}_cluster_admin_limited[0].metadata[0].name
+      "kubernetes.io/service-account.token-expiration-time" = "{token_duration}"
+      "yamlforge.io/cluster" = "{cluster_name}"
+      "yamlforge.io/cluster-type" = "{cluster_config.get('type')}"
+      "yamlforge.io/purpose" = "limited-cluster-administration-token"
+      "yamlforge.io/security-level" = "{sa_config.get('security_level', 'medium-privilege')}"
+      "yamlforge.io/token-duration" = "{token_duration}"
+    }}
+  }}
+
+  type = "kubernetes.io/service-account-token"
+}}
+
+# Output the limited admin service account token
+output "{clean_name}_cluster_admin_limited_token" {{
+  description = "Limited cluster admin token for {cluster_name} (operators/Day2 ops) - Type: {cluster_config.get('type')}"
+  value       = length(kubernetes_secret.{clean_name}_cluster_admin_limited_token) > 0 ? kubernetes_secret.{clean_name}_cluster_admin_limited_token[0].data["token"] : ""
+  sensitive   = true
+}}'''
+
+    def generate_app_deployer_service_account(self, cluster_config: Dict) -> str:
+        """Generate application deployer service account with limited privileges for app deployment."""
+        cluster_name = cluster_config.get('name')
+        clean_name = self.clean_name(cluster_name)
+        token_duration = self.get_token_duration()
+        
+        # Load permissions from defaults
+        sa_config = self.openshift_defaults.get('security', {}).get('service_accounts', {}).get('app_deployer', {})
+        permissions = sa_config.get('permissions', [])
+        
+        # Generate ClusterRole rules from permissions
+        cluster_role_rules = ""
+        for permission in permissions:
+            api_groups = permission.get('api_groups', [''])
+            resources = permission.get('resources', [])
+            verbs = permission.get('verbs', [])
+            
+            # Convert Python lists to Terraform HCL syntax
+            api_groups_hcl = '[' + ', '.join(f'"{item}"' for item in api_groups) + ']'
+            resources_hcl = '[' + ', '.join(f'"{item}"' for item in resources) + ']'
+            verbs_hcl = '[' + ', '.join(f'"{item}"' for item in verbs) + ']'
+            
+            cluster_role_rules += f'''
+  rule {{
+    api_groups = {api_groups_hcl}
+    resources  = {resources_hcl}
+    verbs      = {verbs_hcl}
+  }}'''
+        
+        return f'''
+# =============================================================================
+# APPLICATION DEPLOYER SERVICE ACCOUNT: {cluster_name}
+# =============================================================================
+
+        # Application Deployer Service Account (limited application permissions)
+resource "kubernetes_service_account" "{clean_name}_app_deployer" {{
+  count = var.deploy_day2_operations ? 1 : 0
+  
+  metadata {{
+    name      = "app-deployer"
+    namespace = "default"
+    annotations = {{
+      "yamlforge.io/cluster" = "{cluster_name}"
+      "yamlforge.io/cluster-type" = "{cluster_config.get('type')}"
+      "yamlforge.io/purpose" = "application-deployment"
+      "yamlforge.io/scope" = "{sa_config.get('scope', 'applications,namespaces,services,deployments')}"
+      "yamlforge.io/security-level" = "{sa_config.get('security_level', 'low-privilege')}"
+    }}
+  }}
+}}
+
+        # Custom ClusterRole for application deployment permissions
+resource "kubernetes_cluster_role" "{clean_name}_app_deployer_role" {{
+  count = var.deploy_day2_operations ? 1 : 0
+  
+  metadata {{
+    name = "yamlforge-app-deployer"
+    annotations = {{
+      "yamlforge.io/cluster" = "{cluster_name}"
+      "yamlforge.io/cluster-type" = "{cluster_config.get('type')}"
+      "yamlforge.io/description" = "{sa_config.get('description', 'Application deployment with limited permissions')}"
+    }}
+  }}{cluster_role_rules}
+}}
+
+        # ClusterRoleBinding for app deployer
+resource "kubernetes_cluster_role_binding" "{clean_name}_app_deployer_binding" {{
+  count = var.deploy_day2_operations ? 1 : 0
+  
+  metadata {{
+    name = "yamlforge-app-deployer"
+    annotations = {{
+      "yamlforge.io/cluster" = "{cluster_name}"
+      "yamlforge.io/cluster-type" = "{cluster_config.get('type')}"
+    }}
+  }}
+
+  role_ref {{
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = kubernetes_cluster_role.{clean_name}_app_deployer_role[0].metadata[0].name
+  }}
+
+  subject {{
+    kind      = "ServiceAccount"
+    name      = kubernetes_service_account.{clean_name}_app_deployer[0].metadata[0].name
+    namespace = kubernetes_service_account.{clean_name}_app_deployer[0].metadata[0].namespace
+  }}
+}}
+
+        # App Deployer Service Account Token Secret (with expiration)
+resource "kubernetes_secret" "{clean_name}_app_deployer_token" {{
+  count = var.deploy_day2_operations ? 1 : 0
+  
+  metadata {{
+    name      = "app-deployer-token"
+    namespace = "default"
+    annotations = {{
+      "kubernetes.io/service-account.name" = kubernetes_service_account.{clean_name}_app_deployer[0].metadata[0].name
+      "kubernetes.io/service-account.token-expiration-time" = "{token_duration}"
+      "yamlforge.io/cluster" = "{cluster_name}"
+      "yamlforge.io/cluster-type" = "{cluster_config.get('type')}"
+      "yamlforge.io/purpose" = "application-deployment-token"
+      "yamlforge.io/security-level" = "{sa_config.get('security_level', 'low-privilege')}"
+      "yamlforge.io/token-duration" = "{token_duration}"
+    }}
+  }}
+
+  type = "kubernetes.io/service-account-token"
+}}
+
+# Output the app deployer service account token
+output "{clean_name}_app_deployer_token" {{
+  description = "Application deployer token for {cluster_name} (limited app permissions) - Type: {cluster_config.get('type')}"
+  value       = length(kubernetes_secret.{clean_name}_app_deployer_token) > 0 ? kubernetes_secret.{clean_name}_app_deployer_token[0].data["token"] : ""
+  sensitive   = true
+}}'''
+    
+    def _get_cluster_endpoint_output(self, cluster_name: str) -> str:
+        """Get the appropriate cluster endpoint output reference for a cluster."""
+        # This method should be called with the cluster configuration
+        # For now, return a generic reference that will be overridden by specific cluster types
+        clean_name = self.clean_name(cluster_name)
+        return f"module.{clean_name}.cluster_endpoint"
+    
+    def _get_cluster_endpoint_for_type(self, cluster_config: Dict) -> str:
+        """Get the appropriate cluster endpoint reference based on cluster type."""
+        cluster_name = cluster_config.get('name')
+        cluster_type = cluster_config.get('type')
+        if not cluster_type:
+            cluster_name = cluster_config.get('name') or 'unknown'
+            raise ValueError(f"Cluster type must be specified for cluster '{cluster_name}'. Supported types: rosa-classic, rosa-hcp, aro, openshift-dedicated, self-managed, hypershift")
+        clean_name = self.clean_name(cluster_name)
+        
+        # Determine cluster endpoint based on type
+        if cluster_type == 'rosa-classic':
+            return f"rhcs_cluster_rosa_classic.{clean_name}.api_url"
+        elif cluster_type == 'rosa-hcp':
+            return f"rhcs_cluster_rosa_hcp.{clean_name}.api_url"
+        elif cluster_type == 'aro':
+            return f"azapi_resource.{clean_name}.output.properties.apiserverProfile.url"
+        elif cluster_type == 'openshift-dedicated':
+            return f"rhcs_cluster_rosa_classic.{clean_name}.api_url"  # OSD uses similar API
+        elif cluster_type == 'self-managed':
+            # For self-managed clusters, determine by infrastructure provider
+            provider = cluster_config.get('provider')
+            if not provider:
+                cluster_name = cluster_config.get('name') or 'unknown'
+                raise ValueError(f"Self-managed cluster '{cluster_name}' must specify 'provider'")
+            if provider == 'aws':
+                return f"module.{clean_name}_openshift.cluster_endpoint"
+            elif provider == 'gcp':
+                return f"module.{clean_name}_openshift.cluster_endpoint"
+            elif provider == 'azure':
+                return f"module.{clean_name}_openshift.cluster_endpoint"
+            else:
+                return f"module.{clean_name}_openshift.cluster_endpoint" 

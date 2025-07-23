@@ -66,6 +66,16 @@ default_tags:
 
 # Security and Compliance Settings
 security:
+  # Default SSH public key for instances (can be overridden per provider)
+  # This will be used if no ssh_public_key is specified in the YAML
+  # Can also be set via SSH_PUBLIC_KEY or YAMLFORGE_SSH_PUBLIC_KEY environment variables
+  default_ssh_public_key: ""
+  
+  # Auto-detect SSH keys from ~/.ssh/ directory (default: false)
+  # When enabled, YamlForge will automatically look for id_ed25519.pub and id_rsa.pub
+  # in the user's ~/.ssh/ directory if no explicit SSH key is provided
+  auto_detect_ssh_keys: false
+  
   # Default security group rules to ALWAYS include
   mandatory_security_rules:
     # SSH access (can be customized per organization)

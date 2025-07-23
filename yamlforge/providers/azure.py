@@ -77,19 +77,19 @@ class AzureProvider:
 
         return default_image
 
-    def generate_azure_security_group(self, sg_name, rules, region):
+    def generate_azure_security_group(self, sg_name, rules, region, yaml_data=None):
         """Generate Azure network security group with rules for specific region."""
         clean_name = sg_name.replace("-", "_").replace(".", "_")
         clean_region = region.replace("-", "_").replace(".", "_")
         regional_sg_name = f"{clean_name}_{clean_region}"
         regional_rg_ref = f"azurerm_resource_group.main_{clean_region}"
 
-        sg_config = f'''
+        security_group_config = f'''
 # Azure Network Security Group: {sg_name} (Region: {region})
-resource "azurerm_network_security_group" "{regional_sg_name}" {{
+resource "azurerm_network_security_group" "{regional_sg_name}_{self.converter.get_validated_guid(yaml_data)}" {{
   name                = "{sg_name}-{region}"
-  location            = {regional_rg_ref}.location
-  resource_group_name = {regional_rg_ref}.name
+  location            = azurerm_resource_group.main_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.location
+  resource_group_name = azurerm_resource_group.main_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.name
 
 '''
 
@@ -112,16 +112,16 @@ resource "azurerm_network_security_group" "{regional_sg_name}" {{
   }}
 
 '''
-            sg_config += rule_block
+            security_group_config += rule_block
 
-        sg_config += f'''  tags = {{
+        security_group_config += f'''  tags = {{
     Environment = "agnosticd"
     Region = "{region}"
   }}
 }}
 
 '''
-        return sg_config
+        return security_group_config
 
     def generate_azure_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None):
         """Generate native Azure virtual machine."""
@@ -132,108 +132,97 @@ resource "azurerm_network_security_group" "{regional_sg_name}" {{
         azure_region = self.converter.resolve_instance_region(instance, "azure")
         azure_vm_size = self.get_azure_vm_size(size)
 
-        # Get security groups for this instance
-        sg_refs = self.converter.get_instance_security_groups(instance)
-        azure_nsg_refs = [f"azurerm_network_security_group.{ref}" for ref in sg_refs]
+        # Get Azure NSG references with regional awareness
+        azure_nsg_refs = []
+        sg_names = instance.get('security_groups', [])
+        for sg_name in sg_names:
+            clean_sg = sg_name.replace("-", "_").replace(".", "_")
+            azure_nsg_refs.append(f"azurerm_network_security_group.{clean_sg}_{azure_region.replace('-', '_').replace(' ', '_')}_{self.converter.get_validated_guid(yaml_data)}.id")
 
-        # Get subnet for this instance
-        subnet_ref = self.converter.get_instance_subnet(instance, available_subnets or {})
-        azure_subnet_ref = f"azurerm_subnet.{subnet_ref}.id"
-
-        # Get user data script (cloud-init)
-        user_data_script = instance.get('user_data_script') or instance.get('user_data')
-
-        # Get Azure image reference
-        azure_image = self.get_azure_image_reference(image)
-        
         # Get SSH key configuration for this instance
         ssh_key_config = self.converter.get_instance_ssh_key(instance, yaml_data or {})
+        
+        # Get Azure image configuration
+        azure_image = self.get_azure_image_reference(image)
 
         vm_config = f'''
-# Azure Public IP for {instance_name}
-resource "azurerm_public_ip" "{clean_name}_ip" {{
+# Azure Public IP: {instance_name}
+resource "azurerm_public_ip" "{clean_name}_ip_{self.converter.get_validated_guid(yaml_data)}" {{
   name                = "{instance_name}-ip"
-  location            = "{azure_region}"
-  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main_{azure_region.replace("-", "_").replace(" ", "_")}_{self.converter.get_validated_guid(yaml_data)}.location
+  resource_group_name = azurerm_resource_group.main_{azure_region.replace("-", "_").replace(" ", "_")}_{self.converter.get_validated_guid(yaml_data)}.name
   allocation_method   = "Static"
-  sku                 = "Standard"
+
   tags = {{
     Environment = "agnosticd"
-    ManagedBy   = "yamlforge"
+    ManagedBy = "yamlforge"
   }}
 }}
 
-# Azure Network Interface for {instance_name}
-resource "azurerm_network_interface" "{clean_name}_nic" {{
+# Azure Network Interface: {instance_name}
+resource "azurerm_network_interface" "{clean_name}_nic_{self.converter.get_validated_guid(yaml_data)}" {{
   name                = "{instance_name}-nic"
-  location            = "{azure_region}"
-  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main_{azure_region.replace("-", "_").replace(" ", "_")}_{self.converter.get_validated_guid(yaml_data)}.location
+  resource_group_name = azurerm_resource_group.main_{azure_region.replace("-", "_").replace(" ", "_")}_{self.converter.get_validated_guid(yaml_data)}.name
 
   ip_configuration {{
     name                          = "internal"
-    subnet_id                     = {azure_subnet_ref}
+    subnet_id                     = azurerm_subnet.main_subnet_{azure_region.replace("-", "_").replace(" ", "_")}_{self.converter.get_validated_guid(yaml_data)}.id
     private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.{clean_name}_ip.id
+    public_ip_address_id          = azurerm_public_ip.{clean_name}_ip_{self.converter.get_validated_guid(yaml_data)}.id
   }}
 
   tags = {{
     Environment = "agnosticd"
-    ManagedBy   = "yamlforge"
+    ManagedBy = "yamlforge"
   }}
 }}'''
 
-        # Add NSG association if security groups exist
+        # Add security group association if security groups exist
         if azure_nsg_refs:
             vm_config += f'''
 
-# Network Security Group Association for {instance_name}
-resource "azurerm_network_interface_security_group_association" "{clean_name}_nsg_assoc" {{
-  network_interface_id      = azurerm_network_interface.{clean_name}_nic.id
-  network_security_group_id = {azure_nsg_refs[0]}  # Use first NSG
+# Azure NSG Association: {instance_name}
+resource "azurerm_network_interface_security_group_association" "{clean_name}_nsg_assoc_{self.converter.get_validated_guid(yaml_data)}" {{
+  network_interface_id      = azurerm_network_interface.{clean_name}_nic_{self.converter.get_validated_guid(yaml_data)}.id
+  network_security_group_id = {azure_nsg_refs[0]}
 }}'''
 
         vm_config += f'''
 
-# Azure Virtual Machine: {instance_name}
-resource "azurerm_linux_virtual_machine" "{clean_name}" {{
+# Azure Linux Virtual Machine: {instance_name}
+resource "azurerm_linux_virtual_machine" "{clean_name}_{self.converter.get_validated_guid(yaml_data)}" {{
   name                = "{instance_name}"
-  location            = "{azure_region}"
-  resource_group_name = azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.main_{azure_region.replace("-", "_").replace(" ", "_")}_{self.converter.get_validated_guid(yaml_data)}.name
+  location            = azurerm_resource_group.main_{azure_region.replace("-", "_").replace(" ", "_")}_{self.converter.get_validated_guid(yaml_data)}.location
   size                = "{azure_vm_size}"
-
-  # Disable password authentication and use SSH keys
+  admin_username      = "azureuser"
   disable_password_authentication = true
 
   network_interface_ids = [
-    azurerm_network_interface.{clean_name}_nic.id,
+    azurerm_network_interface.{clean_name}_nic_{self.converter.get_validated_guid(yaml_data)}.id,
   ]
 
-  admin_username = "azureuser"'''
+  admin_ssh_key {{
+    username   = "azureuser"
+    public_key = "{ssh_key_config.get('public_key', 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC...')}"
+  }}
 
-        # Add SSH key if configured
-        if ssh_key_config and ssh_key_config.get('public_key'):
-            ssh_username = ssh_key_config.get('username', 'azureuser')
-            vm_config += f'''
-
-  admin_ssh_key {{{{
-    username   = "{ssh_username}"
-    public_key = "{ssh_key_config['public_key']}"
-  }}}}'''
-
-        vm_config += f'''
-
-  os_disk {{{{
+  os_disk {{
     caching              = "ReadWrite"
     storage_account_type = "Premium_LRS"
   }}}}
 
-  source_image_reference {{{{
-    publisher = "{azure_image["publisher"]}"
-    offer     = "{azure_image["offer"]}"
-    sku       = "{azure_image["sku"]}"
-    version   = "{azure_image["version"]}"
+    source_image_reference {{{{
+    publisher = f"{azure_image['publisher']}"
+    offer     = f"{azure_image['offer']}"
+    sku       = f"{azure_image['sku']}"
+    version   = f"{azure_image['version']}"
   }}}}'''
 
+        # Get user data script if provided
+        user_data_script = instance.get('user_data_script', '')
+        
         # Add cloud-init if provided
         if user_data_script:
             # Base64 encode for Azure
@@ -252,7 +241,7 @@ resource "azurerm_linux_virtual_machine" "{clean_name}" {{
 '''
         return vm_config
 
-    def generate_azure_networking(self, deployment_name, deployment_config, region):
+    def generate_azure_networking(self, deployment_name, deployment_config, region, yaml_data=None):
         """Generate Azure networking resources for specific region."""
         network_config = deployment_config.get('network', {})
         network_name = network_config.get('name', f"{deployment_name}-vnet")
@@ -262,35 +251,36 @@ resource "azurerm_linux_virtual_machine" "{clean_name}" {{
         clean_region = region.replace("-", "_").replace(".", "_")
 
         return f'''
-# Azure Resource Group: {region}
-resource "azurerm_resource_group" "main_{clean_region}" {{
-  name     = "{deployment_name}-{region}-rg"
+# Azure Resource Group: {network_name} (Region: {region})
+resource "azurerm_resource_group" "main_{clean_region}_{self.converter.get_validated_guid(yaml_data)}" {{
+  name     = "{network_name}-{region}"
   location = "{region}"
+
   tags = {{
     Environment = "agnosticd"
-    Region = "{region}"
+    ManagedBy = "yamlforge"
   }}
 }}
 
-# Azure VNet: {network_name} (Region: {region})
-resource "azurerm_virtual_network" "main_vnet_{clean_region}" {{
-  name                = "{network_name}-{region}"
-  location            = "{region}"
+# Azure Virtual Network: {network_name}
+resource "azurerm_virtual_network" "main_vnet_{clean_region}_{self.converter.get_validated_guid(yaml_data)}" {{
+  name                = "{network_name}-vnet"
   address_space       = ["{cidr_block}"]
-  resource_group_name = azurerm_resource_group.main_{clean_region}.name
+  location            = azurerm_resource_group.main_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.location
+  resource_group_name = azurerm_resource_group.main_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.name
+
   tags = {{
-    Name = "{network_name}-{region}"
-    Region = "{region}"
+    Environment = "agnosticd"
+    ManagedBy = "yamlforge"
   }}
 }}
 
-# Azure Subnet
-resource "azurerm_subnet" "main_subnet_{clean_region}" {{
-  name                 = "{network_name}-subnet-{region}"
-  resource_group_name  = azurerm_resource_group.main_{clean_region}.name
-  virtual_network_name = azurerm_virtual_network.main_vnet_{clean_region}.name
+# Azure Subnet: {network_name} subnet
+resource "azurerm_subnet" "main_subnet_{clean_region}_{self.converter.get_validated_guid(yaml_data)}" {{
+  name                 = "{network_name}-subnet"
+  resource_group_name  = azurerm_resource_group.main_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.name
+  virtual_network_name = azurerm_virtual_network.main_vnet_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.name
   address_prefixes     = ["{cidr_block}"]
-  service_endpoints    = ["Microsoft.Storage"]
 }}
 '''
 

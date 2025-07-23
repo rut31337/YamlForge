@@ -1,0 +1,11 @@
+# Minimal requirements (Azure, IBM, VMware, basic functionality)
+# Install with: pip install -r requirements-minimal.txt
+
+# Core dependencies only - no cloud SDKs
+PyYAML>=6.0
+
+# Note: This provides basic YamlForge functionality for:
+# - Azure (pure Terraform)
+# - IBM Cloud VPC/Classic (pure Terraform) 
+# - VMware vSphere (pure Terraform)
+# - Static image references for all providers 

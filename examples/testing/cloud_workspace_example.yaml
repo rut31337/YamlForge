@@ -2,6 +2,8 @@
 # Cloud-Agnostic Workspace Example
 # Demonstrates unified workspace organization across all cloud providers
 
+guid: "cws01"
+
 yamlforge:
   # Cloud-agnostic workspace organization
   # Maps to each cloud's native resource grouping concept:
@@ -13,7 +15,6 @@ yamlforge:
     name: "enterprise-web-platform"
     description: "Production web platform with multi-cloud deployment"
     tags:
-      guid: "ewp-prod-2024-001"
       cost_center: "engineering"
       environment: "production"
       owner: "platform-team"

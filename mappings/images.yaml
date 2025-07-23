@@ -22,7 +22,7 @@
 # AWS RHEL Pattern-Based Images (Any Version):
 # - RHEL-8-GOLD-latest → RHEL-8.*_HVM-*Access* (major version)
 # - RHEL-9.4-GOLD-latest → RHEL-9.4.*_HVM_*Access* (major.minor version)
-# - RHEL-10.1-GOLD-latest → RHEL-10.1.*_HVM_*Access* (future versions)
+# - RHEL-10.0-GOLD-latest → RHEL-10.0.*_HVM_*Access* (future versions)
 # - Explicit mappings below take priority, then fallback to pattern generation
 # - System will fail with clear error if AMI doesn't exist yet
 #
@@ -170,6 +170,10 @@ images:
       template: "rhel9-template"
     alibaba:
       image_name: "rhel_9_0_x64_20G_alibase_20220629.vhd"
+    ibm_classic:
+      os_reference_code: "REDHAT_9_64"
+    ibm_vpc:
+      name_pattern: "ibm-redhat-9-*-amd64-*"
 
   RHEL8-latest:
     description: "RHEL 8 latest public image"
@@ -190,11 +194,19 @@ images:
       template: "rhel8-template"
     alibaba:
       image_name: "rhel_8_5_x64_20G_alibase_20211230.vhd"
+    ibm_classic:
+      os_reference_code: "REDHAT_8_64"
+    ibm_vpc:
+      name_pattern: "ibm-redhat-8-*-amd64-*"
 
   RHEL7-latest:
     description: "RHEL 7 latest public image"
     aws:
       name_pattern: "RHEL-7.*"
+    ibm_classic:
+      os_reference_code: "REDHAT_7_64"
+    ibm_vpc:
+      name_pattern: "ibm-redhat-7-*-amd64-*"
 
   # Specific RHEL versions (public)
   RHEL94-latest:
@@ -282,11 +294,19 @@ images:
     description: "CentOS Stream 9 latest"
     aws:
       name_pattern: "CentOS-Stream-ec2-9-*"
+    ibm_classic:
+      os_reference_code: "CENTOS_8_64"
+    ibm_vpc:
+      name_pattern: "ibm-centos-stream-9-*-amd64-*"
 
   CentOS-Stream8-latest:
     description: "CentOS Stream 8 latest"
     aws:
       name_pattern: "CentOS-Stream-ec2-8-*"
+    ibm_classic:
+      os_reference_code: "CENTOS_8_64"
+    ibm_vpc:
+      name_pattern: "ibm-centos-stream-8-*-amd64-*"
 
   # Fedora Images
   Fedora38-latest:
@@ -334,6 +354,10 @@ images:
       template: "ubuntu2204-template"
     alibaba:
       image_name: "ubuntu_22_04_x64_20G_alibase_20220824.vhd"
+    ibm_classic:
+      os_reference_code: "UBUNTU_20_64"
+    ibm_vpc:
+      name_pattern: "ibm-ubuntu-22-04-*-amd64-*"
 
   Ubuntu2004-latest:
     description: "Ubuntu 20.04 LTS"
@@ -354,11 +378,19 @@ images:
       template: "ubuntu2004-template"
     alibaba:
       image_name: "ubuntu_20_04_x64_20G_alibase_20220824.vhd"
+    ibm_classic:
+      os_reference_code: "UBUNTU_20_64"
+    ibm_vpc:
+      name_pattern: "ibm-ubuntu-20-04-*-amd64-*"
 
   Ubuntu1804-latest:
     description: "Ubuntu 18.04 LTS"
     aws:
       name_pattern: "ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-*"
+    ibm_classic:
+      os_reference_code: "UBUNTU_18_64"
+    ibm_vpc:
+      name_pattern: "ibm-ubuntu-18-04-*-amd64-*"
 
   # Windows Images
   Windows2022-latest:
@@ -468,4 +500,6 @@ images:
   AlibabaLinux3-latest:
     description: "Alibaba Cloud Linux 3"
     alibaba:
-      image_name: "aliyun_3_x64_20G_alibase_20230727.vhd" 
+      image_name: "aliyun_3_x64_20G_alibase_20230727.vhd"
+
+ 

@@ -24,60 +24,60 @@ size_mappings:
 # OpenShift cluster size configurations
 cluster_sizes:
   micro:
-    master_count: 1
-    master_size: "small"
-    worker_count: 1
-    worker_size: "small"
+    description: "Single node development cluster"
+    masters: 1
+    workers: 1
+    master_size: "medium"
+    worker_size: "medium"
     use_case: "Development/Testing - single node for demos and learning"
-    description: "Minimal OpenShift deployment for development"
     minimum_requirements:
       total_vcpus: 4
       total_memory_gb: 16
       total_storage_gb: 120
     
   small:
-    master_count: 3
-    master_size: "medium"
-    worker_count: 2
-    worker_size: "medium"
+    description: "Small production cluster"
+    masters: 3
+    workers: 2
+    master_size: "large"
+    worker_size: "large"
     use_case: "Small production workloads"
-    description: "Entry-level production OpenShift cluster"
     minimum_requirements:
       total_vcpus: 20
       total_memory_gb: 80
       total_storage_gb: 600
     
   medium:
-    master_count: 3
+    description: "Medium production cluster"
+    masters: 3
+    workers: 3
     master_size: "large"
-    worker_count: 3
-    worker_size: "large"
+    worker_size: "xlarge"
     use_case: "Standard production workloads"
-    description: "Standard production OpenShift cluster for most workloads"
     minimum_requirements:
       total_vcpus: 36
       total_memory_gb: 144
       total_storage_gb: 720
     
   large:
-    master_count: 3
+    description: "Large production cluster"
+    masters: 3
+    workers: 5
     master_size: "xlarge"
-    worker_count: 5
     worker_size: "xlarge"
     use_case: "Large production workloads"
-    description: "Large-scale production OpenShift cluster"
     minimum_requirements:
       total_vcpus: 72
       total_memory_gb: 288
       total_storage_gb: 960
     
   xlarge:
-    master_count: 3
+    description: "Extra large production cluster"
+    masters: 3
+    workers: 8
     master_size: "xlarge"
-    worker_count: 8
-    worker_size: "xlarge"
+    worker_size: "2xlarge"
     use_case: "Very large production workloads"
-    description: "Enterprise-scale OpenShift cluster for high-demand workloads"
     minimum_requirements:
       total_vcpus: 120
       total_memory_gb: 480

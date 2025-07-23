@@ -1,0 +1,9 @@
+# AWS-specific requirements
+# Install with: pip install -r requirements-aws.txt
+
+# Core
+PyYAML>=6.0
+
+# AWS SDK
+boto3>=1.28.0
+botocore>=1.31.0 

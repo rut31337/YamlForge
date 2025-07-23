@@ -7,7 +7,7 @@ yamlforge:
     name: "rhel-licensing-comparison"
     description: "RHEL licensing model comparison workspace"
     tags:
-      guid: "rhel-gold--2024-001"
+      guid: "rhl01"
       test_purpose: "licensing_comparison"
       cost_analysis: "gold_vs_public"
       compliance: "red_hat_cloud_access"

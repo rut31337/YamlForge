@@ -7,7 +7,7 @@ yamlforge:
     name: "multi-region-deployment"
     description: "Multi-region deployment workspace"
     tags:
-      guid: "mrd-2024-001"
+      guid: "reg01"
 
   instances:
     # AWS regional deployments

@@ -13,19 +13,33 @@ class AROProvider(BaseOpenShiftProvider):
     def generate_aro_cluster(self, cluster_config: Dict) -> str:
         """Generate ARO cluster Terraform configuration"""
         
-        cluster_name = cluster_config.get('name', 'aro-cluster')
+        cluster_name = cluster_config.get('name')
+        if not cluster_name:
+            raise ValueError("ARO cluster 'name' must be specified")
+        
         clean_name = self.clean_name(cluster_name)
-        location = cluster_config.get('region', 'East US')
-        version = self.validate_openshift_version(cluster_config.get('version', ''))
-        size_config = self.get_cluster_size_config(
-            cluster_config.get('size', 'medium'), 'aro'
-        )
+        
+        location = cluster_config.get('region')
+        if not location:
+            raise ValueError(f"ARO cluster '{cluster_name}' must specify 'region'")
+            
+        version = cluster_config.get('version')
+        if not version:
+            raise ValueError(f"ARO cluster '{cluster_name}' must specify 'version'")
+        version = self.validate_openshift_version(version)
+        
+        size = cluster_config.get('size')
+        if not size:
+            raise ValueError(f"ARO cluster '{cluster_name}' must specify 'size'")
+        size_config = self.get_cluster_size_config(size, 'aro')
         
         # Get machine sizes using OpenShift-optimized flavor mappings
         worker_vm_size = self.get_openshift_machine_type('azure', size_config['worker_size'], 'worker')
         master_vm_size = self.get_openshift_machine_type('azure', size_config['master_size'], 'master')
         
-        worker_count = cluster_config.get('worker_count', size_config['worker_count'])
+        worker_count = cluster_config.get('worker_count')
+        if worker_count is None:
+            worker_count = size_config['worker_count']  # Use size config as fallback
         
         # Get merged networking configuration (defaults + user overrides)
         networking = self.get_merged_networking_config(cluster_config, 'aro')
@@ -99,7 +113,7 @@ resource "azapi_resource" "{clean_name}" {{
     properties = {{
       clusterProfile = {{
         domain               = "{cluster_name}"
-        fipsValidatedModules = "{cluster_config.get('fips_enabled', False) and 'Enabled' or 'Disabled'}"
+        fipsValidatedModules = "{(cluster_config.get('fips_enabled') or False) and 'Enabled' or 'Disabled'}"
         resourceGroupId      = "/subscriptions/${{var.azure_subscription_id}}/resourceGroups/aro-{cluster_name}-cluster"
         version              = "{version}"
       }}
@@ -125,7 +139,7 @@ resource "azapi_resource" "{clean_name}" {{
         {{
           name                = "workers"
           vmSize              = "{worker_vm_size}"
-          diskSizeGB          = {cluster_config.get('worker_disk_size', 128)}
+          diskSizeGB          = {cluster_config.get('worker_disk_size') or 128}
           subnetId           = azurerm_subnet.{clean_name}_worker_subnet.id
           count              = {worker_count}
           encryptionAtHost   = "Disabled"
@@ -134,13 +148,13 @@ resource "azapi_resource" "{clean_name}" {{
       ]
       
       apiserverProfile = {{
-        visibility = "{cluster_config.get('private', False) and 'Private' or 'Public'}"
+        visibility = "{cluster_config.get('private') or False and 'Private' or 'Public'}"
       }}
       
       ingressProfiles = [
         {{
           name       = "default"
-          visibility = "{cluster_config.get('private', False) and 'Private' or 'Public'}"
+          visibility = "{cluster_config.get('private') or False and 'Private' or 'Public'}"
         }}
       ]
     }}

@@ -15,107 +15,37 @@ class MonitoringOperator(BaseOpenShiftProvider):
         self.operator_config = self.load_operator_config('core/monitoring')
     
     def generate_monitoring_operator(self, operator_config: Dict, target_clusters: List[str]) -> str:
-        """Generate OpenShift Monitoring (Prometheus/Grafana) operator"""
+        """Generate OpenShift monitoring operator"""
         
         # Load defaults from YAML configuration
         defaults = self.operator_config.get('defaults', {})
+        monitoring_config = operator_config.get('monitoring', defaults.get('monitoring', {}))
+        alertmanager_config = operator_config.get('alertmanager', defaults.get('alertmanager', {}))
         
-        operator_name = operator_config.get('name', defaults.get('name', 'cluster-monitoring'))
+        operator_name = operator_config.get('name', defaults.get('name', 'monitoring-operator'))
         clean_name = self.clean_name(operator_name)
         
         # Configuration options with YAML defaults
-        retention_days = operator_config.get('retention_days', defaults.get('retention_days', 15))
-        storage_size = operator_config.get('storage_size', defaults.get('storage_size', '50Gi'))
-        enable_user_workload_monitoring = operator_config.get('enable_user_workload_monitoring', defaults.get('enable_user_workload_monitoring', True))
-        alertmanager_storage = operator_config.get('alertmanager_storage_size', defaults.get('alertmanager_storage_size', '10Gi'))
-        node_selector = operator_config.get('node_selector', defaults.get('node_selector', {"node-role.kubernetes.io/infra": ""}))
-        
-        # Storage configuration from YAML
-        storage_config = self.operator_config.get('storage', {})
-        storage_class = storage_config.get('storageClassName', 'gp3')
-        
-        # Tolerations from YAML
-        tolerations = self.operator_config.get('tolerations', [])
+        enable_alertmanager = operator_config.get('enable_alertmanager', defaults.get('enable_alertmanager', True))
         
         terraform_config = f'''
 # =============================================================================
-# OPENSHIFT MONITORING OPERATOR: {operator_name}
+# MONITORING OPERATOR: {operator_name}
 # =============================================================================
 # Clusters: {', '.join(target_clusters) if target_clusters else 'All clusters'}
 
-# Cluster Monitoring Configuration
-resource "kubernetes_manifest" "{clean_name}_cluster_monitoring" {{
-  manifest = {{
-    apiVersion = "v1"
-    kind       = "ConfigMap"
-    metadata = {{
-      name      = "cluster-monitoring-config"
-      namespace = "openshift-monitoring"
-    }}
-    data = {{
-      "config.yaml" = yamlencode({{
-        prometheusK8s = {{
-          retention = "{retention_days}d"
-          volumeClaimTemplate = {{
-            spec = {{
-              storageClassName = "{storage_class}"
-              resources = {{
-                requests = {{
-                  storage = "{storage_size}"
-                }}
-              }}
-            }}
-          }}'''
-
-        # Add node selector if configured
-        if node_selector:
-            terraform_config += f'''
-          nodeSelector = {{{', '.join(f'"{k}" = "{v}"' for k, v in node_selector.items())}}}'''
-
-        # Add tolerations if configured
-        if tolerations:
-            terraform_config += '''
-          tolerations = ['''
-            for toleration in tolerations:
-                terraform_config += f'''
-            {{
-              key    = "{toleration.get('key', '')}"
-              effect = "{toleration.get('effect', '')}"
-            }}'''
-            terraform_config += '''
-          ]'''
-
-        terraform_config += f'''
-        }}
-        
-        alertmanagerMain = {{
-          volumeClaimTemplate = {{
-            spec = {{
-              storageClassName = "{storage_class}"
-              resources = {{
-                requests = {{
-                  storage = "{alertmanager_storage}"
-                }}
-              }}
-            }}
-          }}
-        }}
-        
-        enableUserWorkloadMonitoring = {str(enable_user_workload_monitoring).lower()}
-      }})
-    }}
-  }}
-}}
-
 '''
-
-        # Add user workload monitoring configuration if enabled
-        if enable_user_workload_monitoring:
-            user_retention_days = operator_config.get('user_retention_days', defaults.get('user_retention_days', 7))
-            user_storage_size = operator_config.get('user_storage_size', defaults.get('user_storage_size', '20Gi'))
+        
+        # Generate operator for each target cluster
+        for cluster_name in target_clusters:
+            clean_cluster_name = self.clean_name(cluster_name)
             
-            terraform_config += f'''# User Workload Monitoring Configuration
-resource "kubernetes_manifest" "{clean_name}_user_workload_monitoring" {{
+            terraform_config += f'''
+# User Workload Monitoring ConfigMap for {cluster_name}
+resource "kubernetes_manifest" "{clean_name}_{clean_cluster_name}_user_workload_monitoring" {{
+  count    = var.deploy_day2_operations ? 1 : 0
+  provider = kubernetes.{clean_cluster_name}_cluster_admin_limited
+  
   manifest = {{
     apiVersion = "v1"
     kind       = "ConfigMap"
@@ -124,65 +54,38 @@ resource "kubernetes_manifest" "{clean_name}_user_workload_monitoring" {{
       namespace = "openshift-user-workload-monitoring"
     }}
     data = {{
-      "config.yaml" = yamlencode({{
-        prometheus = {{
-          retention = "{user_retention_days}d"
-          volumeClaimTemplate = {{
-            spec = {{
-              storageClassName = "{storage_class}"
-              resources = {{
-                requests = {{
-                  storage = "{user_storage_size}"
-                }}
-              }}
-            }}
-          }}
-        }}
+      "config.yaml" = <<-EOT
+        prometheus:
+          retention: {monitoring_config.get('retention', '15d')}
+          resources:
+            requests:
+              cpu: {monitoring_config.get('resources', {}).get('requests', {}).get('cpu', '200m')}
+              memory: {monitoring_config.get('resources', {}).get('requests', {}).get('memory', '2Gi')}
+          volumeClaimTemplate:
+            spec:
+              storageClassName: {monitoring_config.get('storageClass', 'gp2')}
+              resources:
+                requests:
+                  storage: {monitoring_config.get('storage', '40Gi')}
+        alertmanager:
+          enabled: {str(enable_alertmanager).lower()}
+          resources:
+            requests:
+              cpu: {alertmanager_config.get('resources', {}).get('requests', {}).get('cpu', '100m')}
+              memory: {alertmanager_config.get('resources', {}).get('requests', {}).get('memory', '200Mi')}
+          volumeClaimTemplate:
+            spec:
+              storageClassName: {alertmanager_config.get('storageClass', 'gp2')}
+              resources:
+                requests:
+                  storage: {alertmanager_config.get('storage', '20Gi')}
+      EOT
+    }}
+  }}
+  
+  depends_on = [kubernetes_service_account.{clean_cluster_name}_cluster_admin_limited]
+}}
+
+'''
         
-        thanosRuler = {{
-          retention = "{user_retention_days}d"
-          volumeClaimTemplate = {{
-            spec = {{
-              storageClassName = "{storage_class}"
-              resources = {{
-                requests = {{
-                  storage = "{user_storage_size}"
-                }}
-              }}
-            }}
-          }}
-        }}
-      }})
-    }}
-  }}
-}}
-
-'''
-
-        # Add custom prometheus rules if configured
-        custom_rules = operator_config.get('custom_rules', defaults.get('custom_rules', []))
-        for rule in custom_rules:
-            rule_name = self.clean_name(rule.get('name', 'custom-rule'))
-            terraform_config += f'''# Custom Prometheus Rule: {rule.get('name')}
-resource "kubernetes_manifest" "{clean_name}_custom_rule_{rule_name}" {{
-  manifest = {{
-    apiVersion = "monitoring.coreos.com/v1"
-    kind       = "PrometheusRule"
-    metadata = {{
-      name      = "{rule_name}"
-      namespace = "{rule.get('namespace', 'openshift-monitoring')}"
-      labels = {{
-        prometheus = "kube-prometheus"
-        role       = "alert-rules"
-      }}
-    }}
-    spec = {{
-      groups = {rule.get('groups', [])}
-    }}
-  }}
-}}
-
-'''
-
-        return terraform_config 
         return terraform_config 

@@ -1,6 +1,6 @@
 # AWS Default Configuration
 # Settings and features for AWS integration
- 
+    
 # AMI Owners Configuration
 ami_owners:
   redhat_gold: "309956199498"    # Red Hat Cloud Access Gold AMIs

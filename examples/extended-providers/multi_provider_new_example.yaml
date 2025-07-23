@@ -8,7 +8,7 @@ yamlforge:
     name: "new-providers-demo"
     description: "Demonstration of OCI, VMware, and Alibaba Cloud providers"
     tags:
-      guid: "npd-2024-001"
+      guid: "new01"
       project: "provider-expansion"
 
   # Security groups for web and database access

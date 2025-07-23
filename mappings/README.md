@@ -32,7 +32,7 @@ mappings/
 │   └── generic.yaml    # Cloud-agnostic size mappings (all providers)
 ├── images.yaml         # Operating system image mappings
 ├── locations.yaml      # Cloud region mappings
-├── sizes.yaml          # CPU/memory to cloud instance type mappings
+
 └── README.md          # This file
 ```
 
@@ -83,9 +83,6 @@ Maps operating system image references to cloud-specific AMI IDs, image names, o
 
 ### `locations.yaml`
 Maps cloud-specific region names to standardized location format for cross-cloud deployments.
-
-### `sizes.yaml`
-Maps CPU/memory specifications to appropriate cloud instance types (fallback for custom specs).
 
 ## Usage
 

@@ -11,6 +11,7 @@ import uuid
 import json
 from pathlib import Path
 from datetime import datetime, timedelta
+import re
 
 # GCP imports
 try:
@@ -111,7 +112,26 @@ class GCPProvider:
         self.converter = converter
         self._gcp_resolver = None
         self.config = self.load_config()
-        self.guid = str(uuid.uuid4())[:8]  # Short GUID for DNS subdomain
+        self.guid = None  # Will be set later when YAML data is available
+
+    def update_guid(self, guid):
+        """Update the GUID for this provider instance."""
+        self.guid = guid
+
+    def get_validated_guid(self):
+        """Get GUID from converter - no local validation needed."""
+        if not self.guid:
+            # Get GUID from converter which handles validation
+            if hasattr(self.converter, 'current_yaml_data') and self.converter.current_yaml_data:
+                self.guid = self.converter.get_validated_guid(self.converter.current_yaml_data)
+            else:
+                # Fallback to environment variable only
+                guid = os.environ.get('GUID', '').strip()
+                if guid:
+                    self.guid = guid.lower()
+                else:
+                    raise ValueError("GUID is required but not provided. Please set the GUID environment variable.")
+        return self.guid
 
     def load_config(self):
         """Load GCP configuration from defaults and credentials system."""
@@ -278,7 +298,7 @@ resource "google_compute_firewall" "{rule_name}" {{
 
         vm_config = f'''
 # GCP Compute Instance: {instance_name}
-resource "google_compute_instance" "{clean_name}" {{
+resource "google_compute_instance" "{clean_name}_{self.get_validated_guid()}" {{
   name         = "{instance_name}"
   machine_type = "{gcp_machine_type}"
   zone         = "{gcp_zone}"
@@ -292,7 +312,7 @@ resource "google_compute_instance" "{clean_name}" {{
   }}
 
   network_interface {{
-    subnetwork = google_compute_subnetwork.main_subnet_{gcp_region.replace("-", "_").replace(".", "_")}.id
+    subnetwork = google_compute_subnetwork.main_subnet_{gcp_region.replace("-", "_").replace(".", "_")}_{self.get_validated_guid()}.id
     access_config {{
       # Ephemeral public IP
     }}
@@ -342,7 +362,7 @@ resource "google_compute_address" "{clean_name}_ip" {{
         clean_name = sg_name.replace("-", "_").replace(".", "_")
         clean_region = region.replace("-", "_").replace(".", "_")
         regional_fw_name = f"{clean_name}_{clean_region}"
-        regional_network_ref = f"google_compute_network.main_network_{clean_region}.id"
+        regional_network_ref = f"google_compute_network.main_network_{clean_region}_{self.get_validated_guid()}.id"
 
         firewall_config = ""
 
@@ -356,7 +376,7 @@ resource "google_compute_address" "{clean_name}_ip" {{
 
             firewall_config += f'''
 # GCP Firewall Rule: {sg_name} Rule {i+1} (Region: {region})
-resource "google_compute_firewall" "{rule_name}" {{
+resource "google_compute_firewall" "{rule_name}_{self.get_validated_guid()}" {{
   name    = "{sg_name}-{region}-rule-{i+1}"
   network = {regional_network_ref}
 
@@ -383,24 +403,24 @@ resource "google_compute_firewall" "{rule_name}" {{
         clean_region = region.replace("-", "_").replace(".", "_")
 
         return f'''
-# GCP VPC Network: {network_name} (Region: {region})
-resource "google_compute_network" "main_network_{clean_region}" {{
-  name                    = "{network_name}-{region}"
+# GCP Network: {network_name}
+resource "google_compute_network" "main_network_{clean_region}_{self.get_validated_guid()}" {{
+  name                    = "{network_name}"
   auto_create_subnetworks = false
 }}
 
-# GCP Subnet
-resource "google_compute_subnetwork" "main_subnet_{clean_region}" {{
-  name          = "{network_name}-subnet-{region}"
+# GCP Subnet: {network_name} subnet
+resource "google_compute_subnetwork" "main_subnet_{clean_region}_{self.get_validated_guid()}" {{
+  name          = "{network_name}-subnet"
   ip_cidr_range = "{cidr_block}"
   region        = "{region}"
-  network       = google_compute_network.main_network_{clean_region}.id
+  network       = google_compute_network.main_network_{clean_region}_{self.get_validated_guid()}.id
 }}
 
-# GCP Firewall - Allow SSH
-resource "google_compute_firewall" "main_ssh_{clean_region}" {{
-  name    = "{network_name}-allow-ssh-{region}"
-  network = google_compute_network.main_network_{clean_region}.name
+# Default SSH access firewall rule
+resource "google_compute_firewall" "main_ssh_{clean_region}_{self.get_validated_guid()}" {{
+  name    = "{network_name}-ssh"
+  network = google_compute_network.main_network_{clean_region}_{self.get_validated_guid()}.id
 
   allow {{
     protocol = "tcp"
@@ -456,6 +476,8 @@ resource "google_compute_firewall" "main_ssh_{clean_region}" {{
         workspace_name = cloud_workspace.get('name', 'yamlforge-workspace')
         
         # Generate project ID from workspace name and GUID
+        if not self.guid:
+            self.get_validated_guid()
         project_id = f"{workspace_name.lower().replace('_', '-')}-{self.guid}"
         
         # Get configuration from defaults
@@ -468,7 +490,7 @@ resource "google_compute_firewall" "main_ssh_{clean_region}" {{
         # 1. Project creation with billing
         project_terraform += f'''
 # GCP Project
-resource "google_project" "main" {{
+resource "google_project" "main_{self.get_validated_guid()}" {{
   name       = "{workspace_name}"
   project_id = "{project_id}"
   {f'org_id = "{organization_id}"' if organization_id and not organization_id.startswith('${') else '# org_id configured via environment'}
@@ -495,14 +517,14 @@ resource "google_project_service" "{clean_api}" {{
 
 '''
         
-        # 3. Create project-level service account with ownership
+        # 3. Create service account for infrastructure management
         project_terraform += f'''
-# Project Service Account with Owner role
-resource "google_service_account" "{sa_name.replace('-', '_')}" {{
+# Project Service Account
+resource "google_service_account" "{sa_name.replace('-', '_')}_{self.get_validated_guid()}" {{
   account_id   = "{sa_name}"
-  display_name = "YamlForge Automation Service Account"
-  project      = google_project.main.project_id
-  depends_on   = [google_project_service.iam_googleapis_com]
+  display_name = "{workspace_name} Service Account"
+  description  = "Service account for {workspace_name} infrastructure management"
+  project      = google_project.main_{self.get_validated_guid()}.project_id
 }}
 
 # Grant Owner role to project service account
@@ -600,6 +622,10 @@ resource "google_project_iam_member" "{binding_name}" {{
         
         # Only create DNS infrastructure if root zone management is enabled AND domain is specified
         if dns_management_enabled and project_domain:
+            # Ensure GUID is available for DNS subdomain generation
+            if not self.guid:
+                self.get_validated_guid()
+                
             dns_zone = project_domain
             subdomain = f"{self.guid}.{dns_zone}"
             delegation_ttl = merged_dns_config.get('delegation_ttl', 86400)
@@ -607,13 +633,13 @@ resource "google_project_iam_member" "{binding_name}" {{
             # Create subdomain managed zone
             project_terraform += f'''
 # Managed DNS Zone for subdomain
-resource "google_dns_managed_zone" "main" {{
+resource "google_dns_managed_zone" "main_{self.get_validated_guid()}" {{
   name        = "{self.guid.replace('-', '')}-zone"
   dns_name    = "{subdomain}."
   description = "Managed zone for {workspace_name} - {subdomain}"
-  project     = google_project.main.project_id
+  project     = google_project.main_{self.get_validated_guid()}.project_id
   
-  depends_on = [google_project_service.dns_googleapis_com]
+  depends_on = [google_project_service.dns_googleapis_com_{self.get_validated_guid()}]
 }}
 
 '''

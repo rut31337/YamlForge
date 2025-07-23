@@ -2,12 +2,13 @@
 # Fedora Image Discovery Example
 # Demonstrates automatic Fedora image resolution across cloud providers
 
+guid: "fed01"
+
 yamlforge:
   cloud_workspace:
     name: "fedora-multi-cloud"
     description: "Fedora testing workspace across cloud providers"
     tags:
-      guid: "fmc-2024-001"
 
   instances:
     # AWS Fedora instances with automatic AMI discovery

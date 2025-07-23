@@ -13,8 +13,8 @@ class SelfManagedOpenShiftProvider(BaseOpenShiftProvider):
     def generate_self_managed_cluster(self, cluster_config: Dict) -> str:
         """Generate self-managed OpenShift cluster on any supported provider"""
         
-        cluster_name = cluster_config.get('name', 'self-managed-cluster')
-        provider = cluster_config.get('provider', 'aws')  # Default to AWS if not specified
+        cluster_name = cluster_config.get('name')
+        provider = cluster_config.get('provider')  # Default to AWS if not specified
         
         # Validate provider is supported
         supported_providers = ['aws', 'azure', 'gcp', 'ibm_vpc', 'ibm_classic', 'oci', 'vmware', 'alibaba']
@@ -22,7 +22,7 @@ class SelfManagedOpenShiftProvider(BaseOpenShiftProvider):
             raise ValueError(f"Provider '{provider}' not supported for self-managed OpenShift. Supported: {supported_providers}")
         
         # Get infrastructure configuration
-        infrastructure = cluster_config.get('infrastructure', {})
+        infrastructure = cluster_config.get('infrastructure')
         if infrastructure:
             # Use existing instances for self-managed
             return self.generate_self_managed_on_existing_infrastructure(cluster_config)
@@ -33,18 +33,18 @@ class SelfManagedOpenShiftProvider(BaseOpenShiftProvider):
     def generate_self_managed_with_new_infrastructure(self, cluster_config: Dict) -> str:
         """Generate new infrastructure for self-managed OpenShift on any provider"""
         
-        cluster_name = cluster_config.get('name', 'self-managed-cluster')
+        cluster_name = cluster_config.get('name')
         clean_name = self.clean_name(cluster_name)
-        provider = cluster_config.get('provider', 'aws')
-        region = cluster_config.get('region', self.get_default_region(provider))
-        version = self.validate_openshift_version(cluster_config.get('version', ''))
+        provider = cluster_config.get('provider')
+        region = cluster_config.get('region')
+        version = self.validate_openshift_version(cluster_config.get('version'))
         
         size_config = self.get_cluster_size_config(
-            cluster_config.get('size', 'medium'), 'self-managed'
+            cluster_config.get('size'), 'self-managed'
         )
         
         master_count = size_config['master_count']
-        worker_count = cluster_config.get('worker_count', size_config['worker_count'])
+        worker_count = cluster_config.get('worker_count')
         
         # Generate infrastructure based on provider
         if provider == 'gcp':
@@ -81,17 +81,17 @@ class SelfManagedOpenShiftProvider(BaseOpenShiftProvider):
     def generate_gcp_self_managed_infrastructure(self, cluster_config: Dict, size_config: Dict, version: str) -> str:
         """Generate GCP infrastructure for self-managed OpenShift"""
         
-        cluster_name = cluster_config.get('name', 'self-managed-cluster')
+        cluster_name = cluster_config.get('name')
         clean_name = self.clean_name(cluster_name)
-        region = cluster_config.get('region', 'us-central1')
-        zone = cluster_config.get('zone', f'{region}-a')
+        region = cluster_config.get('region')
+        zone = cluster_config.get('zone')
         
         # Get machine types using OpenShift-optimized flavor mappings  
         master_machine_type = self.get_openshift_machine_type('gcp', size_config['master_size'], 'master')
         worker_machine_type = self.get_openshift_machine_type('gcp', size_config['worker_size'], 'worker')
         
         master_count = size_config['master_count']
-        worker_count = cluster_config.get('worker_count', size_config['worker_count'])
+        worker_count = cluster_config.get('worker_count')
         
         # Get merged networking configuration (defaults + user overrides)
         networking = self.get_merged_networking_config(cluster_config, 'self-managed')
@@ -253,7 +253,7 @@ resource "local_file" "{clean_name}_install_config" {{
   
   content = yamlencode({{
     apiVersion = "v1"
-    baseDomain = "{cluster_config.get('base_domain', 'example.com')}"
+    baseDomain = "{cluster_config.get('base_domain')}"
     metadata = {{
       name = "{cluster_name}"
     }}
@@ -355,8 +355,8 @@ resource "null_resource" "{clean_name}_installer" {{
     
     def generate_self_managed_on_existing_infrastructure(self, cluster_config: Dict) -> str:
         """Generate OpenShift on existing infrastructure instances"""
-        cluster_name = cluster_config.get('name', 'self-managed-cluster')
-        provider = cluster_config.get('provider', 'aws')
+        cluster_name = cluster_config.get('name')
+        provider = cluster_config.get('provider')
         
         # TODO: Implement OpenShift installation on existing instances
         return f'''
@@ -365,6 +365,6 @@ resource "null_resource" "{clean_name}_installer" {{
 # =============================================================================
 
 # TODO: Implement OpenShift installation on existing infrastructure
-# Referenced instances: {cluster_config.get('infrastructure', {})}
+# Referenced instances: {cluster_config.get('infrastructure')}
 
 ''' 

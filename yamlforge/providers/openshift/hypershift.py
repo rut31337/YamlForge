@@ -13,7 +13,9 @@ class HyperShiftProvider(BaseOpenShiftProvider):
     def generate_hypershift_cluster(self, cluster_config: Dict, all_clusters: List[Dict]) -> str:
         """Generate HyperShift hosted cluster configuration"""
         
-        cluster_name = cluster_config.get('name', 'hypershift-cluster')
+        cluster_name = cluster_config.get('name')
+        if not cluster_name:
+            raise ValueError("HyperShift cluster 'name' must be specified")
         clean_name = self.clean_name(cluster_name)
         management_cluster_name = cluster_config.get('management_cluster')
         
@@ -31,27 +33,56 @@ class HyperShiftProvider(BaseOpenShiftProvider):
             raise ValueError(f"Management cluster '{management_cluster_name}' not found for HyperShift cluster '{cluster_name}'")
         
         # Get worker infrastructure configuration
-        worker_provider = cluster_config.get('provider', 'aws')
-        worker_region = cluster_config.get('region', self.get_default_region(worker_provider))
-        worker_count = cluster_config.get('worker_count', 2)
-        worker_size = cluster_config.get('size', 'small')
-        version = self.validate_openshift_version(cluster_config.get('version', ''))
+        worker_provider = cluster_config.get('provider')
+        if not worker_provider:
+            raise ValueError(f"HyperShift cluster '{cluster_name}' must specify 'provider' for worker nodes")
+            
+        worker_region = cluster_config.get('region')
+        if not worker_region:
+            raise ValueError(f"HyperShift cluster '{cluster_name}' must specify 'region' for worker nodes")
+            
+        worker_count = cluster_config.get('worker_count')
+        if not worker_count:
+            raise ValueError(f"HyperShift cluster '{cluster_name}' must specify 'worker_count'")
+            
+        worker_size = cluster_config.get('size')
+        if not worker_size:
+            raise ValueError(f"HyperShift cluster '{cluster_name}' must specify 'size'")
+            
+        version = cluster_config.get('version')
+        if not version:
+            raise ValueError(f"HyperShift cluster '{cluster_name}' must specify 'version'")
+        version = self.validate_openshift_version(version)
+        
+        # Determine if HyperShift deployment separation is needed
+        needs_hypershift_separation = cluster_config.get('_needs_hypershift_separation', False)
+        deployment_group = cluster_config.get('_deployment_group', 'hypershift_hosted')
+        
+        deployment_condition = ''
+        if needs_hypershift_separation and deployment_group == 'hypershift_hosted':
+            deployment_condition = 'var.deploy_hypershift_hosted ? 1 : 0'
+        else:
+            deployment_condition = '1'
         
         # Generate worker infrastructure based on provider
         worker_terraform = self.generate_hypershift_worker_infrastructure(
-            cluster_config, worker_provider, worker_region, worker_count, worker_size
+            cluster_config, worker_provider, worker_region, worker_count, worker_size, deployment_condition
         )
         
         # Generate HyperShift hosted cluster configuration
         hosted_cluster_terraform = self.generate_hosted_cluster_config(
-            cluster_config, management_cluster, version
+            cluster_config, management_cluster, version, deployment_condition
         )
+        
+        group_note = ""
+        if needs_hypershift_separation:
+            group_note = f"# Deployment group: {deployment_group} - HyperShift hosted cluster\n"
         
         return f'''
 # =============================================================================
 # HYPERSHIFT HOSTED CLUSTER: {cluster_name}
 # =============================================================================
-# Management Cluster: {management_cluster_name}
+{group_note}# Management Cluster: {management_cluster_name}
 # Worker Provider: {worker_provider}
 # Cost Savings: ~60-70% compared to dedicated masters
 # Provisioning Time: 2-3 minutes (no master infrastructure needed)
@@ -61,29 +92,29 @@ class HyperShiftProvider(BaseOpenShiftProvider):
 {hosted_cluster_terraform}
 '''
 
-    def generate_hypershift_worker_infrastructure(self, cluster_config: Dict, provider: str, region: str, worker_count: int, size: str) -> str:
+    def generate_hypershift_worker_infrastructure(self, cluster_config: Dict, provider: str, region: str, worker_count: int, size: str, deployment_condition: str) -> str:
         """Generate worker node infrastructure for HyperShift cluster"""
         
-        cluster_name = cluster_config.get('name', 'hypershift-cluster')
+        cluster_name = cluster_config.get('name')
         clean_name = self.clean_name(cluster_name)
         
         # Get machine type using OpenShift-optimized flavor mappings
         machine_type = self.get_openshift_machine_type(provider, size, 'worker')
         
         if provider == 'aws':
-            return self.generate_aws_hypershift_workers(cluster_config, region, worker_count, machine_type)
+            return self.generate_aws_hypershift_workers(cluster_config, region, worker_count, machine_type, deployment_condition)
         elif provider == 'azure':
-            return self.generate_azure_hypershift_workers(cluster_config, region, worker_count, machine_type)
+            return self.generate_azure_hypershift_workers(cluster_config, region, worker_count, machine_type, deployment_condition)
         elif provider == 'gcp':
-            return self.generate_gcp_hypershift_workers(cluster_config, region, worker_count, machine_type)
+            return self.generate_gcp_hypershift_workers(cluster_config, region, worker_count, machine_type, deployment_condition)
         elif provider in ['ibm_vpc', 'ibm_classic']:
-            return self.generate_ibm_hypershift_workers(cluster_config, region, worker_count, machine_type)
+            return self.generate_ibm_hypershift_workers(cluster_config, region, worker_count, machine_type, deployment_condition)
         elif provider == 'oci':
-            return self.generate_oci_hypershift_workers(cluster_config, region, worker_count, machine_type)
+            return self.generate_oci_hypershift_workers(cluster_config, region, worker_count, machine_type, deployment_condition)
         elif provider == 'vmware':
-            return self.generate_vmware_hypershift_workers(cluster_config, region, worker_count, machine_type)
+            return self.generate_vmware_hypershift_workers(cluster_config, region, worker_count, machine_type, deployment_condition)
         elif provider == 'alibaba':
-            return self.generate_alibaba_hypershift_workers(cluster_config, region, worker_count, machine_type)
+            return self.generate_alibaba_hypershift_workers(cluster_config, region, worker_count, machine_type, deployment_condition)
         else:
             return f"# TODO: HyperShift worker infrastructure for {provider} not yet implemented\n"
     
@@ -101,10 +132,10 @@ class HyperShiftProvider(BaseOpenShiftProvider):
         }
         return defaults.get(provider, 'us-east-1')
     
-    def generate_aws_hypershift_workers(self, cluster_config: Dict, region: str, worker_count: int, machine_type: str) -> str:
+    def generate_aws_hypershift_workers(self, cluster_config: Dict, region: str, worker_count: int, machine_type: str, deployment_condition: str) -> str:
         """Generate AWS worker infrastructure for HyperShift"""
         
-        cluster_name = cluster_config.get('name', 'hypershift-cluster')
+        cluster_name = cluster_config.get('name')
         clean_name = self.clean_name(cluster_name)
         
         # Get merged networking configuration (defaults + user overrides)
@@ -113,6 +144,8 @@ class HyperShiftProvider(BaseOpenShiftProvider):
         terraform_config = f'''
 # AWS Worker Infrastructure for HyperShift Cluster
 resource "aws_vpc" "{clean_name}_workers_vpc" {{
+  count = {deployment_condition}
+  
   cidr_block           = "{networking.get('machine_cidr', '10.0.0.0/16')}"
   enable_dns_hostnames = true
   enable_dns_support   = true
@@ -125,7 +158,9 @@ resource "aws_vpc" "{clean_name}_workers_vpc" {{
 }}
 
 resource "aws_subnet" "{clean_name}_workers_subnet" {{
-  vpc_id                  = aws_vpc.{clean_name}_workers_vpc.id
+  count = {deployment_condition}
+  
+  vpc_id                  = aws_vpc.{clean_name}_workers_vpc[0].id
   cidr_block              = "10.0.1.0/24"
   availability_zone       = "{region}a"
   map_public_ip_on_launch = true
@@ -138,7 +173,9 @@ resource "aws_subnet" "{clean_name}_workers_subnet" {{
 }}
 
 resource "aws_internet_gateway" "{clean_name}_workers_igw" {{
-  vpc_id = aws_vpc.{clean_name}_workers_vpc.id
+  count = {deployment_condition}
+  
+  vpc_id = aws_vpc.{clean_name}_workers_vpc[0].id
   
   tags = {{
     Name = "{cluster_name}-workers-igw"
@@ -146,11 +183,13 @@ resource "aws_internet_gateway" "{clean_name}_workers_igw" {{
 }}
 
 resource "aws_route_table" "{clean_name}_workers_rt" {{
-  vpc_id = aws_vpc.{clean_name}_workers_vpc.id
+  count = {deployment_condition}
+  
+  vpc_id = aws_vpc.{clean_name}_workers_vpc[0].id
   
   route {{
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.{clean_name}_workers_igw.id
+    gateway_id = aws_internet_gateway.{clean_name}_workers_igw[0].id
   }}
   
   tags = {{
@@ -159,14 +198,18 @@ resource "aws_route_table" "{clean_name}_workers_rt" {{
 }}
 
 resource "aws_route_table_association" "{clean_name}_workers_rta" {{
-  subnet_id      = aws_subnet.{clean_name}_workers_subnet.id
-  route_table_id = aws_route_table.{clean_name}_workers_rt.id
+  count = {deployment_condition}
+  
+  subnet_id      = aws_subnet.{clean_name}_workers_subnet[0].id
+  route_table_id = aws_route_table.{clean_name}_workers_rt[0].id
 }}
 
 # Security group for HyperShift workers
 resource "aws_security_group" "{clean_name}_workers_sg" {{
+  count = {deployment_condition}
+  
   name_prefix = "{cluster_name}-workers-"
-  vpc_id      = aws_vpc.{clean_name}_workers_vpc.id
+  vpc_id      = aws_vpc.{clean_name}_workers_vpc[0].id
   
   # Inbound rules for OpenShift worker nodes
   ingress {{
@@ -206,11 +249,13 @@ resource "aws_security_group" "{clean_name}_workers_sg" {{
 
 # Launch template for HyperShift worker nodes
 resource "aws_launch_template" "{clean_name}_workers_lt" {{
+  count = {deployment_condition}
+  
   name_prefix   = "{cluster_name}-workers-"
   image_id      = data.aws_ami.{clean_name}_worker_ami.id
   instance_type = "{machine_type}"
   
-  vpc_security_group_ids = [aws_security_group.{clean_name}_workers_sg.id]
+  vpc_security_group_ids = [aws_security_group.{clean_name}_workers_sg[0].id]
   
   user_data = base64encode(templatefile("${{path.module}}/hypershift-worker-userdata.sh", {{
     cluster_name = "{cluster_name}"
@@ -229,8 +274,10 @@ resource "aws_launch_template" "{clean_name}_workers_lt" {{
 
 # Auto Scaling Group for HyperShift workers
 resource "aws_autoscaling_group" "{clean_name}_workers_asg" {{
+  count = {deployment_condition}
+  
   name                = "{cluster_name}-workers"
-  vpc_zone_identifier = [aws_subnet.{clean_name}_workers_subnet.id]
+  vpc_zone_identifier = [aws_subnet.{clean_name}_workers_subnet[0].id]
   target_group_arns   = []
   health_check_type   = "EC2"
   
@@ -239,7 +286,7 @@ resource "aws_autoscaling_group" "{clean_name}_workers_asg" {{
   desired_capacity = {worker_count}
   
   launch_template {{
-    id      = aws_launch_template.{clean_name}_workers_lt.id
+    id      = aws_launch_template.{clean_name}_workers_lt[0].id
     version = "$Latest"
   }}
   
@@ -275,10 +322,10 @@ data "aws_ami" "{clean_name}_worker_ami" {{
         
         return terraform_config
     
-    def generate_hosted_cluster_config(self, cluster_config: Dict, management_cluster: Dict, version: str) -> str:
+    def generate_hosted_cluster_config(self, cluster_config: Dict, management_cluster: Dict, version: str, deployment_condition: str) -> str:
         """Generate HyperShift hosted cluster configuration"""
         
-        cluster_name = cluster_config.get('name', 'hypershift-cluster')
+        cluster_name = cluster_config.get('name')
         clean_name = self.clean_name(cluster_name)
         management_cluster_name = management_cluster.get('name')
         
@@ -288,6 +335,8 @@ data "aws_ami" "{clean_name}_worker_ami" {{
         terraform_config = f'''
 # HyperShift Hosted Cluster Configuration
 resource "kubectl_manifest" "{clean_name}_hostedcluster" {{
+  count = {deployment_condition}
+  
   yaml_body = yamlencode({{
     apiVersion = "hypershift.openshift.io/v1beta1"
     kind       = "HostedCluster"
@@ -301,7 +350,7 @@ resource "kubectl_manifest" "{clean_name}_hostedcluster" {{
       }}
       
       dns = {{
-        baseDomain = "{cluster_config.get('base_domain', 'example.com')}"
+        baseDomain = "{cluster_config.get('base_domain')}"
       }}
       
       networking = {{
@@ -315,7 +364,7 @@ resource "kubectl_manifest" "{clean_name}_hostedcluster" {{
       }}
       
       platform = {{
-        type = "{cluster_config.get('provider', 'aws').upper()}"
+        type = "{cluster_config.get('provider').upper()}"
       }}
       
       infraID = "{cluster_name}"
@@ -362,6 +411,8 @@ resource "kubectl_manifest" "{clean_name}_hostedcluster" {{
 
 # NodePool for HyperShift workers
 resource "kubectl_manifest" "{clean_name}_nodepool" {{
+  count = {deployment_condition}
+  
   yaml_body = yamlencode({{
     apiVersion = "hypershift.openshift.io/v1beta1"
     kind       = "NodePool"
@@ -371,14 +422,14 @@ resource "kubectl_manifest" "{clean_name}_nodepool" {{
     }}
     spec = {{
       clusterName = "{cluster_name}"
-      replicas    = {cluster_config.get('worker_count', 2)}
+      replicas    = {cluster_config.get('worker_count')}
       
       management = {{
         upgradeType = "Replace"
       }}
       
       platform = {{
-        type = "{cluster_config.get('provider', 'aws').upper()}"
+        type = "{cluster_config.get('provider').upper()}"
       }}
       
       release = {{
@@ -395,32 +446,32 @@ resource "kubectl_manifest" "{clean_name}_nodepool" {{
 
         return terraform_config
     
-    def generate_azure_hypershift_workers(self, cluster_config: Dict, region: str, worker_count: int, machine_type: str) -> str:
+    def generate_azure_hypershift_workers(self, cluster_config: Dict, region: str, worker_count: int, machine_type: str, deployment_condition: str) -> str:
         """Generate Azure worker infrastructure for HyperShift"""
         # TODO: Implement Azure HyperShift worker infrastructure
         return f"# TODO: Azure HyperShift worker infrastructure for {cluster_config.get('name')}\n"
         
-    def generate_gcp_hypershift_workers(self, cluster_config: Dict, region: str, worker_count: int, machine_type: str) -> str:
+    def generate_gcp_hypershift_workers(self, cluster_config: Dict, region: str, worker_count: int, machine_type: str, deployment_condition: str) -> str:
         """Generate GCP worker infrastructure for HyperShift"""
         # TODO: Implement GCP HyperShift worker infrastructure
         return f"# TODO: GCP HyperShift worker infrastructure for {cluster_config.get('name')}\n"
         
-    def generate_ibm_hypershift_workers(self, cluster_config: Dict, region: str, worker_count: int, machine_type: str) -> str:
+    def generate_ibm_hypershift_workers(self, cluster_config: Dict, region: str, worker_count: int, machine_type: str, deployment_condition: str) -> str:
         """Generate IBM Cloud worker infrastructure for HyperShift"""
         # TODO: Implement IBM HyperShift worker infrastructure
         return f"# TODO: IBM HyperShift worker infrastructure for {cluster_config.get('name')}\n"
         
-    def generate_oci_hypershift_workers(self, cluster_config: Dict, region: str, worker_count: int, machine_type: str) -> str:
+    def generate_oci_hypershift_workers(self, cluster_config: Dict, region: str, worker_count: int, machine_type: str, deployment_condition: str) -> str:
         """Generate Oracle Cloud worker infrastructure for HyperShift"""
         # TODO: Implement OCI HyperShift worker infrastructure
         return f"# TODO: OCI HyperShift worker infrastructure for {cluster_config.get('name')}\n"
         
-    def generate_vmware_hypershift_workers(self, cluster_config: Dict, region: str, worker_count: int, machine_type: str) -> str:
+    def generate_vmware_hypershift_workers(self, cluster_config: Dict, region: str, worker_count: int, machine_type: str, deployment_condition: str) -> str:
         """Generate VMware worker infrastructure for HyperShift"""
         # TODO: Implement VMware HyperShift worker infrastructure
         return f"# TODO: VMware HyperShift worker infrastructure for {cluster_config.get('name')}\n"
         
-    def generate_alibaba_hypershift_workers(self, cluster_config: Dict, region: str, worker_count: int, machine_type: str) -> str:
+    def generate_alibaba_hypershift_workers(self, cluster_config: Dict, region: str, worker_count: int, machine_type: str, deployment_condition: str) -> str:
         """Generate Alibaba Cloud worker infrastructure for HyperShift"""
         # TODO: Implement Alibaba HyperShift worker infrastructure
         return f"# TODO: Alibaba HyperShift worker infrastructure for {cluster_config.get('name')}\n" 

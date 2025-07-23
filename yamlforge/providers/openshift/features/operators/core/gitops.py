@@ -43,8 +43,18 @@ class GitOpsOperator(BaseOpenShiftProvider):
 # =============================================================================
 # Clusters: {', '.join(target_clusters) if target_clusters else 'All clusters'}
 
-# OpenShift GitOps Subscription
-resource "kubernetes_manifest" "{clean_name}_subscription" {{
+'''
+        
+        # Generate operator for each target cluster
+        for cluster_name in target_clusters:
+            clean_cluster_name = self.clean_name(cluster_name)
+            
+            terraform_config += f'''
+# OpenShift GitOps Subscription for {cluster_name}
+resource "kubernetes_manifest" "{clean_name}_{clean_cluster_name}_subscription" {{
+  count    = var.deploy_day2_operations ? 1 : 0
+  provider = kubernetes.{clean_cluster_name}_cluster_admin_limited
+  
   manifest = {{
     apiVersion = "operators.coreos.com/v1alpha1"
     kind       = "Subscription"
@@ -60,10 +70,15 @@ resource "kubernetes_manifest" "{clean_name}_subscription" {{
       installPlanApproval = "{subscription_config.get('installPlanApproval', 'Automatic')}"
     }}
   }}
+  
+  depends_on = [kubernetes_service_account.{clean_cluster_name}_cluster_admin_limited]
 }}
 
-# ArgoCD Instance
-resource "kubernetes_manifest" "{clean_name}_argocd" {{
+# ArgoCD Instance for {cluster_name}
+resource "kubernetes_manifest" "{clean_name}_{clean_cluster_name}_argocd" {{
+  count    = var.deploy_day2_operations ? 1 : 0
+  provider = kubernetes.{clean_cluster_name}_cluster_admin_limited
+  
   manifest = {{
     apiVersion = "argoproj.io/v1beta1"
     kind       = "ArgoCD"
@@ -74,116 +89,60 @@ resource "kubernetes_manifest" "{clean_name}_argocd" {{
     spec = {{
       server = {{
         route = {{
-          enabled = {str(server_config.get('route', {}).get('enabled', server_route_enabled)).lower()}
-          tls = {{
-            termination = "{server_config.get('route', {}).get('tls', {}).get('termination', 'reencrypt')}"
-            insecureEdgeTerminationPolicy = "{server_config.get('route', {}).get('tls', {}).get('insecureEdgeTerminationPolicy', 'Redirect')}"
-          }}
-        }}
-        service = {{
-          type = "{server_config.get('service', {}).get('type', 'ClusterIP')}"
+          enabled = {str(server_route_enabled).lower()}
         }}
         insecure = {str(server_insecure).lower()}
+        grpc = {{
+          web = true
+        }}
       }}
       
       controller = {{
-        env = {controller_config.get('env', [])}
         resources = {{
-          limits = {{
-            cpu = "{controller_config.get('resources', {}).get('limits', {}).get('cpu', '2000m')}"
-            memory = "{controller_config.get('resources', {}).get('limits', {}).get('memory', '2Gi')}"
-          }}
           requests = {{
             cpu = "{controller_config.get('resources', {}).get('requests', {}).get('cpu', '250m')}"
             memory = "{controller_config.get('resources', {}).get('requests', {}).get('memory', '1Gi')}"
           }}
-        }}
-      }}
-      
-      repoServer = {{
-        autoscaling = {{
-          enabled = {str(repo_server_config.get('autoscaling', {}).get('enabled', False)).lower()}
-        }}
-        resources = {{
           limits = {{
-            cpu = "{repo_server_config.get('resources', {}).get('limits', {}).get('cpu', '1000m')}"
-            memory = "{repo_server_config.get('resources', {}).get('limits', {}).get('memory', '1Gi')}"
-          }}
-          requests = {{
-            cpu = "{repo_server_config.get('resources', {}).get('requests', {}).get('cpu', '250m')}"
-            memory = "{repo_server_config.get('resources', {}).get('requests', {}).get('memory', '256Mi')}"
+            cpu = "{controller_config.get('resources', {}).get('limits', {}).get('cpu', '2')}"
+            memory = "{controller_config.get('resources', {}).get('limits', {}).get('memory', '2Gi')}"
           }}
         }}
       }}
       
       redis = {{
         resources = {{
-          limits = {{
-            cpu = "{redis_config.get('resources', {}).get('limits', {}).get('cpu', '500m')}"
-            memory = "{redis_config.get('resources', {}).get('limits', {}).get('memory', '256Mi')}"
-          }}
           requests = {{
             cpu = "{redis_config.get('resources', {}).get('requests', {}).get('cpu', '250m')}"
             memory = "{redis_config.get('resources', {}).get('requests', {}).get('memory', '128Mi')}"
           }}
+          limits = {{
+            cpu = "{redis_config.get('resources', {}).get('limits', {}).get('cpu', '500m')}"
+            memory = "{redis_config.get('resources', {}).get('limits', {}).get('memory', '256Mi')}"
+          }}
         }}
       }}
       
-      applicationSet = {{
+      repoServer = {{
         resources = {{
-          limits = {{
-            cpu = "{application_set_config.get('resources', {}).get('limits', {}).get('cpu', '2')}"
-            memory = "{application_set_config.get('resources', {}).get('limits', {}).get('memory', '1Gi')}"
-          }}
           requests = {{
-            cpu = "{application_set_config.get('resources', {}).get('requests', {}).get('cpu', '250m')}"
-            memory = "{application_set_config.get('resources', {}).get('requests', {}).get('memory', '512Mi')}"
+            cpu = "{repo_server_config.get('resources', {}).get('requests', {}).get('cpu', '250m')}"
+            memory = "{repo_server_config.get('resources', {}).get('requests', {}).get('memory', '256Mi')}"
+          }}
+          limits = {{
+            cpu = "{repo_server_config.get('resources', {}).get('limits', {}).get('cpu', '1')}"
+            memory = "{repo_server_config.get('resources', {}).get('limits', {}).get('memory', '1Gi')}"
           }}
         }}
-      }}'''
-
-        # Add RBAC configuration if enabled
-        if enable_rbac:
-            terraform_config += f'''
-      
-      rbac = {{
-        defaultPolicy = "{default_rbac_policy}"
-        policy = |
-          g, system:cluster-admins, role:admin
-          g, cluster-admins, role:admin'''
-            
-            if enable_cluster_admin:
-                terraform_config += '''
-          g, argocd-admins, role:admin'''
-            
-        terraform_config += '''
-        scopes = "[groups]"
-      }'''
-
-        # Add Dex configuration if enabled
-        if enable_dex:
-            terraform_config += '''
-      
-      dex = {
-        openShiftOAuth = true
-        resources = {
-          limits = {
-            cpu = "500m"
-            memory = "256Mi"
-          }
-          requests = {
-            cpu = "250m"
-            memory = "128Mi"
-          }
-        }
-      }'''
-
-        terraform_config += '''
-    }
-  }
+      }}
+    }}
+  }}
   
-  depends_on = [kubernetes_manifest.''' + clean_name + '''_subscription]
-}
+  depends_on = [
+    kubernetes_manifest.{clean_name}_{clean_cluster_name}_subscription,
+    kubernetes_service_account.{clean_cluster_name}_cluster_admin_limited
+  ]
+}}
 
 '''
 

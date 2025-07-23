@@ -163,34 +163,41 @@ class AlibabaProvider:
 
         # Generate SSH key pair resource if SSH key is provided
         ssh_key_resources = ""
-        key_pair_name_ref = "null"
+        key_name_ref = "null"
         
         if ssh_key_config and ssh_key_config.get('public_key'):
-            ssh_key_name = f"{clean_name}_key_pair"
+            ssh_key_name = f"{clean_name}_key_pair_{self.converter.get_validated_guid(yaml_data)}"
             ssh_key_resources = f'''
-# Alibaba Cloud SSH Key Pair for {instance_name}
+# Alibaba Cloud Key Pair for {instance_name}
 resource "alicloud_ecs_key_pair" "{ssh_key_name}" {{
-  key_pair_name = "{instance_name}-keypair"
-  public_key    = "{ssh_key_config['public_key']}"
-  
-  tags = {{
-    Environment = "agnosticd"
-    ManagedBy   = "yamlforge"
-  }}
+  key_pair_name   = "{instance_name}-key"
+  public_key      = "{ssh_key_config['public_key']}"
 }}
 
 '''
-            key_pair_name_ref = f"alicloud_ecs_key_pair.{ssh_key_name}.key_pair_name"
+            key_name_ref = f"alicloud_ecs_key_pair.{ssh_key_name}.key_pair_name"
 
+        # Get Alibaba security group references with regional awareness
+        alibaba_sg_refs = []
+        sg_names = instance.get('security_groups', [])
+        for sg_name in sg_names:
+            clean_sg = sg_name.replace("-", "_").replace(".", "_")
+            clean_region = alibaba_region.replace("-", "_").replace(".", "_")
+            alibaba_sg_refs.append(f"alicloud_security_group.{clean_sg}_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id")
+
+        alibaba_sg_refs_str = "[" + ", ".join(alibaba_sg_refs) + "]" if alibaba_sg_refs else "[]"
+
+        # Generate the ECS instance
         vm_config = ssh_key_resources + f'''
 # Alibaba Cloud ECS Instance: {instance_name}
-resource "alicloud_instance" "{clean_name}" {{
-  instance_name     = "{instance_name}"
-  image_id          = "{alibaba_image}"
-  instance_type     = "{alibaba_instance_type}"
-  availability_zone = "{availability_zone}"
-  security_groups   = [alicloud_security_group.main_sg.id]
-  vswitch_id        = alicloud_vswitch.main_vswitch.id
+resource "alicloud_instance" "{clean_name}_{self.converter.get_validated_guid(yaml_data)}" {{
+  availability_zone    = "{availability_zone}"
+  security_groups      = {alibaba_sg_refs_str}
+  instance_type        = "{alibaba_instance_type}"
+  system_disk_category = "cloud_efficiency"
+  image_id             = "{alibaba_image}"
+  instance_name        = "{instance_name}"
+  vswitch_id           = alicloud_vswitch.main_vswitch_{alibaba_region.replace("-", "_").replace(".", "_")}_{self.converter.get_validated_guid(yaml_data)}.id
 
   # Storage configuration
   system_disk_category = "cloud_essd"
@@ -204,9 +211,9 @@ resource "alicloud_instance" "{clean_name}" {{
   instance_charge_type = "PostPaid"'''
 
         # Add SSH key pair if configured
-        if key_pair_name_ref != "null":
+        if key_name_ref != "null":
             vm_config += f'''
-  key_name = {key_pair_name_ref}'''
+  key_name = {key_name_ref}'''
 
         # Add user data if provided
         if user_data_script:
@@ -231,7 +238,7 @@ EOF
 
         return vm_config
 
-    def generate_alibaba_networking(self, deployment_name, deployment_config, region):
+    def generate_alibaba_networking(self, deployment_name, deployment_config, region, yaml_data=None):
         """Generate Alibaba Cloud networking resources for specific region."""
         network_config = deployment_config.get('network', {})
         network_name = network_config.get('name', f"{deployment_name}-vpc")
@@ -242,102 +249,66 @@ EOF
 
         return f'''
 # Alibaba Cloud VPC: {network_name} (Region: {region})
-resource "alicloud_vpc" "main_vpc_{clean_region}" {{
+resource "alicloud_vpc" "main_vpc_{clean_region}_{self.converter.get_validated_guid(yaml_data)}" {{
   vpc_name   = "{network_name}-{region}"
   cidr_block = "{cidr_block}"
-
-  tags = {{
-    Name        = "{network_name}-{region}"
-    Environment = "agnosticd"
-    Region      = "{region}"
-  }}
 }}
 
-# Alibaba Cloud VSwitch (Subnet)
-resource "alicloud_vswitch" "main_vswitch_{clean_region}" {{
-  vswitch_name      = "{network_name}-vswitch-{region}"
-  vpc_id            = alicloud_vpc.main_vpc_{clean_region}.id
-  cidr_block        = "10.0.1.0/24"
-  availability_zone = "{region}a"
-
-  tags = {{
-    Name        = "{network_name}-vswitch-{region}"
-    Environment = "agnosticd"
-    Region      = "{region}"
-  }}
+# Alibaba Cloud VSwitch: {network_name} switch
+resource "alicloud_vswitch" "main_vswitch_{clean_region}_{self.converter.get_validated_guid(yaml_data)}" {{
+  vpc_id       = alicloud_vpc.main_vpc_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id
+  cidr_block   = "{cidr_block}"
+  zone_id      = data.alicloud_zones.default.zones[0].id
+  vswitch_name = "{network_name}-switch-{region}"
 }}
 
-# Alibaba Cloud Internet Gateway (NAT Gateway for outbound)
-resource "alicloud_nat_gateway" "main_nat_{clean_region}" {{
-  vpc_id           = alicloud_vpc.main_vpc_{clean_region}.id
-  nat_gateway_name = "{network_name}-nat-{region}"
-  payment_type     = "PayAsYouGo"
-  vswitch_id       = alicloud_vswitch.main_vswitch_{clean_region}.id
-  nat_type         = "Enhanced"
-
-  tags = {{
-    Name        = "{network_name}-nat-{region}"
-    Environment = "agnosticd"
-    Region      = "{region}"
-  }}
-}}
-
-# Alibaba Cloud EIP for NAT Gateway
-resource "alicloud_eip_address" "main_eip_{clean_region}" {{
-  address_name         = "{network_name}-eip-{region}"
-  isp                  = "BGP"
-  internet_charge_type = "PayByTraffic"
+# Alibaba Cloud NAT Gateway
+resource "alicloud_nat_gateway" "main_nat_{clean_region}_{self.converter.get_validated_guid(yaml_data)}" {{
+  vpc_id               = alicloud_vpc.main_vpc_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id
+  nat_gateway_name     = "{network_name}-nat-{region}"
   payment_type         = "PayAsYouGo"
-
-  tags = {{
-    Name        = "{network_name}-eip-{region}"
-    Environment = "agnosticd"
-    Region      = "{region}"
-  }}
+  vswitch_id           = alicloud_vswitch.main_vswitch_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id
+  nat_type             = "Enhanced"
 }}
 
-# Associate EIP with NAT Gateway
-resource "alicloud_eip_association" "main_eip_assoc_{clean_region}" {{
-  allocation_id = alicloud_eip_address.main_eip_{clean_region}.id
-  instance_id   = alicloud_nat_gateway.main_nat_{clean_region}.id
+# Alibaba Cloud EIP
+resource "alicloud_eip_address" "main_eip_{clean_region}_{self.converter.get_validated_guid(yaml_data)}" {{
+  bandwidth            = "10"
+  internet_charge_type = "PayByBandwidth"
+  address_name         = "{network_name}-eip-{region}"
+}}
+
+# Alibaba Cloud EIP Association
+resource "alicloud_eip_association" "main_eip_assoc_{clean_region}_{self.converter.get_validated_guid(yaml_data)}" {{
+  allocation_id = alicloud_eip_address.main_eip_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id
+  instance_id   = alicloud_nat_gateway.main_nat_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id
 }}
 
 # Alibaba Cloud Route Table
-resource "alicloud_route_table" "main_rt_{clean_region}" {{
-  vpc_id           = alicloud_vpc.main_vpc_{clean_region}.id
+resource "alicloud_route_table" "main_rt_{clean_region}_{self.converter.get_validated_guid(yaml_data)}" {{
+  vpc_id           = alicloud_vpc.main_vpc_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id
   route_table_name = "{network_name}-rt-{region}"
-
-  tags = {{
-    Name        = "{network_name}-rt-{region}"
-    Environment = "agnosticd"
-    Region      = "{region}"
-  }}
 }}
 
-# Route Table Association
-resource "alicloud_route_table_attachment" "main_rta_{clean_region}" {{
-  vswitch_id     = alicloud_vswitch.main_vswitch_{clean_region}.id
-  route_table_id = alicloud_route_table.main_rt_{clean_region}.id
+# Alibaba Cloud Route Table Attachment
+resource "alicloud_route_table_attachment" "main_rta_{clean_region}_{self.converter.get_validated_guid(yaml_data)}" {{
+  vswitch_id     = alicloud_vswitch.main_vswitch_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id
+  route_table_id = alicloud_route_table.main_rt_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id
 }}
 '''
 
-    def generate_alibaba_security_group(self, sg_name, rules, region):
+    def generate_alibaba_security_group(self, sg_name, rules, region, yaml_data=None):
         """Generate Alibaba Cloud security group with rules for specific region."""
         clean_name = sg_name.replace("-", "_").replace(".", "_")
         clean_region = region.replace("-", "_").replace(".", "_")
         regional_sg_name = f"{clean_name}_{clean_region}"
 
-        sg_config = f'''
+        security_group_config = f'''
 # Alibaba Cloud Security Group: {sg_name} (Region: {region})
-resource "alicloud_security_group" "{regional_sg_name}" {{
-  name   = "{sg_name}-{region}"
-  vpc_id = alicloud_vpc.main_vpc_{clean_region}.id
-
-  tags = {{
-    Name        = "{sg_name}-{region}"
-    Environment = "agnosticd"
-    Region      = "{region}"
-  }}
+resource "alicloud_security_group" "{regional_sg_name}_{self.converter.get_validated_guid(yaml_data)}" {{
+  name        = "{sg_name}-{region}"
+  description = "Security group for {sg_name} in {region}"
+  vpc_id      = alicloud_vpc.main_vpc_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id
 }}
 
 '''
@@ -347,9 +318,9 @@ resource "alicloud_security_group" "{regional_sg_name}" {{
             rule_data = self.converter.generate_native_security_group_rule(rule, 'alibaba')
             rule_type = "ingress" if rule_data['direction'] == 'ingress' else "egress"
             
-            sg_config += f'''
+            security_group_config += f'''
 # Alibaba Cloud Security Group Rule: {sg_name} - Rule {i+1}
-resource "alicloud_security_group_rule" "{regional_sg_name}_rule_{i+1}" {{
+resource "alicloud_security_group_rule" "{regional_sg_name}_rule_{i+1}_{self.converter.get_validated_guid(yaml_data)}" {{
   type              = "{rule_type}"
   ip_protocol       = "{rule_data['protocol'].lower()}"
   nic_type          = "intranet"
@@ -361,7 +332,7 @@ resource "alicloud_security_group_rule" "{regional_sg_name}_rule_{i+1}" {{
 }}
 '''
 
-        return sg_config
+        return security_group_config
 
     def format_alibaba_tags(self, tags):
         """Format tags for Alibaba Cloud."""

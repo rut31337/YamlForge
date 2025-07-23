@@ -1,13 +1,15 @@
 ---
-# RHEL Gold Image Test
-# Tests Red Hat Gold/BYOS image discovery across cloud providers
+# RHEL Gold Image Test Example
+# Demonstrates RHEL Gold/BYOS image discovery and usage
+
+guid: "12345"
 
 yamlforge:
   cloud_workspace:
     name: "rhel-gold-test"
-    description: "RHEL Gold/BYOS image testing workspace"
+    description: "RHEL Gold Image Testing Workspace"
     tags:
-      guid: "rgt-2024-001"
+      guid: "rgt01"
 
   instances:
     # AWS RHEL Gold testing

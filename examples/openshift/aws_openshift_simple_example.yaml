@@ -1,0 +1,152 @@
+---
+# Simple AWS OpenShift Example
+# Demonstrates basic OpenShift deployment on AWS using ROSA
+
+yamlforge:
+  cloud_workspace:
+    name: "aws-openshift-simple"
+    description: "Simple OpenShift deployment on AWS with ROSA"
+    tags:
+      environment: "demo"
+      project: "openshift"
+      guid: "awsop"
+  
+  aws:
+    use_data_sources: true
+
+  # Supporting AWS Infrastructure
+  instances:
+    - name: "openshift-jumphost"
+      provider: "aws"
+      size: "medium"
+      image: "RHEL-9-latest"
+      region: "us-east-1"
+      security_groups: ["ssh"]
+      user_data_script: |
+        #!/bin/bash
+        yum update -y
+        yum install -y curl wget git
+        # Install OpenShift CLI
+        curl -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz | tar -xz -C /usr/local/bin/
+        chmod +x /usr/local/bin/oc
+        # Install ROSA CLI
+        curl -L https://mirror.openshift.com/pub/openshift-v4/clients/rosa/latest/rosa-linux.tar.gz | tar -xz -C /usr/local/bin/
+        chmod +x /usr/local/bin/rosa
+
+  # OpenShift Clusters
+  openshift_clusters:
+    # Production ROSA HCP
+    - name: "production-rosa-hcp"
+      type: "rosa-hcp"
+      provider: "aws"
+      region: "us-east-1"
+      version: "4.18.19"
+      size: "large"
+      
+      worker_count: 3
+      min_replicas: 2
+      max_replicas: 6
+      
+      networking:
+        machine_cidr: "10.0.0.0/16"
+        
+      auto_scaling:
+        enabled: true
+        min_replicas: 2
+        max_replicas: 6
+        
+      features:
+        monitoring: true
+        logging: true
+        
+      tags:
+        environment: "production"
+        cluster_type: "rosa-hcp"
+
+    # Development ROSA Classic
+    - name: "development-rosa-classic"
+      type: "rosa-classic"
+      provider: "aws"
+      region: "us-east-1"  # Changed from us-west-2 to us-east-1 for E2E test
+      version: "4.18.19"
+      size: "medium"
+      
+      worker_count: 2
+      
+      networking:
+        machine_cidr: "10.1.0.0/16"
+        
+      features:
+        monitoring: true
+        logging: false
+        
+      tags:
+        environment: "development"
+        cluster_type: "rosa-classic"
+
+  # Basic OpenShift Operators
+  openshift_operators:
+    # Monitoring Stack
+    - type: "monitoring"
+      name: "cluster-monitoring"
+      target_cluster: "production-rosa-hcp"
+      namespace: "openshift-monitoring"
+      
+      prometheus:
+        retention: "15d"
+        storage_size: "20Gi"
+        
+      grafana:
+        enabled: true
+        
+    # GitOps
+    - type: "gitops"
+      name: "openshift-gitops"
+      target_cluster: "production-rosa-hcp"
+      namespace: "openshift-gitops"
+      
+      repositories:
+        - url: "https://github.com/your-org/openshift-apps"
+          path: "production/"
+          target_revision: "main"
+
+  # Simple Applications
+  openshift_applications:
+    # Web Application
+    - name: "web-app"
+      target_cluster: "production-rosa-hcp"
+      namespace: "production"
+      
+      deployment:
+        replicas: 2
+        containers:
+          - name: "web"
+            image: "nginx:latest"
+            ports: [80]
+            
+      service:
+        type: "ClusterIP"
+        ports:
+          - port: 80
+            target_port: 80
+            
+      route:
+        host: "web.apps.production-rosa-hcp.example.com"
+        tls:
+          termination: "edge"
+
+  # Security Groups
+  security_groups:
+    - name: "ssh"
+      description: "SSH access"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+
+  # Global tags
+  tags:
+    project: "openshift-demo"
+    environment: "demo"
+    owner: "platform-team" 

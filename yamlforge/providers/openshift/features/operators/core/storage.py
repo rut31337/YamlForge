@@ -125,8 +125,8 @@ resource "kubernetes_manifest" "{clean_name}_storage_cluster" {{
       namespace = "openshift-storage"
     }}
     spec = {{
-      managementState = "{storage_cluster_config.get('managementState', 'Managed')}"
-      monDataDirHostPath = "{storage_cluster_config.get('monDataDirHostPath', '/var/lib/rook')}"
+      managementState = "{storage_cluster_config.get('managementState') or 'Managed'}"
+      monDataDirHostPath = "{storage_cluster_config.get('monDataDirHostPath') or '/var/lib/rook'}"
       storageDeviceSets = [
         {{
           name = "ocs-deviceset-{storage_class}"
