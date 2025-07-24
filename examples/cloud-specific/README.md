@@ -21,6 +21,11 @@ This directory contains examples focused on individual cloud providers, showcasi
   - Latest Red Hat Cloud Access images
   - Demonstrates automatic image discovery features
 
+- **`gcp_existing_project_example.yaml`** - Use existing GCP project
+  - Deploy to an existing GCP project instead of creating new one
+  - Ideal for users with limited organization-level permissions
+  - Uses data sources instead of project creation
+
 ### **IBM Cloud Examples**
 - **`ibm_classic_example.yaml`** - IBM Classic Infrastructure deployment
   - Legacy IBM Cloud infrastructure model
@@ -44,6 +49,9 @@ python yamlforge.py examples/cloud-specific/architecture_example.yaml -d terrafo
 
 # Deploy GCP with dynamic images
 python yamlforge.py examples/cloud-specific/gcp_dynamic_example.yaml -d terraform-gcp/
+
+# Deploy to existing GCP project (requires GCP_EXISTING_PROJECT_ID env var)
+python yamlforge.py examples/cloud-specific/gcp_existing_project_example.yaml -d terraform-gcp-existing/
 
 # Deploy IBM VPC infrastructure
 python yamlforge.py examples/cloud-specific/ibm_vpc_example.yaml -d terraform-ibm/

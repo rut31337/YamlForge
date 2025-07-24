@@ -167,6 +167,8 @@ class GCPProvider:
         billing_account_id = ""
         organization_id = ""
         folder_id = ""
+        use_existing_project = False
+        existing_project_id = ""
         
         if has_credentials:
             gcp_creds = self.converter.credentials.gcp_config
@@ -174,6 +176,8 @@ class GCPProvider:
             billing_account_id = gcp_creds.get('billing_account_id', '')
             organization_id = gcp_creds.get('organization_id', '')
             folder_id = gcp_creds.get('folder_id', '')
+            use_existing_project = gcp_creds.get('use_existing_project', False)
+            existing_project_id = gcp_creds.get('existing_project_id', '')
 
         # Fall back to environment variables if not in credentials
         if not billing_account_id:
@@ -185,6 +189,17 @@ class GCPProvider:
         if not folder_id:
             folder_id = os.environ.get('GCP_FOLDER_ID', 
                                      project_defaults.get('folder_id', ''))
+        
+        # Project management approach configuration
+        if not use_existing_project:
+            use_existing_project_str = os.environ.get('GCP_USE_EXISTING_PROJECT', '').lower()
+            use_existing_project = use_existing_project_str in ['true', '1', 'yes']
+        
+        if not existing_project_id:
+            existing_project_id = os.environ.get('GCP_EXISTING_PROJECT_ID', '')
+            # Fall back to GCP_PROJECT_ID if no specific existing project ID is set
+            if not existing_project_id and use_existing_project:
+                existing_project_id = os.environ.get('GCP_PROJECT_ID', project_id)
 
         # Load additional configuration from environment variables with fallback resolution
         admin_group_default = project_defaults.get('admin_group', 'gcp-admins@example.com')
@@ -218,6 +233,8 @@ class GCPProvider:
             'billing_account_id': billing_account_id,
             'organization_id': organization_id,
             'folder_id': folder_id,
+            'use_existing_project': use_existing_project,
+            'existing_project_id': existing_project_id,
             'admin_group': admin_group,
             'company_domain': company_domain,
             'root_zone_domain': root_zone_domain,
@@ -859,41 +876,62 @@ resource "google_compute_firewall" "main_ssh_{clean_region}_{self.get_validated_
         cloud_workspace = yaml_data.get('yamlforge', {}).get('cloud_workspace', {})
         workspace_name = cloud_workspace.get('name', f'openenv-{self.get_validated_guid()}')
         
-        # Generate project ID from workspace name and GUID - make them the same for consistency
-        if not self.guid:
-            self.get_validated_guid()
+        # Get GCP configuration from YAML (override environment/defaults)
+        yaml_gcp_config = yaml_data.get('yamlforge', {}).get('gcp', {})
         
-        # Use workspace name as project ID base, ensure it follows GCP project naming rules
-        base_name = workspace_name.lower().replace('_', '-').replace(' ', '-')
-        if not base_name.startswith('openenv-'):
-            base_name = f'openenv-{self.guid}'
-        project_id = base_name
-        project_name = base_name  # Make project name and ID the same
-        
-        # Get configuration from loaded environment variables and defaults
+        # Get configuration from loaded environment variables and defaults, with YAML overrides
         project_defaults = self.config['project_defaults']
         admin_group = self.config['admin_group']
-        billing_account_id = self.config['billing_account_id']
-        organization_id = self.config['organization_id']
-        folder_id = self.config['folder_id']
+        billing_account_id = yaml_gcp_config.get('billing_account_id', self.config['billing_account_id'])
+        organization_id = yaml_gcp_config.get('organization_id', self.config['organization_id'])
+        folder_id = yaml_gcp_config.get('folder_id', self.config['folder_id'])
+        use_existing_project = yaml_gcp_config.get('use_existing_project', self.config['use_existing_project'])
+        existing_project_id = yaml_gcp_config.get('existing_project_id', self.config['existing_project_id'])
         company_domain = self.config['company_domain']
         root_zone_domain = self.config['root_zone_domain']
         sa_name = project_defaults.get('project_service_account', 'yamlforge-automation')
         
-        # 1. Project creation with billing (always create, no data source check)
-        # Determine parent: folder_id takes priority over organization_id
-        parent_config = ""
-        if folder_id and not folder_id.startswith('${'):
-            # Ensure folder_id is in correct format
-            formatted_folder_id = folder_id if folder_id.startswith('folders/') else f'folders/{folder_id}'
-            parent_config = f'folder_id = "{formatted_folder_id}"'
-        elif organization_id and not organization_id.startswith('${'):
-            parent_config = f'org_id = "{organization_id}"'
+        # Generate project ID from workspace name and GUID if creating new project
+        if not self.guid:
+            self.get_validated_guid()
+            
+        if use_existing_project and existing_project_id:
+            # Use existing project
+            project_id = existing_project_id
+            project_terraform += f'''
+# Using existing GCP Project: {existing_project_id}
+data "google_project" "main_{self.get_validated_guid()}" {{
+  project_id = "{existing_project_id}"
+}}
+
+# Local value to reference project ID
+locals {{
+  project_id = data.google_project.main_{self.get_validated_guid()}.project_id
+}}
+
+'''
         else:
-            parent_config = '# parent configured via environment (GCP_FOLDER_ID or GCP_ORGANIZATION_ID)'
-        
-        project_terraform += f'''
-# GCP Project (always create new project)
+            # Create new project
+            # Use workspace name as project ID base, ensure it follows GCP project naming rules
+            base_name = workspace_name.lower().replace('_', '-').replace(' ', '-')
+            if not base_name.startswith('openenv-'):
+                base_name = f'openenv-{self.guid}'
+            project_id = base_name
+            project_name = base_name  # Make project name and ID the same
+            
+            # Determine parent: folder_id takes priority over organization_id
+            parent_config = ""
+            if folder_id and not folder_id.startswith('${'):
+                # Ensure folder_id is in correct format
+                formatted_folder_id = folder_id if folder_id.startswith('folders/') else f'folders/{folder_id}'
+                parent_config = f'folder_id = "{formatted_folder_id}"'
+            elif organization_id and not organization_id.startswith('${'):
+                parent_config = f'org_id = "{organization_id}"'
+            else:
+                parent_config = '# parent configured via environment (GCP_FOLDER_ID or GCP_ORGANIZATION_ID)'
+            
+            project_terraform += f'''
+# GCP Project (creating new project)
 resource "google_project" "main_{self.get_validated_guid()}" {{
   name        = "{project_name}"
   project_id  = "{project_id}"
@@ -918,6 +956,12 @@ locals {{
         default_apis = self.config['default_apis']
         api_resources = []
         
+        # Set up dependency based on whether we're using existing or new project
+        if use_existing_project and existing_project_id:
+            project_dependency = f"data.google_project.main_{self.get_validated_guid()}"
+        else:
+            project_dependency = f"google_project.main_{self.get_validated_guid()}"
+        
         for api in default_apis:
             clean_api = api.replace('.', '_').replace('-', '_')
             api_resource_name = f"google_project_service.{clean_api}_{self.get_validated_guid()}"
@@ -932,7 +976,7 @@ resource "google_project_service" "{clean_api}_{self.get_validated_guid()}" {{
   disable_dependent_services = true
   disable_on_destroy = false
   
-  depends_on = [google_project.main_{self.get_validated_guid()}]
+  depends_on = [{project_dependency}]
 }}
 
 '''

@@ -16,6 +16,7 @@
       "description": "Main configuration wrapper (required)",
       "properties": {
         "cloud_workspace": {"$ref": "#/definitions/cloud_workspace"},
+        "gcp": {"$ref": "#/definitions/gcp_config"},
         "instances": {"$ref": "#/definitions/instances"},
         "openshift_clusters": {"$ref": "#/definitions/openshift_clusters"},
         "openshift_operators": {"$ref": "#/definitions/openshift_operators"},
@@ -299,6 +300,37 @@
               }
             }
           }
+        }
+      }
+    },
+    "gcp_config": {
+      "type": "object",
+      "description": "GCP-specific configuration options",
+      "properties": {
+        "use_existing_project": {
+          "type": "boolean",
+          "description": "Use an existing GCP project instead of creating a new one",
+          "default": false
+        },
+        "existing_project_id": {
+          "type": "string",
+          "description": "ID of the existing GCP project to use (required if use_existing_project is true)"
+        },
+        "project_name": {
+          "type": "string",
+          "description": "Name for the new GCP project (only used when creating new project)"
+        },
+        "billing_account_id": {
+          "type": "string",
+          "description": "GCP billing account ID for new project creation"
+        },
+        "organization_id": {
+          "type": "string",
+          "description": "GCP organization ID for new project creation"
+        },
+        "folder_id": {
+          "type": "string",
+          "description": "GCP folder ID for new project creation (alternative to organization_id)"
         }
       }
     }

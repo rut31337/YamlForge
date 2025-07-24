@@ -124,19 +124,20 @@ guid: "web01"
 yamlforge:
   cloud_workspace:
     name: "my-multi-cloud-app"
+    description: "Multi-cloud web application deployment"
 
-instances:
-  - name: "web-aws"
-    provider: "aws"
-    size: "medium"
-    image: "RHEL9-latest"
-    region: "us-east-1"
-    
-  - name: "web-azure"
-    provider: "azure"
-    size: "medium"
-    image: "RHEL9-latest"
-    region: "us-east-1"
+  instances:
+    - name: "web-aws"
+      provider: "aws"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      
+    - name: "web-azure"
+      provider: "azure"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "eastus"
 ```
 
 ### Cost-Optimized Setup
@@ -144,17 +145,44 @@ instances:
 ```yaml
 guid: "save01"
 
-instances:
-  - name: "api-server"
-    provider: "cheapest"    # Automatically finds lowest cost
-    size: "large"
-    image: "RHEL9-latest"
-    
-  - name: "worker-nodes"
-    provider: "cheapest"
-    size: "medium"
-    image: "RHEL9-latest"
-    count: 3
+yamlforge:
+  cloud_workspace:
+    name: "cost-optimized-deployment"
+    description: "Budget-friendly multi-cloud deployment"
+
+  instances:
+    - name: "api-server"
+      provider: "cheapest"    # Automatically finds lowest cost
+      size: "large"
+      image: "RHEL9-latest"
+      
+    - name: "worker-nodes"
+      provider: "cheapest"
+      size: "medium"
+      image: "RHEL9-latest"
+```
+
+### GCP Existing Project Setup
+
+```yaml
+guid: "gcp01"
+
+yamlforge:
+  cloud_workspace:
+    name: "existing-project-deployment"
+    description: "Deployment using existing GCP project"
+  
+  # Use existing GCP project instead of creating new one
+  gcp:
+    use_existing_project: true
+    existing_project_id: "my-existing-project-123"
+
+  instances:
+    - name: "gcp-server"
+      provider: "gcp"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "us-central1"
 ```
 
 ### OpenShift Setup
@@ -162,21 +190,29 @@ instances:
 ```yaml
 guid: "ocp01"
 
-openshift_clusters:
-  - name: "prod-cluster"
-    type: "rosa-classic"
-    region: "us-east-1"
-    version: "4.14.15"
-    size: "medium"
-    worker_count: 3
+yamlforge:
+  cloud_workspace:
+    name: "production-openshift"
+    description: "Production OpenShift cluster deployment"
 
-openshift_applications:
-  - name: "web-app"
-    type: "deployment"
-    cluster: "prod-cluster"
-    image: "nginx:1.21"
-    replicas: 2
-    port: 80
+  openshift_clusters:
+    - name: "prod-cluster"
+      type: "rosa-classic"
+      region: "us-east-1"
+      version: "latest"
+      size: "medium"
+      worker_count: 3
+
+  openshift_applications:
+    - name: "web-app"
+      target_cluster: "prod-cluster"
+      namespace: "production"
+      deployment:
+        replicas: 2
+        containers:
+          - name: "web"
+            image: "nginx:1.21"
+            ports: [80]
 ```
 
 ## What Gets Generated

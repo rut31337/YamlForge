@@ -1,0 +1,81 @@
+---
+# GCP Existing Project Example
+# Demonstrates how to use an existing GCP project instead of creating a new one
+# This is ideal for users who have access to a specific project but lack organization-level permissions
+
+guid: "gcp01"
+
+yamlforge:
+  cloud_workspace:
+    name: "existing-project-deployment"
+    description: "Deployment using existing GCP project"
+  
+  # GCP Configuration: Use existing project
+  gcp:
+    use_existing_project: true
+    existing_project_id: "my-existing-project-123"  # Replace with your actual project ID
+    
+  # NOTE: When using existing project, billing_account_id, organization_id, 
+  # and folder_id are not needed since the project already exists
+
+  instances:
+    # Web server in existing project
+    - name: "web-server"
+      provider: "gcp"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "us-central1"
+      tags:
+        role: "web"
+        environment: "production"
+    
+    # Database server in existing project  
+    - name: "database-server"
+      provider: "gcp"
+      size: "large"
+      image: "RHEL9-latest"
+      region: "us-central1"
+      tags:
+        role: "database"
+        environment: "production"
+    
+    # Development server in different region
+    - name: "dev-server"
+      provider: "gcp"
+      size: "small"
+      image: "RHEL9-latest"
+      region: "us-west1"
+      tags:
+        role: "development"
+        environment: "dev"
+
+  # Security groups (will be created as GCP firewall rules)
+  security_groups:
+    - name: "web-access"
+      description: "Web server access"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "80"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "443"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "10.0.0.0/8"
+
+    - name: "database-access"
+      description: "Database server access"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "3306"
+          source: "10.0.0.0/16"
+
+  tags:
+    deployment_type: "existing_project"
+    managed_by: "yamlforge"
+    cost_center: "engineering" 

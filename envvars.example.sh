@@ -33,6 +33,16 @@ export GCP_COMPANY_DOMAIN=company.com
 export GCP_ROOT_ZONE_DOMAIN=your-domain.com
 export GCP_BILLING_ACCOUNT_ID=YOUR_GCP_BILLING_ACCOUNT
 
+# GCP Project Management (choose one approach)
+# Option 1: Use existing project (common for users with limited permissions)
+export GCP_USE_EXISTING_PROJECT=true
+export GCP_EXISTING_PROJECT_ID=my-existing-project-123
+
+# Option 2: Create new project (requires organization/folder permissions)
+# export GCP_USE_EXISTING_PROJECT=false
+# export GCP_ORGANIZATION_ID=YOUR_ORG_ID     # For new project creation
+# export GCP_FOLDER_ID=folders/123456789     # Alternative to organization_id
+
 # Azure Credentials (required for Azure deployments and ARO clusters)
 # Get from: az ad sp create-for-rbac --role="Contributor" --scopes="/subscriptions/YOUR_SUBSCRIPTION_ID"
 export ARM_CLIENT_ID=YOUR_AZURE_CLIENT_ID
