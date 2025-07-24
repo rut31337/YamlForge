@@ -1,207 +1,193 @@
-# =============================================================================
-# Multi-Cloud Deployment Demo
-# =============================================================================
-# Demonstrates deploying VMs across multiple cloud providers:
-# 1. AWS VM - Direct provider selection
-# 2. GCP VM - Direct provider selection  
-# 3. Cost-Optimized VM - Using "cheapest" meta-provider
-# =============================================================================
-
+---
 yamlforge:
-  # Project Configuration
-  project: "multi-cloud-demo"
-  location: "us-east-2"
-  guid: "mcloud"
-
-  # Cloud Workspace Configuration
   cloud_workspace:
-    name: "multi-cloud-demo"
-    description: "Multi-cloud deployment demonstration"
+    name: multi-cloud-demo
+    description: Multi-cloud deployment demonstration
     tags:
-      deployment_type: "multi_cloud"
-      environment: "demo"
-
-  # Security Groups
+      deployment_type: multi_cloud
+      environment: demo
   security_groups:
     demo-sg:
-      description: "Demo security group for multi-cloud VMs"
+      description: Demo security group for multi-cloud VMs
       rules:
-        - protocol: "tcp"
-          port: 22
-          source: "0.0.0.0/0"
-          description: "SSH access from internet"
-        - protocol: "tcp"
-          port: 80
-          source: "0.0.0.0/0"
-          description: "HTTP access from internet"
-        - protocol: "tcp"
-          port: 443
-          source: "0.0.0.0/0"
-          description: "HTTPS access from internet"
-
-  # VM Instances
+      - protocol: tcp
+        port: 22
+        source: 0.0.0.0/0
+        description: SSH access from internet
+      - protocol: tcp
+        port: 80
+        source: 0.0.0.0/0
+        description: HTTP access from internet
+      - protocol: tcp
+        port: 443
+        source: 0.0.0.0/0
+        description: HTTPS access from internet
   instances:
-    # =============================================================================
-    # AWS VM - Explicit AWS deployment
-    # =============================================================================
-    - name: "aws-vm"
-      provider: "aws"
-      size: "large"
-      image: "RHEL-10-latest"
-      region: "us-east-2"
-      
-      networking:
-        public: true
-        
-      security_groups: ["demo-sg"]
-      
-      user_data: |
-        #!/bin/bash
-        dnf update -y
-        dnf install -y httpd
-        systemctl start httpd
-        systemctl enable httpd
-        
-        # Create simple identification page
-        cat > /var/www/html/index.html << EOF
-        <html>
-        <head><title>Multi-Cloud Demo - AWS</title></head>
-        <body>
-        <h1>AWS Virtual Machine</h1>
-        <p>Provider: Amazon Web Services (AWS)</p>
-        <p>Server: $(hostname)</p>
-        <p>Region: us-east-2</p>
-        <p>Instance Size: Large</p>
-        <p>Deployment Type: Direct Provider Selection</p>
-        </body>
-        </html>
-        EOF
-        
-      tags:
-        provider: "aws"
-        deployment_method: "direct"
-        tier: "demo"
+  - name: aws-vm
+    provider: aws
+    size: large
+    image: RHEL-10-latest
+    region: us-east-2
+    networking:
+      public: true
+    security_groups:
+    - demo-sg
+    user_data: '#!/bin/bash
 
-    # =============================================================================
-    # GCP VM - Explicit GCP deployment
-    # =============================================================================
-    - name: "gcp-vm"
-      provider: "gcp"
-      size: "large"
-      image: "RHEL9-latest"
-      region: "us-central1"
-      zone: "us-central1-a"
-      
-      networking:
-        public: true
-        
-      security_groups: ["demo-sg"]
-      
-      user_data: |
-        #!/bin/bash
-        dnf update -y
-        dnf install -y httpd
-        systemctl start httpd
-        systemctl enable httpd
-        
-        # Create simple identification page
-        cat > /var/www/html/index.html << EOF
-        <html>
-        <head><title>Multi-Cloud Demo - GCP</title></head>
-        <body>
-        <h1>Google Cloud Platform Virtual Machine</h1>
-        <p>Provider: Google Cloud Platform (GCP)</p>
-        <p>Server: $(hostname)</p>
-        <p>Region: us-central1</p>
-        <p>Zone: us-central1-a</p>
-        <p>Instance Size: Large</p>
-        <p>Deployment Type: Direct Provider Selection</p>
-        </body>
-        </html>
-        EOF
-        
-      tags:
-        provider: "gcp"
-        deployment_method: "direct"
-        tier: "demo"
+      dnf update -y
 
-    # =============================================================================
-    # Cost-Optimized VM - Using "cheapest" meta-provider
-    # =============================================================================
-    - name: "cheapest-vm"
-      region: us-east-2
-      provider: "cheapest"
-      size: "large"
-      image: "RHEL-10-latest"
-      
-      networking:
-        public: true
-        
-      security_groups: ["demo-sg"]
-      
-      user_data: |
-        #!/bin/bash
-        dnf update -y
-        dnf install -y httpd
-        systemctl start httpd
-        systemctl enable httpd
-        
-        # Create simple identification page
-        cat > /var/www/html/index.html << EOF
-        <html>
-        <head><title>Multi-Cloud Demo - Cost Optimized</title></head>
-        <body>
-        <h1>Cost-Optimized Virtual Machine</h1>
-        <p>Provider: Automatically Selected (Cheapest)</p>
-        <p>Server: $(hostname)</p>
-        <p>Instance Size: Large</p>
-        <p>Deployment Type: Cost-Optimized Selection</p>
-        <p>Note: This VM was deployed to the most cost-effective cloud provider for large instances.</p>
-        </body>
-        </html>
-        EOF
-        
-      tags:
-        provider: "cheapest"
-        deployment_method: "cost_optimized"
-        tier: "demo"
+      dnf install -y httpd
 
-  # Global tags applied to all resources
+      systemctl start httpd
+
+      systemctl enable httpd
+
+
+      # Create simple identification page
+
+      cat > /var/www/html/index.html << EOF
+
+      <html>
+
+      <head><title>Multi-Cloud Demo - AWS</title></head>
+
+      <body>
+
+      <h1>AWS Virtual Machine</h1>
+
+      <p>Provider: Amazon Web Services (AWS)</p>
+
+      <p>Server: $(hostname)</p>
+
+      <p>Region: us-east-2</p>
+
+      <p>Instance Size: Large</p>
+
+      <p>Deployment Type: Direct Provider Selection</p>
+
+      </body>
+
+      </html>
+
+      EOF
+
+      '
+    tags:
+      provider: aws
+      deployment_method: direct
+      tier: demo
+  - name: gcp-vm
+    provider: gcp
+    size: large
+    image: RHEL9-latest
+    region: us-central1
+    zone: us-central1-a
+    networking:
+      public: true
+    security_groups:
+    - demo-sg
+    user_data: '#!/bin/bash
+
+      dnf update -y
+
+      dnf install -y httpd
+
+      systemctl start httpd
+
+      systemctl enable httpd
+
+
+      # Create simple identification page
+
+      cat > /var/www/html/index.html << EOF
+
+      <html>
+
+      <head><title>Multi-Cloud Demo - GCP</title></head>
+
+      <body>
+
+      <h1>Google Cloud Platform Virtual Machine</h1>
+
+      <p>Provider: Google Cloud Platform (GCP)</p>
+
+      <p>Server: $(hostname)</p>
+
+      <p>Region: us-central1</p>
+
+      <p>Zone: us-central1-a</p>
+
+      <p>Instance Size: Large</p>
+
+      <p>Deployment Type: Direct Provider Selection</p>
+
+      </body>
+
+      </html>
+
+      EOF
+
+      '
+    tags:
+      provider: gcp
+      deployment_method: direct
+      tier: demo
+  - name: cheapest-vm
+    region: us-east-2
+    provider: cheapest
+    size: large
+    image: RHEL-10-latest
+    networking:
+      public: true
+    security_groups:
+    - demo-sg
+    user_data: '#!/bin/bash
+
+      dnf update -y
+
+      dnf install -y httpd
+
+      systemctl start httpd
+
+      systemctl enable httpd
+
+
+      # Create simple identification page
+
+      cat > /var/www/html/index.html << EOF
+
+      <html>
+
+      <head><title>Multi-Cloud Demo - Cost Optimized</title></head>
+
+      <body>
+
+      <h1>Cost-Optimized Virtual Machine</h1>
+
+      <p>Provider: Automatically Selected (Cheapest)</p>
+
+      <p>Server: $(hostname)</p>
+
+      <p>Instance Size: Large</p>
+
+      <p>Deployment Type: Cost-Optimized Selection</p>
+
+      <p>Note: This VM was deployed to the most cost-effective cloud provider for
+      large instances.</p>
+
+      </body>
+
+      </html>
+
+      EOF
+
+      '
+    tags:
+      provider: cheapest
+      deployment_method: cost_optimized
+      tier: demo
   tags:
-    project: "multi-cloud-demo"
-    architecture: "multi_cloud"
-    environment: "demo"
-    managed_by: "yamlforge"
-
-# =============================================================================
-# DEPLOYMENT INSTRUCTIONS
-# =============================================================================
-# 
-# Deploy this multi-cloud infrastructure:
-# 1. Generate terraform: yamlforge examples/demoday/multi-cloud.yaml -d terraform-multi-cloud/
-# 2. Change to the generated directory: cd terraform-multi-cloud/
-# 3. Deploy infrastructure: terraform init && terraform apply
-# 
-# Architecture Overview:
-# ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-# │   AWS CLOUD     │    │   GCP CLOUD     │    │ CHEAPEST CLOUD  │
-# │                 │    │                 │    │                 │
-# │ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-# │ │   AWS VM    │ │    │ │   GCP VM    │ │    │ │ Cheapest VM │ │
-# │ │   (Large)   │ │    │ │   (Large)   │ │    │ │   (Large)   │ │
-# │ │ us-east-2   │ │    │ │us-central1-a│ │    │ │Auto-Selected│ │
-# │ └─────────────┘ │    │ └─────────────┘ │    │ └─────────────┘ │
-# └─────────────────┘    └─────────────────┘    └─────────────────┘
-#
-# Features Demonstrated:
-# - Direct provider selection (aws, gcp)
-# - Cost optimization with "cheapest" meta-provider
-# - Consistent configuration across providers
-# - Public access with security groups
-# - Automated instance identification via user-data
-# 
-# Access:
-# - All VMs are publicly accessible on HTTP (port 80)
-# - SSH access available on port 22
-# - Each VM displays provider information on its web page
-# ============================================================================= 
+    project: multi-cloud-demo
+    architecture: multi_cloud
+    environment: demo
+    managed_by: yamlforge

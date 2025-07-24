@@ -1,141 +1,92 @@
-name: "HyperShift Cost-Optimized OpenShift Platform"
-description: "HyperShift hosted control planes for massive cost savings and fast provisioning"
-
-# Management cluster infrastructure
-openshift_clusters:
-  # Management cluster (hosts control planes for multiple clusters)
-  - name: "hypershift-mgmt"
-    type: "rosa-classic"              # Use ROSA Classic as management cluster
-    region: "us-east-1"
-    size: "large"                     # Needs to be large enough for hosted control planes
-    version: "4.14.15"
-    
-    # Enable HyperShift operator
-    addons:
-      - "hypershift-addon-operator"
-    
-    # Management cluster specific configuration
-    hypershift:
-      role: "management"
-      max_hosted_clusters: 50
-      control_plane_replicas: 3
-      
-  # Hosted clusters (just worker nodes + hosted control planes)
-  
-  # Development cluster on AWS (same cloud as management)
-  - name: "dev-us"
-    type: "hypershift"                # HyperShift hosted cluster
-    management_cluster: "hypershift-mgmt"  # Reference to management cluster
-    provider: "aws"                   # Worker nodes on AWS
-    region: "us-east-1"
-    size: "small"                     # Only worker node size
-    worker_count: 2
-    version: "4.14.15"
-    
-    base_domain: "dev-us.hypershift.example.com"
-    
-    # Cost comparison: 
-    # Traditional: 3 masters + 2 workers = 5 instances
-    # HyperShift: 0 masters + 2 workers = 2 instances (60% cost reduction!)
-    
-  # Production cluster on GCP (cross-cloud!)
-  - name: "prod-gcp"
-    type: "hypershift"
-    management_cluster: "hypershift-mgmt"  # Management on AWS, workers on GCP
-    provider: "gcp"                   # Worker nodes on GCP
-    region: "us-central1"
-    zone: "us-central1-a"
-    size: "medium"
-    worker_count: 5
-    version: "4.14.15"
-    
-    base_domain: "prod-gcp.hypershift.example.com"
-    
-    # Cross-cloud benefits:
-    # - Control plane on AWS (ROSA managed)
-    # - Workers on GCP (potentially cheaper)
-    # - Best of both clouds
-    
-  # Testing cluster on cheapest provider
-  - name: "test-cheapest"
-    type: "hypershift"
-    management_cluster: "hypershift-mgmt"
-    provider: "cheapest"             # Use yamlforge's cheapest provider logic!
-    size: "small"
-    worker_count: 1
-    version: "4.14.15"
-    
-    base_domain: "test.hypershift.example.com"
-    
-    # Ultimate cost optimization:
-    # - Shared control plane (almost free)
-    # - Single worker node on cheapest cloud
-    # - Cluster ready in 2-3 minutes
-    
-  # Short-lived cluster for demos
-  - name: "demo-cluster"
-    type: "hypershift"
-    management_cluster: "hypershift-mgmt"
-    provider: "aws"
-    region: "us-west-2"              # Different region for demos
-    size: "micro"
-    worker_count: 1
-    version: "4.14.15"
-    
-    base_domain: "demo.hypershift.example.com"
-    
-    # Perfect for:
-    # - Conference demos
-    # - Training environments
-    # - Quick testing
-    # - Spin up in minutes, tear down instantly
-
-# Supporting traditional infrastructure
-instances:
-  - name: "hypershift-admin"
-    provider: "aws"
-    size: "small"
-    image: "RHEL9-latest"
-    region: "us-east-1"
-    user_data_script: |
-      #!/bin/bash
-      yum update -y
-      # Install HyperShift CLI
-      curl -L https://github.com/openshift/hypershift/releases/latest/download/hypershift-linux-amd64.tar.gz | tar -xz -C /usr/local/bin/
-      chmod +x /usr/local/bin/hypershift
-      # Install OpenShift CLI
-      curl -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz | tar -xz -C /usr/local/bin/
-      chmod +x /usr/local/bin/oc
-
-# Cost analysis comments:
-# Traditional 5-cluster deployment:
-#   - 5 clusters × 3 masters = 15 master instances
-#   - 5 clusters × workers = 10+ worker instances  
-#   - Total: 25+ instances
-#   - Estimated cost: $3000-5000/month
-#
-# HyperShift deployment:
-#   - 1 management cluster = 3 master instances (shared!)
-#   - 5 hosted clusters = 0 master instances
-#   - Workers only = 9 worker instances
-#   - Total: 12 instances
-#   - Estimated cost: $1200-2000/month
-#   - Savings: 50-70% reduction!
-
-# Networking configuration
+---
+name: HyperShift Cost-Optimized OpenShift Platform
+description: HyperShift hosted control planes for massive cost savings and fast provisioning
 networking:
   enable_cross_cloud: true
-  
-# Security configuration  
 security:
   ssh_keys:
-    - name: "hypershift-key"
-      public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... hypershift@example.com"
-      
-# Tags applied to all resources
-tags:
-  Environment: "production"
-  Project: "hypershift-platform"
-  Owner: "platform-team"
-  CostCenter: "engineering"
-  Approach: "cost-optimized" 
+  - name: hypershift-key
+    public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... hypershift@example.com
+yamlforge:
+  openshift_clusters:
+  - name: hypershift-mgmt
+    type: rosa-classic
+    region: us-east-1
+    size: large
+    version: 4.14.15
+    addons:
+    - hypershift-addon-operator
+    hypershift:
+      role: management
+      max_hosted_clusters: 50
+      control_plane_replicas: 3
+  - name: dev-us
+    type: hypershift
+    management_cluster: hypershift-mgmt
+    provider: aws
+    region: us-east-1
+    size: small
+    worker_count: 2
+    version: 4.14.15
+    base_domain: dev-us.hypershift.example.com
+  - name: prod-gcp
+    type: hypershift
+    management_cluster: hypershift-mgmt
+    provider: gcp
+    region: us-central1
+    zone: us-central1-a
+    size: medium
+    worker_count: 5
+    version: 4.14.15
+    base_domain: prod-gcp.hypershift.example.com
+  - name: test-cheapest
+    type: hypershift
+    management_cluster: hypershift-mgmt
+    provider: cheapest
+    size: small
+    worker_count: 1
+    version: 4.14.15
+    base_domain: test.hypershift.example.com
+  - name: demo-cluster
+    type: hypershift
+    management_cluster: hypershift-mgmt
+    provider: aws
+    region: us-west-2
+    size: micro
+    worker_count: 1
+    version: 4.14.15
+    base_domain: demo.hypershift.example.com
+  instances:
+  - name: hypershift-admin
+    provider: aws
+    size: small
+    image: RHEL9-latest
+    region: us-east-1
+    user_data_script: '#!/bin/bash
+
+      yum update -y
+
+      # Install HyperShift CLI
+
+      curl -L https://github.com/openshift/hypershift/releases/latest/download/hypershift-linux-amd64.tar.gz
+      | tar -xz -C /usr/local/bin/
+
+      chmod +x /usr/local/bin/hypershift
+
+      # Install OpenShift CLI
+
+      curl -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz
+      | tar -xz -C /usr/local/bin/
+
+      chmod +x /usr/local/bin/oc
+
+      '
+  tags:
+    Environment: production
+    Project: hypershift-platform
+    Owner: platform-team
+    CostCenter: engineering
+    Approach: cost-optimized
+  cloud_workspace:
+    name: default-workspace
+    description: Default workspace for this deployment

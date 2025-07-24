@@ -1,144 +1,122 @@
 ---
-# Red Hat Cloud Access Test
-# Tests Red Hat Cloud Access (BYOS) across multiple cloud providers
-
 yamlforge:
   cloud_workspace:
-    name: "red-hat-cloud-access-validation"
-    description: "Red Hat Cloud Access validation workspace"
-
+    name: red-hat-cloud-access-validation
+    description: Red Hat Cloud Access validation workspace
   instances:
-    # AWS Red Hat Cloud Access instances
-    - name: "aws-rhel9-byos-web"
-      provider: "aws"
-      size: "large"
-      image: "RHEL9-gold"
-      region: "us-east-1"
-      tags:
-        subscription_model: "byos"
-        red_hat_cloud_access: "enabled"
-        tier: "web"
-        
-    - name: "aws-rhel8-byos-app"
-      provider: "aws"
-      size: "large"
-      image: "RHEL8-gold"
-      region: "us-west-2"
-      tags:
-        subscription_model: "byos"
-        red_hat_cloud_access: "enabled"
-        tier: "application"
-
-    # Azure Red Hat Cloud Access instances
-    - name: "azure-rhel9-byos-web"
-      provider: "azure"
-      size: "large"
-      image: "RHEL9-gold"
-      region: "eastus"
-      tags:
-        subscription_model: "byos"
-        red_hat_cloud_access: "enabled"
-        tier: "web"
-        
-    - name: "azure-rhel8-byos-database"
-      provider: "azure"
-      size: "xlarge"
-      image: "RHEL8-gold"
-      region: "westus2"
-      tags:
-        subscription_model: "byos"
-        red_hat_cloud_access: "enabled"
-        tier: "database"
-
-    # GCP Red Hat Cloud Access instances
-    - name: "gcp-rhel9-byos-web"
-      provider: "gcp"
-      size: "large"
-      image: "RHEL9-gold"
-      region: "us-central1"
-      zone: "us-central1-a"
-      tags:
-        subscription_model: "byos"
-        red_hat_cloud_access: "enabled"
-        tier: "web"
-        
-    - name: "gcp-rhel8-byos-analytics"
-      provider: "gcp"
-      cores: 8
-      memory: 32768
-      image: "RHEL8-gold"
-      region: "us-west1"
-      zone: "us-west1-b"
-      tags:
-        subscription_model: "byos"
-        red_hat_cloud_access: "enabled"
-        tier: "analytics"
-
-    # IBM Cloud Red Hat Cloud Access instances
-    - name: "ibm-rhel9-byos-web"
-      provider: "ibm_vpc"
-      size: "large"
-      image: "RHEL9-gold"
-      region: "us-south"
-      zone: "us-south-1"
-      tags:
-        subscription_model: "byos"
-        red_hat_cloud_access: "enabled"
-        tier: "web"
-        
-    - name: "ibm-rhel8-byos-worker"
-      provider: "ibm_vpc"
-      cores: 4
-      memory: 16384
-      image: "RHEL8-gold"
-      region: "us-south"
-      zone: "us-south-2"
-      tags:
-        subscription_model: "byos"
-        red_hat_cloud_access: "enabled"
-        tier: "worker"
-
-    # Cost-optimized BYOS deployment
-    - name: "cheapest-rhel9-byos"
-      provider: "cheapest"
-      cores: 4
-      memory: 8192
-      region: "us-east-1"
-      image: "RHEL9-gold"
-      tags:
-        subscription_model: "byos"
-        red_hat_cloud_access: "enabled"
-        cost_optimized: "true"
-        
-    # Comparison with marketplace instances
-    - name: "aws-rhel9-marketplace"
-      provider: "aws"
-      size: "large"
-      image: "RHEL9-latest"
-      region: "us-east-1"
-      tags:
-        subscription_model: "marketplace"
-        red_hat_cloud_access: "disabled"
-        comparison_group: "licensing_cost"
-
-  # Security configurations for BYOS compliance
+  - name: aws-rhel9-byos-web
+    provider: aws
+    size: large
+    image: RHEL9-gold
+    region: us-east-1
+    tags:
+      subscription_model: byos
+      red_hat_cloud_access: enabled
+      tier: web
+  - name: aws-rhel8-byos-app
+    provider: aws
+    size: large
+    image: RHEL8-gold
+    region: us-west-2
+    tags:
+      subscription_model: byos
+      red_hat_cloud_access: enabled
+      tier: application
+  - name: azure-rhel9-byos-web
+    provider: azure
+    size: large
+    image: RHEL9-gold
+    region: eastus
+    tags:
+      subscription_model: byos
+      red_hat_cloud_access: enabled
+      tier: web
+  - name: azure-rhel8-byos-database
+    provider: azure
+    size: xlarge
+    image: RHEL8-gold
+    region: westus2
+    tags:
+      subscription_model: byos
+      red_hat_cloud_access: enabled
+      tier: database
+  - name: gcp-rhel9-byos-web
+    provider: gcp
+    size: large
+    image: RHEL9-gold
+    region: us-central1
+    zone: us-central1-a
+    tags:
+      subscription_model: byos
+      red_hat_cloud_access: enabled
+      tier: web
+  - name: gcp-rhel8-byos-analytics
+    provider: gcp
+    cores: 8
+    memory: 32768
+    image: RHEL8-gold
+    region: us-west1
+    zone: us-west1-b
+    tags:
+      subscription_model: byos
+      red_hat_cloud_access: enabled
+      tier: analytics
+  - name: ibm-rhel9-byos-web
+    provider: ibm_vpc
+    size: large
+    image: RHEL9-gold
+    region: us-south
+    zone: us-south-1
+    tags:
+      subscription_model: byos
+      red_hat_cloud_access: enabled
+      tier: web
+  - name: ibm-rhel8-byos-worker
+    provider: ibm_vpc
+    cores: 4
+    memory: 16384
+    image: RHEL8-gold
+    region: us-south
+    zone: us-south-2
+    tags:
+      subscription_model: byos
+      red_hat_cloud_access: enabled
+      tier: worker
+  - name: cheapest-rhel9-byos
+    provider: cheapest
+    cores: 4
+    memory: 8192
+    region: us-east-1
+    image: RHEL9-gold
+    tags:
+      subscription_model: byos
+      red_hat_cloud_access: enabled
+      cost_optimized: 'true'
+  - name: aws-rhel9-marketplace
+    provider: aws
+    size: large
+    image: RHEL9-latest
+    region: us-east-1
+    tags:
+      subscription_model: marketplace
+      red_hat_cloud_access: disabled
+      comparison_group: licensing_cost
   security_groups:
     rhel-byos-sg:
-      description: "RHEL BYOS security group"
+      description: RHEL BYOS security group
       rules:
-        - protocol: "tcp"
-          port: 22
-          source: "10.0.0.0/8"
-        - protocol: "tcp"
-          port: 80
-          source: "0.0.0.0/0"
-        - protocol: "tcp"
-          port: 443
-          source: "0.0.0.0/0"
-
+      - protocol: tcp
+        port: 22
+        source: 10.0.0.0/8
+      - protocol: tcp
+        port: 80
+        source: 0.0.0.0/0
+      - protocol: tcp
+        port: 443
+        source: 0.0.0.0/0
   tags:
-    deployment_type: "multi_cloud_byos"
-    licensing_validation: "red_hat_cloud_access"
-    compliance_test: "subscription_portability"
-    cost_model: "bring_your_own_subscription"
-    environment: "validation" 
+    deployment_type: multi_cloud_byos
+    licensing_validation: red_hat_cloud_access
+    compliance_test: subscription_portability
+    cost_model: bring_your_own_subscription
+    environment: validation

@@ -1,63 +1,45 @@
 ---
-# RHEL Gold Image Test Example
-# Demonstrates RHEL Gold/BYOS image discovery and usage
-
-guid: "12345"
-
+guid: rgt01
 yamlforge:
   cloud_workspace:
-    name: "rhel-gold-test"
-    description: "RHEL Gold Image Testing Workspace"
-    tags:
-      guid: "rgt01"
-
+    name: rhel-gold-test
+    description: RHEL Gold Image Testing Workspace
   instances:
-    # AWS RHEL Gold testing
-    - name: "aws-rhel9-gold"
-      provider: "aws"
-      size: "medium"
-      image: "RHEL9-gold"
-      region: "us-east-1"
-      
-    - name: "aws-rhel8-gold"
-      provider: "aws"
-      size: "medium"
-      image: "RHEL8-gold"
-      region: "us-west-2"
-
-    # Azure RHEL Gold testing
-    - name: "azure-rhel9-gold"
-      provider: "azure"
-      size: "medium"
-      image: "RHEL9-gold"
-      region: "eastus"
-
-    # GCP RHEL Gold testing
-    - name: "gcp-rhel9-gold"
-      provider: "gcp"
-      size: "medium"
-      image: "RHEL9-gold"
-      region: "us-central1"
-
-    # IBM Cloud RHEL Gold testing
-    - name: "ibm-rhel9-gold"
-      provider: "ibm"
-      size: "medium"
-      image: "RHEL9-gold"
-      region: "us-south"
-
-    # Cost-optimized Gold image deployment
-    - name: "cheapest-rhel9-gold"
-      provider: "cheapest"
-      cores: 2
-      memory: 4096
-      image: "RHEL9-gold"
-      tags:
-        licensing: "byos"
-        test_type: "cost_optimization"
-
+  - name: aws-rhel9-gold
+    provider: aws
+    size: medium
+    image: RHEL9-gold
+    region: us-east-1
+  - name: aws-rhel8-gold
+    provider: aws
+    size: medium
+    image: RHEL8-gold
+    region: us-west-2
+  - name: azure-rhel9-gold
+    provider: azure
+    size: medium
+    image: RHEL9-gold
+    region: eastus
+  - name: gcp-rhel9-gold
+    provider: gcp
+    size: medium
+    image: RHEL9-gold
+    region: us-central1
+  - name: ibm-rhel9-gold
+    provider: ibm_vpc
+    size: medium
+    image: RHEL9-gold
+    region: us-south
+  - name: cheapest-rhel9-gold
+    provider: cheapest
+    cores: 2
+    memory: 4096
+    image: RHEL9-gold
+    tags:
+      licensing: byos
+      test_type: cost_optimization
   tags:
-    test_purpose: "rhel_gold_discovery"
-    licensing_model: "byos"
-    environment: "testing"
-    red_hat_cloud_access: "enabled" 
+    test_purpose: rhel_gold_discovery
+    licensing_model: byos
+    environment: testing
+    red_hat_cloud_access: enabled

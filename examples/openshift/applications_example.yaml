@@ -1,368 +1,291 @@
-name: "Complete OpenShift Application Platform"
-description: "Full-stack application deployment across OpenShift clusters with all deployment types"
-
-# OpenShift clusters to host applications
-openshift_clusters:
-  # Production ROSA cluster  
-  - name: "prod-rosa"
-    type: "rosa-classic"
-    region: "us-east-1"
-    size: "large"
-    version: "4.14.15"
-    
-  # Development ARO cluster
-  - name: "dev-aro" 
-    type: "aro"
-    region: "eastus"
-    size: "medium"
-    version: "4.14.15"
-    
-  # Testing self-managed cluster
-  - name: "test-gcp"
-    type: "self-managed"
-    provider: "gcp"
-    region: "us-central1"
-    size: "small"
-    version: "4.14.15"
-
-# Supporting infrastructure
-instances:
-  - name: "monitoring-server"
-    provider: "aws"
-    size: "medium"
-    image: "RHEL9-latest"
-    region: "us-east-1"
-
-# Complete application stack
-openshift_applications:
-  # =============================================================================
-  # SINGLE-CLUSTER APPLICATIONS 
-  # =============================================================================
-  
-  # Frontend web application
-  - name: "frontend-web"
-    type: "deployment"
-    cluster: "prod-rosa"
-    image: "nginx:1.21"
+---
+name: Complete OpenShift Application Platform
+description: Full-stack application deployment across OpenShift clusters with all
+  deployment types
+application_config:
+  registry:
+    server: myregistry.example.com
+    username: ${var.container_registry_username}
+    password: ${var.container_registry_password}
+  domains:
+    production: example.com
+    development: dev.example.com
+    testing: test.example.com
+  monitoring:
+    enabled: true
+    retention: 30d
+    alerting: true
+  security:
+    enable_network_policies: true
+    enable_pod_security_standards: true
+    image_scanning: true
+networking:
+  enable_cross_cluster: true
+  service_mesh: istio
+security:
+  ssh_keys:
+  - name: platform-admin
+    public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... platform@example.com
+yamlforge:
+  openshift_clusters:
+  - name: prod-rosa
+    type: rosa-classic
+    region: us-east-1
+    size: large
+    version: 4.14.15
+  - name: dev-aro
+    type: aro
+    region: eastus
+    size: medium
+    version: 4.14.15
+  - name: test-gcp
+    type: self-managed
+    provider: gcp
+    region: us-central1
+    size: small
+    version: 4.14.15
+  instances:
+  - name: monitoring-server
+    provider: aws
+    size: medium
+    image: RHEL9-latest
+    region: us-east-1
+  openshift_applications:
+  - name: frontend-web
+    type: deployment
+    cluster: prod-rosa
+    image: nginx:1.21
     replicas: 3
     port: 80
-    namespace: "production"
-    hostname: "app.example.com"
-    
+    namespace: production
+    hostname: app.example.com
     environment:
-      NODE_ENV: "production"
-      API_URL: "https://api.example.com"
-      FEATURE_FLAGS: "analytics,notifications"
-    
+      NODE_ENV: production
+      API_URL: https://api.example.com
+      FEATURE_FLAGS: analytics,notifications
     resources:
       requests:
-        cpu: "100m"
-        memory: "128Mi"
+        cpu: 100m
+        memory: 128Mi
       limits:
-        cpu: "500m"
-        memory: "512Mi"
-    
-    health_check_path: "/health"
-    service_type: "ClusterIP"
-  
-  # Backend API service
-  - name: "backend-api"
-    type: "deployment"
-    cluster: "prod-rosa"
-    image: "myregistry/api:v1.2.3"
+        cpu: 500m
+        memory: 512Mi
+    health_check_path: /health
+    service_type: ClusterIP
+  - name: backend-api
+    type: deployment
+    cluster: prod-rosa
+    image: myregistry/api:v1.2.3
     replicas: 5
     port: 8080
-    namespace: "production"
-    hostname: "api.example.com"
-    
+    namespace: production
+    hostname: api.example.com
     environment:
-      DATABASE_URL: "postgresql://db.internal:5432/app"
-      REDIS_URL: "redis://redis.internal:6379"
-      JWT_SECRET: "${var.jwt_secret}"
-      LOG_LEVEL: "info"
-    
+      DATABASE_URL: postgresql://db.internal:5432/app
+      REDIS_URL: redis://redis.internal:6379
+      JWT_SECRET: ${var.jwt_secret}
+      LOG_LEVEL: info
     resources:
       requests:
-        cpu: "200m"
-        memory: "256Mi"
+        cpu: 200m
+        memory: 256Mi
       limits:
-        cpu: "1000m"
-        memory: "1Gi"
-  
-  # =============================================================================
-  # HELM APPLICATIONS
-  # =============================================================================
-  
-  # PostgreSQL database via Helm
-  - name: "postgres-db"
-    type: "helm"
-    cluster: "prod-rosa"
-    chart: "postgresql"
-    repository: "https://charts.bitnami.com/bitnami"
-    version: "12.1.9"
-    namespace: "databases"
-    
+        cpu: 1000m
+        memory: 1Gi
+  - name: postgres-db
+    type: helm
+    cluster: prod-rosa
+    chart: postgresql
+    repository: https://charts.bitnami.com/bitnami
+    version: 12.1.9
+    namespace: databases
     values:
       auth:
-        postgresPassword: "${var.postgres_password}"
-        database: "appdb"
+        postgresPassword: ${var.postgres_password}
+        database: appdb
       primary:
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "250m"
+            memory: 256Mi
+            cpu: 250m
           limits:
-            memory: "1Gi"
-            cpu: "500m"
+            memory: 1Gi
+            cpu: 500m
         persistence:
           enabled: true
-          size: "20Gi"
+          size: 20Gi
       metrics:
         enabled: true
-  
-  # Redis cache via Helm
-  - name: "redis-cache"
-    type: "helm"
-    cluster: "prod-rosa"
-    chart: "redis"
-    repository: "https://charts.bitnami.com/bitnami"
-    version: "17.3.7"
-    namespace: "caches"
-    
+  - name: redis-cache
+    type: helm
+    cluster: prod-rosa
+    chart: redis
+    repository: https://charts.bitnami.com/bitnami
+    version: 17.3.7
+    namespace: caches
     values:
       auth:
         enabled: false
       master:
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "100m"
+            memory: 128Mi
+            cpu: 100m
           limits:
-            memory: "512Mi"
-            cpu: "250m"
-  
-  # Monitoring stack via Helm
-  - name: "prometheus-stack"
-    type: "helm"
-    cluster: "prod-rosa"
-    chart: "kube-prometheus-stack"
-    repository: "https://prometheus-community.github.io/helm-charts"
-    version: "45.7.1"
-    namespace: "monitoring"
-    
+            memory: 512Mi
+            cpu: 250m
+  - name: prometheus-stack
+    type: helm
+    cluster: prod-rosa
+    chart: kube-prometheus-stack
+    repository: https://prometheus-community.github.io/helm-charts
+    version: 45.7.1
+    namespace: monitoring
     values:
       grafana:
         enabled: true
-        adminPassword: "${var.grafana_password}"
+        adminPassword: ${var.grafana_password}
         ingress:
           enabled: true
           hosts:
-            - "grafana.example.com"
+          - grafana.example.com
       prometheus:
         prometheusSpec:
-          retention: "30d"
+          retention: 30d
           storageSpec:
             volumeClaimTemplate:
               spec:
                 resources:
                   requests:
-                    storage: "50Gi"
-  
-  # =============================================================================
-  # GITOPS APPLICATIONS  
-  # =============================================================================
-  
-  # Platform services via ArgoCD
-  - name: "platform-services"
-    type: "argocd"
-    cluster: "prod-rosa"
-    git_repo: "https://github.com/company/platform-services"
-    path: "manifests/production"
-    branch: "main"
-    namespace: "platform"
-    project: "platform"
-  
-  # Microservices via ArgoCD
-  - name: "microservices-stack"
-    type: "argocd"
-    cluster: "prod-rosa"
-    git_repo: "https://github.com/company/microservices"
-    path: "k8s/overlays/production"
-    branch: "release"
-    namespace: "microservices"
-    project: "applications"
-  
-  # =============================================================================
-  # MULTI-CLUSTER APPLICATIONS
-  # =============================================================================
-  
-  # Replicated web application across all clusters
-  - name: "global-web-app"
-    type: "multi-cluster"
-    strategy: "replicated"
-    clusters: ["prod-rosa", "dev-aro", "test-gcp"]
-    deployment_type: "deployment"
-    
-    image: "myregistry/webapp:v2.1.0"
+                    storage: 50Gi
+  - name: platform-services
+    type: argocd
+    cluster: prod-rosa
+    git_repo: https://github.com/company/platform-services
+    path: manifests/production
+    branch: main
+    namespace: platform
+    project: platform
+  - name: microservices-stack
+    type: argocd
+    cluster: prod-rosa
+    git_repo: https://github.com/company/microservices
+    path: k8s/overlays/production
+    branch: release
+    namespace: microservices
+    project: applications
+  - name: global-web-app
+    type: multi-cluster
+    strategy: replicated
+    clusters:
+    - prod-rosa
+    - dev-aro
+    - test-gcp
+    deployment_type: deployment
+    image: myregistry/webapp:v2.1.0
     replicas: 2
     port: 3000
-    namespace: "global-apps"
-    hostname: "global.example.com"
-    
+    namespace: global-apps
+    hostname: global.example.com
     environment:
-      CLUSTER_REGION: "${var.cluster_region}"
-      ENVIRONMENT: "${var.environment}"
-    
+      CLUSTER_REGION: ${var.cluster_region}
+      ENVIRONMENT: ${var.environment}
     resources:
       requests:
-        cpu: "50m"
-        memory: "64Mi"
+        cpu: 50m
+        memory: 64Mi
       limits:
-        cpu: "200m"
-        memory: "256Mi"
-  
-  # Sharded data processing application
-  - name: "data-processor"
-    type: "multi-cluster"
-    strategy: "sharded"
-    clusters: ["prod-rosa", "dev-aro", "test-gcp"]
-    deployment_type: "deployment"
-    
-    image: "myregistry/data-processor:v1.5.2"
+        cpu: 200m
+        memory: 256Mi
+  - name: data-processor
+    type: multi-cluster
+    strategy: sharded
+    clusters:
+    - prod-rosa
+    - dev-aro
+    - test-gcp
+    deployment_type: deployment
+    image: myregistry/data-processor:v1.5.2
     replicas: 3
     port: 8080
-    namespace: "data-processing"
-    
+    namespace: data-processing
     environment:
-      DATABASE_POOL_SIZE: "10"
-      PROCESSING_THREADS: "4"
-      # SHARD_ID and TOTAL_SHARDS automatically added
-    
+      DATABASE_POOL_SIZE: '10'
+      PROCESSING_THREADS: '4'
     resources:
       requests:
-        cpu: "500m"
-        memory: "1Gi"
+        cpu: 500m
+        memory: 1Gi
       limits:
-        cpu: "2000m"
-        memory: "4Gi"
-  
-  # Primary-secondary analytics service
-  - name: "analytics-service"
-    type: "multi-cluster"
-    strategy: "primary-secondary"
-    clusters: ["prod-rosa", "dev-aro"]  # Primary on ROSA, secondary on ARO
-    deployment_type: "deployment"
-    
-    image: "myregistry/analytics:v3.0.1"
+        cpu: 2000m
+        memory: 4Gi
+  - name: analytics-service
+    type: multi-cluster
+    strategy: primary-secondary
+    clusters:
+    - prod-rosa
+    - dev-aro
+    deployment_type: deployment
+    image: myregistry/analytics:v3.0.1
     replicas: 2
     port: 9090
-    namespace: "analytics"
-    
+    namespace: analytics
     environment:
-      BACKUP_INTERVAL: "1h"
-      SYNC_ENABLED: "true"
-      # ROLE and PRIMARY_ENDPOINT automatically added
-    
+      BACKUP_INTERVAL: 1h
+      SYNC_ENABLED: 'true'
     resources:
       requests:
-        cpu: "1000m"
-        memory: "2Gi"
+        cpu: 1000m
+        memory: 2Gi
       limits:
-        cpu: "4000m"
-        memory: "8Gi"
-  
-  # =============================================================================
-  # DEVELOPMENT/TESTING APPLICATIONS
-  # =============================================================================
-  
-  # Development API on ARO
-  - name: "dev-api"
-    type: "deployment"
-    cluster: "dev-aro"
-    image: "myregistry/api:dev-latest"
+        cpu: 4000m
+        memory: 8Gi
+  - name: dev-api
+    type: deployment
+    cluster: dev-aro
+    image: myregistry/api:dev-latest
     replicas: 1
     port: 8080
-    namespace: "development"
-    hostname: "dev-api.example.com"
-    
+    namespace: development
+    hostname: dev-api.example.com
     environment:
-      NODE_ENV: "development"
-      DEBUG: "true"
-      HOT_RELOAD: "enabled"
-    
+      NODE_ENV: development
+      DEBUG: 'true'
+      HOT_RELOAD: enabled
     resources:
       requests:
-        cpu: "50m"
-        memory: "128Mi"
+        cpu: 50m
+        memory: 128Mi
       limits:
-        cpu: "500m"
-        memory: "512Mi"
-  
-  # Testing database on GCP self-managed
-  - name: "test-database"
-    type: "helm"
-    cluster: "test-gcp"
-    chart: "postgresql"
-    repository: "https://charts.bitnami.com/bitnami"
-    version: "12.1.9"
-    namespace: "testing"
-    
+        cpu: 500m
+        memory: 512Mi
+  - name: test-database
+    type: helm
+    cluster: test-gcp
+    chart: postgresql
+    repository: https://charts.bitnami.com/bitnami
+    version: 12.1.9
+    namespace: testing
     values:
       auth:
-        postgresPassword: "testpassword"
-        database: "testdb"
+        postgresPassword: testpassword
+        database: testdb
       primary:
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "100m"
+            memory: 128Mi
+            cpu: 100m
           limits:
-            memory: "512Mi"
-            cpu: "250m"
+            memory: 512Mi
+            cpu: 250m
         persistence:
-          enabled: false  # No persistence for testing
-
-# Application configuration
-application_config:
-  # Container registry settings
-  registry:
-    server: "myregistry.example.com"
-    username: "${var.container_registry_username}"
-    password: "${var.container_registry_password}"
-  
-  # Domain settings
-  domains:
-    production: "example.com"
-    development: "dev.example.com"
-    testing: "test.example.com"
-  
-  # Monitoring and observability
-  monitoring:
-    enabled: true
-    retention: "30d"
-    alerting: true
-  
-  # Security settings
-  security:
-    enable_network_policies: true
-    enable_pod_security_standards: true
-    image_scanning: true
-
-# Networking configuration
-networking:
-  enable_cross_cluster: true
-  service_mesh: "istio"
-  
-# Security configuration  
-security:
-  ssh_keys:
-    - name: "platform-admin"
-      public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... platform@example.com"
-      
-# Tags applied to all resources
-tags:
-  Environment: "multi-tier"
-  Project: "application-platform"
-  Owner: "platform-team"
-  CostCenter: "engineering"
-  Stack: "full-stack" 
+          enabled: false
+  tags:
+    Environment: multi-tier
+    Project: application-platform
+    Owner: platform-team
+    CostCenter: engineering
+    Stack: full-stack
+  cloud_workspace:
+    name: default-workspace
+    description: Default workspace for this deployment

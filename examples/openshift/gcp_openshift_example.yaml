@@ -1,119 +1,89 @@
-name: "OpenShift on Google Cloud Platform"
-description: "Complete OpenShift deployment options on GCP including self-managed and dedicated"
-
-# Traditional infrastructure (supporting services)
-instances:
-  - name: "jumphost"
-    provider: "gcp"
-    size: "small"
-    image: "RHEL9-latest"
-    region: "us-central1"
-    zone: "us-central1-a"
-    user_data_script: |
-      #!/bin/bash
-      yum update -y
-      yum install -y curl wget git
-      # Install OpenShift CLI
-      curl -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz | tar -xz -C /usr/local/bin/
-      chmod +x /usr/local/bin/oc
-      # Install kubectl  
-      curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-      install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-      # Install gcloud CLI
-      curl https://sdk.cloud.google.com | bash
-      exec -l $SHELL
-      
-  - name: "database"
-    provider: "gcp"
-    size: "memory_large"
-    image: "RHEL9-latest"
-    region: "us-central1"
-    zone: "us-central1-b"
-    user_data_script: |
-      #!/bin/bash
-      yum update -y
-      yum install -y postgresql-server postgresql-contrib
-      postgresql-setup --initdb
-      systemctl enable postgresql
-      systemctl start postgresql
-
-# OpenShift clusters on GCP
-openshift_clusters:
-  # Self-managed OpenShift on GCP (new infrastructure)
-  - name: "gcp-self-managed"
-    type: "self-managed"              # Self-managed OpenShift
-    provider: "gcp"                   # Deploy on GCP infrastructure
-    region: "us-central1"
-    zone: "us-central1-a"
-    size: "medium"                    # 3 masters, 3 workers
-    version: "4.14.15"
-    
-    base_domain: "openshift.example.com"
-    worker_count: 3
-    
-    # GCP-specific networking
-    networking:
-      machine_cidr: "10.2.0.0/16"
-      service_cidr: "172.30.0.0/16"
-      pod_cidr: "10.128.0.0/14"
-    
-    # Installation configuration
-    installation:
-      method: "upi"                   # User Provisioned Infrastructure
-      
-  # OpenShift Dedicated on GCP
-  - name: "gcp-dedicated"
-    type: "openshift-dedicated"
-    cloud_provider: "gcp"             # Run on GCP infrastructure
-    region: "us-west1"
-    size: "medium"
-    version: "4.14.15"
-    
-    # Dedicated-specific configuration
-    dedicated:
-      support_level: "premium"
-      maintenance_window: "sunday-3am"
-      compliance: ["SOC2"]
-      
-    # High availability across zones
-    multi_az: true
-    
-  # Development cluster (cost-optimized)
-  - name: "gcp-dev"
-    type: "self-managed"
-    provider: "gcp"                   # Deploy on GCP infrastructure
-    region: "us-west1"
-    zone: "us-west1-a"
-    size: "small"                     # 3 masters, 2 workers
-    version: "4.14.15"
-    
-    # Smaller configuration for development
-    worker_count: 2
-    base_domain: "dev.openshift.example.com"
-    
-# Future: Self-managed on existing GCP instances
-# openshift_clusters:
-#   - name: "existing-gcp-cluster"
-#     type: "gcp-openshift"
-#     infrastructure:
-#       masters: ["gcp-master-1", "gcp-master-2", "gcp-master-3"]
-#       workers: ["gcp-worker-1", "gcp-worker-2"]
-#     version: "4.14.15"
-
-# Networking configuration
+---
+name: OpenShift on Google Cloud Platform
+description: Complete OpenShift deployment options on GCP including self-managed and
+  dedicated
 networking:
   enable_cross_cloud: false
-  
-# Security configuration  
 security:
   ssh_keys:
-    - name: "gcp-admin-key"
-      public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... gcp-admin@example.com"
-      
-# Tags applied to all resources
-tags:
-  Environment: "production"
-  Project: "gcp-openshift"
-  Owner: "platform-team"
-  CostCenter: "engineering"
-  Cloud: "gcp" 
+  - name: gcp-admin-key
+    public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... gcp-admin@example.com
+yamlforge:
+  instances:
+  - name: jumphost
+    provider: gcp
+    size: small
+    image: RHEL9-latest
+    region: us-central1
+    zone: us-central1-a
+    user_data_script: "#!/bin/bash\nyum update -y\nyum install -y curl wget git\n\
+      # Install OpenShift CLI\ncurl -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz\
+      \ | tar -xz -C /usr/local/bin/\nchmod +x /usr/local/bin/oc\n# Install kubectl\
+      \  \ncurl -LO \"https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl\"\
+      \ninstall -o root -g root -m 0755 kubectl /usr/local/bin/kubectl\n# Install\
+      \ gcloud CLI\ncurl https://sdk.cloud.google.com | bash\nexec -l $SHELL\n"
+  - name: database
+    provider: gcp
+    size: memory_large
+    image: RHEL9-latest
+    region: us-central1
+    zone: us-central1-b
+    user_data_script: '#!/bin/bash
+
+      yum update -y
+
+      yum install -y postgresql-server postgresql-contrib
+
+      postgresql-setup --initdb
+
+      systemctl enable postgresql
+
+      systemctl start postgresql
+
+      '
+  openshift_clusters:
+  - name: gcp-self-managed
+    type: self-managed
+    provider: gcp
+    region: us-central1
+    zone: us-central1-a
+    size: medium
+    version: 4.14.15
+    base_domain: openshift.example.com
+    worker_count: 3
+    networking:
+      machine_cidr: 10.2.0.0/16
+      service_cidr: 172.30.0.0/16
+      pod_cidr: 10.128.0.0/14
+    installation:
+      method: upi
+  - name: gcp-dedicated
+    type: openshift-dedicated
+    cloud_provider: gcp
+    region: us-west1
+    size: medium
+    version: 4.14.15
+    dedicated:
+      support_level: premium
+      maintenance_window: sunday-3am
+      compliance:
+      - SOC2
+    multi_az: true
+  - name: gcp-dev
+    type: self-managed
+    provider: gcp
+    region: us-west1
+    zone: us-west1-a
+    size: small
+    version: 4.14.15
+    worker_count: 2
+    base_domain: dev.openshift.example.com
+  tags:
+    Environment: production
+    Project: gcp-openshift
+    Owner: platform-team
+    CostCenter: engineering
+    Cloud: gcp
+  cloud_workspace:
+    name: default-workspace
+    description: Default workspace for this deployment

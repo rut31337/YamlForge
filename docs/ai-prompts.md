@@ -10,11 +10,13 @@ This guide helps users leverage AI assistants to generate YamlForge YAML configu
 You are helping create YamlForge YAML configurations. YamlForge generates Terraform from YAML for multi-cloud infrastructure and OpenShift clusters.
 
 Key constraints:
-1. GUID must be exactly 5 lowercase alphanumeric characters
-2. ROSA HCP worker_count must be multiple of 3
-3. Use current OpenShift versions: 4.18, 4.19
-4. Default image: RHEL9-latest
-5. Supported providers: aws, azure, gcp, oci, ibm_vpc, ibm_classic, vmware, alibaba, cheapest
+1. Everything must be wrapped in yamlforge: block
+2. Always include cloud_workspace with name and description
+3. GUID must be exactly 5 lowercase alphanumeric characters
+4. ROSA HCP worker_count must be multiple of 3
+5. Use current OpenShift versions: 4.18, 4.19, latest
+6. Default image: RHEL9-latest
+7. Supported providers: aws, azure, gcp, oci, ibm_vpc, ibm_classic, vmware, alibaba, cheapest
 
 Schema reference: See docs/yamlforge-schema.json
 Training guide: See docs/ai-training.md
@@ -29,6 +31,8 @@ Create a YamlForge YAML configuration for:
 
 Please:
 - Use an appropriate 5-character GUID
+- Wrap everything in yamlforge: block
+- Include cloud_workspace with name and description
 - Choose suitable instance sizes
 - Include tags for organization
 - Use RHEL9-latest unless specified otherwise
@@ -46,7 +50,9 @@ Requirements:
 - Use ROSA HCP for production, ROSA Classic for development
 - Include monitoring and logging operators
 - Set worker_count to multiples of 3 for HCP
-- Use OpenShift 4.19
+- Use OpenShift latest version
+- Wrap everything in yamlforge: block
+- Include cloud_workspace section
 ```
 
 **Example**:
@@ -63,6 +69,7 @@ Include:
 - Operators and applications
 - Cost optimization where mentioned
 - Proper inter-component references
+- yamlforge: wrapper with cloud_workspace
 ```
 
 **Example**:
@@ -75,13 +82,18 @@ Include:
 **AI Should Generate**:
 ```yaml
 guid: "dev01"
-instances:
-  - name: "dev-server"
-    provider: "cheapest"
-    size: "small"
-    image: "RHEL9-latest"
-    tags:
-      environment: "development"
+yamlforge:
+  cloud_workspace:
+    name: "development-environment"
+    description: "Development environment for testing"
+  
+  instances:
+    - name: "dev-server"
+      provider: "cheapest"
+      size: "small"
+      image: "RHEL9-latest"
+      tags:
+        environment: "development"
 ```
 
 ### Intent: Production OpenShift
@@ -89,26 +101,30 @@ instances:
 **AI Should Generate**:
 ```yaml
 guid: "prod1"
-openshift_clusters:
-  - name: "production-cluster"
-    type: "rosa-hcp"
-    provider: "aws"
-    region: "us-east-1"
-    version: "4.19"
-    size: "large"
-    worker_count: 6
-    auto_scaling:
-      enabled: true
-      min_replicas: 3
-      max_replicas: 12
+yamlforge:
+  cloud_workspace:
+    name: "production-openshift"
+    description: "Production OpenShift cluster deployment"
+  
+  openshift_clusters:
+    - name: "production-cluster"
+      type: "rosa-hcp"
+      region: "us-east-1"
+      version: "latest"
+      size: "large"
+      worker_count: 6
+      auto_scaling:
+        enabled: true
+        min_replicas: 3
+        max_replicas: 12
 
-openshift_operators:
-  - type: "monitoring"
-    name: "cluster-monitoring"
-    target_cluster: "production-cluster"
-  - type: "logging"
-    name: "cluster-logging"
-    target_cluster: "production-cluster"
+  openshift_operators:
+    - type: "monitoring"
+      name: "cluster-monitoring"
+      target_cluster: "production-cluster"
+    - type: "logging"
+      name: "cluster-logging"
+      target_cluster: "production-cluster"
 ```
 
 ### Intent: GPU Workload
@@ -116,15 +132,20 @@ openshift_operators:
 **AI Should Generate**:
 ```yaml
 guid: "ai001"
-instances:
-  - name: "gpu-trainer"
-    provider: "cheapest"
-    gpu_type: "nvidia-tesla-v100"
-    gpu_count: 2
-    size: "gpu_large"
-    image: "RHEL9-latest"
-    tags:
-      workload: "ai-training"
+yamlforge:
+  cloud_workspace:
+    name: "ai-training"
+    description: "AI training infrastructure with GPU support"
+  
+  instances:
+    - name: "gpu-trainer"
+      provider: "cheapest"
+      gpu_type: "nvidia-tesla-v100"
+      gpu_count: 2
+      size: "gpu_large"
+      image: "RHEL9-latest"
+      tags:
+        workload: "ai-training"
 ```
 
 ## Advanced Prompting Techniques
@@ -158,11 +179,13 @@ Each environment needs OpenShift with GitOps.
 ### After AI Generates Configuration
 ```
 Please validate this YamlForge YAML:
-1. Is the GUID exactly 5 lowercase alphanumeric characters?
-2. Are all provider names valid?
-3. Do ROSA HCP worker_counts use multiples of 3?
-4. Do target_cluster references match cluster names?
-5. Are OpenShift versions current (4.18, 4.19)?
+1. Is everything wrapped in yamlforge: block?
+2. Is there a cloud_workspace section with name and description?
+3. Is the GUID exactly 5 lowercase alphanumeric characters?
+4. Are all provider names valid?
+5. Do ROSA HCP worker_counts use multiples of 3?
+6. Do target_cluster references match cluster names?
+7. Are OpenShift versions current (4.18, 4.19, latest)?
 ```
 
 ### Schema Compliance Check
@@ -196,6 +219,14 @@ Fix any issues and provide the corrected version.
 
 ## Common Issues and Solutions
 
+### Issue: Missing yamlforge wrapper
+**Problem**: AI generates configuration without yamlforge: block
+**Solution**: Specifically request "wrap everything in yamlforge: block"
+
+### Issue: Missing cloud_workspace
+**Problem**: AI omits cloud_workspace section
+**Solution**: Ask AI to "include cloud_workspace with name and description"
+
 ### Issue: Invalid GUID
 **Problem**: AI generates 6-character or mixed-case GUID
 **Solution**: Specifically request "exactly 5 lowercase alphanumeric characters"
@@ -210,7 +241,7 @@ Fix any issues and provide the corrected version.
 
 ### Issue: Outdated Versions
 **Problem**: AI uses old OpenShift versions
-**Solution**: Specify "use current OpenShift version 4.19"
+**Solution**: Specify "use current OpenShift version latest"
 
 ## Example Conversations
 
@@ -220,64 +251,67 @@ Fix any issues and provide the corrected version.
 **AI Response**:
 ```yaml
 guid: "shop1"
+yamlforge:
+  cloud_workspace:
+    name: "ecommerce-platform"
+    description: "Comprehensive e-commerce platform with multi-cloud infrastructure"
 
-instances:
-  - name: "web-server-1"
-    provider: "aws"
-    region: "us-east-1"
-    size: "medium"
-    image: "RHEL9-latest"
-    tags:
-      role: "web"
-      tier: "frontend"
-  - name: "web-server-2"
-    provider: "aws"
-    region: "us-east-1"
-    size: "medium"
-    image: "RHEL9-latest"
-    tags:
-      role: "web"
-      tier: "frontend"
-  - name: "database-server"
-    provider: "cheapest"
-    size: "large"
-    memory: 16384
-    image: "RHEL9-latest"
-    tags:
-      role: "database"
-      tier: "backend"
+  instances:
+    - name: "web-server-1"
+      provider: "aws"
+      region: "us-east-1"
+      size: "medium"
+      image: "RHEL9-latest"
+      tags:
+        role: "web"
+        tier: "frontend"
+    - name: "web-server-2"
+      provider: "aws"
+      region: "us-east-1"
+      size: "medium"
+      image: "RHEL9-latest"
+      tags:
+        role: "web"
+        tier: "frontend"
+    - name: "database-server"
+      provider: "cheapest"
+      size: "large"
+      memory: 16384
+      image: "RHEL9-latest"
+      tags:
+        role: "database"
+        tier: "backend"
 
-openshift_clusters:
-  - name: "microservices-cluster"
-    type: "rosa-hcp"
-    provider: "aws"
-    region: "us-east-1"
-    version: "4.19"
-    size: "large"
-    worker_count: 6
-    auto_scaling:
-      enabled: true
-      min_replicas: 3
-      max_replicas: 12
+  openshift_clusters:
+    - name: "microservices-cluster"
+      type: "rosa-hcp"
+      region: "us-east-1"
+      version: "latest"
+      size: "large"
+      worker_count: 6
+      auto_scaling:
+        enabled: true
+        min_replicas: 3
+        max_replicas: 12
 
-openshift_operators:
-  - type: "monitoring"
-    name: "cluster-monitoring"
-    target_cluster: "microservices-cluster"
-  - type: "gitops"
-    name: "cluster-gitops"
-    target_cluster: "microservices-cluster"
+  openshift_operators:
+    - type: "monitoring"
+      name: "cluster-monitoring"
+      target_cluster: "microservices-cluster"
+    - type: "gitops"
+      name: "cluster-gitops"
+      target_cluster: "microservices-cluster"
 
-openshift_applications:
-  - name: "sample-ecommerce-app"
-    target_cluster: "microservices-cluster"
-    namespace: "ecommerce"
-    deployment:
-      replicas: 3
-      containers:
-        - name: "app"
-          image: "nginx:latest"
-          ports: [80]
+  openshift_applications:
+    - name: "sample-ecommerce-app"
+      target_cluster: "microservices-cluster"
+      namespace: "ecommerce"
+      deployment:
+        replicas: 3
+        containers:
+          - name: "app"
+            image: "nginx:latest"
+            ports: [80]
 ```
 
 This guide enables users to effectively communicate with AI assistants to generate proper YamlForge configurations from natural language descriptions. 

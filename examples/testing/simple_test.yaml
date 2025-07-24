@@ -1,21 +1,14 @@
 ---
-# Simple Test Example
-# Demonstrates basic YamlForge functionality
-
-guid: "smp01"
-
+guid: smp01
 yamlforge:
   cloud_workspace:
-    name: "simple-test"
-    description: "Simple testing workspace"
-    tags:
-
+    name: simple-test
+    description: Simple testing workspace
   instances:
-    - name: "test-server"
-      provider: "aws"
-      size: "small"
-      image: "RHEL9-latest"
-      region: "us-east-1"
-
+  - name: test-server
+    provider: aws
+    size: small
+    image: RHEL9-latest
+    region: us-east-1
   tags:
-    environment: "testing"
+    environment: testing

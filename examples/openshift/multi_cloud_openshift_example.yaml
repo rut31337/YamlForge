@@ -1,132 +1,101 @@
-name: "Multi-Cloud OpenShift Production Environment"
-description: "Complete OpenShift deployment across AWS and Azure with supporting infrastructure and applications"
-
-# Traditional infrastructure (still needed for supporting services)
-instances:
-  - name: "jumphost"
-    provider: "aws"
-    size: "small"
-    image: "RHEL9-latest"
-    region: "us-east-1"
-    user_data_script: |
-      #!/bin/bash
-      yum update -y
-      yum install -y curl wget git
-      # Install OpenShift CLI
-      curl -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz | tar -xz -C /usr/local/bin/
-      chmod +x /usr/local/bin/oc
-      # Install kubectl
-      curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-      install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-      
-  - name: "database"
-    provider: "cheapest"  # Use existing cheapest logic
-    size: "memory_large"
-    image: "RHEL9-latest"
-    region: "us-east-1"
-    user_data_script: |
-      #!/bin/bash
-      yum update -y
-      yum install -y postgresql-server postgresql-contrib
-      postgresql-setup --initdb
-      systemctl enable postgresql
-      systemctl start postgresql
-
-# OpenShift clusters across multiple clouds
-openshift_clusters:
-  # Production cluster on AWS using ROSA
-  - name: "prod-us"
-    type: "rosa-classic"                  # AWS managed OpenShift with customer infrastructure
-    region: "us-east-1"
-    size: "medium"                        # 3 masters, 3 workers
-    version: "4.14.15"
-    
-    # Auto-scaling configuration
-    min_replicas: 3
-    max_replicas: 6
-    
-    # Networking (optional - defaults provided)
-    networking:
-      machine_cidr: "10.0.0.0/16"
-      service_cidr: "172.30.0.0/16"
-      pod_cidr: "10.128.0.0/14"
-    
-    # ROSA-specific features
-    private: false
-    addons:
-      - "cluster-logging-operator"
-      - "aws-load-balancer-operator"
-    
-  # Production cluster in Europe using ARO
-  - name: "prod-eu"
-    type: "aro"                           # Implies Azure
-    region: "westeurope"
-    size: "medium"
-    version: "4.14.15"
-    
-    worker_count: 3
-    worker_disk_size: 128
-    
-    # ARO-specific networking
-    networking:
-      vnet_cidr: "10.1.0.0/16"
-      master_subnet_cidr: "10.1.0.0/24"
-      worker_subnet_cidr: "10.1.1.0/24"
-      pod_cidr: "10.128.0.0/14"
-      service_cidr: "172.30.0.0/16"
-    
-    # Security settings
-    private: false
-    fips_enabled: false
-    
-  # Development cluster using cheapest option
-  - name: "dev-cluster"
-    type: "rosa-hcp"                      # Cost-optimized with hosted control planes
-    region: "us-west-2"                   # Cheaper region
-    size: "small"                         # 3 masters, 2 workers
-    version: "4.14.15"
-    
-    # Development-specific settings
-    min_replicas: 2
-    max_replicas: 4
-
-# Future: OpenShift applications (placeholder for next phase)
-# openshift_applications:
-#   - name: "frontend-app"
-#     cluster: "prod-us"
-#     namespace: "production"
-#     image: "quay.io/myorg/frontend:v1.2.3"
-#     replicas: 3
-#     ingress:
-#       hostname: "app.example.com"
-#       tls: true
-#       
-#   - name: "api-service"
-#     clusters: ["prod-us", "prod-eu"]     # Multi-cluster deployment
-#     namespace: "api"
-#     image: "quay.io/myorg/api:v2.1.0"
-#     replicas: 2
-#     
-#   - name: "monitoring-stack"
-#     clusters: ["prod-us", "prod-eu", "dev-cluster"]
-#     namespace: "monitoring"
-#     helm:
-#       chart: "prometheus-stack"
-#       repository: "https://prometheus-community.github.io/helm-charts"
-
-# Networking configuration
+---
+name: Multi-Cloud OpenShift Production Environment
+description: Complete OpenShift deployment across AWS and Azure with supporting infrastructure
+  and applications
 networking:
   enable_cross_cloud: true
-  
-# Security configuration  
 security:
   ssh_keys:
-    - name: "admin-key"
-      public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... admin@example.com"
-      
-# Tags applied to all resources
-tags:
-  Environment: "production"
-  Project: "multi-cloud-openshift"
-  Owner: "platform-team"
-  CostCenter: "engineering" 
+  - name: admin-key
+    public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... admin@example.com
+yamlforge:
+  instances:
+  - name: jumphost
+    provider: aws
+    size: small
+    image: RHEL9-latest
+    region: us-east-1
+    user_data_script: '#!/bin/bash
+
+      yum update -y
+
+      yum install -y curl wget git
+
+      # Install OpenShift CLI
+
+      curl -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz
+      | tar -xz -C /usr/local/bin/
+
+      chmod +x /usr/local/bin/oc
+
+      # Install kubectl
+
+      curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+
+      install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+      '
+  - name: database
+    provider: cheapest
+    size: memory_large
+    image: RHEL9-latest
+    region: us-east-1
+    user_data_script: '#!/bin/bash
+
+      yum update -y
+
+      yum install -y postgresql-server postgresql-contrib
+
+      postgresql-setup --initdb
+
+      systemctl enable postgresql
+
+      systemctl start postgresql
+
+      '
+  openshift_clusters:
+  - name: prod-us
+    type: rosa-classic
+    region: us-east-1
+    size: medium
+    version: 4.14.15
+    min_replicas: 3
+    max_replicas: 6
+    networking:
+      machine_cidr: 10.0.0.0/16
+      service_cidr: 172.30.0.0/16
+      pod_cidr: 10.128.0.0/14
+    private: false
+    addons:
+    - cluster-logging-operator
+    - aws-load-balancer-operator
+  - name: prod-eu
+    type: aro
+    region: westeurope
+    size: medium
+    version: 4.14.15
+    worker_count: 3
+    worker_disk_size: 128
+    networking:
+      vnet_cidr: 10.1.0.0/16
+      master_subnet_cidr: 10.1.0.0/24
+      worker_subnet_cidr: 10.1.1.0/24
+      pod_cidr: 10.128.0.0/14
+      service_cidr: 172.30.0.0/16
+    private: false
+    fips_enabled: false
+  - name: dev-cluster
+    type: rosa-hcp
+    region: us-west-2
+    size: small
+    version: 4.14.15
+    min_replicas: 2
+    max_replicas: 4
+  tags:
+    Environment: production
+    Project: multi-cloud-openshift
+    Owner: platform-team
+    CostCenter: engineering
+  cloud_workspace:
+    name: default-workspace
+    description: Default workspace for this deployment

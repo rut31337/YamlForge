@@ -1,318 +1,247 @@
 ---
-# Security Groups Configuration Example
-# Demonstrates comprehensive security group rules across cloud providers
-
 yamlforge:
   cloud_workspace:
-    name: "security-groups-demo"
-    description: "Security groups demonstration"
-
-  # Security group definitions for different tiers and purposes
+    name: security-groups-demo
+    description: Security groups demonstration
   security_groups:
-    # Web tier security group
     web-tier-sg:
-      description: "Web tier security group - public facing"
+      description: Web tier security group - public facing
       rules:
-        - protocol: "tcp"
-          port: 80
-          source: "0.0.0.0/0"
-          description: "HTTP access from internet"
-        - protocol: "tcp"
-          port: 443
-          source: "0.0.0.0/0"
-          description: "HTTPS access from internet"
-        - protocol: "tcp"
-          port: 22
-          source: "10.0.1.0/24"
-          description: "SSH from management subnet"
-        - protocol: "tcp"
-          port: 8080
-          source: "10.0.100.0/24"
-          description: "Load balancer health checks"
-
-    # Application tier security group
+      - protocol: tcp
+        port: 80
+        source: 0.0.0.0/0
+        description: HTTP access from internet
+      - protocol: tcp
+        port: 443
+        source: 0.0.0.0/0
+        description: HTTPS access from internet
+      - protocol: tcp
+        port: 22
+        source: 10.0.1.0/24
+        description: SSH from management subnet
+      - protocol: tcp
+        port: 8080
+        source: 10.0.100.0/24
+        description: Load balancer health checks
     app-tier-sg:
-      description: "Application tier security group - internal"
+      description: Application tier security group - internal
       rules:
-        - protocol: "tcp"
-          port: 8080
-          source: "10.0.10.0/24"
-          description: "HTTP from web tier"
-        - protocol: "tcp"
-          port: 8443
-          source: "10.0.10.0/24"
-          description: "HTTPS from web tier"
-        - protocol: "tcp"
-          port: 9090
-          source: "10.0.1.0/24"
-          description: "Monitoring from management"
-        - protocol: "tcp"
-          port: 22
-          source: "10.0.1.0/24"
-          description: "SSH from management subnet"
-
-    # Database tier security group
+      - protocol: tcp
+        port: 8080
+        source: 10.0.10.0/24
+        description: HTTP from web tier
+      - protocol: tcp
+        port: 8443
+        source: 10.0.10.0/24
+        description: HTTPS from web tier
+      - protocol: tcp
+        port: 9090
+        source: 10.0.1.0/24
+        description: Monitoring from management
+      - protocol: tcp
+        port: 22
+        source: 10.0.1.0/24
+        description: SSH from management subnet
     database-tier-sg:
-      description: "Database tier security group - restricted"
+      description: Database tier security group - restricted
       rules:
-        - protocol: "tcp"
-          port: 3306
-          source: "10.0.20.0/24"
-          description: "MySQL from app tier"
-        - protocol: "tcp"
-          port: 5432
-          source: "10.0.20.0/24"
-          description: "PostgreSQL from app tier"
-        - protocol: "tcp"
-          port: 6379
-          source: "10.0.20.0/24"
-          description: "Redis from app tier"
-        - protocol: "tcp"
-          port: 22
-          source: "10.0.1.0/24"
-          description: "SSH from management subnet"
-
-    # Management tier security group
+      - protocol: tcp
+        port: 3306
+        source: 10.0.20.0/24
+        description: MySQL from app tier
+      - protocol: tcp
+        port: 5432
+        source: 10.0.20.0/24
+        description: PostgreSQL from app tier
+      - protocol: tcp
+        port: 6379
+        source: 10.0.20.0/24
+        description: Redis from app tier
+      - protocol: tcp
+        port: 22
+        source: 10.0.1.0/24
+        description: SSH from management subnet
     management-sg:
-      description: "Management and monitoring security group"
+      description: Management and monitoring security group
       rules:
-        - protocol: "tcp"
-          port: 22
-          source: "203.0.113.0/24"
-          description: "SSH from corporate office"
-        - protocol: "tcp"
-          port: 443
-          source: "10.0.0.0/8"
-          description: "HTTPS admin interfaces"
-        - protocol: "tcp"
-          port: 9090
-          source: "10.0.0.0/8"
-          description: "Prometheus metrics"
-        - protocol: "tcp"
-          port: 3000
-          source: "10.0.0.0/8"
-          description: "Grafana dashboards"
-        - protocol: "tcp"
-          port: 5601
-          source: "10.0.0.0/8"
-          description: "Kibana logs"
-
-    # Load balancer security group
+      - protocol: tcp
+        port: 22
+        source: 203.0.113.0/24
+        description: SSH from corporate office
+      - protocol: tcp
+        port: 443
+        source: 10.0.0.0/8
+        description: HTTPS admin interfaces
+      - protocol: tcp
+        port: 9090
+        source: 10.0.0.0/8
+        description: Prometheus metrics
+      - protocol: tcp
+        port: 3000
+        source: 10.0.0.0/8
+        description: Grafana dashboards
+      - protocol: tcp
+        port: 5601
+        source: 10.0.0.0/8
+        description: Kibana logs
     load-balancer-sg:
-      description: "Load balancer security group"
+      description: Load balancer security group
       rules:
-        - protocol: "tcp"
-          port: 80
-          source: "0.0.0.0/0"
-          description: "HTTP from internet"
-        - protocol: "tcp"
-          port: 443
-          source: "0.0.0.0/0"
-          description: "HTTPS from internet"
-
-    # Cache tier security group
+      - protocol: tcp
+        port: 80
+        source: 0.0.0.0/0
+        description: HTTP from internet
+      - protocol: tcp
+        port: 443
+        source: 0.0.0.0/0
+        description: HTTPS from internet
     cache-tier-sg:
-      description: "Caching layer security group"
+      description: Caching layer security group
       rules:
-        - protocol: "tcp"
-          port: 6379
-          source: "10.0.20.0/24"
-          description: "Redis from app tier"
-        - protocol: "tcp"
-          port: 11211
-          source: "10.0.20.0/24"
-          description: "Memcached from app tier"
-        - protocol: "tcp"
-          port: 22
-          source: "10.0.1.0/24"
-          description: "SSH from management"
-
-    # Development environment security group
+      - protocol: tcp
+        port: 6379
+        source: 10.0.20.0/24
+        description: Redis from app tier
+      - protocol: tcp
+        port: 11211
+        source: 10.0.20.0/24
+        description: Memcached from app tier
+      - protocol: tcp
+        port: 22
+        source: 10.0.1.0/24
+        description: SSH from management
     dev-sg:
-      description: "Development environment - relaxed rules"
+      description: Development environment - relaxed rules
       rules:
-        - protocol: "tcp"
-          port: 80
-          source: "10.0.0.0/8"
-          description: "HTTP internal access"
-        - protocol: "tcp"
-          port: 443
-          source: "10.0.0.0/8"
-          description: "HTTPS internal access"
-        - protocol: "tcp"
-          port: 8080
-          source: "10.0.0.0/8"
-          description: "App server internal"
-        - protocol: "tcp"
-          port: 3000
-          source: "10.0.0.0/8"
-          description: "Development servers"
-        - protocol: "tcp"
-          port: 22
-          source: "10.0.0.0/8"
-          description: "SSH internal access"
-
+      - protocol: tcp
+        port: 80
+        source: 10.0.0.0/8
+        description: HTTP internal access
+      - protocol: tcp
+        port: 443
+        source: 10.0.0.0/8
+        description: HTTPS internal access
+      - protocol: tcp
+        port: 8080
+        source: 10.0.0.0/8
+        description: App server internal
+      - protocol: tcp
+        port: 3000
+        source: 10.0.0.0/8
+        description: Development servers
+      - protocol: tcp
+        port: 22
+        source: 10.0.0.0/8
+        description: SSH internal access
   instances:
-    # Web tier instances
-    - name: "web-server-1"
-      provider: "aws"
-      size: "medium"
-      image: "RHEL9-latest"
-      region: "us-east-1"
-      security_groups:
-        - "web-tier-sg"
-        - "load-balancer-sg"
-      tags:
-        tier: "web"
-        role: "frontend"
-        
-    - name: "web-server-2"
-      provider: "aws"
-      size: "medium"
-      image: "RHEL9-latest"
-      region: "us-east-1"
-      security_groups:
-        - "web-tier-sg"
-      tags:
-        tier: "web"
-        role: "frontend"
-
-    # Application tier instances
-    - name: "app-server-1"
-      provider: "azure"
-      size: "large"
-      image: "RHEL9-latest"
-      region: "eastus"
-      security_groups:
-        - "app-tier-sg"
-      tags:
-        tier: "application"
-        role: "backend"
-        
-    - name: "app-server-2"
-      provider: "azure"
-      size: "large"
-      image: "RHEL9-latest"
-      region: "eastus"
-      security_groups:
-        - "app-tier-sg"
-      tags:
-        tier: "application"
-        role: "backend"
-
-    # Database tier instances
-    - name: "database-primary"
-      provider: "gcp"
-      size: "xlarge"
-      image: "RHEL9-latest"
-      region: "us-central1"
-      zone: "us-central1-a"
-      security_groups:
-        - "database-tier-sg"
-      tags:
-        tier: "database"
-        role: "primary"
-        
-    - name: "database-replica"
-      provider: "gcp"
-      size: "xlarge"
-      image: "RHEL9-latest"
-      region: "us-central1"
-      zone: "us-central1-b"
-      security_groups:
-        - "database-tier-sg"
-      tags:
-        tier: "database"
-        role: "replica"
-
-    # Cache tier instances
-    - name: "redis-cache"
-      provider: "ibm_vpc"
-      size: "medium"
-      image: "RHEL9-latest"
-      region: "us-south"
-      zone: "us-south-1"
-      security_groups:
-        - "cache-tier-sg"
-      tags:
-        tier: "cache"
-        role: "redis"
-
-    # Management instances
-    - name: "monitoring-server"
-      provider: "aws"
-      size: "large"
-      image: "RHEL9-latest"
-      region: "us-east-1"
-      security_groups:
-        - "management-sg"
-      tags:
-        tier: "management"
-        role: "monitoring"
-        
-    - name: "bastion-host"
-      provider: "aws"
-      size: "small"
-      image: "RHEL9-latest"
-      region: "us-east-1"
-      security_groups:
-        - "management-sg"
-      tags:
-        tier: "management"
-        role: "bastion"
-
-    # Development instances
-    - name: "dev-full-stack"
-      provider: "cheapest"
-      cores: 4
-      memory: 8192
-      image: "RHEL9-latest"
-      security_groups:
-        - "dev-sg"
-      tags:
-        tier: "development"
-        role: "all"
-        cost_optimized: "true"
-
-  # Network configuration
-  network:
-    name: "secure-enterprise-network"
-    cidr: "10.0.0.0/8"
-
-  subnets:
-    web-subnet:
-      cidr: "10.0.10.0/24"
-      description: "Web tier subnet"
-      tier: "dmz"
-      
-    app-subnet:
-      cidr: "10.0.20.0/24"
-      description: "Application tier subnet"
-      tier: "private"
-      
-    database-subnet:
-      cidr: "10.0.30.0/24"
-      description: "Database tier subnet"
-      tier: "private"
-      
-    cache-subnet:
-      cidr: "10.0.40.0/24"
-      description: "Cache tier subnet"
-      tier: "private"
-      
-    management-subnet:
-      cidr: "10.0.1.0/24"
-      description: "Management subnet"
-      tier: "management"
-      
-    dev-subnet:
-      cidr: "10.0.100.0/24"
-      description: "Development subnet"
-      tier: "development"
-
+  - name: web-server-1
+    provider: aws
+    size: medium
+    image: RHEL9-latest
+    region: us-east-1
+    security_groups:
+    - web-tier-sg
+    - load-balancer-sg
+    tags:
+      tier: web
+      role: frontend
+  - name: web-server-2
+    provider: aws
+    size: medium
+    image: RHEL9-latest
+    region: us-east-1
+    security_groups:
+    - web-tier-sg
+    tags:
+      tier: web
+      role: frontend
+  - name: app-server-1
+    provider: azure
+    size: large
+    image: RHEL9-latest
+    region: eastus
+    security_groups:
+    - app-tier-sg
+    tags:
+      tier: application
+      role: backend
+  - name: app-server-2
+    provider: azure
+    size: large
+    image: RHEL9-latest
+    region: eastus
+    security_groups:
+    - app-tier-sg
+    tags:
+      tier: application
+      role: backend
+  - name: database-primary
+    provider: gcp
+    size: xlarge
+    image: RHEL9-latest
+    region: us-central1
+    zone: us-central1-a
+    security_groups:
+    - database-tier-sg
+    tags:
+      tier: database
+      role: primary
+  - name: database-replica
+    provider: gcp
+    size: xlarge
+    image: RHEL9-latest
+    region: us-central1
+    zone: us-central1-b
+    security_groups:
+    - database-tier-sg
+    tags:
+      tier: database
+      role: replica
+  - name: redis-cache
+    provider: ibm_vpc
+    size: medium
+    image: RHEL9-latest
+    region: us-south
+    zone: us-south-1
+    security_groups:
+    - cache-tier-sg
+    tags:
+      tier: cache
+      role: redis
+  - name: monitoring-server
+    provider: aws
+    size: large
+    image: RHEL9-latest
+    region: us-east-1
+    security_groups:
+    - management-sg
+    tags:
+      tier: management
+      role: monitoring
+  - name: bastion-host
+    provider: aws
+    size: small
+    image: RHEL9-latest
+    region: us-east-1
+    security_groups:
+    - management-sg
+    tags:
+      tier: management
+      role: bastion
+  - name: dev-full-stack
+    provider: cheapest
+    cores: 4
+    memory: 8192
+    image: RHEL9-latest
+    security_groups:
+    - dev-sg
+    tags:
+      tier: development
+      role: all
+      cost_optimized: 'true'
   tags:
-    security_model: "defense_in_depth"
-    network_segmentation: "tier_based"
-    compliance: "pci_dss"
-    environment: "production"
-    access_control: "principle_of_least_privilege" 
+    security_model: defense_in_depth
+    network_segmentation: tier_based
+    compliance: pci_dss
+    environment: production
+    access_control: principle_of_least_privilege

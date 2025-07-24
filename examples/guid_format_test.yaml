@@ -1,24 +1,18 @@
 ---
-# GUID Format Test Example
-# Demonstrates the new root-level GUID specification
-
-guid: "00001"  # Root-level GUID specification
-
+guid: '00001'
 yamlforge:
   cloud_workspace:
-    name: "guid-format-test"
-    description: "Testing GUID format - numeric starting allowed"
-    
+    name: guid-format-test
+    description: Testing GUID format - numeric starting allowed
   instances:
-    - name: "test-server"
-      provider: "aws"
-      size: "small"
-      region: "us-east-1"
-      image: "RHEL9-latest"
-      tags:
-        purpose: "testing"
-        format: "new_guid_format"
-
+  - name: test-server
+    provider: aws
+    size: small
+    region: us-east-1
+    image: RHEL9-latest
+    tags:
+      purpose: testing
+      format: new_guid_format
   tags:
-    environment: "testing"
-    use_case: "guid_format_validation" 
+    environment: testing
+    use_case: guid_format_validation

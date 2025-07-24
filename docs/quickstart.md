@@ -2,16 +2,66 @@
 
 Get up and running with YamlForge in 5 minutes!
 
-## Step 1: Set Your GUID
+## Step 1: Set Up Environment Variables
 
-Every YamlForge deployment needs a unique 5-character identifier:
+YamlForge requires environment variables for cloud credentials and configuration. Create an environment variables file:
+
+### Create envvars.sh
+
+**Option A: Use the template (Recommended)**
 
 ```bash
-# Set your unique identifier (5 chars, lowercase alphanumeric)
+# Copy the example template and customize it
+cp envvars.example.sh envvars.sh
+
+# Edit with your credentials
+nano envvars.sh  # or vim, code, etc.
+
+# Load the environment variables
+source envvars.sh
+```
+
+**Option B: Create from scratch**
+
+```bash
+# Create your environment variables file
+cat > envvars.sh << 'EOF'
+#!/bin/bash
+# Required: Unique 5-character identifier
 export GUID=web01
+
+# AWS Credentials (required for AWS deployments)
+export AWS_ACCESS_KEY_ID=YOUR_AWS_ACCESS_KEY
+export AWS_SECRET_ACCESS_KEY=YOUR_AWS_SECRET_KEY
+export AWS_BILLING_ACCOUNT_ID=YOUR_AWS_BILLING_ACCOUNT_ID
+
+# SSH Public Key (for instance access)
+export SSH_PUBLIC_KEY="ssh-rsa YOUR_PUBLIC_KEY_HERE your-email@example.com"
+
+# Red Hat OpenShift Token (required for ROSA/OpenShift deployments)
+export REDHAT_OPENSHIFT_TOKEN=YOUR_REDHAT_TOKEN
+
+# Add other cloud credentials as needed...
+EOF
+
+# Load the environment variables
+source envvars.sh
+```
+
+### Quick Setup for Testing
+
+For a minimal setup to get started quickly:
+
+```bash
+# Minimal environment for testing
+export GUID=test1
+export AWS_ACCESS_KEY_ID=your_key_here
+export AWS_SECRET_ACCESS_KEY=your_secret_here
 ```
 
 **Valid GUID examples:** `web01`, `app42`, `test1`, `dev99`, `prod1`
+
+**Security Note:** Never commit `envvars.sh` to version control. Add it to `.gitignore`.
 
 ## Step 2: Choose an Example
 

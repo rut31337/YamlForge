@@ -1,65 +1,52 @@
 ---
-# IBM Classic Infrastructure Example
-# Demonstrates IBM Classic (legacy) infrastructure deployment
-
 yamlforge:
   cloud_workspace:
-    name: "ibm-classic-demo"
-    description: "IBM Classic infrastructure demonstration"
-
+    name: ibm-classic-demo
+    description: IBM Classic infrastructure demonstration
   instances:
-    # IBM Classic instances
-    - name: "ibm-classic-web"
-      provider: "ibm_classic"
-      size: "medium"
-      image: "RHEL9-latest"
-      region: "dal10"
-      
-    - name: "ibm-classic-app"
-      provider: "ibm_classic"
-      size: "large"
-      image: "RHEL8-latest"
-      region: "wdc07"
-
-    # IBM Classic with custom specifications
-    - name: "ibm-classic-database"
-      provider: "ibm_classic"
-      cores: 8
-      memory: 32768
-      image: "RHEL9-latest"
-      region: "dal10"
-      storage: "SAN"
-
-    # High-performance IBM Classic instance
-    - name: "ibm-classic-hpc"
-      provider: "ibm_classic"
-      cores: 16
-      memory: 65536
-      image: "RHEL8-latest"
-      region: "dal10"
-      network_speed: "1000"
-
-  # IBM Classic networking
+  - name: ibm-classic-web
+    provider: ibm_classic
+    size: medium
+    image: RHEL9-latest
+    region: dal10
+  - name: ibm-classic-app
+    provider: ibm_classic
+    size: large
+    image: RHEL8-latest
+    region: wdc07
+  - name: ibm-classic-database
+    provider: ibm_classic
+    cores: 8
+    memory: 32768
+    image: RHEL9-latest
+    region: dal10
+    storage: SAN
+  - name: ibm-classic-hpc
+    provider: ibm_classic
+    cores: 16
+    memory: 65536
+    image: RHEL8-latest
+    region: dal10
+    network_speed: '1000'
   security_groups:
     ibm-classic-sg:
-      description: "IBM Classic security configuration"
+      description: IBM Classic security configuration
       rules:
-        - protocol: "tcp"
-          port: 80
-          source: "0.0.0.0/0"
-        - protocol: "tcp"
-          port: 443
-          source: "0.0.0.0/0"
-        - protocol: "tcp"
-          port: 22
-          source: "10.0.0.0/8"
-        - protocol: "tcp"
-          port: 3306
-          source: "192.168.1.0/24"
-
+      - protocol: tcp
+        port: 80
+        source: 0.0.0.0/0
+      - protocol: tcp
+        port: 443
+        source: 0.0.0.0/0
+      - protocol: tcp
+        port: 22
+        source: 10.0.0.0/8
+      - protocol: tcp
+        port: 3306
+        source: 192.168.1.0/24
   tags:
-    cloud_provider: "ibm_classic"
-    infrastructure_type: "legacy"
-    deployment_model: "classic"
-    performance_tier: "enterprise"
-    environment: "production" 
+    cloud_provider: ibm_classic
+    infrastructure_type: legacy
+    deployment_model: classic
+    performance_tier: enterprise
+    environment: production

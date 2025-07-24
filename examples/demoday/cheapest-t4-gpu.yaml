@@ -1,45 +1,35 @@
 ---
-# Demoday: Single Cheapest Small NVIDIA T4 GPU
-# Simple configuration for the most cost-effective T4 GPU instance
-
 yamlforge:
   cloud_workspace:
-    name: "openenv-t4gpu"  # Updated to use new naming convention
-    owner_email: "prutledg@redhat.com"
-  location: "us-central1"  # This will be overridden by the instance location
-  guid: "gput2"
-
+    name: openenv-t4gpu
+    owner_email: prutledg@redhat.com
   instances:
-    - name: "demo-t4-gpu"
-      provider: "gcp"  # GCP provider for T4 GPUs (best T4 support and pricing)
-      size: "small"
-      gpu_type: "T4"
-      location: "us-central"  # Generic us-central: should map to us-central1 for GCP
-      networking:
-        public: true
-      tags:
-        environment: "agnosticd"
-        managed-by: "yamlforge"
-
-  # Basic security group for demo access
+  - name: demo-t4-gpu
+    provider: gcp
+    size: small
+    gpu_type: T4
+    location: us-central
+    networking:
+      public: true
+    tags:
+      environment: agnosticd
+      managed-by: yamlforge
   security_groups:
-    - name: "demoday-gpu-sg"
-      description: "Demo security group for T4 GPU instance"
-      rules:
-        - protocol: "tcp"
-          from_port: 22
-          to_port: 22
-          cidr: "0.0.0.0/0"
-          description: "SSH access"
-        - protocol: "tcp"
-          from_port: 8888
-          to_port: 8888
-          cidr: "0.0.0.0/0"
-          description: "Jupyter notebook"
-
-  # Global tags
+  - name: demoday-gpu-sg
+    description: Demo security group for T4 GPU instance
+    rules:
+    - protocol: tcp
+      from_port: 22
+      to_port: 22
+      cidr: 0.0.0.0/0
+      description: SSH access
+    - protocol: tcp
+      from_port: 8888
+      to_port: 8888
+      cidr: 0.0.0.0/0
+      description: Jupyter notebook
   tags:
-    project: "demoday"
-    gpu_type: "nvidia_t4"
-    cost_strategy: "cheapest"
-    managed_by: "yamlforge" 
+    project: demoday
+    gpu_type: nvidia_t4
+    cost_strategy: cheapest
+    managed_by: yamlforge

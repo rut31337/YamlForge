@@ -5,11 +5,15 @@
 A comprehensive tool that generates Terraform configurations from simple YAML specifications, supporting multiple cloud providers and OpenShift platforms with automated deployment capabilities.
 
 ⚠️  ALPHA SOFTWARE WARNING ⚠️
+
 This is v0.99 ALPHA - Work in Progress
+
 This software may not work as expected and could break at any time.
+
 Use at your own risk ($$$). Not yet recommended for production environments.
 
 Supports all major cloud providers: AWS, Azure, GCP, IBM Cloud, Oracle Cloud,
+
 Alibaba Cloud, and VMware with advanced OpenShift/Kubernetes PaaS management.
 
 Currently Tested And Working:
@@ -32,14 +36,16 @@ terraform version  # Should show v1.12.0 or newer
 
 ### Basic Usage
 ```bash
-# Set required GUID (5-char lowercase alphanumeric)
-export GUID=web01
+# Set up environment variables (copy and customize the template)
+cp envvars.example.sh envvars.sh
+# Edit envvars.sh with your credentials, then:
+source envvars.sh
 
 # Generate and deploy infrastructure
-python yamlforge.py examples/simple_test.yaml -d output/ --auto-deploy
+python yamlforge.py examples/testing/simple_test.yaml -d output/ --auto-deploy
 
 # Or generate Terraform only
-python yamlforge.py examples/simple_test.yaml -d output/
+python yamlforge.py examples/testing/simple_test.yaml -d output/
 cd output/
 terraform init && terraform apply
 ```
@@ -127,29 +133,30 @@ See [AI Prompt Engineering Guide](docs/ai-prompts.md) for detailed prompting tec
 ## Example Configuration
 
 ```yaml
-guid: "web01"  # Required: 5-char unique identifier
+guid: "web01"  # Optional: 5-char unique identifier
 
 yamlforge:
   cloud_workspace:
     name: "multi-cloud-demo"
+    description: "Multi-cloud deployment demonstration"
     
-instances:
-  # Multi-cloud deployment
-  - name: "web-aws"
-    provider: "aws"
-    size: "medium"
-    image: "RHEL9-latest"
-    
-  - name: "web-azure"
-    provider: "azure"
-    size: "medium"
-    image: "RHEL9-latest"
-    
-  # Cost optimization
-  - name: "api-cheapest"
-    provider: "cheapest"    # Automatically selects lowest cost
-    size: "large"
-    image: "RHEL9-latest"
+  instances:
+    # Multi-cloud deployment
+    - name: "web-aws"
+      provider: "aws"
+      size: "medium"
+      image: "RHEL9-latest"
+      
+    - name: "web-azure"
+      provider: "azure"
+      size: "medium"
+      image: "RHEL9-latest"
+      
+    # Cost optimization
+    - name: "api-cheapest"
+      provider: "cheapest"    # Automatically selects lowest cost
+      size: "large"
+      image: "RHEL9-latest"
 ```
 
 ## OpenShift Example
@@ -157,19 +164,28 @@ instances:
 ```yaml
 guid: "ocp01"
 
-openshift_clusters:
-  - name: "prod-rosa"
-    type: "rosa-classic"
-    region: "us-east-1"
-    version: "4.14.15"
-    size: "medium"
+yamlforge:
+  cloud_workspace:
+    name: "production-openshift"
+    description: "Production OpenShift cluster deployment"
 
-openshift_applications:
-  - name: "frontend"
-    type: "deployment"
-    cluster: "prod-rosa"
-    image: "nginx:1.21"
-    replicas: 3
+  openshift_clusters:
+    - name: "prod-rosa"
+      type: "rosa-classic"
+      region: "us-east-1"
+      version: "latest"
+      size: "medium"
+
+  openshift_applications:
+    - name: "frontend"
+      target_cluster: "prod-rosa"
+      namespace: "production"
+      deployment:
+        replicas: 3
+        containers:
+          - name: "web"
+            image: "nginx:1.21"
+            ports: [80]
 ```
 
 ## Output

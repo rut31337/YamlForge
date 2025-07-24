@@ -18,9 +18,15 @@ YamlForge provides multiple cost optimization approaches:
 
 ### **1. Cheapest Provider Selection**
 ```yaml
+guid: "cost1"
+
 yamlforge:
+  cloud_workspace:
+    name: "cost-optimization"
+    description: "Cost-optimized deployment"
+
   instances:
-    - name: cost-optimized-instance
+    - name: "cost-optimized-instance"
       provider: "cheapest"  # Automatically selects lowest cost provider
       size: "small"
       image: "RHEL9-latest"
@@ -28,23 +34,37 @@ yamlforge:
 
 ### **2. Provider Exclusions**
 ```yaml
+guid: "excl1"
+
 yamlforge:
-  core:
-    exclude_providers:
-      - "gcp"  # Exclude Google Cloud from cost comparisons
-      - "azure"  # Exclude Azure from cost comparisons
+  cloud_workspace:
+    name: "provider-exclusions"
+    description: "Deployment with provider exclusions"
+
+  # Use specific providers instead of exclusions
+  instances:
+    - name: "web-server"
+      provider: "aws"  # Specifically use AWS
+      size: "medium"
+      image: "RHEL9-latest"
 ```
 
 ### **3. GPU Cost Optimization**
 ```yaml
+guid: "gpu01"
+
 yamlforge:
+  cloud_workspace:
+    name: "gpu-optimization"
+    description: "GPU cost-optimized deployment"
+
   instances:
-    - name: ml-workload
-      provider: "cheapest-gpu"  # Focuses only on GPU costs
-      size: "gpu-small"
-      gpu:
-        type: "any"
-        count: 1
+    - name: "ml-workload"
+      provider: "cheapest"  # Cost-optimized GPU deployment
+      size: "gpu_small"
+      gpu_type: "nvidia-tesla-v100"
+      gpu_count: 1
+      image: "RHEL9-latest"
 ```
 
 ## 📊 **Cost Optimization Features**

@@ -1,286 +1,227 @@
-# ROSA Classic vs HCP Comparison Example
-# Demonstrates the differences between ROSA Classic and ROSA with Hosted Control Planes
-
-project: "rosa-comparison"
-location: "us-east-1"
-
-# Instance definitions (if needed for additional infrastructure)
-instances:
-  monitoring_server:
-    count: 1
-    image: "rhel8-latest"
-    size: "medium"
-    region: "us-east-1"
-
-# OpenShift cluster definitions
-openshift_clusters:
-  # =============================================================================
-  # ROSA CLASSIC - Customer manages infrastructure including control plane
-  # =============================================================================
-  - name: "rosa-classic-production"
-    type: "rosa-classic"
-    region: "us-east-1"
-    version: "4.14.15"
-    size: "medium"
-    
-    # Networking (can be customized)
+---
+project: rosa-comparison
+location: us-east-1
+yamlforge:
+  instances:
+    monitoring_server:
+      count: 1
+      image: rhel8-latest
+      size: medium
+      region: us-east-1
+  openshift_clusters:
+  - name: rosa-classic-production
+    type: rosa-classic
+    region: us-east-1
+    version: 4.14.15
+    size: medium
     networking:
-      machine_cidr: "10.0.0.0/16"
-      service_cidr: "172.30.0.0/16" 
-      pod_cidr: "10.128.0.0/14"
+      machine_cidr: 10.0.0.0/16
+      service_cidr: 172.30.0.0/16
+      pod_cidr: 10.128.0.0/14
       host_prefix: 23
-    
-    # Machine pools configuration 
     machine_pools:
-      - name: "workers"
-        replicas: 3
-        min_replicas: 2
-        max_replicas: 6
-        instance_type: "m5.xlarge"
-        
-    # Auto-scaling configuration
+    - name: workers
+      replicas: 3
+      min_replicas: 2
+      max_replicas: 6
+      instance_type: m5.xlarge
     auto_scaling:
       enabled: true
       min_replicas: 2
       max_replicas: 10
-      
-    # Addons
     addons:
-      - "cluster-logging-operator"
-      - "aws-load-balancer-operator"
-      - "aws-ebs-csi-driver-operator"
-      
-    # Tags
+    - cluster-logging-operator
+    - aws-load-balancer-operator
+    - aws-ebs-csi-driver-operator
     tags:
-      Environment: "production"
-      CostCenter: "engineering"
-      Team: "platform"
-      
-    # Features
+      Environment: production
+      CostCenter: engineering
+      Team: platform
     private: false
     etcd_encryption: true
-
-  # =============================================================================
-  # ROSA HCP - Red Hat manages control plane, customer only pays for workers
-  # =============================================================================
-  - name: "rosa-hcp-development"
-    type: "rosa-hcp"
-    region: "us-west-2"
-    version: "4.14.15"
-    size: "small"
-    
-    # Networking (simpler for HCP)
+  - name: rosa-hcp-development
+    type: rosa-hcp
+    region: us-west-2
+    version: 4.14.15
+    size: small
     networking:
-      machine_cidr: "10.1.0.0/16"
-      
-    # Worker configuration (no masters needed)
+      machine_cidr: 10.1.0.0/16
     worker_count: 2
     min_replicas: 1
     max_replicas: 5
-    
-    # Auto-scaling configuration  
     auto_scaling:
       enabled: true
       min_replicas: 1
       max_replicas: 8
-      
-    # Machine pool with taints for development workloads
     machine_pools:
-      - name: "dev-workers"
-        replicas: 2
-        min_replicas: 1
-        max_replicas: 5
-        instance_type: "m5.large"
-        taints:
-          - key: "environment"
-            value: "development"
-            effect: "NoSchedule"
-            
-    # HCP-specific features
-    etcd_encryption: true  # Enabled by default in HCP
-    
-    # Tags
+    - name: dev-workers
+      replicas: 2
+      min_replicas: 1
+      max_replicas: 5
+      instance_type: m5.large
+      taints:
+      - key: environment
+        value: development
+        effect: NoSchedule
+    etcd_encryption: true
     tags:
-      Environment: "development"
-      CostCenter: "engineering"
-      Team: "development"
-      
-    # Features
+      Environment: development
+      CostCenter: engineering
+      Team: development
     private: false
-
-  # =============================================================================  
-  # ROSA HCP - Cost-optimized for staging
-  # =============================================================================
-  - name: "rosa-hcp-staging"
-    type: "rosa-hcp"
-    region: "us-east-1"
-    version: "4.14.15"
-    size: "micro"
-    
-    # Minimal networking
+  - name: rosa-hcp-staging
+    type: rosa-hcp
+    region: us-east-1
+    version: 4.14.15
+    size: micro
     networking:
-      machine_cidr: "10.2.0.0/16"
-      
-    # Minimal worker configuration for cost savings
+      machine_cidr: 10.2.0.0/16
     worker_count: 1
     min_replicas: 1
     max_replicas: 3
-    
-    # Small instance types for cost optimization
     machine_pools:
-      - name: "staging-workers"
-        replicas: 1
-        min_replicas: 1
-        max_replicas: 3
-        instance_type: "m5.large"  # Smaller instances for staging
-        
-    # Tags
+    - name: staging-workers
+      replicas: 1
+      min_replicas: 1
+      max_replicas: 3
+      instance_type: m5.large
     tags:
-      Environment: "staging"
-      CostCenter: "engineering"
-      AutoShutdown: "true"  # For cost management
-      
-    # Features optimized for staging
+      Environment: staging
+      CostCenter: engineering
+      AutoShutdown: 'true'
     private: false
-    etcd_encryption: false  # Disabled for staging to save costs
-
-# Applications deployed across clusters
-openshift_applications:
-  # Production app on ROSA Classic
-  - name: "production-web-app"
-    type: "kubernetes"
-    target_clusters: ["rosa-classic-production"]
-    namespace: "production"
-    
+    etcd_encryption: false
+  openshift_applications:
+  - name: production-web-app
+    type: kubernetes
+    target_clusters:
+    - rosa-classic-production
+    namespace: production
     resources:
-      - type: "Deployment"
-        spec:
-          replicas: 3
-          selector:
-            matchLabels:
-              app: "web-app"
-              env: "production"
-          template:
-            metadata:
-              labels:
-                app: "web-app"
-                env: "production"
-            spec:
-              containers:
-              - name: "web"
-                image: "nginx:1.21"
-                ports:
-                - containerPort: 80
-                resources:
-                  requests:
-                    memory: "256Mi"
-                    cpu: "250m"
-                  limits:
-                    memory: "512Mi"
-                    cpu: "500m"
-                    
-      - type: "Service"
-        metadata:
-          name: "web-service"
-        spec:
-          selector:
-            app: "web-app"
-            env: "production"
-          ports:
-          - port: 80
-            targetPort: 80
-          type: "LoadBalancer"
-          
-  # Development app on ROSA HCP
-  - name: "development-web-app"
-    type: "kubernetes"
-    target_clusters: ["rosa-hcp-development"]
-    namespace: "development"
-    
+    - type: Deployment
+      spec:
+        replicas: 3
+        selector:
+          matchLabels:
+            app: web-app
+            env: production
+        template:
+          metadata:
+            labels:
+              app: web-app
+              env: production
+          spec:
+            containers:
+            - name: web
+              image: nginx:1.21
+              ports:
+              - containerPort: 80
+              resources:
+                requests:
+                  memory: 256Mi
+                  cpu: 250m
+                limits:
+                  memory: 512Mi
+                  cpu: 500m
+    - type: Service
+      metadata:
+        name: web-service
+      spec:
+        selector:
+          app: web-app
+          env: production
+        ports:
+        - port: 80
+          targetPort: 80
+        type: LoadBalancer
+  - name: development-web-app
+    type: kubernetes
+    target_clusters:
+    - rosa-hcp-development
+    namespace: development
     resources:
-      - type: "Deployment"
-        spec:
-          replicas: 1
-          selector:
-            matchLabels:
-              app: "web-app"
-              env: "development"
-          template:
-            metadata:
-              labels:
-                app: "web-app"
-                env: "development"
-            spec:
-              tolerations:
-              - key: "environment"
-                value: "development"
-                effect: "NoSchedule"
-              containers:
-              - name: "web"
-                image: "nginx:latest"
-                ports:
-                - containerPort: 80
-                resources:
-                  requests:
-                    memory: "128Mi"
-                    cpu: "100m"
-                  limits:
-                    memory: "256Mi"
-                    cpu: "200m"
-                    
-      - type: "Service"
-        metadata:
-          name: "web-service"
-        spec:
-          selector:
-            app: "web-app"
-            env: "development"
-          ports:
-          - port: 80
-            targetPort: 80
-          type: "ClusterIP"
-
-  # Staging app on cost-optimized ROSA HCP
-  - name: "staging-web-app"
-    type: "kubernetes"
-    target_clusters: ["rosa-hcp-staging"]
-    namespace: "staging"
-    
+    - type: Deployment
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: web-app
+            env: development
+        template:
+          metadata:
+            labels:
+              app: web-app
+              env: development
+          spec:
+            tolerations:
+            - key: environment
+              value: development
+              effect: NoSchedule
+            containers:
+            - name: web
+              image: nginx:latest
+              ports:
+              - containerPort: 80
+              resources:
+                requests:
+                  memory: 128Mi
+                  cpu: 100m
+                limits:
+                  memory: 256Mi
+                  cpu: 200m
+    - type: Service
+      metadata:
+        name: web-service
+      spec:
+        selector:
+          app: web-app
+          env: development
+        ports:
+        - port: 80
+          targetPort: 80
+        type: ClusterIP
+  - name: staging-web-app
+    type: kubernetes
+    target_clusters:
+    - rosa-hcp-staging
+    namespace: staging
     resources:
-      - type: "Deployment"
-        spec:
-          replicas: 1
-          selector:
-            matchLabels:
-              app: "web-app"
-              env: "staging"
-          template:
-            metadata:
-              labels:
-                app: "web-app"
-                env: "staging"
-            spec:
-              containers:
-              - name: "web"
-                image: "nginx:stable"
-                ports:
-                - containerPort: 80
-                resources:
-                  requests:
-                    memory: "64Mi"
-                    cpu: "50m"
-                  limits:
-                    memory: "128Mi"
-                    cpu: "100m"
-                    
-      - type: "Service"
-        metadata:
-          name: "web-service"
-        spec:
-          selector:
-            app: "web-app"
-            env: "staging"
-          ports:
-          - port: 80
-            targetPort: 80
-          type: "NodePort" 
+    - type: Deployment
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: web-app
+            env: staging
+        template:
+          metadata:
+            labels:
+              app: web-app
+              env: staging
+          spec:
+            containers:
+            - name: web
+              image: nginx:stable
+              ports:
+              - containerPort: 80
+              resources:
+                requests:
+                  memory: 64Mi
+                  cpu: 50m
+                limits:
+                  memory: 128Mi
+                  cpu: 100m
+    - type: Service
+      metadata:
+        name: web-service
+      spec:
+        selector:
+          app: web-app
+          env: staging
+        ports:
+        - port: 80
+          targetPort: 80
+        type: NodePort
+  cloud_workspace:
+    name: default-workspace
+    description: Default workspace for this deployment

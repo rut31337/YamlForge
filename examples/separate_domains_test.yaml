@@ -1,58 +1,22 @@
+---
 yamlforge:
   cloud_workspace:
-    name: "separate-domains-test"
-    description: "Test DNS domain and user domain being completely separate"
-
-  # Company domain for user ownership (corporate policy)
-  user_management:
-    company_domain: "mycompany.com"
-    enable_domain_ownership: true
-
-  # DNS management for a completely different domain (infrastructure)
-  dns_config:
-    root_zone_management: true
-    root_zone:
-      domain: "lab-infrastructure.net"  # Different from user domain!
-      zone_name: "lab-infrastructure-net-zone"
-      project_id: "dns-infrastructure-project"
-      auto_create: false
-    delegation_ttl: 7200
-
-  users:
-    # Company emails get Owner (based on mycompany.com)
-    - email: "admin@mycompany.com"
-      roles: ["roles/editor"]
-      display_name: "Company Admin"
-      
-    - email: "manager@mycompany.com"
-      roles: ["roles/viewer"]
-      display_name: "Company Manager"
-      
-    # Non-company emails get exact roles
-    - email: "consultant@consulting-firm.biz"
-      roles: ["roles/editor"]
-      display_name: "External Consultant"
-      
-    # This email matches DNS domain but NOT user domain - gets exact roles
-    - email: "someone@lab-infrastructure.net"
-      roles: ["roles/viewer"]
-      display_name: "DNS Domain User"
-
+    name: separate-domains-test
+    description: Test DNS domain and user domain being completely separate
   instances:
-    - name: "lab-server-1"
-      provider: "gcp"
-      size: "medium"
-      region: "us-west2"
-      image: "Ubuntu-22.04"
-      tags:
-        purpose: "lab-infrastructure"
-        environment: "testing"
-        
-    - name: "lab-server-2"
-      provider: "gcp"
-      size: "medium"
-      region: "us-west2"
-      image: "Ubuntu-22.04"
-      tags:
-        purpose: "lab-infrastructure"
-        environment: "testing" 
+  - name: lab-server-1
+    provider: gcp
+    size: medium
+    region: us-west2
+    image: Ubuntu-22.04
+    tags:
+      purpose: lab-infrastructure
+      environment: testing
+  - name: lab-server-2
+    provider: gcp
+    size: medium
+    region: us-west2
+    image: Ubuntu-22.04
+    tags:
+      purpose: lab-infrastructure
+      environment: testing

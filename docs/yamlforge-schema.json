@@ -3,7 +3,7 @@
   "title": "YamlForge Configuration Schema",
   "description": "Complete schema for YamlForge YAML configuration files",
   "type": "object",
-  "required": ["guid"],
+  "required": ["yamlforge"],
   "properties": {
     "guid": {
       "type": "string",
@@ -13,25 +13,22 @@
     },
     "yamlforge": {
       "type": "object",
-      "description": "Legacy wrapper for configuration (optional, but still supported)",
+      "description": "Main configuration wrapper (required)",
       "properties": {
         "cloud_workspace": {"$ref": "#/definitions/cloud_workspace"},
         "instances": {"$ref": "#/definitions/instances"},
         "openshift_clusters": {"$ref": "#/definitions/openshift_clusters"},
         "openshift_operators": {"$ref": "#/definitions/openshift_operators"},
-        "openshift_applications": {"$ref": "#/definitions/openshift_applications"}
+        "openshift_applications": {"$ref": "#/definitions/openshift_applications"},
+        "security_groups": {"$ref": "#/definitions/security_groups"},
+        "tags": {"type": "object", "additionalProperties": {"type": "string"}}
       }
-    },
-    "cloud_workspace": {"$ref": "#/definitions/cloud_workspace"},
-    "instances": {"$ref": "#/definitions/instances"},
-    "openshift_clusters": {"$ref": "#/definitions/openshift_clusters"},
-    "openshift_operators": {"$ref": "#/definitions/openshift_operators"},
-    "openshift_applications": {"$ref": "#/definitions/openshift_applications"}
+    }
   },
   "definitions": {
     "cloud_workspace": {
       "type": "object",
-      "description": "Optional workspace configuration for organization",
+      "description": "Workspace configuration for organization",
       "properties": {
         "name": {
           "type": "string",
@@ -40,6 +37,11 @@
         "description": {
           "type": "string",
           "description": "Description of the workspace purpose"
+        },
+        "tags": {
+          "type": "object",
+          "description": "Tags for the workspace",
+          "additionalProperties": {"type": "string"}
         }
       }
     },
@@ -120,7 +122,7 @@
       "description": "Array of OpenShift clusters to deploy",
       "items": {
         "type": "object",
-        "required": ["name", "type", "provider"],
+        "required": ["name", "type"],
         "properties": {
           "name": {
             "type": "string",
@@ -131,20 +133,15 @@
             "enum": ["rosa-classic", "rosa-hcp", "aro", "openshift-dedicated", "self-managed", "hypershift-mgmt", "hypershift-hosted"],
             "description": "OpenShift cluster type"
           },
-          "provider": {
-            "type": "string",
-            "enum": ["aws", "azure", "gcp", "oci", "ibm_vpc", "vmware"],
-            "description": "Cloud provider for the cluster"
-          },
           "region": {
             "type": "string",
             "description": "Cloud region for cluster deployment"
           },
           "version": {
             "type": "string",
-            "pattern": "^4\\.[0-9]+",
-            "description": "OpenShift version (e.g., 4.18, 4.19)",
-            "default": "4.19"
+            "pattern": "^(4\\.[0-9]+|latest)$",
+            "description": "OpenShift version (e.g., 4.18, 4.19, latest)",
+            "default": "latest"
           },
           "size": {
             "type": "string",
@@ -274,6 +271,31 @@
                     }
                   }
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "security_groups": {
+      "type": "array",
+      "description": "Array of security groups to create",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "direction": {"type": "string", "enum": ["ingress", "egress"]},
+                "protocol": {"type": "string"},
+                "port": {"type": "integer"},
+                "port_range": {"type": "string"},
+                "source": {"type": "string"}
               }
             }
           }

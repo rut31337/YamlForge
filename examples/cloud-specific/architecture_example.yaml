@@ -2,6 +2,8 @@
 # Architecture-Specific Example
 # Demonstrates x86_64 and ARM64 architecture deployment
 
+guid: "arc01"
+
 yamlforge:
   cloud_workspace:
     name: "architecture-demo"
@@ -13,7 +15,6 @@ yamlforge:
       provider: "aws"
       size: "medium"
       image: "RHEL9-latest"
-      architecture: "x86_64"
       region: "us-east-1"
       
     # ARM64 architecture (Graviton instances)
@@ -21,7 +22,6 @@ yamlforge:
       provider: "aws"
       size: "medium"
       image: "RHEL9-latest"
-      architecture: "arm64"
       region: "us-east-1"
       
     # Auto-detect architecture (cost optimized)
@@ -32,6 +32,5 @@ yamlforge:
       image: "RHEL9-latest"
 
   tags:
-      guid: "arc01"
     architecture_test: "enabled"
     environment: "testing" 

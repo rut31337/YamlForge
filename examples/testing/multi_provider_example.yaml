@@ -1,51 +1,35 @@
 ---
-# Multi-Provider Detection Example  
-# Demonstrates smart provider detection (AWS + GCP + IBM, Azure excluded)
-
+guid: mlt01
 yamlforge:
   cloud_workspace:
-    name: "multi-cloud-selective"
-    description: "Selective multi-cloud deployment workspace"
-    tags:
-      guid: "mlt01"
-
+    name: multi-cloud-selective
+    description: Selective multi-cloud deployment workspace
   instances:
-    # AWS instances
-    - name: "aws-frontend"
-      provider: "aws"
-      size: "medium"
-      image: "RHEL9-latest"
-      region: "us-east-1"
-      
-    - name: "aws-backend"
-      provider: "aws"
-      size: "large"
-      image: "RHEL9-latest"
-      region: "us-west-2"
-
-    # GCP instances
-    - name: "gcp-analytics"
-      provider: "gcp"
-      size: "large"
-      image: "RHEL9-latest"
-      region: "us-central1"
-      
-    - name: "gcp-ml-worker"
-      provider: "gcp"
-      size: "large"
-      image: "RHEL9-latest"
-      region: "us-west1"
-
-    # IBM Cloud instances
-    - name: "ibm-database"
-      provider: "ibm"
-      size: "large"
-      image: "RHEL9-latest"
-      region: "us-south"
-
-    # NOTE: No Azure instances - Azure provider will NOT be generated
-
+  - name: aws-frontend
+    provider: aws
+    size: medium
+    image: RHEL9-latest
+    region: us-east-1
+  - name: aws-backend
+    provider: aws
+    size: large
+    image: RHEL9-latest
+    region: us-west-2
+  - name: gcp-analytics
+    provider: gcp
+    size: large
+    image: RHEL9-latest
+    region: us-central1
+  - name: gcp-ml-worker
+    provider: gcp
+    size: large
+    image: RHEL9-latest
+    region: us-west1
+  - name: ibm-database
+    provider: ibm_vpc
+    size: large
+    image: RHEL9-latest
+    region: us-south
   tags:
-    deployment_strategy: "multi_cloud"
-    excluded_providers: "azure"
-    use_case: "hybrid_workload" 
+    deployment_strategy: multi_cloud
+    excluded_providers: azure

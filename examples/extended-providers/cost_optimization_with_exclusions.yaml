@@ -1,131 +1,76 @@
 ---
-# Cost Optimization with Provider Exclusions Example
-# Demonstrates how to exclude specific providers from "cheapest" provider selection
-# Useful for compliance, security, or business policy requirements
-
 yamlforge:
   cloud_workspace:
-    name: "cost-optimization-with-policy"
-    description: "Cost optimization while respecting organizational policies"
+    name: cost-optimization-with-policy
+    description: Cost optimization while respecting organizational policies
     tags:
-      compliance: "enterprise-required"
-      security_policy: "approved-clouds-only"
-
-  # Security groups
+      compliance: enterprise-required
+      security_policy: approved-clouds-only
   security_groups:
     web-tier:
-      description: "Web server access"
+      description: Web server access
       rules:
-        - protocol: tcp
-          port: 80
-          source: "0.0.0.0/0"
-        - protocol: tcp
-          port: 443
-          source: "0.0.0.0/0"
-        - protocol: tcp
-          port: 22
-          source: "10.0.0.0/8"
-
-  # SSH key configuration
-  ssh_keys:
-    default: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7... cost-optimization@company.com"
-
-  # Instance configurations demonstrating different policy scenarios
+      - protocol: tcp
+        port: 80
+        source: 0.0.0.0/0
+      - protocol: tcp
+        port: 443
+        source: 0.0.0.0/0
+      - protocol: tcp
+        port: 22
+        source: 10.0.0.0/8
   instances:
-    # Scenario 1: No restrictions - cheapest across all providers
-    - name: "unrestricted-cheapest"
-      provider: "cheapest"
-      size: "medium"
-      image: "RHEL9-latest"
-      location: "us-east-1_mapped"
-      security_groups: ["web-tier"]
-      # Will automatically select from: AWS, Azure, GCP, OCI, VMware, Alibaba, IBM
-      # Note: OCI or Alibaba often wins in cost comparisons
-
-    # Scenario 2: Explicit provider selection (bypasses exclusions)
-    - name: "explicit-oci-server"
-      provider: "oci"
-      size: "medium"
-      image: "RHEL9-latest"
-      region: "us-ashburn-1"
-      security_groups: ["web-tier"]
-      # Explicitly chooses OCI regardless of core exclusion settings
-
-    # Scenario 3: GPU workload with potential restrictions
-    - name: "cheapest-gpu-workload"
-      provider: "cheapest-gpu"
-      gpu_type: "T4"
-      image: "RHEL9-latest"
-      location: "us-east-1_mapped"
-      security_groups: ["web-tier"]
-      # Will find cheapest GPU option, respecting exclusions
-
-    # Scenario 4: Hardware specification-based selection
-    - name: "spec-based-cheapest"
-      provider: "cheapest"
-      cores: 4
-      memory: 8192  # 8GB in MB
-      image: "RHEL9-latest"
-      location: "us-east-1_mapped"
-      security_groups: ["web-tier"]
-      # Finds cheapest provider meeting these exact requirements
-
-    # Scenario 5: Multi-instance deployment with cost optimization
-    - name: "web-server-1"
-      provider: "cheapest"
-      size: "small"
-      image: "RHEL9-latest"
-      location: "us-east-1_mapped"
-      security_groups: ["web-tier"]
-
-    - name: "web-server-2"
-      provider: "cheapest"
-      size: "small"
-      image: "RHEL9-latest"
-      location: "us-west-2_mapped"  # Different region for HA
-      security_groups: ["web-tier"]
-
-    - name: "database-server"
-      provider: "cheapest"
-      size: "large"
-      image: "RHEL9-latest"
-      location: "us-east-1_mapped"
-      security_groups: ["web-tier"]
-
-  # Global configuration
+  - name: unrestricted-cheapest
+    provider: cheapest
+    size: medium
+    image: RHEL9-latest
+    location: us-east-1_mapped
+    security_groups:
+    - web-tier
+  - name: explicit-oci-server
+    provider: oci
+    size: medium
+    image: RHEL9-latest
+    region: us-ashburn-1
+    security_groups:
+    - web-tier
+  - name: cheapest-gpu-workload
+    provider: cheapest-gpu
+    gpu_type: T4
+    image: RHEL9-latest
+    location: us-east-1_mapped
+    security_groups:
+    - web-tier
+  - name: spec-based-cheapest
+    provider: cheapest
+    cores: 4
+    memory: 8192
+    image: RHEL9-latest
+    location: us-east-1_mapped
+    security_groups:
+    - web-tier
+  - name: web-server-1
+    provider: cheapest
+    size: small
+    image: RHEL9-latest
+    location: us-east-1_mapped
+    security_groups:
+    - web-tier
+  - name: web-server-2
+    provider: cheapest
+    size: small
+    image: RHEL9-latest
+    location: us-west-2_mapped
+    security_groups:
+    - web-tier
+  - name: database-server
+    provider: cheapest
+    size: large
+    image: RHEL9-latest
+    location: us-east-1_mapped
+    security_groups:
+    - web-tier
   tags:
-    deployment_type: "cost_optimization_with_policy"
-    cost_strategy: "cheapest_with_exclusions"
-    environment: "production"
-
-# Instructions for configuring provider exclusions:
-#
-# Edit defaults/core.yaml to exclude providers from cheapest selection:
-#
-# provider_selection:
-#   exclude_from_cheapest:
-#     - "vmware"      # Exclude on-premises VMware (maybe no real cost comparison)
-#     - "alibaba"     # Exclude Alibaba Cloud (compliance/security policy)
-#     - "ibm_classic" # Exclude legacy IBM Classic
-#
-# Common exclusion scenarios:
-#
-# 1. COMPLIANCE-DRIVEN EXCLUSIONS:
-#    exclude_from_cheapest: ["alibaba", "oci"]
-#    # Only allow established US cloud providers
-#
-# 2. SECURITY-DRIVEN EXCLUSIONS:
-#    exclude_from_cheapest: ["vmware", "alibaba"]
-#    # Exclude on-premises and certain international clouds
-#
-# 3. COST-MODEL EXCLUSIONS:
-#    exclude_from_cheapest: ["vmware"]
-#    # Exclude on-premises where cost comparison doesn't make sense
-#
-# 4. TECHNICAL EXCLUSIONS:
-#    exclude_from_cheapest: ["ibm_classic"]
-#    # Exclude legacy/deprecated platforms
-#
-# 5. GEOGRAPHIC EXCLUSIONS:
-#    exclude_from_cheapest: ["alibaba"]
-#    # Exclude providers not available in required regions 
+    deployment_type: cost_optimization_with_policy
+    cost_strategy: cheapest_with_exclusions
+    environment: production

@@ -1,139 +1,118 @@
 ---
-# Mixed Cheapest Provider Example
-# Demonstrates both size-based and hardware-specification-based cost optimization
-
 yamlforge:
   cloud_workspace:
-    name: "mixed-cost-optimization"
-    description: "Mixed cost optimization using both sizes and hardware specifications"
-
-  # SSH key configuration
-  ssh_keys:
-    default: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7... mixed-cost@company.com"
-
-  # Security groups
+    name: mixed-cost-optimization
+    description: Mixed cost optimization using both sizes and hardware specifications
   security_groups:
     web-sg:
-      description: "Web servers"
+      description: Web servers
       rules:
-        - protocol: tcp
-          port: 80
-          source: "0.0.0.0/0"
-        - protocol: tcp
-          port: 443
-          source: "0.0.0.0/0"
-
+      - protocol: tcp
+        port: 80
+        source: 0.0.0.0/0
+      - protocol: tcp
+        port: 443
+        source: 0.0.0.0/0
   instances:
-    # Size-based cost optimization (existing functionality)
-    - name: "web-micro"
-      provider: "cheapest"
-      size: "micro"              # Uses generic size mapping
-      region: "us-east-1"
-      image: "RHEL9-latest"
-      security_groups: ["web-sg"]
-      tags:
-        optimization_type: "size-based"
-        tier: "development"
-
-    - name: "web-small"
-      provider: "cheapest"
-      size: "small"              # Uses generic size mapping
-      region: "us-west-2"
-      image: "RHEL9-latest"
-      security_groups: ["web-sg"]
-      tags:
-        optimization_type: "size-based"
-        tier: "staging"
-
-    - name: "web-medium"
-      provider: "cheapest"
-      size: "medium"             # Uses generic size mapping
-      region: "eu-west-1"
-      image: "RHEL9-latest"
-      security_groups: ["web-sg"]
-      tags:
-        optimization_type: "size-based"
-        tier: "production"
-
-    # Hardware specification-based cost optimization (new functionality)
-    - name: "api-custom-1"
-      provider: "cheapest"
-      cores: 2                   # Exact CPU requirement
-      memory: 4096               # Exact memory requirement (MB)
-      region: "us-east-1"
-      image: "RHEL9-latest"
-      tags:
-        optimization_type: "hardware-based"
-        requirement: "2cpu-4gb"
-        workload: "api-server"
-
-    - name: "api-custom-2"
-      provider: "cheapest"
-      cores: 4                   # Exact CPU requirement
-      memory: 8192               # Exact memory requirement (MB)
-      region: "us-west-2"
-      image: "RHEL9-latest"
-      tags:
-        optimization_type: "hardware-based"
-        requirement: "4cpu-8gb"
-        workload: "api-server"
-
-    - name: "db-memory-optimized"
-      provider: "cheapest"
-      cores: 4                   # Exact CPU requirement
-      memory: 16384              # High memory requirement (16GB)
-      region: "eu-central-1"
-      image: "RHEL9-latest"
-      tags:
-        optimization_type: "hardware-based"
-        requirement: "4cpu-16gb"
-        workload: "database"
-
-    - name: "analytics-compute"
-      provider: "cheapest"
-      cores: 8                   # High CPU requirement
-      memory: 16384              # Moderate memory requirement
-      region: "us-central-1"
-      image: "RHEL9-latest"
-      tags:
-        optimization_type: "hardware-based"
-        requirement: "8cpu-16gb"
-        workload: "analytics"
-
-    - name: "batch-processing"
-      provider: "cheapest"
-      cores: 16                  # Very high CPU requirement
-      memory: 32768              # High memory requirement (32GB)
-      region: "ap-southeast-1"
-      image: "RHEL9-latest"
-      tags:
-        optimization_type: "hardware-based"
-        requirement: "16cpu-32gb"
-        workload: "batch-processing"
-
-    # Mixed deployment - some specific, some cheapest
-    - name: "compliance-aws"
-      provider: "aws"            # Fixed provider for compliance
-      size: "medium"
-      region: "us-gov-east-1"
-      image: "RHEL9-latest"
-      tags:
-        optimization_type: "compliance-fixed"
-        requirement: "must-be-aws"
-
-    - name: "flexible-workload"
-      provider: "cheapest"
-      cores: 2
-      memory: 8192               # More memory than CPU suggests
-      region: "eu-west-1"
-      image: "RHEL9-latest"
-      tags:
-        optimization_type: "hardware-based"
-        requirement: "2cpu-8gb"
-        workload: "memory-intensive"
-
-  # Global tags
+  - name: web-micro
+    provider: cheapest
+    size: micro
+    region: us-east-1
+    image: RHEL9-latest
+    security_groups:
+    - web-sg
+    tags:
+      optimization_type: size-based
+      tier: development
+  - name: web-small
+    provider: cheapest
+    size: small
+    region: us-west-2
+    image: RHEL9-latest
+    security_groups:
+    - web-sg
+    tags:
+      optimization_type: size-based
+      tier: staging
+  - name: web-medium
+    provider: cheapest
+    size: medium
+    region: eu-west-1
+    image: RHEL9-latest
+    security_groups:
+    - web-sg
+    tags:
+      optimization_type: size-based
+      tier: production
+  - name: api-custom-1
+    provider: cheapest
+    cores: 2
+    memory: 4096
+    region: us-east-1
+    image: RHEL9-latest
+    tags:
+      optimization_type: hardware-based
+      requirement: 2cpu-4gb
+      workload: api-server
+  - name: api-custom-2
+    provider: cheapest
+    cores: 4
+    memory: 8192
+    region: us-west-2
+    image: RHEL9-latest
+    tags:
+      optimization_type: hardware-based
+      requirement: 4cpu-8gb
+      workload: api-server
+  - name: db-memory-optimized
+    provider: cheapest
+    cores: 4
+    memory: 16384
+    region: eu-central-1
+    image: RHEL9-latest
+    tags:
+      optimization_type: hardware-based
+      requirement: 4cpu-16gb
+      workload: database
+  - name: analytics-compute
+    provider: cheapest
+    cores: 8
+    memory: 16384
+    region: us-central-1
+    image: RHEL9-latest
+    tags:
+      optimization_type: hardware-based
+      requirement: 8cpu-16gb
+      workload: analytics
+  - name: batch-processing
+    provider: cheapest
+    cores: 16
+    memory: 32768
+    region: ap-southeast-1
+    image: RHEL9-latest
+    tags:
+      optimization_type: hardware-based
+      requirement: 16cpu-32gb
+      workload: batch-processing
+  - name: compliance-aws
+    provider: aws
+    size: medium
+    region: us-gov-east-1
+    image: RHEL9-latest
+    tags:
+      optimization_type: compliance-fixed
+      requirement: must-be-aws
+  - name: flexible-workload
+    provider: cheapest
+    cores: 2
+    memory: 8192
+    region: eu-west-1
+    image: RHEL9-latest
+    tags:
+      optimization_type: hardware-based
+      requirement: 2cpu-8gb
+      workload: memory-intensive
   tags:
-    project: "cost-optimization-comparison"
-    managed_by: "yamlforge"
-    cost_analysis: "enabled" 
+    project: cost-optimization-comparison
+    managed_by: yamlforge
+    cost_analysis: enabled

@@ -29,33 +29,37 @@ openshift/
 
 ### ROSA (Red Hat OpenShift Service on AWS)
 ```yaml
+guid: "prod1"
+
 yamlforge:
+  cloud_workspace:
+    name: "production-openshift"
+    description: "Production ROSA deployment"
+
   openshift_clusters:
-    - name: production-rosa
-      type: rosa-classic
-      provider: aws
-      region: us-east-1
-      version: "4.18"
-      compute:
-        instance_type: m5.xlarge
-        replicas: 3
-      networking:
-        machine_cidr: "10.0.0.0/16"
+    - name: "production-rosa"
+      type: "rosa-classic"
+      region: "us-east-1"
+      version: "latest"
+      size: "large"
 ```
 
 ### ROSA HCP (Hosted Control Plane)
 ```yaml
+guid: "hcp01"
+
 yamlforge:
+  cloud_workspace:
+    name: "production-hcp"
+    description: "Production ROSA HCP deployment"
+
   openshift_clusters:
-    - name: production-hcp
-      type: rosa-hcp
-      provider: aws
-      region: us-east-1
-      version: "4.19"
-      compute:
-        instance_type: m5.xlarge
-        replicas: 3
-      billing_account: "123456789012"  # Optional billing account override
+    - name: "production-hcp"
+      type: "rosa-hcp"
+      region: "us-east-1"
+      version: "latest"
+      size: "large"
+      worker_count: 6
 ```
 
 ## Unified Deployment Model

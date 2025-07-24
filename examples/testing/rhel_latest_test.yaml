@@ -1,86 +1,65 @@
 ---
-# RHEL Latest Image Test
-# Tests automatic discovery of latest RHEL images across cloud providers
-
+guid: rhl01
 yamlforge:
   cloud_workspace:
-    name: "rhel-latest-test"
-    description: "RHEL latest image discovery testing workspace"
-    tags:
-      guid: "rhl01"
-
+    name: rhel-latest-test
+    description: RHEL latest image discovery testing workspace
   instances:
-    # AWS RHEL latest testing
-    - name: "aws-rhel9-latest"
-      provider: "aws"
-      size: "medium"
-      image: "RHEL9-latest"
-      region: "us-east-1"
-      
-    - name: "aws-rhel8-latest"
-      provider: "aws"
-      size: "medium"
-      image: "RHEL8-latest"
-      region: "us-west-2"
-
-    # Azure RHEL latest testing
-    - name: "azure-rhel9-latest"
-      provider: "azure"
-      size: "medium"
-      image: "RHEL9-latest"
-      region: "eastus"
-      
-    - name: "azure-rhel8-latest"
-      provider: "azure"
-      size: "medium"
-      image: "RHEL8-latest"
-      region: "westus2"
-
-    # GCP RHEL latest testing
-    - name: "gcp-rhel9-latest"
-      provider: "gcp"
-      size: "medium"
-      image: "RHEL9-latest"
-      region: "us-central1"
-      
-    - name: "gcp-rhel8-latest"
-      provider: "gcp"
-      size: "medium"
-      image: "RHEL8-latest"
-      region: "us-west1"
-
-    # IBM Cloud RHEL latest testing
-    - name: "ibm-rhel9-latest"
-      provider: "ibm_classic"
-      size: "medium"
-      image: "RHEL9-latest"
-      region: "us-south"
-      
-    - name: "ibm-rhel8-latest"
-      provider: "ibm_vpc"
-      size: "medium"
-      image: "RHEL8-latest"
-      region: "us-east"
-
-    # Cost-optimized RHEL deployment
-    - name: "cheapest-rhel9"
-      provider: "cheapest"
-      cores: 2
-      memory: 4096
-      image: "RHEL9-latest"
-      tags:
-        test_type: "cost_optimization"
-      region: "us-east-1"
-
-    # ARM64 RHEL testing (if supported)
-    - name: "aws-rhel9-arm64"
-      provider: "aws"
-      size: "t4g.medium"
-      image: "RHEL9-latest"
-      architecture: "arm64"
-      region: "us-east-1"
-
+  - name: aws-rhel9-latest
+    provider: aws
+    size: medium
+    image: RHEL9-latest
+    region: us-east-1
+  - name: aws-rhel8-latest
+    provider: aws
+    size: medium
+    image: RHEL8-latest
+    region: us-west-2
+  - name: azure-rhel9-latest
+    provider: azure
+    size: medium
+    image: RHEL9-latest
+    region: eastus
+  - name: azure-rhel8-latest
+    provider: azure
+    size: medium
+    image: RHEL8-latest
+    region: westus2
+  - name: gcp-rhel9-latest
+    provider: gcp
+    size: medium
+    image: RHEL9-latest
+    region: us-central1
+  - name: gcp-rhel8-latest
+    provider: gcp
+    size: medium
+    image: RHEL8-latest
+    region: us-west1
+  - name: ibm-rhel9-latest
+    provider: ibm_classic
+    size: medium
+    image: RHEL9-latest
+    region: us-south
+  - name: ibm-rhel8-latest
+    provider: ibm_vpc
+    size: medium
+    image: RHEL8-latest
+    region: us-east
+  - name: cheapest-rhel9
+    provider: cheapest
+    cores: 2
+    memory: 4096
+    image: RHEL9-latest
+    tags:
+      test_type: cost_optimization
+    region: us-east-1
+  - name: aws-rhel9-arm64
+    provider: aws
+    size: t4g.medium
+    image: RHEL9-latest
+    architecture: arm64
+    region: us-east-1
   tags:
-    test_purpose: "rhel_latest_discovery"
-    environment: "testing"
-    automated: "true" 
+    test_purpose: rhel_latest_discovery
+    environment: testing
+    automated: 'true'

@@ -1,24 +1,18 @@
 ---
-# Numeric GUID Test Example
-# Demonstrates that GUIDs can start with numbers
-
-guid: "99999"  # All numeric GUID at root level
-
+guid: '99999'
 yamlforge:
   cloud_workspace:
-    name: "numeric-guid-test"
-    description: "Testing numeric GUID support"
-    
+    name: numeric-guid-test
+    description: Testing numeric GUID support
   instances:
-    - name: "numeric-test-server"
-      provider: "aws"
-      size: "small"
-      region: "us-east-1"
-      image: "RHEL9-latest"
-      tags:
-        purpose: "numeric_guid_testing"
-        guid_type: "all_numeric"
-
+  - name: numeric-test-server
+    provider: aws
+    size: small
+    region: us-east-1
+    image: RHEL9-latest
+    tags:
+      purpose: numeric_guid_testing
+      guid_type: all_numeric
   tags:
-    environment: "testing"
-    validation: "numeric_guid_support" 
+    environment: testing
+    validation: numeric_guid_support

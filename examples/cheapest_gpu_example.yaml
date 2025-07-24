@@ -1,132 +1,89 @@
 ---
-# Cheapest GPU Meta Provider Example
-# Demonstrates the cheapest-gpu provider that ignores cores/memory and focuses purely on GPU costs
-
-guid: "cgp01"
-
+guid: cgp01
 yamlforge:
   cloud_workspace:
-    name: "cheapest-gpu-demo"
-    description: "GPU-focused cost optimization ignoring CPU/memory constraints"
+    name: cheapest-gpu-demo
+    description: GPU-focused cost optimization ignoring CPU/memory constraints
     tags:
-      use_case: "gpu_cost_optimization"
-      strategy: "ignore_cpu_memory"
-
+      use_case: gpu_cost_optimization
+      strategy: ignore_cpu_memory
   instances:
-    # Find the absolute cheapest GPU across all clouds (any type)
-    - name: "absolute-cheapest-gpu"
-      provider: "cheapest-gpu"       # NEW: Ignores cores/memory, focuses on GPU cost
-      region: "us-east-1"
-      image: "RHEL9-latest"
-      tags:
-        optimization: "absolute_cheapest"
-        gpu_requirement: "any"
-        use_case: "budget_ml"
-
-    # Find cheapest NVIDIA T4 GPU specifically
-    - name: "cheapest-t4-gpu"
-      provider: "cheapest-gpu"       # NEW: GPU-focused meta provider
-      gpu_type: "NVIDIA T4"         # Specific GPU type requirement
-      region: "us-east-1"
-      image: "RHEL9-latest"
-      tags:
-        optimization: "cheapest_t4"
-        gpu_requirement: "nvidia_t4"
-        use_case: "inference"
-
-    # Find cheapest NVIDIA V100 GPU
-    - name: "cheapest-v100-gpu"
-      provider: "cheapest-gpu"
-      gpu_type: "NVIDIA V100"       # High-performance GPU requirement
-      region: "us-east-1"
-      image: "RHEL9-latest"
-      tags:
-        optimization: "cheapest_v100"
-        gpu_requirement: "nvidia_v100"
-        use_case: "training"
-
-    # Find cheapest A100 GPU for research
-    - name: "cheapest-a100-gpu"
-      provider: "cheapest-gpu"
-      gpu_type: "NVIDIA A100"       # Latest high-end GPU
-      region: "us-west-2"
-      image: "RHEL9-latest"
-      tags:
-        optimization: "cheapest_a100"
-        gpu_requirement: "nvidia_a100"
-        use_case: "research"
-
-    # Find cheapest AMD GPU
-    - name: "cheapest-amd-gpu"
-      provider: "cheapest-gpu"
-      gpu_type: "AMD"               # AMD GPU requirement
-      region: "us-east-1"
-      image: "RHEL9-latest"
-      tags:
-        optimization: "cheapest_amd"
-        gpu_requirement: "amd"
-        use_case: "cost_effective_compute"
-
-    # Comparison: Regular cheapest provider (considers CPU/memory)
-    - name: "regular-cheapest-with-gpu"
-      provider: "cheapest"           # Original cheapest provider
-      cores: 4
-      memory: 16384
-      gpu_count: 1
-      region: "us-east-1"
-      image: "RHEL9-latest"
-      tags:
-        optimization: "balanced_cheapest"
-        comparison: "cpu_memory_gpu"
-        use_case: "comparison"
-
-  # Security group for all GPU instances
+  - name: absolute-cheapest-gpu
+    provider: cheapest-gpu
+    region: us-east-1
+    image: RHEL9-latest
+    tags:
+      optimization: absolute_cheapest
+      gpu_requirement: any
+      use_case: budget_ml
+  - name: cheapest-t4-gpu
+    provider: cheapest-gpu
+    gpu_type: NVIDIA T4
+    region: us-east-1
+    image: RHEL9-latest
+    tags:
+      optimization: cheapest_t4
+      gpu_requirement: nvidia_t4
+      use_case: inference
+  - name: cheapest-v100-gpu
+    provider: cheapest-gpu
+    gpu_type: NVIDIA V100
+    region: us-east-1
+    image: RHEL9-latest
+    tags:
+      optimization: cheapest_v100
+      gpu_requirement: nvidia_v100
+      use_case: training
+  - name: cheapest-a100-gpu
+    provider: cheapest-gpu
+    gpu_type: NVIDIA A100
+    region: us-west-2
+    image: RHEL9-latest
+    tags:
+      optimization: cheapest_a100
+      gpu_requirement: nvidia_a100
+      use_case: research
+  - name: cheapest-amd-gpu
+    provider: cheapest-gpu
+    gpu_type: AMD
+    region: us-east-1
+    image: RHEL9-latest
+    tags:
+      optimization: cheapest_amd
+      gpu_requirement: amd
+      use_case: cost_effective_compute
+  - name: regular-cheapest-with-gpu
+    provider: cheapest
+    cores: 4
+    memory: 16384
+    gpu_count: 1
+    region: us-east-1
+    image: RHEL9-latest
+    tags:
+      optimization: balanced_cheapest
+      comparison: cpu_memory_gpu
+      use_case: comparison
   security_groups:
-    - name: "gpu-workstation-sg"
-      description: "Security group for GPU workstations"
-      rules:
-        - protocol: "tcp"
-          from_port: 22
-          to_port: 22
-          cidr: "0.0.0.0/0"
-          description: "SSH access"
-        - protocol: "tcp"
-          from_port: 8888
-          to_port: 8888
-          cidr: "0.0.0.0/0"
-          description: "Jupyter notebook"
-        - protocol: "tcp"
-          from_port: 6006
-          to_port: 6006
-          cidr: "0.0.0.0/0"
-          description: "TensorBoard"
-
+  - name: gpu-workstation-sg
+    description: Security group for GPU workstations
+    rules:
+    - protocol: tcp
+      from_port: 22
+      to_port: 22
+      cidr: 0.0.0.0/0
+      description: SSH access
+    - protocol: tcp
+      from_port: 8888
+      to_port: 8888
+      cidr: 0.0.0.0/0
+      description: Jupyter notebook
+    - protocol: tcp
+      from_port: 6006
+      to_port: 6006
+      cidr: 0.0.0.0/0
+      description: TensorBoard
   tags:
-    project: "gpu-cost-optimization"
-    strategy: "cheapest-gpu-meta-provider"
-    environment: "development"
-    managed_by: "yamlforge"
-
-# Expected Behavior:
-# ==================
-# The cheapest-gpu provider will:
-# 1. Ignore CPU cores and memory specifications completely
-# 2. Find the cheapest GPU instance across ALL cloud providers
-# 3. Focus only on GPU type (if specified) and cost
-# 4. Show cost comparison for GPU instances only
-# 5. Select the absolute cheapest GPU option regardless of CPU/memory
-
-# Key Differences from Regular "cheapest" Provider:
-# =================================================
-# - Regular "cheapest": Considers cores, memory, AND GPU together
-# - NEW "cheapest-gpu": ONLY considers GPU cost, ignores cores/memory
-# - Perfect for GPU-intensive workloads where CPU/memory is secondary
-# - Useful for ML inference, training, or compute where GPU is primary constraint
-
-# Use Cases:
-# ==========
-# - ML model inference where GPU is bottleneck, CPU/memory don't matter much
-# - GPU cryptocurrency mining or distributed computing
-# - Research workloads where you need "any GPU" at lowest cost
-# - Development environments where you need GPU access on a budget
-# - Batch processing where GPU performance is the only requirement 
+    project: gpu-cost-optimization
+    strategy: cheapest-gpu-meta-provider
+    environment: development
+    managed_by: yamlforge

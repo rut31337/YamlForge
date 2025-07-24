@@ -1,155 +1,103 @@
-# =============================================================================
-# ROSA Automatic Deployment Separation Example - YamlForge
-# =============================================================================
-# This example demonstrates automatic deployment separation when multiple ROSA 
-# cluster types are deployed together. YamlForge automatically detects
-# this scenario and implements group-based deployment to handle overlapping
-# Terraform configurations.
-#
-# Features demonstrated:
-# - RHCS Terraform provider deployment method (default)
-# - Complete lifecycle management: terraform apply/destroy handles everything
-# - Automatic deployment separation for multiple cluster types (no configuration needed)
-# - ROSA Classic and HCP clusters (separate deployment groups)
-# - HyperShift management and hosted clusters (separate deployment groups)
-# - Day-2 operations always deployed last
-# - No manual cleanup scripts required (unlike ROSA CLI method)
-# =============================================================================
-
-# Global configuration
-guid: "rosa-phases"
-project_name: "rosa-multi-cluster"
-environment: "production"
-
-# AWS Configuration
+---
+guid: rosap
+project_name: rosa-multi-cluster
+environment: production
 providers:
-  - name: aws
+- name: aws
+  region: us-east-1
+yamlforge:
+  openshift_clusters:
+  - name: production-rosa-classic
+    type: rosa-classic
     region: us-east-1
-
-# OpenShift cluster configurations
-openshift_clusters:
-  # ROSA Classic cluster - automatically assigned to ROSA Classic deployment group
-  - name: "production-rosa-classic"
-    type: "rosa-classic"
-    region: "us-east-1"
-    version: "4.18.19"
-    size: "large"
-    
-    # Worker configuration
-    worker_count: 3  # Minimum for multi-AZ
+    version: 4.18.19
+    size: large
+    worker_count: 3
     multi_az: true
-    
-    # Auto-scaling
     auto_scaling:
       enabled: true
       min_replicas: 3
       max_replicas: 9
-    
-    # Networking (shared with HCP)
     networking:
-      machine_cidr: "10.0.0.0/16"
-      service_cidr: "172.30.0.0/16"
-      pod_cidr: "10.128.0.0/14"
+      machine_cidr: 10.0.0.0/16
+      service_cidr: 172.30.0.0/16
+      pod_cidr: 10.128.0.0/14
       host_prefix: 23
-    
-    # Security
     private: false
     fips_enabled: false
-    
-  # ROSA HCP cluster - automatically assigned to ROSA HCP deployment group
-  - name: "development-rosa-hcp"
-    type: "rosa-hcp"
-    region: "us-east-1"
-    version: "4.18.19"
-    size: "medium"
-    
-    # Worker configuration
-    worker_count: 6  # Recommended for HCP
-    
-    # Auto-scaling
+  - name: development-rosa-hcp
+    type: rosa-hcp
+    region: us-east-1
+    version: 4.18.19
+    size: medium
+    worker_count: 6
     auto_scaling:
       enabled: true
       min_replicas: 6
       max_replicas: 12
-    
-    # Networking (shares infrastructure with Classic)
     networking:
-      machine_cidr: "10.0.0.0/16"
-      service_cidr: "172.30.0.0/16"
-      pod_cidr: "10.128.0.0/14"
+      machine_cidr: 10.0.0.0/16
+      service_cidr: 172.30.0.0/16
+      pod_cidr: 10.128.0.0/14
       host_prefix: 23
-    
-    # Security
     private: false
-
-  # Additional ROSA HCP cluster - also automatically assigned to ROSA HCP deployment group
-  - name: "staging-rosa-hcp"
-    type: "rosa-hcp"
-    region: "us-east-1"
-    version: "4.18.19"
-    size: "small"
-    
+  - name: staging-rosa-hcp
+    type: rosa-hcp
+    region: us-east-1
+    version: 4.18.19
+    size: small
     worker_count: 3
-    
-    # Networking (shares infrastructure)
     networking:
-      machine_cidr: "10.0.0.0/16"
-      service_cidr: "172.30.0.0/16"
-      pod_cidr: "10.128.0.0/14"
+      machine_cidr: 10.0.0.0/16
+      service_cidr: 172.30.0.0/16
+      pod_cidr: 10.128.0.0/14
       host_prefix: 23
-
-  # HyperShift management cluster - automatically assigned to HyperShift management deployment group
-  - name: "hypershift-mgmt"
-    type: "rosa-classic"
-    region: "us-east-1"
-    version: "4.18.19"
-    size: "large"  # Needs to be large enough for hosted control planes
-    
+  - name: hypershift-mgmt
+    type: rosa-classic
+    region: us-east-1
+    version: 4.18.19
+    size: large
     worker_count: 3
     multi_az: true
-    
-    # Enable HyperShift operator
     hypershift:
-      role: "management"
+      role: management
       max_hosted_clusters: 50
-    
-    # Networking
     networking:
-      machine_cidr: "10.0.0.0/16"
-      service_cidr: "172.30.0.0/16"
-      pod_cidr: "10.128.0.0/14"
+      machine_cidr: 10.0.0.0/16
+      service_cidr: 172.30.0.0/16
+      pod_cidr: 10.128.0.0/14
       host_prefix: 23
-
-  # HyperShift hosted cluster - automatically assigned to HyperShift hosted deployment group
-  - name: "cost-optimized-dev"
-    type: "hypershift"
-    management_cluster: "hypershift-mgmt"
-    provider: "aws"
-    region: "us-west-2"  # Different region for cost optimization
-    version: "4.18.19"
-    size: "small"
+  - name: cost-optimized-dev
+    type: hypershift
+    management_cluster: hypershift-mgmt
+    provider: aws
+    region: us-west-2
+    version: 4.18.19
+    size: small
     worker_count: 2
-    
-    base_domain: "dev.hypershift.example.com"
-    
-    # Cost benefits: No dedicated control plane nodes, ~60-70% cost reduction
-
-# Day-2 operations (applied after all clusters are ready)
-openshift_operators:
-  - name: "monitoring-stack"
-    type: "monitoring"
-    clusters: ["production-rosa-classic", "development-rosa-hcp", "staging-rosa-hcp", "hypershift-mgmt", "cost-optimized-dev"]
+    base_domain: dev.hypershift.example.com
+  openshift_operators:
+  - name: monitoring-stack
+    type: monitoring
+    clusters:
+    - production-rosa-classic
+    - development-rosa-hcp
+    - staging-rosa-hcp
+    - hypershift-mgmt
+    - cost-optimized-dev
     config:
-      retention: "30d"
-      storage: "100Gi"
-      storageClass: "gp3"
+      retention: 30d
+      storage: 100Gi
+      storageClass: gp3
       alertmanager:
         enabled: true
-        storage: "20Gi"
-        
-  - name: "enterprise-gitops"
-    type: "gitops"
-    clusters: ["production-rosa-classic", "development-rosa-hcp", "hypershift-mgmt"]
+        storage: 20Gi
+  - name: enterprise-gitops
+    type: gitops
+    clusters:
+    - production-rosa-classic
+    - development-rosa-hcp
+    - hypershift-mgmt
     config:
       argocd:
         ha:
@@ -157,69 +105,25 @@ openshift_operators:
         server:
           resources:
             requests:
-              cpu: "500m"
-              memory: "1Gi"
+              cpu: 500m
+              memory: 1Gi
         notifications:
           enabled: true
-
-# Applications
-openshift_applications:
-  - name: "production-app"
-    type: "deployment"
-    cluster: "production-rosa-classic"
-    image: "myregistry/production-app:v1.2.3"
+  openshift_applications:
+  - name: production-app
+    type: deployment
+    cluster: production-rosa-classic
+    image: myregistry/production-app:v1.2.3
     replicas: 3
     port: 8080
-    namespace: "production"
-    
-  - name: "development-app"
-    type: "deployment"
-    cluster: "development-rosa-hcp"
-    image: "myregistry/development-app:latest"
+    namespace: production
+  - name: development-app
+    type: deployment
+    cluster: development-rosa-hcp
+    image: myregistry/development-app:latest
     replicas: 2
     port: 8080
-    namespace: "development"
-
-# =============================================================================
-# AUTOMATIC DEPLOYMENT WORKFLOW
-# =============================================================================
-#
-# When YamlForge detects multiple OpenShift cluster types, it automatically implements
-# separate deployment groups to handle Terraform configuration conflicts and dependencies:
-#
-# IMPORTANT: All deployment variables default to FALSE for safety.
-# You must explicitly enable the deployment groups you want!
-#
-# 1. ROSA CLASSIC DEPLOYMENT:
-#    terraform apply -var="deploy_rosa_classic=true"
-#    - Creates AWS infrastructure (VPC, subnets, security groups)
-#    - Deploys ROSA Classic clusters
-#    - Sets up shared OIDC configuration
-#
-# 2. ROSA HCP DEPLOYMENT (if present):
-#    terraform apply -var="deploy_rosa_classic=true" -var="deploy_rosa_hcp=true"
-#    - Deploys ROSA HCP clusters (separate from Classic to avoid Terraform conflicts)
-#    - Uses shared infrastructure and configuration
-#
-# 3. HYPERSHIFT MANAGEMENT DEPLOYMENT (if present):
-#    terraform apply -var="deploy_rosa_classic=true" -var="deploy_rosa_hcp=true" -var="deploy_hypershift_mgmt=true"
-#    - Deploys HyperShift management clusters (based on ROSA Classic)
-#    - Sets up HyperShift operator and management plane
-#
-# 4. HYPERSHIFT HOSTED DEPLOYMENT (if present):
-#    terraform apply -var="deploy_rosa_classic=true" -var="deploy_rosa_hcp=true" -var="deploy_hypershift_mgmt=true" -var="deploy_hypershift_hosted=true"
-#    - Deploys HyperShift hosted clusters (requires management clusters to be ready)
-#    - Creates worker infrastructure and hosted control planes
-#
-# 5. DAY-2 OPERATIONS (always last):
-#    terraform apply -var="deploy_rosa_classic=true" -var="deploy_rosa_hcp=true" -var="deploy_hypershift_mgmt=true" -var="deploy_hypershift_hosted=true" -var="deploy_day2_operations=true"
-#    - Deploys operators (monitoring, GitOps, etc.)
-#    - Configures applications
-#    - Sets up service accounts for cluster management
-#
-# Note: Deployment separation is automatic and only occurs when multiple cluster types are detected:
-# - ROSA Classic + ROSA HCP → Separate deployment groups (overlapping Terraform configurations)
-# - HyperShift mgmt + hosted → Separate deployment groups (management clusters must be ready first)  
-# - Day-2 operations → Always deployed last (after all clusters are ready)
-# - Single cluster type → Standard single-step deployment
-# ============================================================================= 
+    namespace: development
+  cloud_workspace:
+    name: default-workspace
+    description: Default workspace for this deployment

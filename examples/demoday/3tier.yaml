@@ -1,329 +1,233 @@
-# =============================================================================
-# Simple 3-Tier Architecture - AWS Demo
-# =============================================================================
-# Demonstrates a classic 3-tier web application architecture:
-# 1. Web Tier: Web Servers (Public Subnets)
-# 2. Application Tier: Application Servers (Private Subnets) 
-# 3. Database Tier: Database Servers (Private Subnets)
-# =============================================================================
-
+---
 yamlforge:
-  # Project Configuration
-  project: "3tier-demo"
-  location: "us-east-1"
-  guid: "3tier"
-
-  # Cloud Workspace Configuration
   cloud_workspace:
-    name: "3tier-demo"
-    description: "Simple 3-tier architecture demonstration"
+    name: 3tier-demo
+    description: Simple 3-tier architecture demonstration
     tags:
-      architecture: "3tier"
-      environment: "demo"
-
-  # Security Groups (defined at top level)
+      architecture: 3tier
+      environment: demo
   security_groups:
     web-sg:
-      description: "Web tier security group - public facing"
+      description: Web tier security group - public facing
       rules:
-        - protocol: "tcp"
-          port: 80
-          source: "0.0.0.0/0"
-          description: "HTTP from internet"
-        - protocol: "tcp" 
-          port: 443
-          source: "0.0.0.0/0"
-          description: "HTTPS from internet"
-        - protocol: "tcp"
-          port: 22
-          source: "10.0.0.0/16"
-          description: "SSH from VPC"
-
+      - protocol: tcp
+        port: 80
+        source: 0.0.0.0/0
+        description: HTTP from internet
+      - protocol: tcp
+        port: 443
+        source: 0.0.0.0/0
+        description: HTTPS from internet
+      - protocol: tcp
+        port: 22
+        source: 10.0.0.0/16
+        description: SSH from VPC
     app-sg:
-      description: "Application tier security group - internal"
+      description: Application tier security group - internal
       rules:
-        - protocol: "tcp"
-          port: 8080
-          source: "10.0.1.0/24"
-          description: "HTTP from web tier subnet"
-        - protocol: "tcp"
-          port: 8443
-          source: "10.0.1.0/24" 
-          description: "HTTPS from web tier subnet"
-        - protocol: "tcp"
-          port: 22
-          source: "10.0.0.0/16"
-          description: "SSH from VPC"
-
+      - protocol: tcp
+        port: 8080
+        source: 10.0.1.0/24
+        description: HTTP from web tier subnet
+      - protocol: tcp
+        port: 8443
+        source: 10.0.1.0/24
+        description: HTTPS from web tier subnet
+      - protocol: tcp
+        port: 22
+        source: 10.0.0.0/16
+        description: SSH from VPC
     db-sg:
-      description: "Database tier security group - restricted"
+      description: Database tier security group - restricted
       rules:
-        - protocol: "tcp"
-          port: 3306
-          source: "10.0.3.0/24"
-          description: "MySQL from app tier subnet"
-        - protocol: "tcp"
-          port: 5432
-          source: "10.0.3.0/24"
-          description: "PostgreSQL from app tier subnet"
-        - protocol: "tcp"
-          port: 22
-          source: "10.0.0.0/16"
-          description: "SSH from VPC"
-
-  # Network Configuration
-  network:
-    name: "3tier-network"
-    cidr: "10.0.0.0/16"
-    
-  subnets:
-    web-subnet:
-      cidr: "10.0.1.0/24"
-      availability_zone: "us-east-1a"
-      description: "Web tier public subnet"
-      tier: "public"
-      
-    app-subnet:
-      cidr: "10.0.3.0/24"
-      availability_zone: "us-east-1a"
-      description: "Application tier private subnet"
-      tier: "private"
-      
-    db-subnet:
-      cidr: "10.0.5.0/24"
-      availability_zone: "us-east-1a"  
-      description: "Database tier private subnet"
-      tier: "private"
-
-  # Infrastructure Instances
+      - protocol: tcp
+        port: 3306
+        source: 10.0.3.0/24
+        description: MySQL from app tier subnet
+      - protocol: tcp
+        port: 5432
+        source: 10.0.3.0/24
+        description: PostgreSQL from app tier subnet
+      - protocol: tcp
+        port: 22
+        source: 10.0.0.0/16
+        description: SSH from VPC
   instances:
-    # =============================================================================
-    # WEB TIER - Frontend web server (public subnet)
-    # =============================================================================
-    - name: "web-server-1"
-      provider: "aws"
-      image: "rhel9-latest"
-      size: "small"
-      region: "us-east-1"
-      
-      # Public subnet for web server
-      networking:
-        public: true
-      subnet: "web-subnet"
-        
-      # Security groups for web tier
-      security_groups: ["web-sg"]
-      
-      # User data for web server setup
-      user_data: |
-        #!/bin/bash
-        dnf update -y
-        dnf install -y httpd
-        systemctl start httpd
-        systemctl enable httpd
-        
-        # Simple web page with proxy to app tier
-        cat > /var/www/html/index.html << EOF
-        <html>
-        <head><title>3-Tier Demo - Web Tier</title></head>
-        <body>
-        <h1>Web Tier - Frontend</h1>
-        <p>This is the presentation layer of our 3-tier architecture.</p>
-        <p>Server: $(hostname)</p>
-        <p>Region: us-east-1</p>
-        <p><a href="/app">Connect to Application Tier</a></p>
-        </body>
-        </html>
-        EOF
-        
-        # Configure reverse proxy to app servers
-        cat > /etc/httpd/conf.d/proxy.conf << EOF
-        LoadModule proxy_module modules/mod_proxy.so
-        LoadModule proxy_http_module modules/mod_proxy_http.so
-        
-        ProxyPass /app http://app-server-1:8080/
-        ProxyPassReverse /app http://app-server-1:8080/
-        EOF
-        
-        systemctl restart httpd
-        
-      tags:
-        Tier: "Web"
-        Role: "Frontend"
-        Environment: "Demo"
+  - name: web-server-1
+    provider: aws
+    image: rhel9-latest
+    size: small
+    region: us-east-1
+    networking:
+      public: true
+    subnet: web-subnet
+    security_groups:
+    - web-sg
+    user_data: '#!/bin/bash
 
-    # =============================================================================
-    # APPLICATION TIER - Business logic server (private subnet)
-    # =============================================================================
-    - name: "app-server-1"
-      provider: "aws"
-      image: "rhel9-latest"
-      size: "small"
-      region: "us-east-1"
-      
-      # Private subnet for application server
-      networking:
-        public: false
-      subnet: "app-subnet"
-        
-      # Security groups for application tier
-      security_groups: ["app-sg"]
-      
-      # User data for application server setup
-      user_data: |
-        #!/bin/bash
-        dnf update -y
-        dnf install -y python3 python3-pip
-        
-        # Create simple app service
-        mkdir -p /opt/app
-        cat > /opt/app/app.py << EOF
-        #!/usr/bin/env python3
-        from http.server import HTTPServer, BaseHTTPRequestHandler
-        import socket
-        import subprocess
-        
-        class AppHandler(BaseHTTPRequestHandler):
-            def do_GET(self):
-                self.send_response(200)
-                self.send_header('Content-type', 'text/html')
-                self.end_headers()
-                hostname = socket.gethostname()
-                
-                # Simulate database connection
-                db_status = "Connected to Database Tier"
-                
-                response = f"""
-                <html>
-                <head><title>3-Tier Demo - Application Tier</title></head>
-                <body>
-                <h1>Application Tier - Business Logic</h1>
-                <p>This is the application/logic layer.</p>
-                <p>Server: {hostname}</p>
-                <p>Processing business logic...</p>
-                <p>Database Status: {db_status}</p>
-                <p><a href="/">Back to Web Tier</a></p>
-                </body>
-                </html>
-                """
-                self.wfile.write(response.encode())
-        
-        if __name__ == "__main__":
-            server = HTTPServer(('0.0.0.0', 8080), AppHandler)
-            print("Application server starting on port 8080...")
-            server.serve_forever()
-        EOF
-        
-        chmod +x /opt/app/app.py
-        
-        # Create systemd service
-        cat > /etc/systemd/system/app.service << EOF
-        [Unit]
-        Description=3-Tier Demo Application
-        After=network.target
-        
-        [Service]
-        Type=simple
-        User=root
-        WorkingDirectory=/opt/app
-        ExecStart=/usr/bin/python3 /opt/app/app.py
-        Restart=always
-        
-        [Install]
-        WantedBy=multi-user.target
-        EOF
-        
-        systemctl enable app.service
-        systemctl start app.service
-        
-      tags:
-        Tier: "Application"
-        Role: "BusinessLogic"
-        Environment: "Demo"
+      dnf update -y
 
-    # =============================================================================  
-    # DATABASE TIER - Data storage server (private subnet)
-    # =============================================================================
-    - name: "db-server-1"
-      provider: "aws"
-      image: "rhel9-latest" 
-      size: "small"
-      region: "us-east-1"
-      
-      # Private subnet for database server
-      networking:
-        public: false
-      subnet: "db-subnet"
-        
-      # Security groups for database tier
-      security_groups: ["db-sg"]
-      
-      # User data for database server setup
-      user_data: |
-        #!/bin/bash
-        dnf update -y
-        dnf install -y mariadb-server
-        systemctl start mariadb
-        systemctl enable mariadb
-        
-        # Secure installation
-        mysql -e "UPDATE mysql.user SET Password = PASSWORD('demo123') WHERE User = 'root'"
-        mysql -e "DELETE FROM mysql.user WHERE User = ''"
-        mysql -e "DELETE FROM mysql.user WHERE User = 'root' AND Host NOT IN ('localhost', '127.0.0.1', '::1')"
-        mysql -e "DROP DATABASE IF EXISTS test"
-        mysql -e "DELETE FROM mysql.db WHERE Db = 'test' OR Db = 'test\\_%'"
-        mysql -e "FLUSH PRIVILEGES"
-        
-        # Create demo database and user for app servers
-        mysql -u root -pdemo123 -e "CREATE DATABASE demo_app"
-        mysql -u root -pdemo123 -e "CREATE USER 'appuser'@'%' IDENTIFIED BY 'apppass123'"
-        mysql -u root -pdemo123 -e "GRANT ALL PRIVILEGES ON demo_app.* TO 'appuser'@'%'"
-        mysql -u root -pdemo123 -e "CREATE TABLE demo_app.users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
-        mysql -u root -pdemo123 -e "INSERT INTO demo_app.users (name, email) VALUES ('Demo User', 'demo@example.com'), ('Test User', 'test@example.com')"
-        mysql -u root -pdemo123 -e "FLUSH PRIVILEGES"
-        
-        # Configure MariaDB to accept connections from app tier
-        sed -i 's/bind-address.*/bind-address = 0.0.0.0/' /etc/my.cnf.d/mariadb-server.cnf
-        systemctl restart mariadb
-        
-      tags:
-        Tier: "Database"
-        Role: "DataStorage" 
-        Environment: "Demo"
+      dnf install -y httpd
 
-  # Global tags applied to all resources
+      systemctl start httpd
+
+      systemctl enable httpd
+
+
+      # Simple web page with proxy to app tier
+
+      cat > /var/www/html/index.html << EOF
+
+      <html>
+
+      <head><title>3-Tier Demo - Web Tier</title></head>
+
+      <body>
+
+      <h1>Web Tier - Frontend</h1>
+
+      <p>This is the presentation layer of our 3-tier architecture.</p>
+
+      <p>Server: $(hostname)</p>
+
+      <p>Region: us-east-1</p>
+
+      <p><a href="/app">Connect to Application Tier</a></p>
+
+      </body>
+
+      </html>
+
+      EOF
+
+
+      # Configure reverse proxy to app servers
+
+      cat > /etc/httpd/conf.d/proxy.conf << EOF
+
+      LoadModule proxy_module modules/mod_proxy.so
+
+      LoadModule proxy_http_module modules/mod_proxy_http.so
+
+
+      ProxyPass /app http://app-server-1:8080/
+
+      ProxyPassReverse /app http://app-server-1:8080/
+
+      EOF
+
+
+      systemctl restart httpd
+
+      '
+    tags:
+      Tier: Web
+      Role: Frontend
+      Environment: Demo
+  - name: app-server-1
+    provider: aws
+    image: rhel9-latest
+    size: small
+    region: us-east-1
+    networking:
+      public: false
+    subnet: app-subnet
+    security_groups:
+    - app-sg
+    user_data: "#!/bin/bash\ndnf update -y\ndnf install -y python3 python3-pip\n\n\
+      # Create simple app service\nmkdir -p /opt/app\ncat > /opt/app/app.py << EOF\n\
+      #!/usr/bin/env python3\nfrom http.server import HTTPServer, BaseHTTPRequestHandler\n\
+      import socket\nimport subprocess\n\nclass AppHandler(BaseHTTPRequestHandler):\n\
+      \    def do_GET(self):\n        self.send_response(200)\n        self.send_header('Content-type',\
+      \ 'text/html')\n        self.end_headers()\n        hostname = socket.gethostname()\n\
+      \        \n        # Simulate database connection\n        db_status = \"Connected\
+      \ to Database Tier\"\n        \n        response = f\"\"\"\n        <html>\n\
+      \        <head><title>3-Tier Demo - Application Tier</title></head>\n      \
+      \  <body>\n        <h1>Application Tier - Business Logic</h1>\n        <p>This\
+      \ is the application/logic layer.</p>\n        <p>Server: {hostname}</p>\n \
+      \       <p>Processing business logic...</p>\n        <p>Database Status: {db_status}</p>\n\
+      \        <p><a href=\"/\">Back to Web Tier</a></p>\n        </body>\n      \
+      \  </html>\n        \"\"\"\n        self.wfile.write(response.encode())\n\n\
+      if __name__ == \"__main__\":\n    server = HTTPServer(('0.0.0.0', 8080), AppHandler)\n\
+      \    print(\"Application server starting on port 8080...\")\n    server.serve_forever()\n\
+      EOF\n\nchmod +x /opt/app/app.py\n\n# Create systemd service\ncat > /etc/systemd/system/app.service\
+      \ << EOF\n[Unit]\nDescription=3-Tier Demo Application\nAfter=network.target\n\
+      \n[Service]\nType=simple\nUser=root\nWorkingDirectory=/opt/app\nExecStart=/usr/bin/python3\
+      \ /opt/app/app.py\nRestart=always\n\n[Install]\nWantedBy=multi-user.target\n\
+      EOF\n\nsystemctl enable app.service\nsystemctl start app.service\n"
+    tags:
+      Tier: Application
+      Role: BusinessLogic
+      Environment: Demo
+  - name: db-server-1
+    provider: aws
+    image: rhel9-latest
+    size: small
+    region: us-east-1
+    networking:
+      public: false
+    subnet: db-subnet
+    security_groups:
+    - db-sg
+    user_data: '#!/bin/bash
+
+      dnf update -y
+
+      dnf install -y mariadb-server
+
+      systemctl start mariadb
+
+      systemctl enable mariadb
+
+
+      # Secure installation
+
+      mysql -e "UPDATE mysql.user SET Password = PASSWORD(''demo123'') WHERE User
+      = ''root''"
+
+      mysql -e "DELETE FROM mysql.user WHERE User = ''''"
+
+      mysql -e "DELETE FROM mysql.user WHERE User = ''root'' AND Host NOT IN (''localhost'',
+      ''127.0.0.1'', ''::1'')"
+
+      mysql -e "DROP DATABASE IF EXISTS test"
+
+      mysql -e "DELETE FROM mysql.db WHERE Db = ''test'' OR Db = ''test\\_%''"
+
+      mysql -e "FLUSH PRIVILEGES"
+
+
+      # Create demo database and user for app servers
+
+      mysql -u root -pdemo123 -e "CREATE DATABASE demo_app"
+
+      mysql -u root -pdemo123 -e "CREATE USER ''appuser''@''%'' IDENTIFIED BY ''apppass123''"
+
+      mysql -u root -pdemo123 -e "GRANT ALL PRIVILEGES ON demo_app.* TO ''appuser''@''%''"
+
+      mysql -u root -pdemo123 -e "CREATE TABLE demo_app.users (id INT AUTO_INCREMENT
+      PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), created_at TIMESTAMP DEFAULT
+      CURRENT_TIMESTAMP)"
+
+      mysql -u root -pdemo123 -e "INSERT INTO demo_app.users (name, email) VALUES
+      (''Demo User'', ''demo@example.com''), (''Test User'', ''test@example.com'')"
+
+      mysql -u root -pdemo123 -e "FLUSH PRIVILEGES"
+
+
+      # Configure MariaDB to accept connections from app tier
+
+      sed -i ''s/bind-address.*/bind-address = 0.0.0.0/'' /etc/my.cnf.d/mariadb-server.cnf
+
+      systemctl restart mariadb
+
+      '
+    tags:
+      Tier: Database
+      Role: DataStorage
+      Environment: Demo
   tags:
-    project: "3tier-demo"
-    architecture: "3tier"
-    environment: "demo"
-    managed_by: "yamlforge"
-
-# =============================================================================
-# DEPLOYMENT INSTRUCTIONS
-# =============================================================================
-# 
-# Deploy this 3-tier architecture:
-# 1. Generate terraform: yamlforge examples/demoday/3tier.yaml -d terraform-3tier/
-# 2. Change to the generated directory: cd terraform-3tier/
-# 3. Deploy infrastructure: terraform init && terraform apply
-# 
-# Architecture Overview:
-# ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-# │   WEB TIER      │    │   APP TIER      │    │   DB TIER       │
-# │   (Public)      │    │   (Private)     │    │   (Private)     │
-# │                 │    │                 │    │                 │
-# │ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-# │ │Web Server 1 │ │────▶│ │App Server 1 │ │────▶│ │DB Server 1  │ │
-# │ │   Apache    │ │    │ │   Python    │ │    │ │  MariaDB    │ │
-# │ └─────────────┘ │    │ └─────────────┘ │    │ └─────────────┘ │
-# └─────────────────┘    └─────────────────┘    └─────────────────┘
-#
-# Traffic Flow:
-# Internet → Web Server (Port 80) → App Server (Port 8080) → Database Server (Port 3306)
-#
-# Access:
-# - Web server is publicly accessible via its public IP on port 80
-# - App server is only accessible from web server on port 8080
-# - Database server is only accessible from app server on port 3306
-# - SSH access (port 22) is available from within the VPC only
-# ============================================================================= 
+    project: 3tier-demo
+    architecture: 3tier
+    environment: demo
+    managed_by: yamlforge

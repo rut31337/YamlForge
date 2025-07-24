@@ -1,172 +1,141 @@
-name: "Complete Multi-Cloud OpenShift Platform"
-description: "OpenShift deployment across AWS (ROSA), Azure (ARO), and GCP (self-managed) with supporting infrastructure"
-
-# Traditional infrastructure (supporting services)
-instances:
-  - name: "jumphost-aws"
-    provider: "aws"
-    size: "small"
-    image: "RHEL9-latest"
-    region: "us-east-1"
-    user_data_script: |
-      #!/bin/bash
-      yum update -y
-      yum install -y curl wget git
-      # Install OpenShift CLI
-      curl -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz | tar -xz -C /usr/local/bin/
-      chmod +x /usr/local/bin/oc
-      
-  - name: "database-gcp"
-    provider: "gcp"
-    size: "memory_large"
-    image: "RHEL9-latest"
-    region: "us-central1"
-    zone: "us-central1-a"
-    user_data_script: |
-      #!/bin/bash
-      yum update -y
-      yum install -y postgresql-server postgresql-contrib
-      postgresql-setup --initdb
-      systemctl enable postgresql
-      systemctl start postgresql
-
-# Complete multi-cloud OpenShift deployment
-openshift_clusters:
-  # Production cluster on AWS using ROSA
-  - name: "prod-us-east"
-    type: "rosa-classic"                  # AWS managed OpenShift with customer infrastructure
-    region: "us-east-1"
-    size: "medium"                        # 3 masters, 3 workers
-    version: "4.14.15"
-    
-    # Auto-scaling configuration
-    min_replicas: 3
-    max_replicas: 8
-    
-    # ROSA-specific features
-    private: false
-    addons:
-      - "cluster-logging-operator"
-      - "aws-load-balancer-operator"
-      
-  # Production cluster in Europe using ARO
-  - name: "prod-eu-west"
-    type: "aro"                           # Azure managed OpenShift
-    region: "westeurope"
-    size: "medium"
-    version: "4.14.15"
-    
-    worker_count: 3
-    worker_disk_size: 128
-    
-    # ARO-specific networking
-    networking:
-      vnet_cidr: "10.1.0.0/16"
-      master_subnet_cidr: "10.1.0.0/24"
-      worker_subnet_cidr: "10.1.1.0/24"
-      pod_cidr: "10.128.0.0/14"
-      service_cidr: "172.30.0.0/16"
-    
-    # Security settings
-    private: false
-    fips_enabled: false
-    
-  # Production cluster in Asia-Pacific using self-managed OpenShift on GCP
-  - name: "prod-asia-central"
-    type: "self-managed"                  # Self-managed OpenShift
-    provider: "gcp"                       # Deploy on GCP infrastructure
-    region: "us-central1"
-    zone: "us-central1-a"
-    size: "medium"                        # 3 masters, 3 workers
-    version: "4.14.15"
-    
-    base_domain: "asia.openshift.example.com"
-    worker_count: 3
-    
-    # GCP-specific networking
-    networking:
-      machine_cidr: "10.2.0.0/16"
-      service_cidr: "172.30.0.0/16"
-      pod_cidr: "10.128.0.0/14"
-    
-    # Installation configuration
-    installation:
-      method: "upi"
-      
-  # Development clusters across clouds
-  - name: "dev-aws"
-    type: "rosa-hcp"
-    region: "us-west-2"                   # Cheaper region
-    size: "small"                         # 3 masters, 2 workers
-    version: "4.14.15"
-    min_replicas: 2
-    max_replicas: 4
-    
-  - name: "dev-gcp"
-    type: "self-managed"
-    provider: "gcp"                   # Deploy on GCP infrastructure
-    region: "us-west1"
-    zone: "us-west1-a"
-    size: "small"
-    version: "4.14.15"
-    worker_count: 2
-    base_domain: "dev.openshift.example.com"
-    
-  # OpenShift Dedicated for enterprise workloads
-  - name: "enterprise-dedicated-aws"
-    type: "openshift-dedicated"
-    cloud_provider: "aws"                 # Run on AWS infrastructure
-    region: "us-east-1"
-    size: "large"
-    version: "4.14.15"
-    
-    dedicated:
-      support_level: "premium"
-      maintenance_window: "sunday-2am"
-      compliance: ["SOC2", "HIPAA"]
-      
-    multi_az: true
-    
-  - name: "enterprise-dedicated-gcp"
-    type: "openshift-dedicated"
-    cloud_provider: "gcp"                 # Run on GCP infrastructure  
-    region: "us-central1"
-    size: "large"
-    version: "4.14.15"
-    
-    dedicated:
-      support_level: "premium"
-      maintenance_window: "sunday-3am"
-      compliance: ["SOC2"]
-
-# Future: Applications across all clusters
-# openshift_applications:
-#   - name: "global-api"
-#     clusters: ["prod-us-east", "prod-eu-west", "prod-asia-central"]
-#     namespace: "production"
-#     image: "quay.io/myorg/api:v1.0.0"
-#     replicas: 3
-#     
-#   - name: "regional-frontend"
-#     cluster_mapping:
-#       prod-us-east: "quay.io/myorg/frontend:us-v1.0.0"
-#       prod-eu-west: "quay.io/myorg/frontend:eu-v1.0.0"
-#       prod-asia-central: "quay.io/myorg/frontend:asia-v1.0.0"
-
-# Networking configuration
+---
+name: Complete Multi-Cloud OpenShift Platform
+description: OpenShift deployment across AWS (ROSA), Azure (ARO), and GCP (self-managed)
+  with supporting infrastructure
 networking:
   enable_cross_cloud: true
-  
-# Security configuration  
 security:
   ssh_keys:
-    - name: "admin-key"
-      public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... admin@example.com"
-      
-# Tags applied to all resources
-tags:
-  Environment: "production"
-  Project: "global-openshift-platform"
-  Owner: "platform-team"
-  CostCenter: "engineering"
-  Deployment: "multi-cloud" 
+  - name: admin-key
+    public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... admin@example.com
+yamlforge:
+  instances:
+  - name: jumphost-aws
+    provider: aws
+    size: small
+    image: RHEL9-latest
+    region: us-east-1
+    user_data_script: '#!/bin/bash
+
+      yum update -y
+
+      yum install -y curl wget git
+
+      # Install OpenShift CLI
+
+      curl -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz
+      | tar -xz -C /usr/local/bin/
+
+      chmod +x /usr/local/bin/oc
+
+      '
+  - name: database-gcp
+    provider: gcp
+    size: memory_large
+    image: RHEL9-latest
+    region: us-central1
+    zone: us-central1-a
+    user_data_script: '#!/bin/bash
+
+      yum update -y
+
+      yum install -y postgresql-server postgresql-contrib
+
+      postgresql-setup --initdb
+
+      systemctl enable postgresql
+
+      systemctl start postgresql
+
+      '
+  openshift_clusters:
+  - name: prod-us-east
+    type: rosa-classic
+    region: us-east-1
+    size: medium
+    version: 4.14.15
+    min_replicas: 3
+    max_replicas: 8
+    private: false
+    addons:
+    - cluster-logging-operator
+    - aws-load-balancer-operator
+  - name: prod-eu-west
+    type: aro
+    region: westeurope
+    size: medium
+    version: 4.14.15
+    worker_count: 3
+    worker_disk_size: 128
+    networking:
+      vnet_cidr: 10.1.0.0/16
+      master_subnet_cidr: 10.1.0.0/24
+      worker_subnet_cidr: 10.1.1.0/24
+      pod_cidr: 10.128.0.0/14
+      service_cidr: 172.30.0.0/16
+    private: false
+    fips_enabled: false
+  - name: prod-asia-central
+    type: self-managed
+    provider: gcp
+    region: us-central1
+    zone: us-central1-a
+    size: medium
+    version: 4.14.15
+    base_domain: asia.openshift.example.com
+    worker_count: 3
+    networking:
+      machine_cidr: 10.2.0.0/16
+      service_cidr: 172.30.0.0/16
+      pod_cidr: 10.128.0.0/14
+    installation:
+      method: upi
+  - name: dev-aws
+    type: rosa-hcp
+    region: us-west-2
+    size: small
+    version: 4.14.15
+    min_replicas: 2
+    max_replicas: 4
+  - name: dev-gcp
+    type: self-managed
+    provider: gcp
+    region: us-west1
+    zone: us-west1-a
+    size: small
+    version: 4.14.15
+    worker_count: 2
+    base_domain: dev.openshift.example.com
+  - name: enterprise-dedicated-aws
+    type: openshift-dedicated
+    cloud_provider: aws
+    region: us-east-1
+    size: large
+    version: 4.14.15
+    dedicated:
+      support_level: premium
+      maintenance_window: sunday-2am
+      compliance:
+      - SOC2
+      - HIPAA
+    multi_az: true
+  - name: enterprise-dedicated-gcp
+    type: openshift-dedicated
+    cloud_provider: gcp
+    region: us-central1
+    size: large
+    version: 4.14.15
+    dedicated:
+      support_level: premium
+      maintenance_window: sunday-3am
+      compliance:
+      - SOC2
+  tags:
+    Environment: production
+    Project: global-openshift-platform
+    Owner: platform-team
+    CostCenter: engineering
+    Deployment: multi-cloud
+  cloud_workspace:
+    name: default-workspace
+    description: Default workspace for this deployment
