@@ -4,13 +4,17 @@ YamlForge - Multi-Cloud Infrastructure as Code and PaaS Management Suite
 ⚠️  ALPHA SOFTWARE WARNING ⚠️
 This is v0.99 ALPHA - Work in Progress
 This software may not work as expected and could break at any time.
-Use at your own risk. Not recommended for production environments.
+Use at your own risk. Not yet recommended for production environments.
 
-A comprehensive enterprise-grade platform for managing multi-cloud infrastructure
+A comprehensive platform for managing multi-cloud infrastructure
 and Platform-as-a-Service deployments through unified YAML definitions.
 
 Supports all major cloud providers: AWS, Azure, GCP, IBM Cloud, Oracle Cloud,
 Alibaba Cloud, and VMware with advanced OpenShift/Kubernetes PaaS management.
+
+Currently Tested And Working:
+* AWS
+* GCP
 
 Main Components:
 - Core: Shared functionality and base classes  

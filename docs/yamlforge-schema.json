@@ -1,0 +1,284 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "YamlForge Configuration Schema",
+  "description": "Complete schema for YamlForge YAML configuration files",
+  "type": "object",
+  "required": ["guid"],
+  "properties": {
+    "guid": {
+      "type": "string",
+      "pattern": "^[a-z0-9]{5}$",
+      "description": "Unique 5-character identifier (lowercase alphanumeric)",
+      "examples": ["web01", "app42", "test1", "prod1", "dev99"]
+    },
+    "yamlforge": {
+      "type": "object",
+      "description": "Legacy wrapper for configuration (optional, but still supported)",
+      "properties": {
+        "cloud_workspace": {"$ref": "#/definitions/cloud_workspace"},
+        "instances": {"$ref": "#/definitions/instances"},
+        "openshift_clusters": {"$ref": "#/definitions/openshift_clusters"},
+        "openshift_operators": {"$ref": "#/definitions/openshift_operators"},
+        "openshift_applications": {"$ref": "#/definitions/openshift_applications"}
+      }
+    },
+    "cloud_workspace": {"$ref": "#/definitions/cloud_workspace"},
+    "instances": {"$ref": "#/definitions/instances"},
+    "openshift_clusters": {"$ref": "#/definitions/openshift_clusters"},
+    "openshift_operators": {"$ref": "#/definitions/openshift_operators"},
+    "openshift_applications": {"$ref": "#/definitions/openshift_applications"}
+  },
+  "definitions": {
+    "cloud_workspace": {
+      "type": "object",
+      "description": "Optional workspace configuration for organization",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Workspace name for organization"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the workspace purpose"
+        }
+      }
+    },
+    "instances": {
+      "type": "array",
+      "description": "Array of cloud instances to deploy",
+      "items": {
+        "type": "object",
+        "required": ["name", "provider"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique name for the instance"
+          },
+          "provider": {
+            "type": "string",
+            "enum": ["aws", "azure", "gcp", "oci", "ibm_vpc", "ibm_classic", "vmware", "alibaba", "cheapest"],
+            "description": "Cloud provider or 'cheapest' for automatic cost optimization"
+          },
+          "region": {
+            "type": "string",
+            "description": "Cloud region (e.g., us-east-1, eastus, us-central1)"
+          },
+          "size": {
+            "type": "string",
+            "enum": ["nano", "micro", "small", "medium", "large", "xlarge", "2xlarge", "gpu_small", "gpu_medium", "gpu_large", "compute_large", "memory_large"],
+            "description": "Instance size category"
+          },
+          "flavor": {
+            "type": "string",
+            "description": "Cloud-specific instance type (e.g., t3.medium, Standard_D4s_v3)"
+          },
+          "image": {
+            "type": "string",
+            "description": "Operating system image (e.g., RHEL9-latest, RHEL9-GOLD-latest, Ubuntu22-latest)",
+            "default": "RHEL9-latest"
+          },
+          "cores": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Number of CPU cores (alternative to size)"
+          },
+          "memory": {
+            "type": "integer",
+            "minimum": 512,
+            "description": "Memory in MB (alternative to size)"
+          },
+          "gpu_type": {
+            "type": "string",
+            "enum": ["nvidia-tesla-v100", "nvidia-tesla-k80", "nvidia-tesla-t4", "nvidia-a100", "nvidia-v100"],
+            "description": "GPU type for AI/ML workloads"
+          },
+          "gpu_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8,
+            "description": "Number of GPUs"
+          },
+          "ssh_key": {
+            "type": "string",
+            "description": "SSH public key for access"
+          },
+          "security_groups": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Security group names"
+          },
+          "tags": {
+            "type": "object",
+            "description": "Key-value tags for resource organization",
+            "additionalProperties": {"type": "string"}
+          }
+        }
+      }
+    },
+    "openshift_clusters": {
+      "type": "array",
+      "description": "Array of OpenShift clusters to deploy",
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "provider"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique cluster name"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["rosa-classic", "rosa-hcp", "aro", "openshift-dedicated", "self-managed", "hypershift-mgmt", "hypershift-hosted"],
+            "description": "OpenShift cluster type"
+          },
+          "provider": {
+            "type": "string",
+            "enum": ["aws", "azure", "gcp", "oci", "ibm_vpc", "vmware"],
+            "description": "Cloud provider for the cluster"
+          },
+          "region": {
+            "type": "string",
+            "description": "Cloud region for cluster deployment"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^4\\.[0-9]+",
+            "description": "OpenShift version (e.g., 4.18, 4.19)",
+            "default": "4.19"
+          },
+          "size": {
+            "type": "string",
+            "enum": ["micro", "small", "medium", "large", "xlarge"],
+            "description": "Cluster size category"
+          },
+          "worker_count": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Number of worker nodes (must be multiple of 3 for ROSA HCP)"
+          },
+          "min_replicas": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Minimum worker nodes for autoscaling"
+          },
+          "max_replicas": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Maximum worker nodes for autoscaling"
+          },
+          "billing_account": {
+            "type": "string",
+            "description": "AWS billing account ID for ROSA HCP clusters"
+          },
+          "auto_scaling": {
+            "type": "object",
+            "description": "Autoscaling configuration",
+            "properties": {
+              "enabled": {"type": "boolean"},
+              "min_replicas": {"type": "integer", "minimum": 1},
+              "max_replicas": {"type": "integer", "minimum": 1}
+            }
+          },
+          "networking": {
+            "type": "object",
+            "description": "Cluster networking configuration",
+            "properties": {
+              "machine_cidr": {
+                "type": "string",
+                "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+/[0-9]+$",
+                "description": "Machine network CIDR"
+              },
+              "pod_cidr": {
+                "type": "string",
+                "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+/[0-9]+$",
+                "description": "Pod network CIDR"
+              },
+              "service_cidr": {
+                "type": "string",
+                "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+/[0-9]+$",
+                "description": "Service network CIDR"
+              }
+            }
+          }
+        }
+      }
+    },
+    "openshift_operators": {
+      "type": "array",
+      "description": "Array of OpenShift operators to deploy",
+      "items": {
+        "type": "object",
+        "required": ["type", "name"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["monitoring", "logging", "gitops", "pipelines", "serverless", "service-mesh", "cert-manager", "storage", "backup"],
+            "description": "Operator type"
+          },
+          "name": {
+            "type": "string",
+            "description": "Operator instance name"
+          },
+          "target_cluster": {
+            "type": "string",
+            "description": "Target cluster name (must match a cluster name)"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether the operator should be enabled"
+          }
+        }
+      }
+    },
+    "openshift_applications": {
+      "type": "array",
+      "description": "Array of applications to deploy on OpenShift",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Application name"
+          },
+          "target_cluster": {
+            "type": "string",
+            "description": "Target cluster name (must match a cluster name)"
+          },
+          "namespace": {
+            "type": "string",
+            "description": "Kubernetes namespace",
+            "default": "default"
+          },
+          "deployment": {
+            "type": "object",
+            "description": "Deployment configuration",
+            "properties": {
+              "replicas": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Number of replicas"
+              },
+              "containers": {
+                "type": "array",
+                "description": "Container configurations",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {"type": "string"},
+                    "image": {"type": "string"},
+                    "ports": {
+                      "type": "array",
+                      "items": {"type": "integer"}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+} 

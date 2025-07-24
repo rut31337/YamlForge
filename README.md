@@ -1,6 +1,6 @@
 # YamlForge - Multi-Cloud Infrastructure as Code and OpenShift Management Suite
 
-**Enterprise-grade platform for managing multi-cloud infrastructure and OpenShift deployments through unified YAML definitions.**
+**Platform for managing multi-cloud infrastructure and OpenShift deployments through unified YAML definitions.**
 
 A comprehensive tool that generates Terraform configurations from simple YAML specifications, supporting multiple cloud providers and OpenShift platforms with automated deployment capabilities.
 
@@ -32,6 +32,21 @@ cd output/
 terraform init && terraform apply
 ```
 
+### AI-Assisted Configuration
+Use AI assistants to generate YamlForge configurations from natural language:
+
+```bash
+# Ask your AI assistant:
+"Create a YamlForge YAML configuration for: 
+'Production OpenShift cluster on AWS with monitoring and a sample web application'"
+
+# AI generates valid YAML following our schema
+# Save the output and deploy with YamlForge
+python yamlforge.py ai-generated-config.yaml -d output/ --auto-deploy
+```
+
+See [AI Prompt Engineering Guide](docs/ai-prompts.md) for detailed prompting techniques.
+
 ## Supported Platforms
 
 ### Cloud Providers
@@ -61,6 +76,7 @@ terraform init && terraform apply
 - **Smart Detection** - Only includes Terraform providers you use
 - **Unified Deployment** - Single command deploys infrastructure and OpenShift clusters
 - **ROSA Integration** - Automated ROSA account role creation via CLI
+- **AI-Friendly** - Generate configurations from natural language using AI assistants
 
 ## Documentation
 
@@ -86,6 +102,11 @@ terraform init && terraform apply
 - [Mappings & Flavors](configuration/mappings.md)
 - [Credentials Setup](configuration/credentials.md)
 - [Networking](configuration/networking.md)
+
+### AI Assistance
+- [AI Training Guide](docs/ai-training.md) - Comprehensive AI training materials
+- [AI Prompt Engineering](docs/ai-prompts.md) - User guide for AI-generated configurations
+- [JSON Schema](docs/yamlforge-schema.json) - Complete schema for AI validation
 
 ### Help
 - [Troubleshooting](troubleshooting.md)
