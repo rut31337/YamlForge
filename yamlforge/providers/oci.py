@@ -120,7 +120,8 @@ class OCIProvider:
 
         if size_mapping:
             # Return the first (preferred) shape for this size
-            return list(size_mapping.keys())[0]
+            shape = list(size_mapping.keys())[0]
+            return shape
 
         # Check direct machine type mapping
         machine_types = self.converter.flavors.get('oci', {}).get('machine_types', {})
@@ -173,7 +174,28 @@ class OCIProvider:
 
         # Resolve region and availability domain
         oci_region = self.converter.resolve_instance_region(instance, "oci")
-        availability_domain = f"{oci_region}-AD-1"  # Default to first AD
+        
+        # Check if user specified a zone (only valid with region-based configuration)
+        user_specified_zone = instance.get('zone')
+        has_region = 'region' in instance
+        
+        if user_specified_zone and has_region:
+            # User specified both region and zone - validate the zone belongs to the region
+            expected_region = user_specified_zone.rsplit('-AD-', 1)[0]  # Remove AD part (e.g., us-ashburn-1-AD-1 -> us-ashburn-1)
+            
+            if expected_region != oci_region:
+                raise ValueError(f"Instance '{instance_name}': Specified zone '{user_specified_zone}' does not belong to region '{oci_region}'. "
+                               f"Zone region: '{expected_region}', Instance region: '{oci_region}'")
+            
+            print(f"Using user-specified zone '{user_specified_zone}' for instance '{instance_name}' in region '{oci_region}'")
+            availability_domain = user_specified_zone
+            
+        elif user_specified_zone and not has_region:
+            raise ValueError(f"Instance '{instance_name}': Zone '{user_specified_zone}' can only be specified when using 'region' (not 'location'). "
+                           f"Either remove 'zone' or change 'location' to 'region'.")
+        else:
+            # Let Terraform automatically select the best available zone
+            availability_domain = f"{oci_region}-AD-1"  # OCI requires explicit AD, use first available
 
         # Get shape
         oci_shape = self.get_oci_shape(size)
@@ -256,9 +278,9 @@ resource "oci_core_instance" "{clean_name}_{self.converter.get_validated_guid(ya
 
   # User data script
   extended_metadata = {{
-    user_data = base64encode(<<-EOF
+    user_data = base64encode(<<-USERDATA
 {user_data_script}
-EOF
+USERDATA
     )
   }}'''
 

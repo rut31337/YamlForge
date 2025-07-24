@@ -98,6 +98,14 @@ class ROSAProvider(BaseOpenShiftProvider):
         if worker_count is None:
             worker_count = size_config['worker_count']  # Use size config as fallback
         
+        # Enforce ROSA HCP requirement: worker count must be multiple of availability zones
+        # AWS regions typically have 3 AZs, so adjust worker count accordingly
+        az_count = 3  # Standard for us-east-1, us-west-2, etc.
+        if worker_count % az_count != 0:
+            adjusted_count = ((worker_count // az_count) + 1) * az_count
+            print(f"Warning: ROSA HCP clusters require worker count to be multiple of availability zones ({az_count}). Adjusting from {worker_count} to {adjusted_count}. Update your input YAML!")
+            worker_count = adjusted_count
+        
         min_replicas = cluster_config.get('min_replicas')
         if min_replicas is None:
             min_replicas = worker_count
@@ -180,23 +188,10 @@ output "rosa_hcp_console_url_{clean_name}" {{
         needs_hypershift_separation = cluster_config.get('_needs_hypershift_separation', False)
         deployment_group = cluster_config.get('_deployment_group', 'rosa_classic')
         
-        # Always use deployment variables for ROSA clusters to enable phased deployment
-        if deployment_group == 'hypershift_mgmt':
-            deployment_condition = 'var.deploy_hypershift_mgmt ? 1 : 0'
-        else:
-            deployment_condition = 'var.deploy_rosa_classic ? 1 : 0'
+        # ROSA clusters are always deployed when defined in the YAML
         
-        # Generate the required providers configuration
+        # Generate cluster-specific operator roles only (shared resources handled elsewhere)
         aws_provider = self.converter.get_aws_provider()
-        providers_config = aws_provider.generate_rosa_required_providers()
-        
-        # Generate OIDC configuration
-        oidc_config = aws_provider.generate_rosa_oidc_config(cluster_name, region, guid)
-        
-        # Generate STS account roles
-        sts_roles_config = aws_provider.generate_rosa_sts_roles()
-        
-        # Generate operator roles
         operator_roles_config = aws_provider.generate_rosa_operator_roles(cluster_name, region, guid)
         
         terraform_config = f'''
@@ -204,23 +199,15 @@ output "rosa_hcp_console_url_{clean_name}" {{
 # ROSA CLASSIC CLUSTER: {cluster_name} (Fully Automated with STS)
 # =============================================================================
 
-{providers_config}
-
-{oidc_config}
-
-{sts_roles_config}
-
 {operator_roles_config}
 
-# Local variables for operator role configuration
+# Local variables for operator role configuration (cluster-specific)
 locals {{
-  operator_role_prefix = "{cluster_name}"
-  oidc_config_id      = rhcs_rosa_oidc_config.oidc_config.id
+  operator_role_prefix_{clean_name} = "{cluster_name}"
 }}
 
 # ROSA Classic cluster using RHCS Terraform provider with automated STS
 resource "rhcs_cluster_rosa_classic" "{clean_name}" {{
-  count = {deployment_condition}
   
   name               = "{cluster_name}"
   cloud_region       = "{region}"
@@ -248,22 +235,21 @@ resource "rhcs_cluster_rosa_classic" "{clean_name}" {{
         # Add networking infrastructure dependencies if not using existing VPC
         if not cluster_config.get('use_existing_vpc', False):
             terraform_config += f'''
-  # Network dependencies - use public subnet IDs (YamlForge generates public subnets)
-  aws_subnet_ids = local.public_subnet_ids_{region.replace('-', '_')}_{guid}
+  # Network dependencies - use all subnet IDs (YamlForge generates public + private subnets for ROSA Classic Multi-AZ)
+  aws_subnet_ids = local.all_subnet_ids_{region.replace('-', '_')}_{guid}
 '''
 
         terraform_config += f'''
   
   # STS configuration with automatically created roles
   sts = {{
-    operator_role_prefix = local.operator_role_prefix
-    role_arn            = aws_iam_role.rosa_installer_role.arn
-    support_role_arn    = aws_iam_role.rosa_support_role.arn
+    operator_role_prefix = "{cluster_name}"
+    role_arn            = data.aws_iam_role.rosa_classic_installer_role.arn
+    support_role_arn    = data.aws_iam_role.rosa_classic_support_role.arn
     instance_iam_roles = {{
-      master_role_arn = aws_iam_role.rosa_master_role.arn
-      worker_role_arn = aws_iam_role.rosa_worker_role.arn
+      master_role_arn = data.aws_iam_role.rosa_classic_master_role.arn
+      worker_role_arn = data.aws_iam_role.rosa_classic_worker_role.arn
     }}
-    oidc_config_id = rhcs_rosa_oidc_config.oidc_config.id
   }}
   
   # Properties
@@ -285,29 +271,28 @@ resource "rhcs_cluster_rosa_classic" "{clean_name}" {{
     aws_vpc.main_vpc_{region.replace('-', '_')}_{guid},
     aws_subnet.public_subnet_{region.replace('-', '_')}_{guid},
     aws_internet_gateway.main_igw_{region.replace('-', '_')}_{guid},
-    aws_iam_role.rosa_installer_role,
-    aws_iam_role.rosa_support_role,
-    aws_iam_role.rosa_worker_role,
-    aws_iam_role.rosa_master_role,
-    rhcs_rosa_oidc_config.oidc_config,
-    rhcs_rosa_operator_roles.operator_roles
+    data.aws_iam_role.rosa_classic_installer_role,
+    data.aws_iam_role.rosa_classic_support_role,
+    data.aws_iam_role.rosa_classic_worker_role,
+    data.aws_iam_role.rosa_classic_master_role,
+    rhcs_rosa_oidc_config.oidc_config
   ]
 }}
 
 # Outputs for ROSA Classic cluster
 output "rosa_classic_cluster_id_{clean_name}" {{
   description = "ROSA Classic cluster ID for {cluster_name}"
-  value = length(rhcs_cluster_rosa_classic.{clean_name}) > 0 ? rhcs_cluster_rosa_classic.{clean_name}[0].id : ""
+  value = rhcs_cluster_rosa_classic.{clean_name}.id
 }}
 
 output "rosa_classic_api_url_{clean_name}" {{
   description = "ROSA Classic API URL for {cluster_name}"
-  value = length(rhcs_cluster_rosa_classic.{clean_name}) > 0 ? rhcs_cluster_rosa_classic.{clean_name}[0].api_url : ""
+  value = rhcs_cluster_rosa_classic.{clean_name}.api_url
 }}
 
 output "rosa_classic_console_url_{clean_name}" {{
   description = "ROSA Classic console URL for {cluster_name}"
-  value = length(rhcs_cluster_rosa_classic.{clean_name}) > 0 ? rhcs_cluster_rosa_classic.{clean_name}[0].console_url : ""
+  value = rhcs_cluster_rosa_classic.{clean_name}.console_url
 }}
 
 output "rosa_classic_oidc_endpoint_{clean_name}" {{
@@ -380,20 +365,10 @@ output "rosa_classic_console_url_{clean_name}" {{
         needs_rosa_separation = cluster_config.get('_needs_rosa_separation', False)
         deployment_group = cluster_config.get('_deployment_group', 'rosa_hcp')
         
-        # Always use deployment variables for ROSA clusters to enable phased deployment
-        deployment_condition = 'var.deploy_rosa_hcp ? 1 : 0'
+        # ROSA clusters are always deployed when defined in the YAML
         
-        # Generate the required providers configuration
+        # Generate cluster-specific operator roles only (shared resources handled elsewhere)
         aws_provider = self.converter.get_aws_provider()
-        providers_config = aws_provider.generate_rosa_required_providers()
-        
-        # Generate OIDC configuration
-        oidc_config = aws_provider.generate_rosa_oidc_config(cluster_name, region, guid, yaml_data)
-        
-        # Generate STS account roles
-        sts_roles_config = aws_provider.generate_rosa_sts_roles(yaml_data)
-        
-        # Generate operator roles
         operator_roles_config = aws_provider.generate_rosa_operator_roles(cluster_name, region, guid, yaml_data)
         
         terraform_config = f'''
@@ -401,23 +376,12 @@ output "rosa_classic_console_url_{clean_name}" {{
 # ROSA HCP CLUSTER: {cluster_name} (Fully Automated with STS)
 # =============================================================================
 
-{providers_config}
-
-{oidc_config}
-
-{sts_roles_config}
-
 {operator_roles_config}
 
-# Local variables for operator role configuration
-locals {{
-  operator_role_prefix = "{cluster_name}"
-  oidc_config_id      = rhcs_rosa_oidc_config.oidc_config.id
-}}
+
 
 # ROSA HCP cluster using RHCS Terraform provider with automated STS
 resource "rhcs_cluster_rosa_hcp" "{clean_name}" {{
-  count = {deployment_condition}
   
   name               = "{cluster_name}"
   cloud_region       = "{region}"
@@ -428,27 +392,24 @@ resource "rhcs_cluster_rosa_hcp" "{clean_name}" {{
   
   # Machine configuration
   aws_account_id           = data.aws_caller_identity.current.account_id
-  aws_billing_account_id   = data.aws_caller_identity.current.account_id
+  aws_billing_account_id   = var.aws_billing_account_id != "" ? var.aws_billing_account_id : data.aws_caller_identity.current.account_id
   compute_machine_type     = "{machine_type}"
   replicas                 = {worker_count}
   
   # Private cluster
   private = {str(private_cluster).lower()}
   
-  # Network dependencies - use public subnet IDs (YamlForge generates public subnets)
-  aws_subnet_ids = local.public_subnet_ids_{region.replace('-', '_')}_{guid}
-  
-  # OIDC configuration automatically created
-  oidc_config_id = rhcs_rosa_oidc_config.oidc_config.id
+  # Network dependencies - use all subnet IDs (YamlForge generates public + private subnets for ROSA HCP)
+  aws_subnet_ids = local.all_subnet_ids_{region.replace('-', '_')}_{guid}
   
   # STS configuration with automatically created roles
   sts = {{
-    operator_role_prefix = local.operator_role_prefix
-    role_arn            = aws_iam_role.rosa_installer_role.arn
-    support_role_arn    = aws_iam_role.rosa_support_role.arn
+    operator_role_prefix = "{cluster_name}"
+    oidc_config_id     = rhcs_rosa_oidc_config.oidc_config.id
+    role_arn            = data.aws_iam_role.rosa_hcp_installer_role.arn
+    support_role_arn    = data.aws_iam_role.rosa_hcp_support_role.arn
     instance_iam_roles = {{
-      master_role_arn = aws_iam_role.rosa_master_role.arn
-      worker_role_arn = aws_iam_role.rosa_worker_role.arn
+      worker_role_arn = data.aws_iam_role.rosa_hcp_worker_role.arn
     }}
   }}
   
@@ -471,29 +432,27 @@ resource "rhcs_cluster_rosa_hcp" "{clean_name}" {{
     aws_vpc.main_vpc_{region.replace('-', '_')}_{guid},
     aws_subnet.public_subnet_{region.replace('-', '_')}_{guid},
     aws_internet_gateway.main_igw_{region.replace('-', '_')}_{guid},
-    aws_iam_role.rosa_installer_role,
-    aws_iam_role.rosa_support_role,
-    aws_iam_role.rosa_worker_role,
-    aws_iam_role.rosa_master_role,
-    rhcs_rosa_oidc_config.oidc_config,
-    rhcs_rosa_operator_roles.operator_roles
+    data.aws_iam_role.rosa_hcp_installer_role,
+    data.aws_iam_role.rosa_hcp_support_role,
+    data.aws_iam_role.rosa_hcp_worker_role,
+    rhcs_rosa_oidc_config.oidc_config
   ]
 }}
 
 # Outputs for ROSA HCP cluster
 output "rosa_hcp_cluster_id_{clean_name}" {{
   description = "ROSA HCP cluster ID for {cluster_name}"
-  value = length(rhcs_cluster_rosa_hcp.{clean_name}) > 0 ? rhcs_cluster_rosa_hcp.{clean_name}[0].id : ""
+  value = rhcs_cluster_rosa_hcp.{clean_name}.id
 }}
 
 output "rosa_hcp_api_url_{clean_name}" {{
   description = "ROSA HCP API URL for {cluster_name}"
-  value = length(rhcs_cluster_rosa_hcp.{clean_name}) > 0 ? rhcs_cluster_rosa_hcp.{clean_name}[0].api_url : ""
+  value = rhcs_cluster_rosa_hcp.{clean_name}.api_url
 }}
 
 output "rosa_hcp_console_url_{clean_name}" {{
   description = "ROSA HCP console URL for {cluster_name}"
-  value = length(rhcs_cluster_rosa_hcp.{clean_name}) > 0 ? rhcs_cluster_rosa_hcp.{clean_name}[0].console_url : ""
+  value = rhcs_cluster_rosa_hcp.{clean_name}.console_url
 }}
 
 output "rosa_hcp_oidc_endpoint_{clean_name}" {{

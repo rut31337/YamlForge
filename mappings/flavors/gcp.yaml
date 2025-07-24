@@ -3,6 +3,14 @@
 # Reference: https://cloud.google.com/compute/docs/machine-types
 
 flavor_mappings:
+  # Nano instances (ultra-small for minimal workloads)
+  nano:
+    e2-micro:
+      vcpus: 0.25
+      memory_gb: 1
+      cost_factor: 0.1
+      hourly_cost: 0.0084
+
   # Micro instances
   micro:
     e2-micro:

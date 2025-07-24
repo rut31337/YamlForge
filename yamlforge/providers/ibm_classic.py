@@ -112,7 +112,7 @@ resource "ibm_compute_vm_instance" "{clean_name}_{self.converter.get_validated_g
                 profile = instance_types[size_or_instance_type]
                 cores = profile.get('vcpus', 2)
                 memory_mb = profile.get('memory_gb', 4) * 1024  # Convert GB to MB
-                print(f"[INFO] IBM Classic size resolved: {size_or_instance_type} ({cores} vCPU, {memory_mb//1024}GB) from {size_name}")
+                print(f"IBM Classic size mapping: '{size_name}' -> '{size_or_instance_type}' ({cores} vCPU, {memory_mb//1024}GB)")
                 return (cores, memory_mb)
         
         # No mapping found

@@ -24,7 +24,8 @@ class VMwareProvider:
 
         if size_mapping:
             # Return the first (preferred) VM configuration for this size
-            return list(size_mapping.keys())[0]
+            vm_config = list(size_mapping.keys())[0]
+            return vm_config
 
         # Check direct machine type mapping
         machine_types = self.converter.flavors.get('vmware', {}).get('machine_types', {})

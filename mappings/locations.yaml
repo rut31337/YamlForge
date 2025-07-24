@@ -73,6 +73,16 @@ us-west-2:
   alibaba: "us-west-1"             # Alibaba US West
   vmware: "datacenter-west"       # VMware West Coast DC
 
+us-central:
+  aws: "us-east-2"
+  azure: "Central US"
+  gcp: "us-central1"
+  ibm_vpc: "us-south"
+  ibm_classic: "DAL10"
+  oci: "us-ashburn-1"          # Oracle Cloud
+  alibaba: "us-east-1"             # Alibaba Cloud
+  vmware: "datacenter-central"    # VMware Central DC
+
   # Canada
 us-central-1:
   aws: "us-east-1"

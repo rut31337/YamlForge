@@ -180,9 +180,9 @@ cluster_sizes:
   small:
     master_count: 3
     master_size: "master_small"
-    worker_count: 2
+    worker_count: 3
     worker_size: "worker_small"
-    total_cost_factor: 7.0
+    total_cost_factor: 9.0
     use_case: "Small production workloads"
     
   medium:

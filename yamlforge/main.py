@@ -145,9 +145,19 @@ def generate_deployment_instructions(config, output_dir):
     # Handle case with no OpenShift clusters (just regular infrastructure)
     if not clusters:
         instructions += f"Deploy Infrastructure and VM Instances:\n"
-        instructions += f"```bash\ncd {output_dir}\nterraform init\nterraform plan\nterraform apply\n```\n\n"
+        instructions += f"  cd {output_dir}\n"
+        instructions += f"  terraform init\n"
+        instructions += f"  terraform plan\n" 
+        instructions += f"  terraform apply\n\n"
+        
+        instructions += f"Quick Deploy (Auto-approve):\n"
+        instructions += f"  cd {output_dir} && terraform init && terraform apply -auto-approve\n\n"
+        
+        instructions += f"Pro Tip: Use --auto-deploy flag to skip Terraform commands entirely:\n"
+        instructions += f"  yamlforge your-config.yaml -d {output_dir} --auto-deploy\n\n"
+        
         instructions += "Cleanup (When no longer needed):\n"
-        instructions += f"```bash\ncd {output_dir} && terraform destroy\n```\n"
+        instructions += f"  cd {output_dir} && terraform destroy\n"
         return instructions
     
     # Determine which deployment steps are needed
@@ -159,120 +169,68 @@ def generate_deployment_instructions(config, output_dir):
         instructions += "ROSA CLI Deployment\n\n"
         
         instructions += "Phase 1: Deploy Infrastructure:\n"
-        instructions += f"```bash\ncd {output_dir}\nterraform init\nterraform plan\nterraform apply\n```\n\n"
+        instructions += f"  cd {output_dir}\n"
+        instructions += f"  terraform init\n"
+        instructions += f"  terraform plan\n"
+        instructions += f"  terraform apply\n\n"
+        
+        instructions += "Phase 1 (Quick Deploy):\n"
+        instructions += f"  cd {output_dir} && terraform init && terraform apply -auto-approve\n\n"
         
         instructions += "Phase 2: Deploy ROSA Clusters:\n"
-        instructions += f"```bash\n./rosa-setup.sh\n```\n"
+        instructions += f"  ./rosa-setup.sh\n"
         instructions += "Wait for clusters to be ready (~15-20 minutes)\n\n"
         
         if has_day2_ops:
             instructions += "Phase 3: Deploy Day-2 Operations:\n"
-            instructions += f"```bash\nterraform apply -var=\"deploy_day2_operations=true\"\n```\n\n"
+            instructions += f"  terraform apply -var=\"deploy_day2_operations=true\"\n\n"
         
         instructions += "Cleanup (When no longer needed):\n"
-        instructions += f"```bash\n./rosa-cleanup.sh --delete-all\n```\n"
-        instructions += f"```bash\nterraform destroy\n```\n"
+        instructions += f"  ./rosa-cleanup.sh --delete-all\n"
+        instructions += f"  terraform destroy\n"
     
     else:
         # Terraform method - detailed phased deployment
         basic_cmd = f"cd {output_dir} && terraform init && terraform plan && terraform apply"
         
-        if rosa_classic_clusters and not rosa_hcp_clusters and not hypershift_mgmt_clusters and not hypershift_hosted_clusters:
-            # Only ROSA Classic - simplified but still needs base infrastructure first
-            instructions += f"Step 1: Deploy Base Infrastructure:\n"
-            instructions += f"```bash\n{basic_cmd}\n```\n"
-            instructions += f"Wait for networking and VMs to be ready (~2 minutes)\n\n"
-            
-            instructions += f"Step 2: Deploy ROSA Classic Clusters:\n"
-            instructions += f"```bash\nterraform apply -var=\"deploy_rosa_classic=true\"\n```\n\n"
-            
-            if has_day2_ops:
-                instructions += f"Step 3: Deploy Day-2 Operations:\n"
-                instructions += f"```bash\nterraform apply -var=\"deploy_rosa_classic=true\" -var=\"deploy_day2_operations=true\"\n```\n\n"
-            
-        elif rosa_hcp_clusters and not rosa_classic_clusters and not hypershift_mgmt_clusters and not hypershift_hosted_clusters:
-            # Only ROSA HCP - simplified but still needs base infrastructure first
-            instructions += f"Step 1: Deploy Base Infrastructure:\n"
-            instructions += f"```bash\n{basic_cmd}\n```\n"
-            instructions += f"Wait for networking and VMs to be ready (~2 minutes)\n\n"
-            
-            instructions += f"Step 2: Deploy ROSA HCP Clusters:\n"
-            instructions += f"```bash\nterraform apply -var=\"deploy_rosa_hcp=true\"\n```\n\n"
-            
-            if has_day2_ops:
-                instructions += f"Step 3: Deploy Day-2 Operations:\n"
-                instructions += f"```bash\nterraform apply -var=\"deploy_rosa_hcp=true\" -var=\"deploy_day2_operations=true\"\n```\n\n"
+        # Simplified deployment - everything deploys together with proper terraform dependencies
+        instructions += f"Deploy All Infrastructure and Clusters:\n"
+        instructions += f"  cd {output_dir}\n"
+        instructions += f"  terraform init\n"
+        instructions += f"  terraform plan\n"
         
+        # Build deployment variables for any remaining conditional features (HyperShift, Day-2 ops)
+        deploy_vars = []
+        if hypershift_mgmt_clusters:
+            deploy_vars.append("deploy_hypershift_mgmt=true")
+        if hypershift_hosted_clusters:
+            deploy_vars.append("deploy_hypershift_hosted=true")
+        if has_day2_ops:
+            deploy_vars.append("deploy_day2_operations=true")
+        
+        # Create the deployment command
+        if deploy_vars:
+            var_string = " ".join([f'-var="{v}"' for v in deploy_vars])
+            instructions += f"  terraform apply {var_string}\n\n"
         else:
-            # Multiple cluster types - phased deployment
-            step_num = 1
-            final_vars = []
-            
-            # Step 1: Base Infrastructure (always first)
-            instructions += f"Step {step_num}: Deploy Base Infrastructure:\n"
-            instructions += f"```bash\n{basic_cmd}\n```\n"
-            instructions += f"Wait for networking and VMs to be ready (~2 minutes)\n\n"
-            step_num += 1
-            
-            # Step 2: ROSA Classic (if present)
-            if rosa_classic_clusters:
-                instructions += f"Step {step_num}: Deploy ROSA Classic Clusters:\n"
-                instructions += f"```bash\n{basic_cmd} -var=\"deploy_rosa_classic=true\"\n```\n"
-                instructions += f"Wait for clusters to be ready (~15 minutes)\n\n"
-                final_vars.append("deploy_rosa_classic=true")
-                step_num += 1
-            
-            # Step 2: ROSA HCP (if present)
-            if rosa_hcp_clusters:
-                var_list = ["deploy_rosa_classic=true"] if rosa_classic_clusters else []
-                var_list.append("deploy_rosa_hcp=true")
-                var_string = " ".join([f'-var="{v}"' for v in var_list])
-                
-                instructions += f"Step {step_num}: Deploy ROSA HCP Clusters:\n"
-                instructions += f"```bash\nterraform apply {var_string}\n```\n"
-                instructions += f"Wait for clusters to be ready (~15 minutes)\n\n"
-                if "deploy_rosa_hcp=true" not in final_vars:
-                    final_vars.append("deploy_rosa_hcp=true")
-                step_num += 1
-            
-            # Step 3: HyperShift Management (if present) 
-            if hypershift_mgmt_clusters:
-                current_vars = final_vars.copy()
-                current_vars.append("deploy_hypershift_mgmt=true")
-                var_string = " ".join([f'-var="{v}"' for v in current_vars])
-                
-                instructions += f"Step {step_num}: Deploy HyperShift Management Clusters:\n"
-                instructions += f"```bash\nterraform apply {var_string}\n```\n"
-                instructions += f"Wait for management clusters to be ready (~20 minutes)\n\n"
-                if "deploy_hypershift_mgmt=true" not in final_vars:
-                    final_vars.append("deploy_hypershift_mgmt=true")
-                step_num += 1
-            
-            # Step 4: HyperShift Hosted (if present)
-            if hypershift_hosted_clusters:
-                current_vars = final_vars.copy()
-                current_vars.append("deploy_hypershift_hosted=true")
-                var_string = " ".join([f'-var="{v}"' for v in current_vars])
-                
-                instructions += f"Step {step_num}: Deploy HyperShift Hosted Clusters:\n"
-                instructions += f"```bash\nterraform apply {var_string}\n```\n"
-                instructions += f"Wait for hosted clusters to be ready (~10 minutes)\n\n"
-                if "deploy_hypershift_hosted=true" not in final_vars:
-                    final_vars.append("deploy_hypershift_hosted=true")
-                step_num += 1
-            
-            # Step N: Day-2 Operations (if present)
-            if has_day2_ops:
-                current_vars = final_vars.copy()
-                current_vars.append("deploy_day2_operations=true")
-                var_string = " ".join([f'-var="{v}"' for v in current_vars])
-                
-                instructions += f"Step {step_num}: Deploy Day-2 Operations (Always Last):\n"
-                instructions += f"```bash\nterraform apply {var_string}\n```\n"
-                instructions += f"Wait for operators and applications to be configured (~5 minutes)\n\n"
+            instructions += f"  terraform apply\n\n"
+        
+        # Add quick deploy option
+        instructions += f"Quick Deploy (Auto-approve):\n"
+        if deploy_vars:
+            var_string = " ".join([f'-var="{v}"' for v in deploy_vars])
+            instructions += f"  cd {output_dir} && terraform init && terraform apply -auto-approve {var_string}\n\n"
+        else:
+            instructions += f"  cd {output_dir} && terraform init && terraform apply -auto-approve\n\n"
+        
+        instructions += f"Pro Tip: Use --auto-deploy flag to skip Terraform commands entirely:\n"
+        instructions += f"  yamlforge your-config.yaml -d {output_dir} --auto-deploy\n\n"
+        
+        instructions += f"Infrastructure, ROSA clusters, and any optional components will deploy automatically\n"
+        instructions += f"based on terraform dependencies. ROSA clusters typically take 15-20 minutes.\n\n"
         
         instructions += "Cleanup (When no longer needed):\n"
-        instructions += f"```bash\ncd {output_dir} && terraform destroy\n```\n"
+        instructions += f"  cd {output_dir} && terraform destroy\n"
     
     return instructions
 
@@ -313,7 +271,7 @@ def auto_deploy_infrastructure(output_dir, yaml_data):
     print(f"")
     
     # Phase 1: Terraform Infrastructure
-    print(f"\n📋 PHASE 1: Deploying Terraform Infrastructure")
+    print(f"\nPHASE 1: Deploying Terraform Infrastructure")
     
     if not run_command("terraform init", cwd=output_dir, description="Initializing Terraform"):
         return False
@@ -384,7 +342,7 @@ def main():
         converter = YamlForgeConverter()
         # Load and validate the YAML configuration
         with open(args.input_file, 'r') as f:
-            yaml_data = yaml.safe_load(f)
+            raw_yaml_data = yaml.safe_load(f)
     except FileNotFoundError:
         print(f"ERROR: Input file '{args.input_file}' not found")
         sys.exit(1)
@@ -392,8 +350,8 @@ def main():
         print(f"ERROR: Invalid YAML syntax in '{args.input_file}': {e}")
         sys.exit(1)
     
-    # Extract yamlforge configuration from root
-    if 'yamlforge' not in yaml_data:
+    # Extract yamlforge configuration from root and merge defaults
+    if 'yamlforge' not in raw_yaml_data:
         print("ERROR: YAML file must have a 'yamlforge' root element")
         print("Example structure:")
         print("yamlforge:")
@@ -404,7 +362,30 @@ def main():
         print("      provider: aws")
         sys.exit(1)
     
-    config = yaml_data['yamlforge']
+    config = raw_yaml_data['yamlforge']
+    
+    # Merge OpenShift defaults if OpenShift clusters are present but defaults are missing
+    if 'openshift_clusters' in config and not config.get('rosa_deployment'):
+        # Load OpenShift defaults
+        try:
+            import yaml as yaml_loader
+            openshift_defaults_path = os.path.join(os.path.dirname(__file__), '..', 'defaults', 'openshift.yaml')
+            with open(openshift_defaults_path, 'r') as f:
+                openshift_defaults = yaml_loader.safe_load(f)
+            
+            # Merge OpenShift defaults at root level (not under 'openshift' key)
+            openshift_config = openshift_defaults.get('openshift', {})
+            for key, value in openshift_config.items():
+                if key not in config:
+                    config[key] = value
+                    if args.verbose:
+                        print(f"Merged OpenShift default: {key}")
+        except Exception as e:
+            if args.verbose:
+                print(f"Could not load OpenShift defaults: {e}")
+    
+    # Set verbose flag on converter so providers can access it
+    converter.verbose = args.verbose
     
     # Import and run the converter
     try:
@@ -413,7 +394,7 @@ def main():
         print()
         
         if args.auto_deploy:
-            auto_deploy_infrastructure(args.output_dir, yaml_data)
+            auto_deploy_infrastructure(args.output_dir, raw_yaml_data)
         else:
             deployment_instructions = generate_deployment_instructions(config, args.output_dir)
             print(deployment_instructions)

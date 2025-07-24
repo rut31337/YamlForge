@@ -2,9 +2,9 @@
 
 Utility scripts and tools for YamlForge development and ROSA management.
 
-## 🛠️ Available Tools
+## Available Tools
 
-### **`get_rosa_versions.py`** - ROSA Version Management
+### `get_rosa_versions.py` - ROSA Version Management
 Dynamic version fetching from Red Hat OpenShift Cluster Manager API.
 
 ```bash
@@ -47,7 +47,7 @@ tools/fix_rosa_config.sh my-rosa-config.yaml
 - Validates ROSA cluster configurations
 - Uses latest supported version if input version is invalid
 
-## 📋 Requirements
+## Requirements
 
 ### **Environment Variables**
 ```bash
@@ -62,7 +62,7 @@ export REDHAT_OPENSHIFT_URL="https://api.openshift.com"
 - `ansible` (if using vault-encrypted configurations)
 - Network connectivity to Red Hat API
 
-## 🚀 Quick Start
+## Quick Start
 
 1. **Set up authentication:**
    ```bash
@@ -79,7 +79,7 @@ export REDHAT_OPENSHIFT_URL="https://api.openshift.com"
    tools/fix_rosa_config.sh --auto-fix my-rosa-config.yaml
    ```
 
-## 🔗 Related Documentation
+## Related Documentation
 
 - [ROSA Dynamic Versions](../docs/ROSA_DYNAMIC_VERSIONS.md) - Complete documentation
 - [Red Hat Console](https://console.redhat.com/openshift/token) - Get your offline token 

@@ -2,22 +2,22 @@
 
 This directory contains comprehensive examples demonstrating YamlForge's multi-cloud infrastructure capabilities across AWS, Azure, Google Cloud, Oracle Cloud, VMware vSphere, Alibaba Cloud, IBM Cloud, and OpenShift platforms.
 
-## 🚀 **Quick Start**
+## Quick Start
 
 ```bash
-# Basic multi-cloud example
-python3 ../yamlforge.py testing/rhel_latest_test.yaml
+# Basic multi-cloud example with auto-deploy
+python3 ../yamlforge.py testing/simple_test.yaml -d output/ --auto-deploy
 
 # Cost-optimized deployment
-python3 ../yamlforge.py cost-conscious/cheapest_provider_example.yaml
+python3 ../yamlforge.py cost-conscious/cheapest_provider_example.yaml -d output/
 
 # OpenShift cluster deployment
-python3 ../yamlforge.py openshift/rosa_basic_example.yaml
+python3 ../yamlforge.py openshift/aws_openshift_simple_example.yaml -d output/ --auto-deploy
 ```
 
-## 📁 **Example Categories**
+## Example Categories
 
-### **🧪 Testing Examples** (`testing/`)
+### Testing Examples (`testing/`)
 ```
 testing/
 ├── simple_test.yaml              # Single cloud deployment
@@ -30,14 +30,14 @@ testing/
 └── tags_example.yaml             # Resource tagging
 ```
 
-### **💰 Cost-Conscious Examples** (`cost-conscious/`)
+### Cost-Conscious Examples (`cost-conscious/`)
 ```
 cost-conscious/
 ├── cheapest_provider_example.yaml # Automatic cheapest provider
 └── mixed_cheapest_example.yaml    # Mixed cost optimization
 ```
 
-### **☁️ Cloud-Specific Examples** (`cloud-specific/`)
+### Cloud-Specific Examples (`cloud-specific/`)
 ```
 cloud-specific/
 ├── architecture_example.yaml      # Multi-region architecture
@@ -48,7 +48,7 @@ cloud-specific/
 └── ibm_vpc_example.yaml          # IBM VPC networking
 ```
 
-### **🌐 Multi-Cloud Examples** (`multi-cloud/`)
+### Multi-Cloud Examples (`multi-cloud/`)
 ```
 multi-cloud/
 ├── hybrid_rhel_deployment.yaml   # Hybrid cloud setup
@@ -56,7 +56,7 @@ multi-cloud/
 └── rhel_gold_vs_public_test.yaml # Image comparison
 ```
 
-### **🔗 Extended Provider Examples** (`extended-providers/`)
+### Extended Provider Examples (`extended-providers/`)
 ```
 extended-providers/
 ├── oci_example.yaml              # Oracle Cloud Infrastructure
@@ -65,7 +65,7 @@ extended-providers/
 └── hybrid_multi_cloud.yaml      # All providers combined
 ```
 
-### **🔴 OpenShift Examples** (`openshift/`)
+### OpenShift Examples (`openshift/`)
 ```
 openshift/
 ├── rosa_basic_example.yaml       # ROSA cluster
@@ -74,7 +74,7 @@ openshift/
 └── operators_example.yaml       # OpenShift operators
 ```
 
-### **🌍 Region & Networking** (`region-and-networking/`)
+### Region & Networking (`region-and-networking/`)
 ```
 region-and-networking/
 ├── region_specification_example.yaml # Multi-region deployment
@@ -82,26 +82,26 @@ region-and-networking/
 └── subnets_example.yaml             # Custom networking
 ```
 
-## 📋 **Example Types by Use Case**
+## Example Types by Use Case
 
-### **🏢 Enterprise Examples**
+### Enterprise Examples
 - **Images**: RHEL Gold images with Red Hat Cloud Access
 - **Support**: Enterprise support and compliance
 - **Networking**: Advanced security groups and VPC configuration
 
-### **🧑‍💻 Development Examples**  
+### Development Examples  
 - **Images**: Public RHEL versions across all clouds
 - **Cost**: Cost-optimized deployments
 - **Testing**: Multi-provider validation and testing
 
-### **🤖 AI/ML Examples**
+### AI/ML Examples
 - **GPU Support**: Automatic GPU instance selection
 - **Cost Optimization**: GPU-focused cost analysis
 - **Performance**: High-performance computing configurations
 
-## 🎯 **Usage Patterns**
+## Usage Patterns
 
-### **Single Cloud Deployment**
+### Single Cloud Deployment
 ```yaml
 yamlforge:
   providers: ["aws"]
@@ -112,7 +112,7 @@ yamlforge:
       image: "RHEL9-latest"
 ```
 
-### **Multi-Cloud Deployment**
+### Multi-Cloud Deployment
 ```yaml
 yamlforge:
   providers: ["aws", "azure", "gcp"]
@@ -128,7 +128,7 @@ yamlforge:
       region: "europe-west1"
 ```
 
-### **Cost-Optimized Deployment**
+### Cost-Optimized Deployment
 ```yaml
 yamlforge:
   instances:
@@ -138,38 +138,38 @@ yamlforge:
       image: "RHEL9-latest"
 ```
 
-## 🧪 **Testing Framework**
+## Testing Framework
 
 YamlForge includes a comprehensive testing framework:
 
-#### **`simple_test.yaml`**
+#### `simple_test.yaml`
 **Basic functionality testing**
 - **Clouds**: AWS, Azure, GCP
 - **Images**: Standard RHEL 9 images
 - **Purpose**: Validate core converter functionality
 
-#### **`multi_provider_example.yaml`**
+#### `multi_provider_example.yaml`
 **Multi-cloud validation**
 - **Clouds**: All supported providers
 - **Images**: Consistent RHEL deployment
 - **Purpose**: Test provider abstraction and consistency
 
-#### **`rhel_latest_test.yaml`**
+#### `rhel_latest_test.yaml`
 **Public image testing**
 - **Images**: RHEL 9 public images
 - **Purpose**: Validate public image resolution
 
-#### **`rhel_gold_test.yaml`**
+#### `rhel_gold_test.yaml`
 **Enterprise image testing**  
 - **Images**: RHEL Gold with Cloud Access
 - **Purpose**: Validate enterprise image resolution
 
-#### **`provider_selection_example.yaml`**
+#### `provider_selection_example.yaml`
 **Provider comparison testing**
 - **Feature**: Automatic provider selection
 - **Purpose**: Test cheapest provider logic
 
-### **Running Tests**
+### Running Tests
 
 ```bash
 # Basic functionality test
@@ -185,27 +185,27 @@ python3 ../yamlforge.py testing/rhel_latest_test.yaml
 python3 ../yamlforge.py testing/rhel_gold_test.yaml
 ```
 
-## 🏗️ **Infrastructure Patterns**
+## Infrastructure Patterns
 
-### **Development Environment**
+### Development Environment
 ```bash
 # Development setup
 python3 ../yamlforge.py testing/cloud_workspace_example.yaml
 ```
 
-### **Production Deployment**
+### Production Deployment
 ```bash  
 # Production multi-cloud
 python3 ../yamlforge.py multi-cloud/hybrid_rhel_deployment.yaml
 ```
 
-### **Cost-Conscious Deployment**
+### Cost-Conscious Deployment
 ```bash
 # Cost optimization
 python3 ../yamlforge.py cost-conscious/cheapest_provider_example.yaml
 ```
 
-## 📊 **Example Features**
+## Example Features
 
 - **Multi-Cloud Support**: AWS, Azure, GCP, OCI, VMware, Alibaba, IBM
 - **Image Management**: Automatic resolution and validation
@@ -216,7 +216,7 @@ python3 ../yamlforge.py cost-conscious/cheapest_provider_example.yaml
 - **Hybrid Deployments**: Cloud + on-premises integration
 - **Resource Tagging**: Consistent labeling across providers
 
-## 🎓 **Learning Path**
+## Learning Path
 
 1. **Start with Testing**: Begin with `testing/rhel_latest_test.yaml` for basic concepts
 2. **Explore Multi-Cloud**: Try `multi-cloud/hybrid_rhel_deployment.yaml`
@@ -224,7 +224,7 @@ python3 ../yamlforge.py cost-conscious/cheapest_provider_example.yaml
 4. **Advanced Features**: Explore OpenShift and extended providers
 5. **Production Ready**: Implement with enterprise images and networking
 
-## 💡 **Best Practices**
+## Best Practices
 
 - **Use consistent naming** across cloud providers
 - **Leverage cost optimization** with `cheapest` provider
@@ -232,7 +232,7 @@ python3 ../yamlforge.py cost-conscious/cheapest_provider_example.yaml
 - **Test across multiple clouds** before production deployment
 - **Use enterprise images** for production workloads
 
-## 🔍 **Example Structure**
+## Example Structure
 
 Each example follows a consistent structure:
 

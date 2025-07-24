@@ -1,12 +1,10 @@
-# YamlForge - Multi-Cloud Infrastructure as Code and PaaS Management Suite
+# YamlForge - Multi-Cloud Infrastructure as Code and OpenShift Management Suite
 
-> **⚠️ ALPHA SOFTWARE WARNING ⚠️**  
-> **This is v0.99 ALPHA - Work in Progress**  
-> **Use at your own risk. Not recommended for production environments.**
+**Enterprise-grade platform for managing multi-cloud infrastructure and OpenShift deployments through unified YAML definitions.**
 
-A comprehensive enterprise-grade platform for managing multi-cloud infrastructure and Platform-as-a-Service deployments through unified YAML definitions.
+A comprehensive tool that generates Terraform configurations from simple YAML specifications, supporting multiple cloud providers and OpenShift platforms with automated deployment capabilities.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 ```bash
@@ -18,75 +16,82 @@ pip install -r requirements.txt
 terraform version  # Should show v1.12.0 or newer
 ```
 
-> **⚠️ Requirement:** Terraform v1.12.0+ required for ROSA/OpenShift support
+**Requirement:** Terraform v1.12.0+ required for OpenShift/ROSA support
 
 ### Basic Usage
 ```bash
 # Set required GUID (5-char lowercase alphanumeric)
 export GUID=web01
 
-# Generate Terraform
-python yamlforge.py examples/simple_test.yaml -d terraform/
+# Generate and deploy infrastructure
+python yamlforge.py examples/simple_test.yaml -d output/ --auto-deploy
+
+# Or generate Terraform only
+python yamlforge.py examples/simple_test.yaml -d output/
+cd output/
+terraform init && terraform apply
 ```
 
-## 🌐 Supported Platforms
+## Supported Platforms
 
-### **Cloud Providers**
-- **AWS** - Native EC2, VPC, Security Groups
-- **Azure** - Virtual Machines, VNets, Network Security Groups  
+### Cloud Providers
+- **AWS** - Native EC2, VPC, Security Groups, ROSA clusters
+- **Azure** - Virtual Machines, VNets, Network Security Groups, ARO clusters  
 - **GCP** - Compute Engine with dynamic image discovery
 - **IBM Cloud** - VPC Gen 2 and Classic Infrastructure
 - **Oracle Cloud (OCI)** - Compute instances and networking
 - **Alibaba Cloud** - ECS instances and VPC
 - **VMware vSphere** - Virtual machines and networking
 
-### **OpenShift Platforms**
+### OpenShift Platforms
 - **ROSA** (Classic & HCP) - Red Hat OpenShift Service on AWS
 - **ARO** - Azure Red Hat OpenShift
 - **OpenShift Dedicated** - Managed OpenShift clusters
 - **Self-Managed** - Custom OpenShift deployments
 - **HyperShift** - Hosted control planes
 
-## 🎯 Key Features
+## Key Features
 
-- **🌍 Multi-Cloud** - Deploy across all major cloud providers
-- **💰 Cost Optimization** - Automatic cheapest provider selection
-- **🎮 GPU Support** - Complete GPU instance support with cost analysis
-- **🔑 GUID-Based** - Unique deployment identification (5-char required)
-- **🤖 Auto-Discovery** - Automatic flavor recommendation
-- **🔒 Enterprise Security** - Red Hat Cloud Access, service accounts
-- **⚡ Smart Detection** - Only includes Terraform providers you use
+- **Multi-Cloud** - Deploy across all major cloud providers
+- **Cost Optimization** - Automatic cheapest provider selection
+- **GPU Support** - Complete GPU instance support with cost analysis
+- **GUID-Based** - Unique deployment identification (5-char required)
+- **Auto-Discovery** - Automatic flavor recommendation
+- **Enterprise Security** - Red Hat Cloud Access, service accounts
+- **Smart Detection** - Only includes Terraform providers you use
+- **Unified Deployment** - Single command deploys infrastructure and OpenShift clusters
+- **ROSA Integration** - Automated ROSA account role creation via CLI
 
-## 📚 Documentation
+## Documentation
 
-### **Getting Started**
+### Getting Started
 - [Installation Guide](installation.md)
 - [Quick Start Guide](quickstart.md)
 - [GUID Configuration](guid-configuration.md)
 - [Examples Gallery](examples.md)
 
-### **Features**
+### Features
 - [Multi-Cloud Support](features/multi-cloud.md)
 - [Cost Optimization](features/cost-optimization.md)
 - [GPU Support](features/gpu-support.md)
 - [Auto Discovery](features/auto-discovery.md)
 
-### **OpenShift**
+### OpenShift
 - [OpenShift Overview](openshift/overview.md)
 - [Cluster Management](openshift/clusters.md)
 - [Application Deployment](openshift/applications.md)
 - [Security & Service Accounts](openshift/security.md)
 
-### **Configuration**
+### Configuration
 - [Mappings & Flavors](configuration/mappings.md)
 - [Credentials Setup](configuration/credentials.md)
 - [Networking](configuration/networking.md)
 
-### **Help**
+### Help
 - [Troubleshooting](troubleshooting.md)
 - [Examples Directory](../examples/)
 
-## 🔧 Example Configuration
+## Example Configuration
 
 ```yaml
 guid: "web01"  # Required: 5-char unique identifier
@@ -114,7 +119,7 @@ instances:
     image: "RHEL9-latest"
 ```
 
-## 🎮 OpenShift Example
+## OpenShift Example
 
 ```yaml
 guid: "ocp01"
@@ -134,7 +139,7 @@ openshift_applications:
     replicas: 3
 ```
 
-## 📊 Output
+## Output
 
 YamlForge generates production-ready Terraform with:
 - **Native cloud resources** (no abstractions)
@@ -143,14 +148,14 @@ YamlForge generates production-ready Terraform with:
 - **Service accounts** (automatic OpenShift credential management)
 - **Cost optimization** (cheapest provider analysis)
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Add your changes and tests
 4. Submit a pull request
 
-## 📄 License
+## License
 
 MIT License - see the LICENSE file for details.
 

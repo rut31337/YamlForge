@@ -2,9 +2,9 @@
 
 This directory contains comprehensive examples for deploying OpenShift on AWS using YamlForge. These examples demonstrate both ROSA (Red Hat OpenShift Service on AWS) deployment patterns and supporting infrastructure.
 
-## 🔴 **Available Examples**
+## Available Examples
 
-### ✅ **aws_openshift_simple_example.yaml** (Ready to Use)
+### aws_openshift_simple_example.yaml (Ready to Use)
 A working, tested example that includes:
 - **ROSA HCP** cluster (production-ready, hosted control plane)
 - **ROSA Classic** cluster (development, traditional deployment)
@@ -13,7 +13,7 @@ A working, tested example that includes:
 - **Sample application** deployment
 - **Security groups** and networking
 
-### 🚧 **aws_openshift_comprehensive_example.yaml** (Advanced)
+### aws_openshift_comprehensive_example.yaml (Advanced)
 A comprehensive example showcasing enterprise features:
 - Multiple ROSA clusters (HCP + Classic)
 - Complete operator ecosystem
@@ -22,7 +22,7 @@ A comprehensive example showcasing enterprise features:
 - Cost optimization
 - Multi-cluster management
 
-## 🚀 **Quick Start Guide**
+## Quick Start Guide
 
 ### Prerequisites
 1. **AWS Account** with appropriate permissions
@@ -72,9 +72,9 @@ terraform plan
 terraform apply
 ```
 
-> 📋 **For detailed post-deployment steps, see [TERRAFORM_NEXT_STEPS.md](TERRAFORM_NEXT_STEPS.md)** - Complete 9-phase workflow from Terraform deployment to production OpenShift clusters with sample applications.
+> **For detailed post-deployment steps, see [TERRAFORM_NEXT_STEPS.md](TERRAFORM_NEXT_STEPS.md)** - Complete workflow from Terraform deployment to production OpenShift clusters with sample applications.
 
-## 🔧 **Configuration Options**
+## Configuration Options
 
 ### **Cluster Types**
 
@@ -227,7 +227,7 @@ cost_optimization:
     instance_types: ["m5.large", "m5.xlarge"]
 ```
 
-## 🔧 **Day 2 Operations**
+## Day 2 Operations
 
 ### **Automated Upgrades**
 ```yaml
@@ -365,4 +365,4 @@ rosa logs install <cluster-name>
 
 ---
 
-**Ready to deploy OpenShift on AWS? Start with the simple example and expand from there!** 🚀 
+**Ready to deploy OpenShift on AWS? Start with the simple example and expand from there!** 

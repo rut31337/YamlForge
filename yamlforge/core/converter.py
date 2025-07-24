@@ -58,6 +58,13 @@ class YamlForgeConverter:
 
         # Current YAML data for GUID extraction
         self.current_yaml_data = None
+        
+        # Cache for resolved regions to prevent multiple validations
+        self._region_cache = {}
+
+    def get_aws_provider(self):
+        """Return the AWS provider instance for use by other components."""
+        return self.aws_provider
 
     def _has_rosa_clusters(self, yaml_data):
         """Check if YAML configuration contains any ROSA clusters."""
@@ -252,7 +259,7 @@ class YamlForgeConverter:
         try:
             with open(file_path, 'r') as f:
                 data = yaml.safe_load(f)
-                return data.get('locations', {})
+                return data or {}
         except FileNotFoundError:
             print(f"Warning: {file_path} not found. Using empty location mappings.")
             return {}
@@ -421,6 +428,7 @@ class YamlForgeConverter:
 
         # Check OpenShift clusters
         openshift_clusters = yaml_data.get('openshift_clusters', [])
+        
         for cluster in openshift_clusters:
             cluster_type = cluster.get('type')
             if cluster_type:
@@ -446,7 +454,7 @@ class YamlForgeConverter:
                     providers_in_use.add(hypershift_provider)
 
         # Check OpenShift clusters and add required providers
-        openshift_clusters = yaml_data.get('openshift_clusters', [])
+        # Note: openshift_clusters was already collected above
         if openshift_clusters:
             # Always need these for OpenShift
             providers_in_use.update(['kubernetes', 'helm'])
@@ -561,6 +569,32 @@ class YamlForgeConverter:
             # Add this instance name to the provider list
             provider_instances[resolved_provider].append(instance_name)
 
+    def validate_meta_provider_configuration(self, instances):
+        """Validate that meta providers are not used with 'region' field."""
+        meta_providers = ['cheapest', 'cheapest-gpu']
+        
+        for instance in instances:
+            provider = instance.get('provider')
+            instance_name = instance.get('name', 'unnamed')
+            
+            if provider in meta_providers:
+                if 'region' in instance:
+                    raise ValueError(
+                        f"Configuration Error: Instance '{instance_name}' uses meta provider '{provider}' "
+                        f"with 'region' field. Meta providers automatically select the optimal cloud provider "
+                        f"and region based on cost analysis.\n\n"
+                        f"🔧 Fix: Replace 'region' with 'location' for geographic preference:\n"
+                        f"   # ❌ Wrong:\n"
+                        f"   region: \"{instance['region']}\"\n\n"
+                        f"   # ✅ Correct:\n"
+                        f"   location: \"us-east\"  # Geographic preference\n\n"
+                        f"📋 Meta provider behavior:\n"
+                        f"   • '{provider}' evaluates all cloud providers\n"
+                        f"   • Selects cheapest option across AWS, GCP, Azure, etc.\n"
+                        f"   • Uses 'location' for geographic guidance only\n"
+                        f"   • Chooses optimal region within selected cloud provider"
+                    )
+
     def generate_terraform_project(self, yaml_data):
         """Generate organized Terraform project files with full regional infrastructure."""
         # Set YAML data for GUID extraction
@@ -617,6 +651,14 @@ terraform {{
     google = {
       source  = "hashicorp/google"
       version = "~> 4.0"
+    }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.9"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.4"
     }'''
             elif provider == 'ibm_vpc':
                 terraform_content += '''
@@ -676,20 +718,30 @@ terraform {{
         # Add provider configurations for each required provider
         for provider in required_providers:
             if provider == 'aws':
-                # Check if we have ROSA Classic clusters that need AWS credentials
-                has_rosa_classic = False
-                if yaml_data and 'openshift_clusters' in yaml_data:
-                    for cluster in yaml_data['openshift_clusters']:
-                        if cluster.get('type') == 'rosa-classic':
-                            has_rosa_classic = True
-                            break
+                # Generate providers for all AWS regions used
+                aws_regions = self.get_all_aws_regions(yaml_data)
+                primary_region = aws_regions[0]
                 
-                terraform_content += '''# AWS Provider Configuration
-provider "aws" {
-  region = var.aws_region
-}
+                terraform_content += f'''# AWS Provider Configuration (Multi-Region Support)
+# Primary provider for region: {primary_region}
+provider "aws" {{
+  region = "{primary_region}"
+}}
 
-# AWS Caller Identity for account information
+'''
+                
+                # Generate aliased providers for additional regions
+                for region in aws_regions[1:]:
+                    clean_region = region.replace("-", "_").replace(".", "_")
+                    terraform_content += f'''# AWS Provider alias for region: {region}
+provider "aws" {{
+  alias  = "{clean_region}"
+  region = "{region}"
+}}
+
+'''
+                
+                terraform_content += '''# AWS Caller Identity for account information
 data "aws_caller_identity" "current" {}
 
 '''
@@ -702,9 +754,11 @@ provider "azurerm" {
 
 '''
             elif provider == 'gcp':
+                # Use existing service account project for provider, then create new project
                 terraform_content += '''# GCP Provider Configuration
 provider "google" {
-  project = var.gcp_project_id
+  # Uses existing project from service account credentials for provider operations
+  # New project will be created using this provider context
   region  = var.gcp_region
 }
 
@@ -758,12 +812,8 @@ provider "rhcs" {
 
         # Generate GCP project management if GCP is used
         if 'gcp' in required_providers:
-            # Check if we have user management configuration
-            users = yaml_data.get('users', [])
-            cloud_workspace = yaml_data.get('yamlforge', {}).get('cloud_workspace', {})
-            
-            if users or cloud_workspace:
-                terraform_content += self.gcp_provider.generate_project_management(yaml_data)
+            # Always create new project for GCP deployments (enables folder-based project creation)
+            terraform_content += self.gcp_provider.generate_project_management(yaml_data)
 
         # Generate regional networking infrastructure
         terraform_content += '''# ========================================
@@ -794,6 +844,9 @@ provider "rhcs" {
         # Validate for duplicate instance names within same provider
         self.validate_instance_names(instances)
         
+        # Validate meta provider configuration
+        self.validate_meta_provider_configuration(instances)
+        
         for i, instance in enumerate(instances):
             terraform_content += self.generate_virtual_machine(instance, i+1, yaml_data)
 
@@ -808,7 +861,537 @@ provider "rhcs" {
 '''
         terraform_content += self.openshift_provider.generate_openshift_clusters(yaml_data)
 
+        # Generate comprehensive outputs for all cloud providers
+        terraform_content += '''
+# ========================================
+# COMPREHENSIVE OUTPUTS - ALL CLOUD PROVIDERS
+# ========================================
+
+'''
+        terraform_content += self.generate_comprehensive_outputs(yaml_data, required_providers)
+
         return terraform_content
+
+    def generate_comprehensive_outputs(self, yaml_data, required_providers):
+        """Generate comprehensive outputs showing external IPs for all cloud providers."""
+        if not yaml_data or not yaml_data.get('instances'):
+            return "# No instances configured for output generation\n"
+        
+        outputs_content = ""
+        instances = yaml_data.get('instances', [])
+        guid = self.get_validated_guid(yaml_data)
+        
+        # Group instances by provider
+        provider_instances = {}
+        for instance in instances:
+            provider = instance.get('provider')
+            
+            # Resolve meta providers to actual providers
+            if provider == 'cheapest':
+                provider = self.find_cheapest_provider(instance, suppress_output=True)
+            elif provider == 'cheapest-gpu':
+                provider = self.find_cheapest_gpu_provider(instance, suppress_output=True)
+            
+            if provider not in provider_instances:
+                provider_instances[provider] = []
+            provider_instances[provider].append(instance)
+        
+        # Generate outputs for each provider
+        if 'aws' in provider_instances:
+            outputs_content += self.generate_aws_outputs(provider_instances['aws'], yaml_data)
+        
+        if 'gcp' in provider_instances:
+            outputs_content += self.generate_gcp_outputs(provider_instances['gcp'], yaml_data)
+            
+        if 'azure' in provider_instances:
+            outputs_content += self.generate_azure_outputs(provider_instances['azure'], yaml_data)
+            
+        if 'oci' in provider_instances:
+            outputs_content += self.generate_oci_outputs(provider_instances['oci'], yaml_data)
+            
+        if 'alibaba' in provider_instances:
+            outputs_content += self.generate_alibaba_outputs(provider_instances['alibaba'], yaml_data)
+            
+        if 'ibm_vpc' in provider_instances:
+            outputs_content += self.generate_ibm_vpc_outputs(provider_instances['ibm_vpc'], yaml_data)
+            
+        if 'ibm_classic' in provider_instances:
+            outputs_content += self.generate_ibm_classic_outputs(provider_instances['ibm_classic'], yaml_data)
+            
+        if 'vmware' in provider_instances:
+            outputs_content += self.generate_vmware_outputs(provider_instances['vmware'], yaml_data)
+        
+        # Generate summary output with all instances
+        outputs_content += self.generate_summary_outputs(provider_instances, yaml_data)
+        
+        return outputs_content
+
+    def generate_aws_outputs(self, instances, yaml_data):
+        """Generate AWS-specific outputs."""
+        if not instances:
+            return ""
+        
+        guid = self.get_validated_guid(yaml_data)
+        outputs = []
+        
+        outputs.append('''# AWS Instances and External IPs
+output "aws_instances" {
+  description = "AWS EC2 instances with their external IPs and connection information"
+  value = {''')
+        
+        for instance in instances:
+            instance_name = instance.get("name", "unknown")
+            clean_name = self.clean_name(instance_name)
+            ssh_username = self.get_instance_ssh_username(instance, 'aws', yaml_data)
+            
+            outputs.append(f'''    "{instance_name}" = {{
+      public_ip = aws_instance.{clean_name}_{guid}.public_ip
+      private_ip = aws_instance.{clean_name}_{guid}.private_ip
+      public_dns = aws_instance.{clean_name}_{guid}.public_dns
+      instance_id = aws_instance.{clean_name}_{guid}.id
+      instance_type = aws_instance.{clean_name}_{guid}.instance_type
+      availability_zone = aws_instance.{clean_name}_{guid}.availability_zone
+      ssh_username = "{ssh_username}"
+      ssh_command = "ssh {ssh_username}@${{aws_instance.{clean_name}_{guid}.public_ip}}"
+    }}''')
+        
+        outputs.append('''  }
+}
+
+''')
+        return '\n'.join(outputs)
+
+    def generate_gcp_outputs(self, instances, yaml_data):
+        """Generate GCP-specific outputs."""
+        if not instances:
+            return ""
+        
+        guid = self.get_validated_guid(yaml_data)
+        outputs = []
+        
+        outputs.append('''# GCP Instances and External IPs
+output "gcp_instances" {
+  description = "GCP Compute instances with their external IPs and connection information"
+  value = {''')
+        
+        # Get DNS configuration to check if DNS records exist
+        dns_config = yaml_data.get('dns_config', {})
+        dns_enabled = dns_config.get('root_zone_management', False)
+        root_zone_domain = self.gcp_provider.get_root_zone_domain(yaml_data) if dns_enabled else None
+        
+        for instance in instances:
+            instance_name = instance.get("name", "unknown")
+            clean_name = self.clean_name(instance_name)
+            
+            ssh_username = self.get_instance_ssh_username(instance, 'gcp', yaml_data)
+            
+            # Build the output with conditional DNS information
+            output_block = f'''    "{instance_name}" = {{
+      public_ip = google_compute_address.{clean_name}_ip_{guid}.address
+      private_ip = google_compute_instance.{clean_name}_{guid}.network_interface[0].network_ip
+      machine_type = google_compute_instance.{clean_name}_{guid}.machine_type
+      zone = google_compute_instance.{clean_name}_{guid}.zone
+      self_link = google_compute_instance.{clean_name}_{guid}.self_link
+      ssh_username = "{ssh_username}"
+      ssh_command = "ssh {ssh_username}@${{google_compute_address.{clean_name}_ip_{guid}.address}}"'''
+            
+            # Add DNS information if DNS is enabled
+            if dns_enabled and root_zone_domain:
+                output_block += f'''
+      public_fqdn = "{instance_name}.{guid}.{root_zone_domain}"
+      private_fqdn = "{instance_name}-internal.{guid}.{root_zone_domain}"
+      ssh_command_fqdn = "ssh {ssh_username}@{instance_name}.{guid}.{root_zone_domain}"'''
+            
+            output_block += '''
+    }'''
+            
+            outputs.append(output_block)
+        
+        outputs.append('''  }
+}
+
+''')
+        return '\n'.join(outputs)
+
+    def generate_azure_outputs(self, instances, yaml_data):
+        """Generate Azure-specific outputs."""
+        if not instances:
+            return ""
+        
+        guid = self.get_validated_guid(yaml_data)
+        outputs = []
+        
+        outputs.append('''# Azure Instances and External IPs
+output "azure_instances" {
+  description = "Azure Virtual Machines with their external IPs and connection information"
+  value = {''')
+        
+        for instance in instances:
+            instance_name = instance.get("name", "unknown")
+            clean_name = self.clean_name(instance_name)
+            ssh_username = self.get_instance_ssh_username(instance, 'azure', yaml_data)
+            
+            outputs.append(f'''    "{instance_name}" = {{
+      public_ip = azurerm_public_ip.{clean_name}_ip_{guid}.ip_address
+      private_ip = azurerm_network_interface.{clean_name}_nic_{guid}.ip_configuration[0].private_ip_address
+      vm_size = azurerm_linux_virtual_machine.{clean_name}_{guid}.size
+      location = azurerm_linux_virtual_machine.{clean_name}_{guid}.location
+      resource_group = azurerm_linux_virtual_machine.{clean_name}_{guid}.resource_group_name
+      ssh_username = "{ssh_username}"
+      ssh_command = "ssh {ssh_username}@${{azurerm_public_ip.{clean_name}_ip_{guid}.ip_address}}"
+    }}''')
+        
+        outputs.append('''  }
+}
+
+''')
+        return '\n'.join(outputs)
+
+    def generate_oci_outputs(self, instances, yaml_data):
+        """Generate OCI-specific outputs."""
+        if not instances:
+            return ""
+        
+        guid = self.get_validated_guid(yaml_data)
+        outputs = []
+        
+        outputs.append('''# OCI Instances and External IPs
+output "oci_instances" {
+  description = "OCI Compute instances with their external IPs and connection information"
+  value = {''')
+        
+        for instance in instances:
+            instance_name = instance.get("name", "unknown")
+            clean_name = self.clean_name(instance_name)
+            ssh_username = self.get_instance_ssh_username(instance, 'oci', yaml_data)
+            
+            outputs.append(f'''    "{instance_name}" = {{
+      public_ip = oci_core_instance.{clean_name}_{guid}.public_ip
+      private_ip = oci_core_instance.{clean_name}_{guid}.private_ip
+      shape = oci_core_instance.{clean_name}_{guid}.shape
+      availability_domain = oci_core_instance.{clean_name}_{guid}.availability_domain
+      compartment_id = oci_core_instance.{clean_name}_{guid}.compartment_id
+      ssh_username = "{ssh_username}"
+      ssh_command = "ssh {ssh_username}@${{oci_core_instance.{clean_name}_{guid}.public_ip}}"
+    }}''')
+        
+        outputs.append('''  }
+}
+
+''')
+        return '\n'.join(outputs)
+
+    def generate_alibaba_outputs(self, instances, yaml_data):
+        """Generate Alibaba Cloud-specific outputs."""
+        if not instances:
+            return ""
+        
+        guid = self.get_validated_guid(yaml_data)
+        outputs = []
+        
+        outputs.append('''# Alibaba Cloud Instances and External IPs
+output "alibaba_instances" {
+  description = "Alibaba Cloud ECS instances with their external IPs and connection information"
+  value = {''')
+        
+        for instance in instances:
+            instance_name = instance.get("name", "unknown")
+            clean_name = self.clean_name(instance_name)
+            ssh_username = self.get_instance_ssh_username(instance, 'alibaba', yaml_data)
+            
+            outputs.append(f'''    "{instance_name}" = {{
+      public_ip = alicloud_eip_association.{clean_name}_eip_assoc_{guid}.ip_address
+      private_ip = alicloud_instance.{clean_name}_{guid}.private_ip
+      instance_type = alicloud_instance.{clean_name}_{guid}.instance_type
+      zone_id = alicloud_instance.{clean_name}_{guid}.availability_zone
+      ssh_username = "{ssh_username}"
+      ssh_command = "ssh {ssh_username}@${{alicloud_eip_association.{clean_name}_eip_assoc_{guid}.ip_address}}"
+    }}''')
+        
+        outputs.append('''  }
+}
+
+''')
+        return '\n'.join(outputs)
+
+    def generate_ibm_vpc_outputs(self, instances, yaml_data):
+        """Generate IBM VPC-specific outputs."""
+        if not instances:
+            return ""
+        
+        guid = self.get_validated_guid(yaml_data)
+        outputs = []
+        
+        outputs.append('''# IBM Cloud VPC Instances and External IPs
+output "ibm_vpc_instances" {
+  description = "IBM Cloud VPC instances with their external IPs and connection information"
+  value = {''')
+        
+        for instance in instances:
+            instance_name = instance.get("name", "unknown")
+            clean_name = self.clean_name(instance_name)
+            ssh_username = self.get_instance_ssh_username(instance, 'ibm_vpc', yaml_data)
+            
+            outputs.append(f'''    "{instance_name}" = {{
+      public_ip = ibm_is_floating_ip.{clean_name}_fip_{guid}.address
+      private_ip = ibm_is_instance.{clean_name}_{guid}.primary_network_interface[0].primary_ipv4_address
+      profile = ibm_is_instance.{clean_name}_{guid}.profile
+      zone = ibm_is_instance.{clean_name}_{guid}.zone
+      vpc = ibm_is_instance.{clean_name}_{guid}.vpc
+      ssh_username = "{ssh_username}"
+      ssh_command = "ssh {ssh_username}@${{ibm_is_floating_ip.{clean_name}_fip_{guid}.address}}"
+    }}''')
+        
+        outputs.append('''  }
+}
+
+''')
+        return '\n'.join(outputs)
+
+    def generate_ibm_classic_outputs(self, instances, yaml_data):
+        """Generate IBM Classic-specific outputs."""
+        if not instances:
+            return ""
+        
+        guid = self.get_validated_guid(yaml_data)
+        outputs = []
+        
+        outputs.append('''# IBM Cloud Classic Instances and External IPs
+output "ibm_classic_instances" {
+  description = "IBM Cloud Classic instances with their external IPs and connection information"
+  value = {''')
+        
+        for instance in instances:
+            instance_name = instance.get("name", "unknown")
+            clean_name = self.clean_name(instance_name)
+            ssh_username = self.get_instance_ssh_username(instance, 'ibm_classic', yaml_data)
+            
+            outputs.append(f'''    "{instance_name}" = {{
+      public_ip = ibm_compute_vm_instance.{clean_name}_{guid}.ipv4_address
+      private_ip = ibm_compute_vm_instance.{clean_name}_{guid}.ipv4_address_private
+      flavor = ibm_compute_vm_instance.{clean_name}_{guid}.flavor_key_name
+      datacenter = ibm_compute_vm_instance.{clean_name}_{guid}.datacenter
+      ssh_username = "{ssh_username}"
+      ssh_command = "ssh {ssh_username}@${{ibm_compute_vm_instance.{clean_name}_{guid}.ipv4_address}}"
+    }}''')
+        
+        outputs.append('''  }
+}
+
+''')
+        return '\n'.join(outputs)
+
+    def generate_vmware_outputs(self, instances, yaml_data):
+        """Generate VMware-specific outputs."""
+        if not instances:
+            return ""
+        
+        guid = self.get_validated_guid(yaml_data)
+        outputs = []
+        
+        outputs.append('''# VMware vSphere Instances and IPs
+output "vmware_instances" {
+  description = "VMware vSphere VMs with their IP addresses and connection information"
+  value = {''')
+        
+        for instance in instances:
+            instance_name = instance.get("name", "unknown")
+            clean_name = self.clean_name(instance_name)
+            ssh_username = self.get_instance_ssh_username(instance, 'vmware', yaml_data)
+            
+            outputs.append(f'''    "{instance_name}" = {{
+      ip_address = vsphere_virtual_machine.{clean_name}_{guid}.default_ip_address
+      guest_ip_addresses = vsphere_virtual_machine.{clean_name}_{guid}.guest_ip_addresses
+      num_cpus = vsphere_virtual_machine.{clean_name}_{guid}.num_cpus
+      memory = vsphere_virtual_machine.{clean_name}_{guid}.memory
+      power_state = vsphere_virtual_machine.{clean_name}_{guid}.power_state
+      ssh_username = "{ssh_username}"
+      ssh_command = "ssh {ssh_username}@${{vsphere_virtual_machine.{clean_name}_{guid}.default_ip_address}}"
+    }}''')
+        
+        outputs.append('''  }
+}
+
+''')
+        return '\n'.join(outputs)
+
+    def generate_summary_outputs(self, provider_instances, yaml_data):
+        """Generate summary output with all instances across all providers."""
+        if not provider_instances:
+            return ""
+        
+        guid = self.get_validated_guid(yaml_data)
+        outputs = []
+        
+        outputs.append('''# MULTI-CLOUD SUMMARY - ALL INSTANCES
+output "all_instances_summary" {
+  description = "Summary of all instances across all cloud providers with their external IPs"
+  value = {''')
+        
+        for provider, instances in provider_instances.items():
+            for instance in instances:
+                instance_name = instance.get("name", "unknown")
+                clean_name = self.clean_name(instance_name)
+                ssh_username = self.get_instance_ssh_username(instance, provider, yaml_data)
+                
+                # Generate provider-specific IP reference
+                if provider == 'aws':
+                    ip_ref = f"aws_instance.{clean_name}_{guid}.public_ip"
+                    private_ip_ref = f"aws_instance.{clean_name}_{guid}.private_ip"
+                elif provider == 'gcp':
+                    ip_ref = f"google_compute_address.{clean_name}_ip_{guid}.address"
+                    private_ip_ref = f"google_compute_instance.{clean_name}_{guid}.network_interface[0].network_ip"
+                elif provider == 'azure':
+                    ip_ref = f"azurerm_public_ip.{clean_name}_ip_{guid}.ip_address"
+                    private_ip_ref = f"azurerm_network_interface.{clean_name}_nic_{guid}.ip_configuration[0].private_ip_address"
+                elif provider == 'oci':
+                    ip_ref = f"oci_core_instance.{clean_name}_{guid}.public_ip"
+                    private_ip_ref = f"oci_core_instance.{clean_name}_{guid}.private_ip"
+                elif provider == 'alibaba':
+                    ip_ref = f"alicloud_eip_association.{clean_name}_eip_assoc_{guid}.ip_address"
+                    private_ip_ref = f"alicloud_instance.{clean_name}_{guid}.private_ip"
+                elif provider == 'ibm_vpc':
+                    ip_ref = f"ibm_is_floating_ip.{clean_name}_fip_{guid}.address"
+                    private_ip_ref = f"ibm_is_instance.{clean_name}_{guid}.primary_network_interface[0].primary_ipv4_address"
+                elif provider == 'ibm_classic':
+                    ip_ref = f"ibm_compute_vm_instance.{clean_name}_{guid}.ipv4_address"
+                    private_ip_ref = f"ibm_compute_vm_instance.{clean_name}_{guid}.ipv4_address_private"
+                elif provider == 'vmware':
+                    ip_ref = f"vsphere_virtual_machine.{clean_name}_{guid}.default_ip_address"
+                    private_ip_ref = f"vsphere_virtual_machine.{clean_name}_{guid}.default_ip_address"
+                else:
+                    ip_ref = "\"N/A\""
+                    private_ip_ref = "\"N/A\""
+                
+                outputs.append(f'''    "{instance_name}" = {{
+      provider = "{provider.upper()}"
+      public_ip = {ip_ref}
+      private_ip = {private_ip_ref}
+      size = "{instance.get('size', 'unknown')}"
+      image = "{instance.get('image', 'unknown')}"
+      region = "{instance.get('region', 'N/A')}"
+      ssh_username = "{ssh_username}"
+      ssh_command = "ssh {ssh_username}@${{{ip_ref}}}"
+    }}''')
+        
+        outputs.append('''  }
+}
+
+# External IPs Only - Quick Access
+output "external_ips" {
+  description = "Quick access to all external IP addresses"
+  value = {''')
+        
+        for provider, instances in provider_instances.items():
+            for instance in instances:
+                instance_name = instance.get("name", "unknown")
+                clean_name = self.clean_name(instance_name)
+                
+                # Generate provider-specific IP reference
+                if provider == 'aws':
+                    ip_ref = f"aws_instance.{clean_name}_{guid}.public_ip"
+                elif provider == 'gcp':
+                    ip_ref = f"google_compute_address.{clean_name}_ip_{guid}.address"
+                elif provider == 'azure':
+                    ip_ref = f"azurerm_public_ip.{clean_name}_ip_{guid}.ip_address"
+                elif provider == 'oci':
+                    ip_ref = f"oci_core_instance.{clean_name}_{guid}.public_ip"
+                elif provider == 'alibaba':
+                    ip_ref = f"alicloud_eip_association.{clean_name}_eip_assoc_{guid}.ip_address"
+                elif provider == 'ibm_vpc':
+                    ip_ref = f"ibm_is_floating_ip.{clean_name}_fip_{guid}.address"
+                elif provider == 'ibm_classic':
+                    ip_ref = f"ibm_compute_vm_instance.{clean_name}_{guid}.ipv4_address"
+                elif provider == 'vmware':
+                    ip_ref = f"vsphere_virtual_machine.{clean_name}_{guid}.default_ip_address"
+                else:
+                    ip_ref = "\"N/A\""
+                
+                outputs.append(f'''    "{instance_name}" = {ip_ref}''')
+        
+        outputs.append('''  }
+}
+
+''')
+        return '\n'.join(outputs)
+
+    def get_instance_ssh_username(self, instance, provider, yaml_data=None):
+        """Get the SSH username for an instance based on provider and operating system."""
+        # Check if SSH username is explicitly configured for this instance
+        ssh_key_config = self.get_instance_ssh_key(instance, yaml_data or {})
+        if ssh_key_config and ssh_key_config.get('username'):
+            return ssh_key_config['username']
+        
+        # Determine username based on provider and image
+        image = instance.get('image', 'RHEL9-latest')
+        
+        # Debug output to trace the issue  
+        # print(f"SSH DEBUG START: provider='{provider}', image='{image}'")
+        
+        if provider == 'aws':
+            # AWS usernames depend on the operating system
+            if any(os_name in image.upper() for os_name in ['RHEL', 'REDHAT']):
+                return 'ec2-user'
+            elif 'UBUNTU' in image.upper():
+                return 'ubuntu'
+            elif any(os_name in image.upper() for os_name in ['AMAZON', 'AMZN']):
+                return 'ec2-user'
+            elif 'CENTOS' in image.upper():
+                return 'centos'
+            elif 'FEDORA' in image.upper():
+                return 'fedora'
+            elif 'SUSE' in image.upper():
+                return 'ec2-user'
+            else:
+                return 'ec2-user'  # Default for AWS
+                
+        elif provider == 'gcp':
+            # GCP allows custom usernames, but has common defaults
+            if any(os_name in image.upper() for os_name in ['RHEL', 'REDHAT']):
+                return 'cloud-user'
+            elif 'UBUNTU' in image.upper():
+                return 'ubuntu'
+            elif 'CENTOS' in image.upper():
+                return 'centos'
+            elif 'FEDORA' in image.upper():
+                return 'fedora'
+            elif 'DEBIAN' in image.upper():
+                return 'debian'
+            else:
+                return 'cloud-user'  # Default for GCP
+                
+        elif provider == 'azure':
+            # Azure uses configured admin username, default is azureuser
+            return 'azureuser'
+            
+        elif provider == 'oci':
+            # OCI usernames depend on the operating system
+            if any(os_name in image.upper() for os_name in ['ORACLE', 'OL']):
+                return 'opc'
+            elif 'UBUNTU' in image.upper():
+                return 'ubuntu'
+            elif any(os_name in image.upper() for os_name in ['RHEL', 'REDHAT']):
+                return 'ec2-user'
+            elif 'CENTOS' in image.upper():
+                return 'centos'
+            else:
+                return 'opc'  # Default for OCI
+                
+        elif provider == 'alibaba':
+            # Alibaba Cloud typically uses root
+            return 'root'
+            
+        elif provider in ['ibm_vpc', 'ibm_classic']:
+            # IBM Cloud typically uses root
+            return 'root'
+            
+        elif provider == 'vmware':
+            # VMware is highly customizable
+            return 'vmware-user'
+            
+        else:
+            # Unknown provider - return a generic default
+            return 'cloud-user'
 
     def generate_variables_tf(self, required_providers, yaml_data=None):
         """Generate variables.tf file with variables for required providers."""
@@ -819,19 +1402,21 @@ provider "rhcs" {
 '''
 
         if 'aws' in required_providers:
-            variables_content += '''# AWS Variables
-variable "aws_region" {
-  description = "AWS region for deployment"
+            # Get the primary AWS region that will be used
+            primary_aws_region = self.get_primary_aws_region(yaml_data) if yaml_data else 'us-east-1'
+            
+            variables_content += f'''# AWS Variables
+# Note: AWS region is automatically determined from your configuration: {primary_aws_region}
+
+variable "aws_billing_account_id" {{
+  description = "AWS billing account ID for ROSA clusters (overrides default account)"
   type        = string
-  default     = "us-east-1"
-}
-
-# ROSA clusters use ROSA CLI - no AWS account ID variable needed
-
-# Official Red Hat Terraform modules handle AWS billing account ID automatically
+  default     = ""
+}}
 
 # ROSA clusters use ROSA CLI for authentication and cluster creation
 # AWS credentials are configured via environment variables or AWS profiles
+# AWS billing account can be overridden via AWS_BILLING_ACCOUNT_ID environment variable
 
 '''
 
@@ -851,17 +1436,15 @@ variable "azure_location" {
 '''
 
         if 'gcp' in required_providers:
+            # Always creating new project - only need region variable
             variables_content += '''# GCP Variables
-variable "gcp_project_id" {
-  description = "GCP project ID"
-  type        = string
-}
-
 variable "gcp_region" {
   description = "GCP region for deployment"
   type        = string
   default     = "us-east1"
 }
+
+# Note: GCP project is created automatically using cloud_workspace name and GUID
 
 '''
 
@@ -1083,9 +1666,15 @@ ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAA... your-public-key-here"
             
 
             
+            # Get the determined AWS region
+            determined_region = self.get_primary_aws_region(yaml_data) if yaml_data else aws_region
+            
             # ROSA CLI uses AWS credentials from environment variables or AWS CLI profiles
             tfvars_content += f'''# AWS Region Configuration
-aws_region = "{aws_region}"
+# Region automatically determined from your configuration: {determined_region}
+
+# AWS Billing Account Override (if different from default account)
+aws_billing_account_id = "{aws_billing_account_id or ''}"
 
 # ROSA CLI uses AWS credentials from environment variables or AWS CLI profiles
 # No need to set aws_access_key_id or aws_secret_access_key in Terraform
@@ -1140,9 +1729,14 @@ azure_location        = "East US"
 '''
 
         if 'gcp' in required_providers:
-            tfvars_content += '''# GCP Configuration
-gcp_project_id = "your-project-id-here"
-gcp_region     = "us-east1"
+            # Always creating new project
+            yamlforge_data = yaml_data.get('yamlforge', {}) if yaml_data else {}
+            cloud_workspace = yamlforge_data.get('cloud_workspace', {})
+            workspace_name = cloud_workspace.get('name', 'yamlforge-workspace')
+            tfvars_content += f'''# GCP Configuration
+# Project will be created automatically as: {workspace_name.lower().replace('_', '-')}-{{GUID}}
+# Folder ID: {os.getenv('GCP_FOLDER_ID', 'Not set - will use organization')}
+gcp_region = "us-east1"
 
 '''
 
@@ -1216,39 +1810,8 @@ rhcs_url   = "https://api.openshift.com"
 
 '''
 
-        # Add OpenShift credentials if OpenShift clusters are present  
-        # Note: yaml_data is not available in this method, check if rhcs provider is in required_providers
-        has_openshift = 'rhcs' in required_providers
-        if has_openshift:
-            tfvars_content += '''# =============================================================================
-# RED HAT OPENSHIFT CLUSTER MANAGER CREDENTIALS
-# =============================================================================
-
-'''
-            
-            # Try to auto-detect Red Hat OpenShift token from multiple sources
-            redhat_token = (
-                os.getenv('REDHAT_OPENSHIFT_TOKEN') or 
-                os.getenv('OCM_TOKEN') or 
-                os.getenv('ROSA_TOKEN')
-            )
-            redhat_url = os.getenv('REDHAT_OPENSHIFT_URL', 'https://api.openshift.com')
-            
-            if redhat_token:
-                tfvars_content += f'''# Red Hat OpenShift credentials (auto-detected from environment)
-redhat_openshift_token = "{redhat_token}"
-redhat_openshift_url   = "{redhat_url}"
-
-'''
-            else:
-                tfvars_content += '''# Red Hat OpenShift credentials (required for ROSA clusters)
-# Get your token from: https://console.redhat.com/openshift/token
-# Set environment variable: REDHAT_OPENSHIFT_TOKEN, OCM_TOKEN, or ROSA_TOKEN
-# Or uncomment and fill in:
-# redhat_openshift_token = "your_offline_token_from_console.redhat.com"
-# redhat_openshift_url   = "https://api.openshift.com"
-
-'''
+        # NOTE: RHCS credentials are already configured above
+        # No additional OpenShift credentials needed - using rhcs_token and rhcs_url
 
         return tfvars_content
 
@@ -1284,33 +1847,46 @@ redhat_openshift_url   = "{redhat_url}"
         with open(tfvars_path, 'w') as f:
             f.write(tfvars_config)
             
-        # Generate ROSA CLI setup script if ROSA clusters are present
+        # Generate ROSA CLI setup script if ROSA clusters are present AND using CLI deployment method
         if self.openshift_provider._has_rosa_clusters(config):
-            rosa_script = self.openshift_provider.generate_rosa_cli_script(config)
-            script_path = os.path.join(output_dir, 'rosa-setup.sh')
-            with open(script_path, 'w') as f:
-                f.write(rosa_script)
-            # Make script executable
-            os.chmod(script_path, 0o755)
+            # Check deployment method - only generate scripts for CLI method
+            rosa_deployment = config.get('rosa_deployment', {})
+            deployment_method = rosa_deployment.get('method', 'terraform')
             
-            # Generate ROSA cleanup script
-            cleanup_script = self.openshift_provider.generate_rosa_cleanup_script(config)
-            if cleanup_script:
-                cleanup_path = os.path.join(output_dir, 'rosa-cleanup.sh')
-                with open(cleanup_path, 'w') as f:
-                    f.write(cleanup_script)
+            if deployment_method == 'cli':
+                rosa_script = self.openshift_provider.generate_rosa_cli_script(config)
+                script_path = os.path.join(output_dir, 'rosa-setup.sh')
+                with open(script_path, 'w') as f:
+                    f.write(rosa_script)
                 # Make script executable
-                os.chmod(cleanup_path, 0o755)
-            
-            if self.verbose:
-                print(f"Generated files:")
-                print(f"  - {main_tf_path}")
-                print(f"  - {variables_path}")
-                print(f"  - {tfvars_path}")
-                print(f"  - {script_path}")
+                os.chmod(script_path, 0o755)
+                
+                # Generate ROSA cleanup script
+                cleanup_script = self.openshift_provider.generate_rosa_cleanup_script(config)
                 if cleanup_script:
-                    print(f"  - {cleanup_path}")
+                    cleanup_path = os.path.join(output_dir, 'rosa-cleanup.sh')
+                    with open(cleanup_path, 'w') as f:
+                        f.write(cleanup_script)
+                    # Make script executable
+                    os.chmod(cleanup_path, 0o755)
+                
+                if self.verbose:
+                    print(f"Generated files:")
+                    print(f"  - {main_tf_path}")
+                    print(f"  - {variables_path}")
+                    print(f"  - {tfvars_path}")
+                    print(f"  - {script_path}")
+                    if cleanup_script:
+                        print(f"  - {cleanup_path}")
+            else:
+                # Terraform deployment method - no scripts generated
+                if self.verbose:
+                    print(f"Generated files:")
+                    print(f"  - {main_tf_path}")
+                    print(f"  - {variables_path}")
+                    print(f"  - {tfvars_path}")
         else:
+            # No ROSA clusters
             if self.verbose:
                 print(f"Generated files:")
                 print(f"  - {main_tf_path}")
@@ -1335,9 +1911,17 @@ redhat_openshift_url   = "{redhat_url}"
 
     def resolve_instance_region(self, instance, provider):
         """Resolve instance region with support for both direct regions and mapped locations."""
+        # Create cache key to prevent multiple validations for the same instance
+        instance_name = instance.get('name', 'unnamed')
+        cache_key = f"{instance_name}_{provider}_{instance.get('region', '')}_{instance.get('location', '')}"
+        
+        # Return cached result if available
+        if cache_key in self._region_cache:
+            return self._region_cache[cache_key]
+        
         has_region = 'region' in instance
         has_location = 'location' in instance
-        instance_name = instance.get('name', 'unnamed')
+        find_best_region_on_fail = instance.get('find_best_region_on_fail', False)
 
         if has_region and has_location:
             raise ValueError(f"Instance '{instance_name}' cannot specify both 'region' and 'location'.")
@@ -1345,16 +1929,188 @@ redhat_openshift_url   = "{redhat_url}"
         if not has_region and not has_location:
             raise ValueError(f"Instance '{instance_name}' must specify either 'region' or 'location'.")
 
-        if has_region:
-            return instance['region']
+        resolved_region = None
 
         if has_location:
+            # Location-based: Auto-select closest region with validation
             location_key = instance['location']
+            mapped_region = None
+            
+            # First try to get mapped region from locations - ERROR if not found
             if location_key in self.locations:
-                provider_location = self.locations[location_key].get(provider)
-                if provider_location:
-                    return provider_location
-            return location_key
+                mapped_region = self.locations[location_key].get(provider)
+                if not mapped_region:
+                    raise ValueError(f"Instance '{instance_name}': Location '{location_key}' is not supported for provider '{provider}'. "
+                                   f"Check mappings/locations.yaml for supported locations.")
+            else:
+                raise ValueError(f"Instance '{instance_name}': Location '{location_key}' not found in location mappings. "
+                               f"Check mappings/locations.yaml for supported locations.")
+            
+            # Show the location mapping
+            print(f"Instance '{instance_name}': Location '{location_key}' -> mapped to region '{mapped_region}' for {provider.upper()}")
+            
+            # For location-based, validate and auto-select best region if needed
+            instance_type = self._get_instance_type_for_validation(instance, provider)
+            if instance_type and provider == 'gcp':
+                print(f"Checking GCP region availability for '{instance_name}' (machine type '{instance_type}') in region '{mapped_region}'...")
+                # Check if the mapped region supports the instance type
+                if not self.gcp_provider.check_machine_type_availability(instance_type, mapped_region):
+                    # Auto-select best available region
+                    print(f"Finding alternative GCP regions for machine type '{instance_type}'...")
+                    available_regions = self.gcp_provider.find_available_regions_for_machine_type(instance_type)
+                    best_region = self.gcp_provider.find_closest_available_region(mapped_region, available_regions)
+                    
+                    if best_region:
+                        print(f"WARNING: Instance '{instance_name}': Location '{location_key}' maps to region '{mapped_region}' which doesn't support machine type '{instance_type}'. Auto-selecting closest available region: '{best_region}'")
+                        resolved_region = best_region
+                    else:
+                        raise ValueError(f"Instance '{instance_name}': No available regions found for machine type '{instance_type}' near location '{location_key}'.")
+                else:
+                    resolved_region = mapped_region
+            else:
+                resolved_region = mapped_region
+
+        if has_region:
+            # Region-based: Validate and ERROR OUT if invalid (don't continue)
+            requested_region = instance['region']
+            
+            # Get the instance type to validate
+            instance_type = self._get_instance_type_for_validation(instance, provider)
+            
+            if instance_type and provider == 'gcp':
+                print(f"Checking GCP region availability for '{instance_name}' (machine type '{instance_type}') in region '{requested_region}'...")
+                # Check if the machine type is available in the requested region
+                if not self.gcp_provider.check_machine_type_availability(instance_type, requested_region):
+                    print(f"Finding alternative GCP regions for machine type '{instance_type}'...")
+                    available_regions = self.gcp_provider.find_available_regions_for_machine_type(instance_type)
+                    
+                    if find_best_region_on_fail:
+                        # Auto-select closest available region
+                        best_region = self.gcp_provider.find_closest_available_region(requested_region, available_regions)
+                        
+                        if best_region:
+                            print(f"WARNING: Instance '{instance_name}': Machine type '{instance_type}' not available in region '{requested_region}'. Auto-selecting closest available region: '{best_region}'")
+                            resolved_region = best_region
+                        else:
+                            raise ValueError(f"Instance '{instance_name}': Machine type '{instance_type}' not available in any region.")
+                    else:
+                        # Error out and stop execution
+                        if available_regions:
+                            suggestion = f"Try: {', '.join(available_regions[:3])}"
+                            raise ValueError(f"Instance '{instance_name}': Machine type '{instance_type}' not available in region '{requested_region}'. "
+                                           f"Available regions: {', '.join(available_regions)}. "
+                                           f"Suggestion: {suggestion} or set find_best_region_on_fail: true")
+                        else:
+                            raise ValueError(f"Instance '{instance_name}': Machine type '{instance_type}' not available in any region.")
+                else:
+                    resolved_region = requested_region
+            else:
+                resolved_region = requested_region
+        
+        # Cache the result
+        self._region_cache[cache_key] = resolved_region
+        return resolved_region
+
+    def _get_instance_type_for_validation(self, instance, provider):
+        """Get the instance type for validation purposes."""
+        # Get the size/instance_type from the instance
+        size = instance.get('size') or instance.get('instance_type')
+        gpu_type = instance.get('gpu_type')
+        
+        if not size:
+            return None
+        
+        # For GCP, resolve the machine type considering GPU requirements
+        if provider == 'gcp':
+            try:
+                # If this is a GPU instance, we need to find the actual machine type with GPU
+                if gpu_type:
+                    # Find the cheapest GPU instance type for this provider to get the actual machine type
+                    provider_costs = self.find_cheapest_gpu_by_specs(gpu_type)
+                    if provider in provider_costs:
+                        return provider_costs[provider]['instance_type']
+                    
+                    # Fallback: look through flavor mappings for GPU instances
+                    provider_flavors = self.flavors.get(provider, {})
+                    flavor_mappings = provider_flavors.get('flavor_mappings', {})
+                    
+                    # Look for size/GPU combination in flavor mappings
+                    for size_category, size_options in flavor_mappings.items():
+                        if size_category == size or size in size_category:
+                            for instance_type, specs in size_options.items():
+                                if (specs.get('gpu_count', 0) > 0 and 
+                                    self.gpu_type_matches(specs.get('gpu_type', ''), gpu_type)):
+                                    return instance_type
+                    
+                    # Also check machine types
+                    machine_types = provider_flavors.get('machine_types', {})
+                    for instance_type, specs in machine_types.items():
+                        if (specs.get('gpu_count', 0) > 0 and 
+                            self.gpu_type_matches(specs.get('gpu_type', ''), gpu_type)):
+                            return instance_type
+                
+                # For non-GPU instances, use the regular machine type resolution
+                return self.gcp_provider.get_gcp_machine_type(size)
+                
+            except ValueError:
+                # If we can't resolve the machine type, assume it's already a machine type
+                return size
+        
+        # For other providers, return the size as-is
+        return size
+
+    def get_all_aws_regions(self, yaml_data):
+        """Get all AWS regions used in the deployment configuration."""
+        aws_regions = set()
+        
+        # Collect regions from AWS instances
+        for instance in yaml_data.get('instances', []):
+            provider = instance.get('provider')
+            
+            # Resolve meta providers to actual providers
+            if provider == 'cheapest':
+                provider = self.find_cheapest_provider(instance, suppress_output=True)
+            elif provider == 'cheapest-gpu':
+                provider = self.find_cheapest_gpu_provider(instance, suppress_output=True)
+            
+            if provider == 'aws':
+                try:
+                    region = self.resolve_instance_region(instance, 'aws')
+                    aws_regions.add(region)
+                except ValueError:
+                    # Instance doesn't specify region, use default
+                    aws_regions.add(os.environ.get('AWS_DEFAULT_REGION', 'us-east-1'))
+        
+        # Collect regions from OpenShift clusters
+        for cluster in yaml_data.get('openshift_clusters', []):
+            cluster_type = cluster.get('type', '')
+            if cluster_type in ['rosa-classic', 'rosa-hcp']:
+                region = cluster.get('region')
+                if region:
+                    aws_regions.add(region)
+        
+        # Return sorted list of regions (primary first)
+        regions_list = sorted(aws_regions) if aws_regions else [os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')]
+        return regions_list
+    
+    def get_primary_aws_region(self, yaml_data):
+        """Get the primary AWS region (first in sorted order)."""
+        return self.get_all_aws_regions(yaml_data)[0]
+    
+    def get_aws_provider_reference(self, region, all_regions):
+        """Get the Terraform provider reference for a specific AWS region."""
+        if not all_regions:
+            return ""
+        
+        primary_region = all_regions[0]
+        
+        # Primary region uses default provider
+        if region == primary_region:
+            return ""
+        
+        # Other regions use aliased providers
+        clean_region = region.replace("-", "_").replace(".", "_")
+        return f"provider = aws.{clean_region}"
 
     def find_closest_flavor(self, cores, memory_mb, gpus=None, gpu_type=None):
         """Find the closest matching generic flavor for given hardware requirements."""
@@ -1525,10 +2281,14 @@ redhat_openshift_url   = "{redhat_url}"
             else:
                 analysis_type = f"{cores} cores, {memory_gb:.1f}GB RAM"
         else:
-            # Fallback to medium size
-            print("Warning: Instance must specify either 'size' or 'cores' and 'memory', defaulting to medium size")
-            provider_costs = self.find_cheapest_by_size("medium")
-            analysis_type = "size 'medium' (default)"
+            # No fallback - must specify requirements
+            instance_name = instance.get('name', 'unnamed')
+            raise ValueError(
+                f"Instance '{instance_name}': When using provider 'cheapest', you must specify either:\n"
+                f"  - 'size': nano, micro, small, medium, large, xlarge, etc.\n"
+                f"  - 'cores' and 'memory': e.g., cores: 2, memory: 4096 (MB)\n"
+                f"  - GPU requirements: gpu_count, gpu_type, etc."
+            )
         
         if not provider_costs:
             # Fallback to AWS if no cost information available
@@ -1950,6 +2710,8 @@ redhat_openshift_url   = "{redhat_url}"
     
     def resolve_instance_type(self, provider, size, instance):
         """Resolve instance type based on provider, size, and instance specifications."""
+        instance_name = instance.get("name", "unnamed")
+        
         # Check if instance specifies instance_type directly
         direct_type = instance.get("instance_type")
         if direct_type:
@@ -1959,7 +2721,9 @@ redhat_openshift_url   = "{redhat_url}"
         if size in self.flavors:
             generic_flavor = self.flavors[size]
             if provider in generic_flavor:
-                return generic_flavor[provider]
+                instance_type = generic_flavor[provider]
+                print(f"{provider.upper()} size mapping for '{instance_name}': '{size}' -> '{instance_type}'")
+                return instance_type
             else:
                 # Check if this is a GPU flavor that doesn't support this provider
                 if any(gpu_prefix in size for gpu_prefix in ['gpu_', 'gpu_t4_', 'gpu_v100_', 'gpu_a100_', 'gpu_amd_']):
@@ -1996,16 +2760,17 @@ redhat_openshift_url   = "{redhat_url}"
             if size_options:
                 return next(iter(size_options.keys()))
         
-        # Fallback to provider defaults
-        defaults = {
-            'aws': 't3.medium',
-            'azure': 'Standard_B2ms',
-            'gcp': 'e2-medium',
-            'ibm_vpc': 'bx2-2x8',
-            'ibm_classic': 'B1_2X4X25'
-        }
+        # No mapping found - fail with clear error message
+        # Get available sizes from both generic and provider-specific mappings
+        generic_sizes = list(self.flavors.keys()) if hasattr(self, 'flavors') else []
+        provider_sizes = list(flavor_mappings.keys()) if flavor_mappings else []
+        all_available_sizes = sorted(set(generic_sizes + provider_sizes))
         
-        return defaults.get(provider, 't3.medium')
+        raise ValueError(
+            f"Instance '{instance_name}': No mapping found for size '{size}' on provider '{provider}'. "
+            f"Available sizes: {', '.join(all_available_sizes)}. "
+            f"Check mappings/flavors/generic.yaml and mappings/flavors/{provider}.yaml for supported sizes."
+        )
     
     def get_instance_cost_info(self, provider, instance_type, size, provider_flavors):
         """Get detailed cost and specification information for a specific instance type."""
@@ -2050,7 +2815,8 @@ redhat_openshift_url   = "{redhat_url}"
         """Generate virtual machine configuration using provider modules."""
         provider = instance.get("provider")
         if not provider:
-            raise ValueError("Instance must specify a 'provider'")
+            instance_name = instance.get("name", "unknown")
+            raise ValueError(f"Instance '{instance_name}' must specify a 'provider'")
 
         # Handle cheapest provider meta-provider
         selected_instance_type = None
@@ -2076,29 +2842,41 @@ redhat_openshift_url   = "{redhat_url}"
             print(f"Selected cheapest GPU provider: {provider}")
 
         clean_name = self.clean_name(instance.get("name", f"instance_{index}"))
-        size = instance.get("size", "medium")
+        size = instance.get("size")
+        instance_name = instance.get("name", "unnamed")
+        
+        # Validate that we have enough information to determine instance type
+        direct_instance_type = instance.get("instance_type")
+        
+        if not direct_instance_type and not selected_instance_type and not size:
+            raise ValueError(
+                f"Instance '{instance_name}': Must specify either:\n"
+                f"  - 'size': nano, micro, small, medium, large, xlarge, etc.\n"
+                f"  - 'instance_type': provider-specific type (e.g., 't3.small', 'e2-micro')\n"
+                f"  - Use 'provider: cheapest' with requirements (cores, memory, gpu_type)"
+            )
         
         # Determine instance type (priority: direct specification > cheapest selection > size mapping)
-        instance_type = instance.get("instance_type") or selected_instance_type or self.resolve_instance_type(provider, size, instance)
+        instance_type = direct_instance_type or selected_instance_type or self.resolve_instance_type(provider, size, instance)
 
         if provider == 'aws':
             strategy_info = {'instance_type': instance_type, 'architecture': 'x86_64'}
             return self.aws_provider.generate_aws_vm(instance, index, clean_name, strategy_info, available_subnets, yaml_data)
         elif provider == 'azure':
-            return self.azure_provider.generate_azure_vm(instance, index, clean_name, instance_type or size, available_subnets, yaml_data)
+            return self.azure_provider.generate_azure_vm(instance, index, clean_name, instance_type, available_subnets, yaml_data)
         elif provider == 'gcp':
-            return self.gcp_provider.generate_gcp_vm(instance, index, clean_name, instance_type or size, available_subnets, yaml_data)
+            return self.gcp_provider.generate_gcp_vm(instance, index, clean_name, instance_type, available_subnets, yaml_data)
         elif provider == 'oci':
-            return self.oci_provider.generate_oci_vm(instance, index, clean_name, instance_type or size, available_subnets, yaml_data)
+            return self.oci_provider.generate_oci_vm(instance, index, clean_name, instance_type, available_subnets, yaml_data)
         elif provider == 'vmware':
-            return self.vmware_provider.generate_vmware_vm(instance, index, clean_name, instance_type or size, available_subnets, yaml_data)
+            return self.vmware_provider.generate_vmware_vm(instance, index, clean_name, instance_type, available_subnets, yaml_data)
         elif provider == 'alibaba':
-            return self.alibaba_provider.generate_alibaba_vm(instance, index, clean_name, instance_type or size, available_subnets, yaml_data)
+            return self.alibaba_provider.generate_alibaba_vm(instance, index, clean_name, instance_type, available_subnets, yaml_data)
         elif provider in ['ibm_vpc', 'ibm_classic']:
             if provider == 'ibm_vpc':
-                return self.ibm_vpc_provider.generate_ibm_vpc_vm(instance, index, clean_name, instance_type or size, yaml_data)
+                return self.ibm_vpc_provider.generate_ibm_vpc_vm(instance, index, clean_name, instance_type, yaml_data)
             else:
-                return self.ibm_classic_provider.generate_ibm_classic_vm(instance, index, clean_name, instance_type or size, yaml_data)
+                return self.ibm_classic_provider.generate_ibm_classic_vm(instance, index, clean_name, instance_type, yaml_data)
         else:
             raise ValueError(f"Unsupported provider: {provider}")
 
@@ -2198,6 +2976,13 @@ redhat_openshift_url   = "{redhat_url}"
         # Analyze instances to determine SG regional requirements
         for instance in config.get('instances', []):
             provider = instance.get('provider')
+            
+            # Resolve meta providers to actual providers (same logic as networking analysis)
+            if provider == 'cheapest':
+                provider = self.find_cheapest_provider(instance, suppress_output=True)
+            elif provider == 'cheapest-gpu':
+                provider = self.find_cheapest_gpu_provider(instance, suppress_output=True)
+            
             if provider in ['aws', 'azure', 'gcp', 'ibm_vpc']:  # Regional providers
                 region = self.resolve_instance_region(instance, provider)
 

@@ -19,38 +19,49 @@ Start with a pre-built example:
 
 ```bash
 # Single cloud deployment
-cp examples/simple_test.yaml my-first-deployment.yaml
+cp examples/testing/simple_test.yaml my-first-deployment.yaml
 
 # Multi-cloud deployment  
 cp examples/multi-cloud/hybrid_rhel_deployment.yaml my-deployment.yaml
 
 # Cost-optimized deployment
 cp examples/cost-conscious/cheapest_provider_example.yaml my-deployment.yaml
+
+# OpenShift cluster deployment
+cp examples/openshift/aws_openshift_simple_example.yaml my-deployment.yaml
 ```
 
-## Step 3: Generate Terraform
+## Step 3: Deploy Infrastructure
+
+### Option A: Automated Deployment (Recommended)
 
 ```bash
-# Create output directory
-mkdir terraform-output
+# Generate and deploy everything automatically
+python yamlforge.py my-deployment.yaml -d output/ --auto-deploy
+```
 
+### Option B: Manual Deployment
+
+```bash
 # Generate Terraform configuration
-python yamlforge.py my-deployment.yaml -d terraform-output/
+python yamlforge.py my-deployment.yaml -d output/
+
+# Deploy manually
+cd output/
+terraform init
+terraform plan
+terraform apply
 ```
 
-## Step 4: Deploy (Optional)
+## Step 4: Verify Deployment
 
 ```bash
-cd terraform-output/
+# Check what was created
+cd output/
+terraform show
 
-# Initialize Terraform
-terraform init
-
-# Review the plan
-terraform plan
-
-# Apply (with confirmation)
-terraform apply
+# See output values
+terraform output
 ```
 
 ## Example Configurations

@@ -1,0 +1,146 @@
+---
+# Zone/Availability Zone Specification Example
+# Demonstrates how to specify exact zones for precise placement control
+
+yamlforge:
+  cloud_workspace:
+    name: "zone-demo"
+    owner_email: "admin@example.com"
+  guid: "ztest"
+  instances:
+    # AWS Example - using specific zone
+    - name: "aws-web-server"
+      provider: "aws"
+      size: "medium"
+      region: "us-east-1"           # Must specify region (not location)
+      zone: "us-east-1b"            # Standardized 'zone' attribute
+      image: "RHEL_9_LATEST"
+      networking:
+        public: true
+      tags:
+        tier: "web"
+        
+    # GCP Example - using specific zone  
+    - name: "gcp-database"
+      provider: "gcp"
+      size: "large"
+      region: "us-central1"         # Must specify region (not location)
+      zone: "us-central1-c"         # Standardized 'zone' attribute
+      image: "RHEL9-latest"
+      networking:
+        public: true
+      tags:
+        tier: "database"
+        
+    # Azure Example - using specific zone
+    - name: "azure-cache"
+      provider: "azure"
+      size: "medium"
+      region: "East US"             # Must specify region (not location)
+      zone: "1"                     # Azure zones are 1, 2, or 3
+      image: "RHEL9-latest"
+      networking:
+        public: true
+      tags:
+        tier: "cache"
+        
+    # IBM VPC Example - using specific zone
+    - name: "ibm-app-server"
+      provider: "ibm_vpc"
+      size: "medium"
+      region: "us-south"            # Must specify region (not location)
+      zone: "us-south-2"            # IBM VPC zone format: region-number
+      image: "RHEL9-latest"
+      networking:
+        public: true
+      tags:
+        tier: "application"
+        
+    # OCI Example - using specific zone (availability domain)
+    - name: "oci-compute"
+      provider: "oci"
+      size: "medium"
+      region: "us-ashburn-1"        # Must specify region (not location)
+      zone: "us-ashburn-1-AD-2"     # OCI zone format: region-AD-number
+      image: "RHEL9-latest"
+      networking:
+        public: true
+      tags:
+        tier: "compute"
+        
+    # Alibaba Cloud Example - using specific zone
+    - name: "alibaba-worker"
+      provider: "alibaba"
+      size: "medium"
+      region: "cn-hangzhou"         # Must specify region (not location)
+      zone: "cn-hangzhou-b"         # Alibaba zone format: region-letter
+      image: "RHEL9-latest"
+      networking:
+        public: true
+      tags:
+        tier: "worker"
+
+    # Examples WITHOUT zone specification (uses intelligent zone discovery)
+    - name: "auto-zone-gcp"
+      provider: "gcp"
+      size: "small"
+      region: "us-east1"            # No zone specified - YamlForge will intelligently select
+      image: "RHEL9-latest"
+      networking:
+        public: true
+      tags:
+        placement: "automatic"
+        
+    - name: "auto-zone-aws"
+      provider: "aws"
+      size: "small"
+      region: "us-west-2"           # No zone specified - AWS will use dynamic zone selection
+      image: "RHEL_9_LATEST"
+      networking:
+        public: true
+      tags:
+        placement: "automatic"
+
+  # INVALID Examples (these would cause errors):
+  # 
+  # WRONG: Can't specify zone with location-based configuration
+  # - name: "invalid-location-with-zone"
+  #   provider: "gcp"
+  #   size: "small"
+  #   location: "us-central"      # Using location...
+  #   zone: "us-central1-a"       # ...but also specifying zone (ERROR!)
+  #
+  # WRONG: Zone doesn't match region
+  # - name: "invalid-mismatched-zone"
+  #   provider: "gcp"  
+  #   size: "small"
+  #   region: "us-east1"          # Region is us-east1...
+  #   zone: "us-west1-a"          # ...but zone is in us-west1 (ERROR!)
+
+# Security groups
+security_groups:
+  - name: "web-access"
+    description: "HTTP/HTTPS and SSH access"
+    rules:
+      - protocol: "tcp"
+        from_port: 80
+        to_port: 80
+        cidr: "0.0.0.0/0"
+        description: "HTTP"
+      - protocol: "tcp"
+        from_port: 443
+        to_port: 443
+        cidr: "0.0.0.0/0"
+        description: "HTTPS"
+      - protocol: "tcp"
+        from_port: 22
+        to_port: 22
+        cidr: "0.0.0.0/0"
+        description: "SSH"
+
+# Global tags
+tags:
+  project: "zone-specification-demo"
+  environment: "development"
+  cost_center: "engineering"
+  managed_by: "yamlforge" 

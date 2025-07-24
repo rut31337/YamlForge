@@ -18,13 +18,18 @@ default_apis:
 # Project Configuration Defaults
 project_defaults:
   # Default GCP admin group that gets project ownership
-  admin_group: "gcp-admins@example.com"
+  admin_group: "${GCP_PROJECT_OWNER_EMAIL}"
   
   # Default billing account ID (should be overridden in credentials or environment)
   billing_account_id: "${GCP_BILLING_ACCOUNT_ID}"
   
   # Default organization ID (should be overridden in credentials or environment)
   organization_id: "${GCP_ORGANIZATION_ID}"
+  
+  # Default folder ID (alternative to organization_id for nested project placement)
+  # Use either organization_id OR folder_id, not both
+  # Format: "folders/123456789012" or just "123456789012"
+  folder_id: "${GCP_FOLDER_ID}"
   
   # Default service account name for project ownership
   project_service_account: "yamlforge-automation"
@@ -37,20 +42,20 @@ user_management:
   # Company/organization domain for automatic ownership privileges
   # Users with email addresses from this domain automatically get Owner role
   # This is separate from DNS zone management
-  company_domain: "example.com"
+  company_domain: "${GCP_COMPANY_DOMAIN}"
   
   # Whether to enable domain-based ownership assignment
   enable_domain_ownership: true
 
 # DNS Configuration
 dns_config:
-  # Root zone management settings (enabled by default - set to false to disable)
-  root_zone_management: true
+  # Root zone management settings (disabled temporarily to avoid DNS discovery issues)
+  root_zone_management: false
   
   # Root zone configuration for automatic delegation
   root_zone:
     # DNS zone name (without trailing dot)
-    domain: "example.com"
+    domain: "${GCP_ROOT_ZONE_DOMAIN}"
     
     # Google Cloud DNS managed zone name (auto-discovered if not specified)
     # Leave empty to automatically find the zone that manages this domain

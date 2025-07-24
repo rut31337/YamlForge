@@ -8,8 +8,58 @@ import json
 import os
 import sys
 import requests
+import time
+import random
 from typing import List, Dict, Optional
 from datetime import datetime
+from functools import wraps
+
+
+def retry_with_backoff(max_retries=3, base_delay=1.0, max_delay=60.0, backoff_factor=2.0):
+    """
+    Retry decorator with exponential backoff and jitter
+    
+    Args:
+        max_retries: Maximum number of retry attempts
+        base_delay: Initial delay between retries in seconds
+        max_delay: Maximum delay between retries
+        backoff_factor: Multiplier for exponential backoff
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            
+            for attempt in range(max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except (requests.exceptions.RequestException, 
+                        requests.exceptions.Timeout,
+                        requests.exceptions.ConnectionError,
+                        requests.exceptions.HTTPError) as e:
+                    last_exception = e
+                    
+                    if attempt == max_retries:
+                        # Final attempt failed, raise the exception
+                        break
+                    
+                    # Calculate delay with exponential backoff and jitter
+                    delay = min(base_delay * (backoff_factor ** attempt), max_delay)
+                    # Add jitter to prevent thundering herd
+                    jitter = random.uniform(0.1, 0.3) * delay
+                    total_delay = delay + jitter
+                    
+                    print(f"API request failed (attempt {attempt + 1}/{max_retries + 1}): {e}")
+                    print(f"Retrying in {total_delay:.2f} seconds...")
+                    time.sleep(total_delay)
+                except Exception as e:
+                    # Non-retryable exception, fail immediately
+                    raise e
+            
+            # All retries exhausted
+            raise last_exception
+        return wrapper
+    return decorator
 
 
 class ROSAVersionManager:
@@ -25,6 +75,7 @@ class ROSAVersionManager:
         if not self.token:
             raise ValueError("Red Hat OpenShift token required. Set REDHAT_OPENSHIFT_TOKEN environment variable.")
     
+    @retry_with_backoff(max_retries=3, base_delay=1.0, max_delay=30.0, backoff_factor=2.0)
     def get_access_token(self) -> str:
         """Get access token from Red Hat offline token"""
         if not self.token:
@@ -65,6 +116,7 @@ class ROSAVersionManager:
             'Accept': 'application/json'
         }
     
+    @retry_with_backoff(max_retries=3, base_delay=1.0, max_delay=60.0, backoff_factor=2.0)
     def fetch_supported_versions(self, cluster_type: str = "rosa", refresh_cache: bool = False) -> List[Dict]:
         """
         Fetch supported OpenShift versions from Red Hat API

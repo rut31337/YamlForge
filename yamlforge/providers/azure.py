@@ -27,7 +27,8 @@ class AzureProvider:
 
         if size_mapping:
             # Return the first (preferred) VM size for this size
-            return list(size_mapping.keys())[0]
+            vm_size = list(size_mapping.keys())[0]
+            return vm_size
 
         # No mapping found for this size
         raise ValueError(f"No Azure VM size mapping found for size '{size_or_instance_type}'. "
@@ -130,6 +131,26 @@ resource "azurerm_network_security_group" "{regional_sg_name}_{self.converter.ge
 
         # Resolve region using region/location logic
         azure_region = self.converter.resolve_instance_region(instance, "azure")
+        
+        # Check if user specified a zone (only valid with region-based configuration)
+        user_specified_zone = instance.get('zone')
+        has_region = 'region' in instance
+        
+        if user_specified_zone and has_region:
+            # Azure zones are just numbers (1, 2, 3), validate the zone is valid
+            if not user_specified_zone.isdigit() or int(user_specified_zone) not in [1, 2, 3]:
+                raise ValueError(f"Instance '{instance_name}': Azure zones must be '1', '2', or '3'. Got: '{user_specified_zone}'")
+            
+            print(f"Using user-specified zone '{user_specified_zone}' for instance '{instance_name}' in region '{azure_region}'")
+            azure_zone = user_specified_zone
+            
+        elif user_specified_zone and not has_region:
+            raise ValueError(f"Instance '{instance_name}': Zone '{user_specified_zone}' can only be specified when using 'region' (not 'location'). "
+                           f"Either remove 'zone' or change 'location' to 'region'.")
+        else:
+            # Let Terraform automatically select the best available zone
+            azure_zone = None
+        
         azure_vm_size = self.get_azure_vm_size(size)
 
         # Get Azure NSG references with regional awareness
@@ -197,7 +218,14 @@ resource "azurerm_linux_virtual_machine" "{clean_name}_{self.converter.get_valid
   location            = azurerm_resource_group.main_{azure_region.replace("-", "_").replace(" ", "_")}_{self.converter.get_validated_guid(yaml_data)}.location
   size                = "{azure_vm_size}"
   admin_username      = "azureuser"
-  disable_password_authentication = true
+  disable_password_authentication = true'''
+
+        # Add zone if user specified one
+        if azure_zone:
+            vm_config += f'''
+  zone                = "{azure_zone}"'''
+
+        vm_config += f'''
 
   network_interface_ids = [
     azurerm_network_interface.{clean_name}_nic_{self.converter.get_validated_guid(yaml_data)}.id,

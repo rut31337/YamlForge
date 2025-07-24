@@ -2,7 +2,7 @@
 
 This directory contains all the configuration files that define how YAML infrastructure specifications are mapped to native cloud provider resources. The mappings are organized into separate files for better maintainability and easier customization.
 
-## 🔧 **Configuration Sources**
+## Configuration Sources
 
 ### **Credentials vs Defaults**
 - **Credentials** (`credentials/{provider}.yaml`): Authentication and API access configuration
@@ -306,13 +306,13 @@ cluster_sizes:
 5. **Falls back to generic configurations** if cloud-specific file unavailable
 
 #### Benefits
-- ✅ **No hardcoded machine types** in Python code
-- ✅ **OpenShift-optimized sizing** for better performance
-- ✅ **Easy customization** by editing YAML files
-- ✅ **Cost transparency** with documented cost factors
-- ✅ **Cloud-agnostic abstractions** with provider-specific implementations
-- ✅ **Organized structure** with dedicated OpenShift directory
-- ✅ **Clear separation** between standard and OpenShift-optimized configurations
+- **No hardcoded machine types** in Python code
+- **OpenShift-optimized sizing** for better performance
+- **Easy customization** by editing YAML files
+- **Cost transparency** with documented cost factors
+- **Cloud-agnostic abstractions** with provider-specific implementations
+- **Organized structure** with dedicated OpenShift directory
+- **Clear separation** between standard and OpenShift-optimized configurations
 
 ## File Format Examples
 

@@ -8,6 +8,7 @@ networking, security groups, and other AWS cloud resources.
 import yaml
 from pathlib import Path
 from datetime import datetime, timedelta
+import os # Added for create_rosa_account_roles_via_cli
 
 # AWS imports
 try:
@@ -113,8 +114,14 @@ class AWSImageResolver:
                 profile_name=aws_config.get('profile_name')
             )
 
-            # Create EC2 client
-            client = session.client('ec2', region_name=region)
+            # Create EC2 client with timeout configuration to prevent hanging
+            from botocore.config import Config
+            config = Config(
+                connect_timeout=10,  # Connection timeout in seconds
+                read_timeout=30,     # Read timeout in seconds  
+                retries={'max_attempts': 3, 'mode': 'adaptive'}
+            )
+            client = session.client('ec2', region_name=region, config=config)
             return client
 
         except Exception as e:
@@ -282,7 +289,7 @@ class AWSImageResolver:
         
         return suggestions[:5]
 
-    def find_latest_ami(self, name_pattern, owner, region, architecture='x86_64', additional_filters=None):
+    def find_latest_ami(self, name_pattern, owner, region, architecture='x86_64', additional_filters=None, instance_name=None, image_key=None):
         """Find the latest AMI matching the given pattern."""
         # Include additional filters in cache key for uniqueness
         filters_str = str(sorted(additional_filters or []))
@@ -293,10 +300,24 @@ class AWSImageResolver:
             cached_result = self.cache[cache_key]
             # Handle both old format (string) and new format (dict)
             if isinstance(cached_result, str):
-                print(f"🔄 Using cached AMI: {cached_result} for pattern '{name_pattern}' in {region}")
-                return {'ami_id': cached_result, 'ami_name': 'Unknown'}
-            print(f"🔄 Using cached AMI: {cached_result['ami_id']} ({cached_result['ami_name']}) for pattern '{name_pattern}' in {region}")
-            return cached_result
+                ami_id = cached_result
+                ami_name = 'Unknown'
+                result = {'ami_id': ami_id, 'ami_name': ami_name}
+            else:
+                ami_id = cached_result['ami_id']
+                ami_name = cached_result['ami_name']
+                result = cached_result
+            
+            # Display cached AMI with same format as fresh lookup
+            if instance_name and image_key:
+                print(f"Dynamic image search for {instance_name} on aws for {image_key} in {region} results in {ami_id} (cached)")
+                if self.converter and hasattr(self.converter, 'verbose') and self.converter.verbose:
+                    print(f"  Verbose: {ami_name}")
+            else:
+                # Fallback to old format if context is not available
+                print(f"Using cached AMI: {ami_id} ({ami_name}) for pattern '{name_pattern}' in {region}")
+            
+            return result
 
         client = self.get_client(region)
         if client is None:
@@ -321,11 +342,30 @@ class AWSImageResolver:
                 if additional_filters:
                     print(f"[DEBUG] Additional filters: {additional_filters}")
 
-            # Query for AMIs (no MaxResults limit to ensure we get ALL versions)
-            response = client.describe_images(
-                Filters=filters
-                # No MaxResults - get all available AMIs to find true latest version
-            )
+            # Query for AMIs with retry logic for transient failures
+            import time
+            max_retries = 3
+            retry_delay = 1  # Start with 1 second
+            
+            for attempt in range(max_retries):
+                try:
+                    if attempt > 0:
+                        print(f"  Retrying AMI search (attempt {attempt + 1}/{max_retries}) after {retry_delay}s delay...")
+                        time.sleep(retry_delay)
+                    
+                    response = client.describe_images(
+                        Filters=filters
+                        # No MaxResults - get all available AMIs to find true latest version
+                    )
+                    break  # Success, exit retry loop
+                    
+                except Exception as retry_e:
+                    if attempt == max_retries - 1:
+                        # Last attempt failed, re-raise the exception
+                        raise retry_e
+                    else:
+                        print(f"  AMI search attempt {attempt + 1} failed: {retry_e}")
+                        retry_delay *= 2  # Exponential backoff
 
             images = response['Images']
             
@@ -372,6 +412,8 @@ class AWSImageResolver:
                 'ami_name': latest_image['Name']
             }
             self.cache[cache_key] = result
+            import time
+            self.cache_timestamps[cache_key] = time.time()
 
             return result
 
@@ -471,6 +513,12 @@ class AWSProvider:
             self._aws_resolver = AWSImageResolver(self.converter.credentials, self.converter)
         return self._aws_resolver
 
+    def get_aws_provider_reference(self, region, yaml_data=None):
+        """Get the appropriate AWS provider reference for a specific region."""
+        all_aws_regions = self.converter.get_all_aws_regions(yaml_data or {})
+        provider_reference = self.converter.get_aws_provider_reference(region, all_aws_regions)
+        return f"\n  {provider_reference}" if provider_reference else ""
+
 
 
     def get_aws_filters(self, image_key):
@@ -510,7 +558,8 @@ class AWSProvider:
 
         if size_mapping:
             # Return the first (preferred) instance type for this size
-            return list(size_mapping.keys())[0]
+            instance_type = list(size_mapping.keys())[0]
+            return instance_type
 
         # No mapping found for this size
         raise ValueError(f"No AWS instance type mapping found for size '{size_or_instance_type}'. "
@@ -583,7 +632,9 @@ class AWSProvider:
                     owner=self.get_aws_resolver()._get_required_config_owner(owner_key),
                     region=region,
                     architecture=architecture,
-                    additional_filters=additional_filters
+                    additional_filters=additional_filters,
+                    instance_name=instance_name,
+                    image_key=image_key
                 )
             elif "FEDORA" in image_key.upper():
                 # Fedora images
@@ -598,7 +649,9 @@ class AWSProvider:
                     name_pattern=name_pattern,
                     owner=self.get_aws_resolver()._get_required_config_owner('fedora'),
                     region=region,
-                    architecture=architecture
+                    architecture=architecture,
+                    instance_name=instance_name,
+                    image_key=image_key
                 )
             elif aws_config.get('name_pattern'):
                 # Pattern-based discovery
@@ -616,7 +669,9 @@ class AWSProvider:
                     owner=self.get_aws_resolver()._get_required_config_owner(owner_key),
                     region=region,
                     architecture=architecture,
-                    additional_filters=additional_filters
+                    additional_filters=additional_filters,
+                    instance_name=instance_name,
+                    image_key=image_key
                 )
             else:
                 # Fallback for other image types - try generic resolution
@@ -679,7 +734,7 @@ class AWSProvider:
         # Generate security group resource
         security_group_config = f'''
 # AWS Security Group: {sg_name} (Region: {region})
-resource "aws_security_group" "{regional_sg_name}_{guid}" {{
+resource "aws_security_group" "{regional_sg_name}_{guid}" {{{self.get_aws_provider_reference(region, yaml_data)}
   name_prefix = "{sg_name}-{region}-"
   description = "Security group for {sg_name} in {region}"
   vpc_id      = local.vpc_id_{clean_region}_{guid}
@@ -719,9 +774,34 @@ resource "aws_security_group" "{regional_sg_name}_{guid}" {{
 
         # Resolve region using region/location logic
         aws_region = self.converter.resolve_instance_region(instance, "aws")
+        
+        # Check if user specified a zone (only valid with region-based configuration)
+        user_specified_zone = instance.get('zone')
+        has_region = 'region' in instance
+        
+        if user_specified_zone and has_region:
+            # User specified both region and zone - validate the zone belongs to the region
+            expected_region = user_specified_zone[:-1]  # Remove last character (e.g., us-east-1a -> us-east-1)
+            
+            if expected_region != aws_region:
+                raise ValueError(f"Instance '{instance_name}': Specified zone '{user_specified_zone}' does not belong to region '{aws_region}'. "
+                               f"Zone region: '{expected_region}', Instance region: '{aws_region}'")
+            
+            print(f"Using user-specified zone '{user_specified_zone}' for instance '{instance_name}' in region '{aws_region}'")
+            aws_availability_zone = user_specified_zone
+            
+        elif user_specified_zone and not has_region:
+            raise ValueError(f"Instance '{instance_name}': Zone '{user_specified_zone}' can only be specified when using 'region' (not 'location'). "
+                           f"Either remove 'zone' or change 'location' to 'region'.")
+        else:
+            # Let Terraform automatically select the best available zone
+            aws_availability_zone = None
 
         # Use the instance type from strategy
-        aws_instance_type = strategy_info['instance_type'] or 't3.medium'
+        aws_instance_type = strategy_info['instance_type']
+        
+        if not aws_instance_type:
+            raise ValueError(f"Instance '{instance_name}': No instance type specified in strategy_info")
         
         # Get GUID for consistent naming
         guid = self.converter.get_validated_guid(yaml_data)
@@ -772,7 +852,7 @@ resource "aws_security_group" "{regional_sg_name}_{guid}" {{
             ssh_key_name = f"{clean_name}_key_pair_{guid}"
             ssh_key_resources = f'''
 # AWS Key Pair for {instance_name}
-resource "aws_key_pair" "{ssh_key_name}" {{
+resource "aws_key_pair" "{ssh_key_name}" {{{self.get_aws_provider_reference(aws_region, yaml_data)}
   key_name   = "{instance_name}-key"
   public_key = "{ssh_key_config['public_key']}"
   
@@ -789,7 +869,7 @@ resource "aws_key_pair" "{ssh_key_name}" {{
         # Generate the instance configuration
         instance_config = ami_data_source + ssh_key_resources + f'''
 # AWS EC2 Instance: {instance_name}
-resource "aws_instance" "{clean_name}_{guid}" {{
+resource "aws_instance" "{clean_name}_{guid}" {{{self.get_aws_provider_reference(aws_region, yaml_data)}
   ami           = {ami_reference}
   instance_type = "{aws_instance_type}"'''
 
@@ -797,6 +877,11 @@ resource "aws_instance" "{clean_name}_{guid}" {{
         if key_name_ref != "null":
             instance_config += f'''
   key_name      = {key_name_ref}'''
+
+        # Add availability zone if user specified one
+        if aws_availability_zone:
+            instance_config += f'''
+  availability_zone = "{aws_availability_zone}"'''
 
         instance_config += f'''
 
@@ -808,9 +893,9 @@ resource "aws_instance" "{clean_name}_{guid}" {{
             instance_config += f'''
 
   # User Data Script
-  user_data = base64encode(<<-EOF
+  user_data = base64encode(<<-USERDATA
 {user_data_script}
-EOF
+USERDATA
   )'''
 
         # Add security groups if any exist
@@ -849,7 +934,7 @@ EOF
 resource "aws_vpc" "main_vpc_{clean_region}_{guid}" {{
   cidr_block           = "{cidr_block}"
   enable_dns_hostnames = true
-  enable_dns_support   = true
+  enable_dns_support   = true{self.get_aws_provider_reference(region, yaml_data)}
 
   tags = {{
     Name = "{network_name}-{region}"
@@ -873,7 +958,7 @@ locals {{
         networking_config += f'''
 # AWS Internet Gateway
 resource "aws_internet_gateway" "main_igw_{clean_region}_{guid}" {{
-  vpc_id = local.vpc_id_{clean_region}_{guid}
+  vpc_id = local.vpc_id_{clean_region}_{guid}{self.get_aws_provider_reference(region, yaml_data)}
 
   tags = {{
     Name = "{network_name}-igw-{region}"
@@ -883,7 +968,7 @@ resource "aws_internet_gateway" "main_igw_{clean_region}_{guid}" {{
 }}
 
 # AWS Route Table
-resource "aws_route_table" "main_rt_{clean_region}_{guid}" {{
+resource "aws_route_table" "main_rt_{clean_region}_{guid}" {{{self.get_aws_provider_reference(region, yaml_data)}
   vpc_id = local.vpc_id_{clean_region}_{guid}
 
   route {{
@@ -898,23 +983,19 @@ resource "aws_route_table" "main_rt_{clean_region}_{guid}" {{
   }}
 }}
 
-# AWS Route Table Association
-resource "aws_route_table_association" "main_rta_{clean_region}_{guid}" {{
-  subnet_id      = local.vpc_subnet_id_{clean_region}_{guid}
-  route_table_id = aws_route_table.main_rt_{clean_region}_{guid}.id
-}}
+# Note: Route table associations are now handled within subnet generation for better organization
 '''
         
         return networking_config
 
     def generate_rosa_compatible_subnets(self, network_name, cidr_block, region, guid, yaml_data=None):
-        """Generate ROSA-compatible multi-AZ subnets (minimum 2 for public clusters)."""
+        """Generate ROSA-compatible multi-AZ subnets (both public and private for ROSA Classic Multi-AZ)."""
         clean_region = region.replace("-", "_").replace(".", "_")
         
         # Use Terraform data source to get actual available AZs for the region
         subnet_config = f'''
 # Get available availability zones for {region}
-data "aws_availability_zones" "available_{clean_region}_{guid}" {{
+data "aws_availability_zones" "available_{clean_region}_{guid}" {{{self.get_aws_provider_reference(region, yaml_data)}
   filter {{
     name   = "opt-in-status"
     values = ["opt-in-not-required"]
@@ -922,20 +1003,9 @@ data "aws_availability_zones" "available_{clean_region}_{guid}" {{
   state = "available"
 }}
 
-# ROSA-compatible multi-AZ public subnets (minimum 2 required for hosted clusters)
+# ROSA-compatible multi-AZ subnets (both public and private for ROSA Classic Multi-AZ)
 # Dynamic subnet creation based on available AZs
 '''
-        
-        # Split CIDR block into smaller subnets
-        import ipaddress
-        try:
-            vpc_network = ipaddress.IPv4Network(cidr_block, strict=False)
-            # Create /24 subnets from the VPC CIDR (e.g., 10.0.0.0/16 -> 10.0.0.0/24, 10.0.1.0/24, etc.)
-            subnets = list(vpc_network.subnets(new_prefix=24))
-        except:
-            # Fallback to manual calculation if ipaddress fails
-            base_octets = cidr_block.split('/')[0].split('.')
-            subnets = [f"{base_octets[0]}.{base_octets[1]}.{i}.0/24" for i in range(6)]  # Generate up to 6 subnets
         
         # Generate optimal number of subnets (3 for good HA, minimum 2 for ROSA)
         # Choose intelligently from available AZs
@@ -943,13 +1013,13 @@ data "aws_availability_zones" "available_{clean_region}_{guid}" {{
 # Local values to select optimal AZs  
 locals {{
   # Select up to 3 AZs for good HA (use what's available, maximum 3)
-  # ROSA clusters need minimum 2 AZs, but that's validated at cluster level
+  # ROSA Classic Multi-AZ requires 6 subnets (3 public + 3 private)
   selected_az_count_{clean_region}_{guid} = min(length(data.aws_availability_zones.available_{clean_region}_{guid}.names), 3)
   selected_azs_{clean_region}_{guid} = slice(data.aws_availability_zones.available_{clean_region}_{guid}.names, 0, local.selected_az_count_{clean_region}_{guid})
 }}
 
 # Public subnets - create 2-3 subnets across selected AZs (optimal for HA without over-provisioning)
-resource "aws_subnet" "public_subnet_{clean_region}_{guid}" {{
+resource "aws_subnet" "public_subnet_{clean_region}_{guid}" {{{self.get_aws_provider_reference(region, yaml_data)}
   count = local.selected_az_count_{clean_region}_{guid}
   
   vpc_id                  = local.vpc_id_{clean_region}_{guid}
@@ -964,6 +1034,22 @@ resource "aws_subnet" "public_subnet_{clean_region}_{guid}" {{
     "kubernetes.io/role/elb" = "1"  # Required for AWS Load Balancer Controller
   }}
 }}
+
+# Private subnets - create 2-3 subnets across selected AZs (required for ROSA Classic Multi-AZ)
+resource "aws_subnet" "private_subnet_{clean_region}_{guid}" {{{self.get_aws_provider_reference(region, yaml_data)}
+  count = local.selected_az_count_{clean_region}_{guid}
+  
+  vpc_id            = local.vpc_id_{clean_region}_{guid}
+  cidr_block        = cidrsubnet(local.vpc_cidr_{clean_region}_{guid}, 8, count.index + 3)
+  availability_zone = local.selected_azs_{clean_region}_{guid}[count.index]
+
+  tags = {{
+    Name = "{network_name}-private-${{count.index + 1}}-${{local.selected_azs_{clean_region}_{guid}[count.index]}}"
+    Environment = "{yaml_data.get('environment', 'unknown') if yaml_data else 'unknown'}"
+    ManagedBy = "yamlforge"
+    "kubernetes.io/role/internal-elb" = "1"  # Required for internal load balancers
+  }}
+}}
 '''
         
         # Create local values for subnet IDs (ROSA provider needs these)
@@ -971,6 +1057,13 @@ resource "aws_subnet" "public_subnet_{clean_region}_{guid}" {{
 # Local values for ROSA subnet references
 locals {{
   public_subnet_ids_{clean_region}_{guid} = aws_subnet.public_subnet_{clean_region}_{guid}[*].id
+  private_subnet_ids_{clean_region}_{guid} = aws_subnet.private_subnet_{clean_region}_{guid}[*].id
+  
+  # All subnet IDs for ROSA Classic Multi-AZ (6 total: 3 public + 3 private)
+  all_subnet_ids_{clean_region}_{guid} = concat(
+    aws_subnet.public_subnet_{clean_region}_{guid}[*].id,
+    aws_subnet.private_subnet_{clean_region}_{guid}[*].id
+  )
   
   # Availability zones for ROSA clusters (selected optimal AZs)
   region_azs_{clean_region}_{guid} = local.selected_azs_{clean_region}_{guid}
@@ -985,9 +1078,83 @@ output "public_subnet_ids_{clean_region}_{guid}" {{
   value       = local.public_subnet_ids_{clean_region}_{guid}
 }}
 
+output "private_subnet_ids_{clean_region}_{guid}" {{
+  description = "Private subnet IDs for ROSA clusters in {region}"
+  value       = local.private_subnet_ids_{clean_region}_{guid}
+}}
+
+output "all_subnet_ids_{clean_region}_{guid}" {{
+  description = "All subnet IDs (public + private) for ROSA Classic Multi-AZ in {region}"
+  value       = local.all_subnet_ids_{clean_region}_{guid}
+}}
+
 output "region_azs_{clean_region}_{guid}" {{
   description = "Availability zones for ROSA clusters in {region}"
   value       = local.region_azs_{clean_region}_{guid}
+}}
+
+# NAT Gateways for private subnets (one per AZ for high availability)
+resource "aws_eip" "nat_eip_{clean_region}_{guid}" {{
+  count = local.selected_az_count_{clean_region}_{guid}
+  
+  domain = "vpc"
+  
+  tags = {{
+    Name = "{network_name}-nat-eip-${{count.index + 1}}-${{local.selected_azs_{clean_region}_{guid}[count.index]}}"
+    Environment = "{yaml_data.get('environment', 'unknown') if yaml_data else 'unknown'}"
+    ManagedBy = "yamlforge"
+  }}
+  
+  depends_on = [aws_internet_gateway.main_igw_{clean_region}_{guid}]
+}}
+
+resource "aws_nat_gateway" "nat_gw_{clean_region}_{guid}" {{
+  count = local.selected_az_count_{clean_region}_{guid}
+  
+  allocation_id = aws_eip.nat_eip_{clean_region}_{guid}[count.index].id
+  subnet_id     = aws_subnet.public_subnet_{clean_region}_{guid}[count.index].id
+  
+  tags = {{
+    Name = "{network_name}-nat-gw-${{count.index + 1}}-${{local.selected_azs_{clean_region}_{guid}[count.index]}}"
+    Environment = "{yaml_data.get('environment', 'unknown') if yaml_data else 'unknown'}"
+    ManagedBy = "yamlforge"
+  }}
+  
+  depends_on = [aws_internet_gateway.main_igw_{clean_region}_{guid}]
+}}
+
+# Private route tables (one per AZ)
+resource "aws_route_table" "private_rt_{clean_region}_{guid}" {{
+  count = local.selected_az_count_{clean_region}_{guid}
+  
+  vpc_id = local.vpc_id_{clean_region}_{guid}
+
+  route {{
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.nat_gw_{clean_region}_{guid}[count.index].id
+  }}
+
+  tags = {{
+    Name = "{network_name}-private-rt-${{count.index + 1}}-${{local.selected_azs_{clean_region}_{guid}[count.index]}}"
+    Environment = "{yaml_data.get('environment', 'unknown') if yaml_data else 'unknown'}"
+    ManagedBy = "yamlforge"
+  }}
+}}
+
+# Associate private subnets with their respective route tables
+resource "aws_route_table_association" "private_rta_{clean_region}_{guid}" {{
+  count = local.selected_az_count_{clean_region}_{guid}
+  
+  subnet_id      = aws_subnet.private_subnet_{clean_region}_{guid}[count.index].id
+  route_table_id = aws_route_table.private_rt_{clean_region}_{guid}[count.index].id
+}}
+
+# Associate public subnets with the main route table
+resource "aws_route_table_association" "public_rta_{clean_region}_{guid}" {{
+  count = local.selected_az_count_{clean_region}_{guid}
+  
+  subnet_id      = aws_subnet.public_subnet_{clean_region}_{guid}[count.index].id
+  route_table_id = aws_route_table.main_rt_{clean_region}_{guid}.id
 }}
 '''
         
@@ -1167,6 +1334,146 @@ output "region_azs_{clean_region}_{guid}" {{
         else:
             return '["0.0.0.0/0"]'
 
+    def create_rosa_account_roles_via_cli(self, yaml_data=None):
+        """Create ROSA account roles using the ROSA CLI instead of Terraform."""
+        import subprocess
+        import sys
+        
+        guid = self.converter.get_validated_guid(yaml_data)
+        
+        try:
+            # Check if rosa CLI is available
+            result = subprocess.run(['rosa', 'version'], capture_output=True, text=True)
+            if result.returncode != 0:
+                print("ROSA CLI not found. Please install ROSA CLI first.")
+                print("Installation instructions: https://docs.openshift.com/rosa/rosa_install_access_delete_clusters/rosa_getting_started_iam/rosa-installing-rosa.html")
+                return False
+                
+            print("ROSA CLI found")
+            
+            # Check if ROSA is already logged in, or perform automatic login
+            if not self._ensure_rosa_login():
+                return False
+            
+            # Create account roles using ROSA CLI
+            print("Creating ROSA account roles using ROSA CLI...")
+            
+            # Check if we have ROSA HCP clusters to determine what roles to create
+            clusters = yaml_data.get('openshift_clusters', []) if yaml_data else []
+            has_hcp_clusters = any(cluster.get('type') == 'rosa-hcp' for cluster in clusters)
+            has_classic_clusters = any(cluster.get('type') == 'rosa-classic' for cluster in clusters)
+            
+            # Create HCP-specific roles if HCP clusters are present
+            if has_hcp_clusters:
+                cmd = [
+                    'rosa', 'create', 'account-roles',
+                    '--hosted-cp',
+                    '--mode', 'auto',
+                    '--yes',
+                    '--prefix', f'ManagedOpenShift-{guid}'
+                ]
+                
+                print(f"Running: {' '.join(cmd)}")
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                
+                if result.returncode == 0:
+                    print("ROSA HCP account roles created successfully!")
+                    # Only show detailed output in verbose mode
+                    verbose = getattr(self.converter, 'verbose', False)
+                    if verbose:
+                        print("Detailed ROSA CLI output:")
+                        print(result.stdout)
+                else:
+                    print("Failed to create ROSA HCP account roles:")
+                    print(result.stderr)
+                    return False
+            
+            # Create Classic roles if Classic clusters are present (or as fallback)
+            if has_classic_clusters or not has_hcp_clusters:
+                cmd = [
+                    'rosa', 'create', 'account-roles',
+                    '--mode', 'auto',
+                    '--yes',
+                    '--prefix', f'ManagedOpenShift-{guid}'
+                ]
+                
+                print(f"Running: {' '.join(cmd)}")
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                
+                if result.returncode == 0:
+                    print("ROSA Classic account roles created successfully!")
+                    # Only show detailed output in verbose mode
+                    verbose = getattr(self.converter, 'verbose', False)
+                    if verbose:
+                        print("Detailed ROSA CLI output:")
+                        print(result.stdout)
+                else:
+                    print("Failed to create ROSA Classic account roles:")
+                    print(result.stderr)
+                    return False
+            
+            return True
+                
+        except Exception as e:
+            print(f"Error creating ROSA account roles: {str(e)}")
+            return False
+
+    def _ensure_rosa_login(self):
+        """Ensure ROSA CLI is logged in, attempting automatic login if needed."""
+        import subprocess
+        
+        try:
+            # First check if already logged in
+            result = subprocess.run(['rosa', 'whoami'], capture_output=True, text=True)
+            if result.returncode == 0:
+                print("ROSA CLI already authenticated")
+                verbose = getattr(self.converter, 'verbose', False)
+                if verbose:
+                    print(f"Logged in as: {result.stdout.strip()}")
+                return True
+            
+            # Not logged in, try automatic login with environment variables
+            print("ROSA CLI not authenticated, attempting automatic login...")
+            
+            # Try to get token from multiple possible environment variable sources
+            token = None
+            token_sources = ['ROSA_TOKEN', 'OCM_TOKEN', 'REDHAT_OPENSHIFT_TOKEN']
+            
+            for token_var in token_sources:
+                if token_var in os.environ:
+                    token = os.environ[token_var]
+                    print(f"Found token in environment variable: {token_var}")
+                    break
+            
+            if token:
+                # Attempt automatic login with token
+                cmd = ['rosa', 'login', '--token', token]
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                
+                if result.returncode == 0:
+                    print("ROSA CLI login successful!")
+                    return True
+                else:
+                    print("ROSA CLI login failed with provided token:")
+                    print(result.stderr)
+                    return False
+            else:
+                # No token found in environment variables
+                print("No ROSA token found in environment variables")
+                print("Please set one of the following environment variables:")
+                print("  export ROSA_TOKEN='your_token_here'")
+                print("  export OCM_TOKEN='your_token_here'")  
+                print("  export REDHAT_OPENSHIFT_TOKEN='your_token_here'")
+                print("")
+                print("Get your token from: https://console.redhat.com/openshift/token/rosa")
+                print("")
+                print("Alternative: Run 'rosa login' manually, then re-run this script")
+                return False
+                
+        except Exception as e:
+            print(f"Error checking ROSA CLI authentication: {str(e)}")
+            return False
+
     def generate_rosa_sts_roles(self, yaml_data=None):
         """Generate IAM roles required for ROSA STS clusters."""
         guid = self.converter.get_validated_guid(yaml_data)
@@ -1178,6 +1485,15 @@ output "region_azs_{clean_region}_{guid}" {{
 # These roles allow Red Hat OpenShift Service on AWS (ROSA) to manage clusters
 # in your AWS account using AWS Security Token Service (STS).
 
+# =============================================================================
+# ROSA IAM ROLES - CREATED FRESH (NO IMPORTS)
+# =============================================================================
+# All ROSA IAM roles are created fresh by Terraform for clean deployments.
+
+# =============================================================================
+# ROSA IAM ROLE DEFINITIONS
+# =============================================================================
+
 # ROSA Installer Role - Used by Red Hat OCM to create and manage clusters
 resource "aws_iam_role" "rosa_installer_role" {{
   name = "ManagedOpenShift-Installer-Role"
@@ -1188,16 +1504,9 @@ resource "aws_iam_role" "rosa_installer_role" {{
       {{
         Effect = "Allow"
         Principal = {{
-          AWS = "arn:aws:iam::710019948333:root"
+          AWS = "arn:aws:iam::710019948333:role/RH-Managed-OpenShift-Installer"
         }}
         Action = "sts:AssumeRole"
-        Condition = {{
-          StringEquals = {{
-            "sts:ExternalId" = [
-              data.aws_caller_identity.current.account_id
-            ]
-          }}
-        }}
       }}
     ]
   }})
@@ -1226,16 +1535,9 @@ resource "aws_iam_role" "rosa_support_role" {{
       {{
         Effect = "Allow"
         Principal = {{
-          AWS = "arn:aws:iam::710019948333:root"
+          AWS = "arn:aws:iam::710019948333:role/RH-Technical-Support-Access"
         }}
         Action = "sts:AssumeRole"
-        Condition = {{
-          StringEquals = {{
-            "sts:ExternalId" = [
-              data.aws_caller_identity.current.account_id
-            ]
-          }}
-        }}
       }}
     ]
   }})
@@ -1307,6 +1609,11 @@ resource "aws_iam_instance_profile" "rosa_worker_profile" {{
     Environment = var.environment
     "red.hat.managed" = "true"
   }}
+
+  # Prevent conflicts if profile already exists
+  lifecycle {{
+    ignore_changes = [role]
+  }}
 }}
 
 # ROSA Control Plane Role - Used by control plane nodes (Classic clusters only)
@@ -1334,9 +1641,6 @@ resource "aws_iam_role" "rosa_master_role" {{
   }}
 }}
 
-# Note: ROSA Classic control plane nodes use EC2 service principal
-# and do not require a specific AWS managed policy attachment
-
 # Instance profile for control plane nodes
 resource "aws_iam_instance_profile" "rosa_master_profile" {{
   name = "ManagedOpenShift-ControlPlane-Role"
@@ -1347,6 +1651,11 @@ resource "aws_iam_instance_profile" "rosa_master_profile" {{
     ManagedBy = "yamlforge"
     Environment = var.environment
     "red.hat.managed" = "true"
+  }}
+
+  # Prevent conflicts if profile already exists  
+  lifecycle {{
+    ignore_changes = [role]
   }}
 }}
 
@@ -1378,41 +1687,24 @@ output "rosa_master_role_arn" {{
         return terraform_config
 
     def generate_rosa_operator_roles(self, cluster_name, region, guid, yaml_data=None):
-        """Generate cluster-specific operator roles for ROSA clusters."""
+        """Generate reference to operator roles for ROSA clusters.
+        
+        Note: ROSA operator roles are created automatically by the RHCS cluster resource
+        when it references the account roles and OIDC config. This method provides
+        documentation and any additional configuration needed.
+        """
         
         terraform_config = f'''
 # =============================================================================
-# ROSA OPERATOR ROLES - Cluster Specific (Automated Terraform Generation)
+# ROSA OPERATOR ROLES - Cluster Specific (Created by RHCS cluster resource)
 # =============================================================================
-# These roles are used by OpenShift operators within the ROSA cluster
-
-# Local variables for operator role configuration
-locals {{
-  operator_role_prefix = "{cluster_name}"
-  oidc_config_id      = rhcs_rosa_oidc_config.oidc_config.id
-}}
-
-# Cluster-specific operator roles (automatically created)
-resource "rhcs_rosa_operator_roles" "operator_roles" {{
-  operator_role_prefix = local.operator_role_prefix
-  oidc_config_id      = local.oidc_config_id
-  account_role_prefix = "ManagedOpenShift"
-  
-  depends_on = [
-    rhcs_rosa_oidc_config.oidc_config,
-    aws_iam_role.rosa_installer_role,
-    aws_iam_role.rosa_support_role,
-    aws_iam_role.rosa_worker_role,
-    aws_iam_role.rosa_master_role
-  ]
-  
-  tags = {{
-    Environment = var.environment
-    ManagedBy = "yamlforge"
-    "red.hat.managed" = "true"
-    Cluster = "{cluster_name}"
-  }}
-}}
+# Operator roles for cluster "{cluster_name}" are automatically created by the
+# RHCS cluster resource when it references:
+# - Account roles (installer, support, worker, master)
+# - OIDC configuration
+# - operator_role_prefix parameter in the cluster configuration
+#
+# No additional Terraform resources needed here - roles are managed by RHCS provider
 
 '''
         return terraform_config
@@ -1429,13 +1721,6 @@ resource "rhcs_rosa_operator_roles" "operator_roles" {{
 # OIDC Configuration for cluster authentication
 resource "rhcs_rosa_oidc_config" "oidc_config" {{
   managed = true
-  
-  tags = {{
-    Environment = var.environment
-    ManagedBy = "yamlforge"
-    "red.hat.managed" = "true"
-    Cluster = "{cluster_name}"
-  }}
 }}
 
 # Output OIDC configuration details
@@ -1517,7 +1802,6 @@ resource "rhcs_cluster_rosa_classic" "{cluster_name.replace('-', '_')}" {{
     aws_iam_role.rosa_worker_role,
     aws_iam_role.rosa_master_role,
     rhcs_rosa_oidc_config.oidc_config,
-    rhcs_rosa_operator_roles.operator_roles,
     aws_vpc.main_vpc_{region}_{guid},
     aws_subnet.public_subnet_{region}_{guid}
   ]
@@ -1589,4 +1873,117 @@ provider "rhcs" {
 }
 
 '''
+        return terraform_config
+
+    def generate_rosa_sts_data_sources(self, yaml_data=None):
+        """Generate data sources for ROSA STS roles that were created via CLI."""
+        guid = self.converter.get_validated_guid(yaml_data)
+        
+        # Check what types of ROSA clusters we have
+        clusters = yaml_data.get('openshift_clusters', []) if yaml_data else []
+        has_hcp_clusters = any(cluster.get('type') == 'rosa-hcp' for cluster in clusters)
+        has_classic_clusters = any(cluster.get('type') == 'rosa-classic' for cluster in clusters)
+        
+        terraform_config = '''
+# =============================================================================
+# ROSA STS IAM ROLES - DATA SOURCES (Created by ROSA CLI)
+# =============================================================================
+# These data sources reference the ROSA account roles created by ROSA CLI
+# ROSA CLI creates these roles automatically when yamlforge runs
+
+'''
+
+        # Generate HCP role data sources if HCP clusters are present
+        if has_hcp_clusters:
+            terraform_config += f'''
+# ROSA HCP Roles - Used by Hosted Control Plane clusters
+data "aws_iam_role" "rosa_hcp_installer_role" {{
+  name = "ManagedOpenShift-{guid}-HCP-ROSA-Installer-Role"
+}}
+
+data "aws_iam_role" "rosa_hcp_support_role" {{
+  name = "ManagedOpenShift-{guid}-HCP-ROSA-Support-Role"
+}}
+
+data "aws_iam_role" "rosa_hcp_worker_role" {{
+  name = "ManagedOpenShift-{guid}-HCP-ROSA-Worker-Role"
+}}
+
+'''
+
+        # Generate Classic role data sources if Classic clusters are present
+        if has_classic_clusters:
+            terraform_config += f'''
+# ROSA Classic Roles - Used by Classic clusters
+data "aws_iam_role" "rosa_classic_installer_role" {{
+  name = "ManagedOpenShift-{guid}-Installer-Role"
+}}
+
+data "aws_iam_role" "rosa_classic_support_role" {{
+  name = "ManagedOpenShift-{guid}-Support-Role"
+}}
+
+data "aws_iam_role" "rosa_classic_worker_role" {{
+  name = "ManagedOpenShift-{guid}-Worker-Role"
+}}
+
+data "aws_iam_role" "rosa_classic_master_role" {{
+  name = "ManagedOpenShift-{guid}-ControlPlane-Role"
+}}
+
+'''
+
+        # Generate outputs for available role types
+        terraform_config += '''
+# =============================================================================
+# ROSA STS ROLE OUTPUTS (from CLI-created roles)
+# =============================================================================
+
+'''
+
+        if has_hcp_clusters:
+            terraform_config += '''
+# HCP Role Outputs
+output "rosa_hcp_installer_role_arn" {
+  description = "ARN of the ROSA HCP Installer Role (created via CLI)"
+  value       = data.aws_iam_role.rosa_hcp_installer_role.arn
+}
+
+output "rosa_hcp_support_role_arn" {
+  description = "ARN of the ROSA HCP Support Role (created via CLI)"
+  value       = data.aws_iam_role.rosa_hcp_support_role.arn
+}
+
+output "rosa_hcp_worker_role_arn" {
+  description = "ARN of the ROSA HCP Worker Role (created via CLI)"
+  value       = data.aws_iam_role.rosa_hcp_worker_role.arn
+}
+
+'''
+
+        if has_classic_clusters:
+            terraform_config += '''
+# Classic Role Outputs  
+output "rosa_classic_installer_role_arn" {
+  description = "ARN of the ROSA Classic Installer Role (created via CLI)"
+  value       = data.aws_iam_role.rosa_classic_installer_role.arn
+}
+
+output "rosa_classic_support_role_arn" {
+  description = "ARN of the ROSA Classic Support Role (created via CLI)"
+  value       = data.aws_iam_role.rosa_classic_support_role.arn
+}
+
+output "rosa_classic_worker_role_arn" {
+  description = "ARN of the ROSA Classic Worker Role (created via CLI)"
+  value       = data.aws_iam_role.rosa_classic_worker_role.arn
+}
+
+output "rosa_classic_master_role_arn" {
+  description = "ARN of the ROSA Classic Control Plane Role (created via CLI)"
+  value       = data.aws_iam_role.rosa_classic_master_role.arn
+}
+
+'''
+
         return terraform_config

@@ -1,9 +1,9 @@
 # ROSA Terraform Deployment - YamlForge
 
-YamlForge now supports two deployment methods for ROSA (Red Hat OpenShift Service on AWS) clusters:
+YamlForge supports two deployment methods for ROSA (Red Hat OpenShift Service on AWS) clusters:
 
 1. **ROSA CLI Method** (Traditional) - Uses ROSA CLI commands for cluster creation
-2. **RHCS Terraform Provider Method** (New) - Uses the Red Hat Cloud Services Terraform provider for full lifecycle management
+2. **RHCS Terraform Provider Method** - Uses the Red Hat Cloud Services Terraform provider for full lifecycle management
 
 ## Configuration
 

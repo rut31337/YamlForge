@@ -276,17 +276,7 @@ variable "deploy_day2_operations" {
   default     = false
 }
 
-variable "deploy_rosa_classic" {
-  description = "Deploy ROSA Classic clusters"
-  type        = bool
-  default     = false
-}
 
-variable "deploy_rosa_hcp" {
-  description = "Deploy ROSA HCP clusters (separate from Classic to avoid Terraform conflicts)"
-  type        = bool
-  default     = false
-}
 
 variable "deploy_hypershift_mgmt" {
   description = "Deploy HyperShift management clusters"
@@ -563,11 +553,11 @@ output "{clean_name}_ca_certificate" {{
                     # Terraform method with phased deployment - skip providers for Phase 1
                     provider_config += f'''
 # =============================================================================
-# ROSA CLUSTER: {cluster_name} (Terraform Method - Phased Deployment)
+# ROSA CLUSTER: {cluster_name} (Terraform Method - Unified Deployment)
 # =============================================================================
-# Providers will be generated after cluster is deployed in Phase 2
-# Run: terraform apply -var="deploy_rosa_{cluster_type.replace('-', '_')}=true"
-# Then providers will be available for Day-2 operations
+# Providers will be generated after cluster is deployed
+# Infrastructure and clusters deploy together with proper terraform dependencies
+# Day-2 operations are available after cluster deployment
 
 '''
                     continue
@@ -575,11 +565,9 @@ output "{clean_name}_ca_certificate" {{
             # Determine cluster endpoint and deployment condition based on type
             cluster_condition = '1'  # Default to always deployed
             if cluster_type == 'rosa-classic':
-                cluster_endpoint = f"length(rhcs_cluster_rosa_classic.{clean_name}) > 0 ? rhcs_cluster_rosa_classic.{clean_name}[0].api_url : \"\""
-                cluster_condition = 'var.deploy_rosa_classic ? 1 : 0'
+                cluster_endpoint = f"rhcs_cluster_rosa_classic.{clean_name}.api_url"
             elif cluster_type == 'rosa-hcp':
-                cluster_endpoint = f"length(rhcs_cluster_rosa_hcp.{clean_name}) > 0 ? rhcs_cluster_rosa_hcp.{clean_name}[0].api_url : \"\""
-                cluster_condition = 'var.deploy_rosa_hcp ? 1 : 0'
+                cluster_endpoint = f"rhcs_cluster_rosa_hcp.{clean_name}.api_url"
             elif cluster_type == 'aro':
                 cluster_endpoint = f"azapi_resource.{clean_name}.output.properties.apiserverProfile.url"
             elif cluster_type == 'openshift-dedicated':

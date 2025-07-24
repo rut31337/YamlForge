@@ -85,6 +85,19 @@ class OpenShiftProvider(BaseOpenShiftProvider):
         rosa_deployment = yaml_data.get('rosa_deployment', {})
         deployment_method = rosa_deployment.get('method', 'terraform')
         
+        # Generate shared ROSA resources once if any ROSA clusters exist
+        has_rosa_clusters = len(rosa_classic_clusters) > 0 or len(rosa_hcp_clusters) > 0
+        if has_rosa_clusters:
+            # ALWAYS create ROSA account roles via CLI first (regardless of deployment method)
+            aws_provider = self.converter.get_aws_provider()
+            role_creation_success = aws_provider.create_rosa_account_roles_via_cli(yaml_data)
+            if not role_creation_success:
+                print("Warning: Failed to create ROSA account roles via CLI. Terraform may fail.")
+            
+            # For terraform deployment method, generate data sources to reference CLI-created roles
+            if deployment_method == 'terraform':
+                terraform_config += self._generate_shared_rosa_data_sources(yaml_data)
+        
         # Generate clusters by type
         for cluster in clusters:
             cluster_type = cluster.get('type')
@@ -244,6 +257,16 @@ class OpenShiftProvider(BaseOpenShiftProvider):
 # Deploy infrastructure first, then clusters, then set deploy_day2_operations=true
 
 '''
+            # Generate the actual operators and applications with conditional deployment
+            if clusters:
+                terraform_config += self.operator_provider.generate_operators(yaml_data, clusters)
+                terraform_config += self.security_provider.generate_security_features(yaml_data, clusters)
+                terraform_config += self.storage_provider.generate_storage_features(yaml_data, clusters)
+                terraform_config += self.networking_provider.generate_networking_features(yaml_data, clusters)
+                terraform_config += self.day2_provider.generate_day2_operations(yaml_data, clusters)
+                applications_config = self.application_provider.generate_applications_terraform(yaml_data, clusters)
+                if applications_config:
+                    terraform_config += applications_config
         else:
             # CLI method - skip ROSA clusters for day2 operations as before
             if non_rosa_clusters:
@@ -265,6 +288,38 @@ class OpenShiftProvider(BaseOpenShiftProvider):
         """Check if the configuration contains any ROSA clusters."""
         clusters = yaml_data.get('openshift_clusters', [])
         return any(cluster.get('type') in ['rosa-classic', 'rosa-hcp'] for cluster in clusters)
+    
+    def _generate_shared_rosa_data_sources(self, yaml_data: Dict) -> str:
+        """Generate shared ROSA data sources that reference CLI-created roles."""
+        clusters = yaml_data.get('openshift_clusters', [])
+        rosa_clusters = [c for c in clusters if c.get('type') in ['rosa-classic', 'rosa-hcp']]
+        
+        if not rosa_clusters:
+            return ""
+        
+        # Use first ROSA cluster for shared resource generation
+        first_cluster = rosa_clusters[0]
+        cluster_name = first_cluster.get('name')
+        region = first_cluster.get('region')
+        guid = self.converter.get_validated_guid(yaml_data)
+        
+        # Get AWS provider
+        aws_provider = self.converter.get_aws_provider()
+        
+        # Generate shared data sources (reference CLI-created roles) and OIDC config
+        oidc_config = aws_provider.generate_rosa_oidc_config(cluster_name, region, guid, yaml_data)
+        data_sources_config = aws_provider.generate_rosa_sts_data_sources(yaml_data)
+        
+        return f'''
+# =============================================================================
+# SHARED ROSA DATA SOURCES (Reference CLI-Created Roles)
+# =============================================================================
+
+{oidc_config}
+
+{data_sources_config}
+
+'''
     
     def generate_rosa_cli_script(self, yaml_data: Dict) -> str:
         """Generate the ROSA CLI setup script for cluster creation."""
@@ -443,7 +498,10 @@ echo "🚀 Creating ROSA clusters..."
             version = cluster.get('version', '4.18.19')
             
             # Get worker configuration
-            size_config = self.get_cluster_size_config(cluster.get('size', 'medium'), cluster_type)
+            cluster_size = cluster.get('size')
+            if not cluster_size:
+                raise ValueError(f"OpenShift cluster '{cluster_name}': Must specify 'size' (e.g., small, medium, large)")
+            size_config = self.get_cluster_size_config(cluster_size, cluster_type)
             worker_count = cluster.get('worker_count', size_config.get('worker_count', 2))
             
             # Ensure minimum worker count for multi-AZ

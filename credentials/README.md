@@ -2,9 +2,9 @@
 
 This directory contains credential configuration files that document the required environment variables for each cloud provider. No manual secret creation or Kubernetes resources required - yamlforge automatically reads these configurations and sources credentials from environment variables.
 
-## 📁 Directory Structure
+## Directory Structure
 
-### **Cloud Provider Credentials (Environment Variable Documentation)**
+### Cloud Provider Credentials (Environment Variable Documentation)
 - **`aws.yaml`** - AWS credentials sourced from `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
 - **`azure.yaml`** - Azure credentials sourced from `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, etc.
 - **`gcp.yaml`** - Google Cloud credentials sourced from `GCP_SERVICE_ACCOUNT_KEY`, `GCP_PROJECT_ID`
@@ -14,11 +14,11 @@ This directory contains credential configuration files that document the require
 - **`vmware.yaml`** - VMware vSphere credentials sourced from `VSPHERE_SERVER`, `VSPHERE_USER`, etc.
 - **`alibaba.yaml`** - Alibaba Cloud credentials sourced from `ALICLOUD_ACCESS_KEY`, `ALICLOUD_SECRET_KEY`
 
-### **OpenShift Credentials**
+### OpenShift Credentials
 - **`openshift.yaml`** - OpenShift cluster credentials sourced from `OPENSHIFT_CLUSTER_URL`, `OPENSHIFT_TOKEN`
-- **`cert-manager.yaml`** - cert-manager EAB configuration (automatically read by yamlforge) ⭐
+- **`cert-manager.yaml`** - cert-manager EAB configuration (automatically read by yamlforge)
 
-## 🚀 **How Credential Configuration Works**
+## How Credential Configuration Works
 
 All credential files follow the same simple pattern:
 
@@ -83,7 +83,7 @@ yamlforge convert my-infrastructure.yaml
 ### **Other Providers**
 Each credential file (`oci.yaml`, `vmware.yaml`, `alibaba.yaml`, etc.) contains detailed setup instructions for that specific provider.
 
-## 🚀 **OpenShift cert-manager: Single Source of Truth**
+## OpenShift cert-manager: Single Source of Truth
 
 The cert-manager configuration in `credentials/cert-manager.yaml` is automatically read by yamlforge. No manual application required!
 
@@ -98,37 +98,37 @@ export ZEROSSL_EAB_HMAC="your_zerossl_eab_hmac"
 yamlforge convert my-openshift-config.yaml
 ```
 
-## ✅ **Benefits of Environment Variable Configuration**
+## Benefits of Environment Variable Configuration
 
-- **🔒 Maximum Security**: Credentials never stored in files, only in environment variables
-- **⚡ Ultra Simple**: Just set environment variables and run yamlforge
-- **🎯 GitOps Ready**: All configuration files are safe to commit (no actual credentials)
-- **🔄 Fully Automated**: No manual secret creation or Kubernetes resource application
-- **🛡️ Consistent**: Standardized approach across all cloud providers
-- **🔧 CI/CD Friendly**: Perfect for automated pipelines and secret management systems
+- **Maximum Security**: Credentials never stored in files, only in environment variables
+- **Ultra Simple**: Just set environment variables and run yamlforge
+- **GitOps Ready**: All configuration files are safe to commit (no actual credentials)
+- **Fully Automated**: No manual secret creation or Kubernetes resource application
+- **Consistent**: Standardized approach across all cloud providers
+- **CI/CD Friendly**: Perfect for automated pipelines and secret management systems
 
-## 🔒 Security Best Practices
+## Security Best Practices
 
-### **Environment Variable Security**
-- **✅ Use secure storage** (CI/CD secrets, password managers, vault systems)
-- **✅ Limit environment access** to necessary personnel
-- **✅ Use temporary credentials** where possible
-- **✅ Rotate credentials regularly** according to provider policies
-- **✅ Never commit credentials** to version control
+### Environment Variable Security
+- **Use secure storage** (CI/CD secrets, password managers, vault systems)
+- **Limit environment access** to necessary personnel
+- **Use temporary credentials** where possible
+- **Rotate credentials regularly** according to provider policies
+- **Never commit credentials** to version control
 
-### **Configuration File Security**
-- **✅ Configuration files are safe to commit** (contain no actual credentials)
-- **✅ Document required environment variables** for team members
-- **✅ Use descriptive variable names** for clarity
-- **✅ Include validation commands** to verify setup
+### Configuration File Security
+- **Configuration files are safe to commit** (contain no actual credentials)
+- **Document required environment variables** for team members
+- **Use descriptive variable names** for clarity
+- **Include validation commands** to verify setup
 
-### **Production Recommendations**
-- **✅ Use External Secrets Operator** to inject from external systems (Vault, AWS Secrets Manager)
-- **✅ Use CI/CD secret management** for automated deployments
-- **✅ Monitor credential usage** through application logs
-- **✅ Use service accounts** instead of personal credentials for automation
+### Production Recommendations
+- **Use External Secrets Operator** to inject from external systems (Vault, AWS Secrets Manager)
+- **Use CI/CD secret management** for automated deployments
+- **Monitor credential usage** through application logs
+- **Use service accounts** instead of personal credentials for automation
 
-## 📋 Quick Reference
+## Quick Reference
 
 ### **Environment Variable Patterns**
 | **Provider** | **Key Variables** | **Configuration File** |

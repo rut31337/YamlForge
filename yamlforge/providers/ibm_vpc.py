@@ -25,7 +25,8 @@ class IBMVPCProvider:
 
         if size_mapping:
             # Return the first (preferred) instance profile for this size
-            return list(size_mapping.keys())[0]
+            instance_profile = list(size_mapping.keys())[0]
+            return instance_profile
 
         # No fallbacks - all mappings should be in mappings/flavors/ibm_vpc.yaml
         available_sizes = list(ibm_flavors.keys()) if ibm_flavors else []
@@ -81,15 +82,36 @@ resource "ibm_is_security_group_rule" "{regional_sg_name}_rule_{i+1}" {{
         instance_name = instance.get("name", f"instance_{index}")
         image = instance.get("image", "RHEL9-latest")
         
-        # Resolve region and zone first for logging
+        # Resolve region first
         ibm_region = self.converter.resolve_instance_region(instance, "ibm_vpc")
+        
+        # Check if user specified a zone (only valid with region-based configuration)
+        user_specified_zone = instance.get('zone')
+        has_region = 'region' in instance
+        
+        if user_specified_zone and has_region:
+            # User specified both region and zone - validate the zone belongs to the region
+            expected_region = user_specified_zone.rsplit('-', 1)[0]  # Remove last part (e.g., us-south-1 -> us-south)
+            
+            if expected_region != ibm_region:
+                raise ValueError(f"Instance '{instance_name}': Specified zone '{user_specified_zone}' does not belong to region '{ibm_region}'. "
+                               f"Zone region: '{expected_region}', Instance region: '{ibm_region}'")
+            
+            print(f"Using user-specified zone '{user_specified_zone}' for instance '{instance_name}' in region '{ibm_region}'")
+            ibm_zone = user_specified_zone
+            
+        elif user_specified_zone and not has_region:
+            raise ValueError(f"Instance '{instance_name}': Zone '{user_specified_zone}' can only be specified when using 'region' (not 'location'). "
+                           f"Either remove 'zone' or change 'location' to 'region'.")
+        else:
+            # Let Terraform automatically select the best available zone
+            ibm_zone = f"{ibm_region}-1"  # IBM VPC requires explicit zone, use first available
         
         # Resolve image using centralized mappings
         ibm_image_pattern = self.get_ibm_vpc_image(image)
         
         # Show resolved image in standardized format
         print(f"Dynamic image search for {instance_name} on ibm_vpc for {image} in {ibm_region} results in {ibm_image_pattern}")
-        ibm_zone = f"{ibm_region}-1"  # Default to first zone
 
         # Get instance profile
         ibm_profile = self.get_ibm_instance_profile(size)

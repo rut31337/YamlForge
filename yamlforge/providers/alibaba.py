@@ -106,7 +106,8 @@ class AlibabaProvider:
 
         if size_mapping:
             # Return the first (preferred) instance type for this size
-            return list(size_mapping.keys())[0]
+            instance_type = list(size_mapping.keys())[0]
+            return instance_type
 
         # Check direct machine type mapping
         machine_types = self.converter.flavors.get('alibaba', {}).get('machine_types', {})
@@ -147,7 +148,28 @@ class AlibabaProvider:
 
         # Resolve region and zone
         alibaba_region = self.converter.resolve_instance_region(instance, "alibaba")
-        availability_zone = f"{alibaba_region}a"  # Default to first zone
+        
+        # Check if user specified a zone (only valid with region-based configuration)
+        user_specified_zone = instance.get('zone')
+        has_region = 'region' in instance
+        
+        if user_specified_zone and has_region:
+            # User specified both region and zone - validate the zone belongs to the region
+            expected_region = user_specified_zone[:-1]  # Remove last character (e.g., cn-hangzhou-a -> cn-hangzhou)
+            
+            if expected_region != alibaba_region:
+                raise ValueError(f"Instance '{instance_name}': Specified zone '{user_specified_zone}' does not belong to region '{alibaba_region}'. "
+                               f"Zone region: '{expected_region}', Instance region: '{alibaba_region}'")
+            
+            print(f"Using user-specified zone '{user_specified_zone}' for instance '{instance_name}' in region '{alibaba_region}'")
+            availability_zone = user_specified_zone
+            
+        elif user_specified_zone and not has_region:
+            raise ValueError(f"Instance '{instance_name}': Zone '{user_specified_zone}' can only be specified when using 'region' (not 'location'). "
+                           f"Either remove 'zone' or change 'location' to 'region'.")
+        else:
+            # Let Terraform automatically select the best available zone
+            availability_zone = f"{alibaba_region}a"  # Alibaba requires explicit zone, use first available
 
         # Get instance type
         alibaba_instance_type = self.get_alibaba_instance_type(size)
@@ -220,9 +242,9 @@ resource "alicloud_instance" "{clean_name}_{self.converter.get_validated_guid(ya
             vm_config += f'''
 
   # User data script
-  user_data = base64encode(<<-EOF
+  user_data = base64encode(<<-USERDATA
 {user_data_script}
-EOF
+USERDATA
   )'''
 
         vm_config += f'''

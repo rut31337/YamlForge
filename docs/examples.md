@@ -7,19 +7,19 @@ Comprehensive collection of YamlForge examples for every use case.
 ### Basic Single-Cloud
 ```bash
 # Simple AWS deployment
-python yamlforge.py examples/simple_test.yaml -d aws-output/
+python yamlforge.py examples/testing/simple_test.yaml -d aws-output/ --auto-deploy
 
 # Basic Azure deployment  
-python yamlforge.py examples/testing/fedora_example.yaml -d azure-output/
+python yamlforge.py examples/testing/fedora_example.yaml -d azure-output/ --auto-deploy
 ```
 
 ### Multi-Cloud Basics
 ```bash
 # Multi-cloud RHEL deployment
-python yamlforge.py examples/multi-cloud/hybrid_rhel_deployment.yaml -d hybrid-output/
+python yamlforge.py examples/multi-cloud/hybrid_rhel_deployment.yaml -d hybrid-output/ --auto-deploy
 
 # Cross-cloud comparison
-python yamlforge.py examples/testing/multi_provider_example.yaml -d multi-output/
+python yamlforge.py examples/testing/multi_provider_example.yaml -d multi-output/ --auto-deploy
 ```
 
 ## Cost Optimization Examples
@@ -27,13 +27,13 @@ python yamlforge.py examples/testing/multi_provider_example.yaml -d multi-output
 ### Cheapest Provider Selection
 ```bash
 # Automatic cost optimization
-python yamlforge.py examples/cost-conscious/cheapest_provider_example.yaml -d cost-output/
+python yamlforge.py examples/cost-conscious/cheapest_provider_example.yaml -d cost-output/ --auto-deploy
 
 # Mixed deployment strategies
-python yamlforge.py examples/cost-conscious/mixed_cheapest_example.yaml -d mixed-output/
+python yamlforge.py examples/cost-conscious/mixed_cheapest_example.yaml -d mixed-output/ --auto-deploy
 
 # Cost optimization with exclusions
-python yamlforge.py examples/extended-providers/cost_optimization_with_exclusions.yaml -d excluded-output/
+python yamlforge.py examples/extended-providers/cost_optimization_with_exclusions.yaml -d excluded-output/ --auto-deploy
 ```
 
 ### GPU Cost Optimization
@@ -82,19 +82,19 @@ python yamlforge.py examples/micro_gpu_test.yaml -d micro-gpu-output/
 ### Basic OpenShift Clusters
 ```bash
 # Complete OpenShift deployment
-python yamlforge.py examples/openshift/complete_multicloud_openshift_example.yaml -d openshift-output/
+python yamlforge.py examples/openshift/complete_multicloud_openshift_example.yaml -d openshift-output/ --auto-deploy
 
 # Enterprise platform example
-python yamlforge.py examples/openshift/complete_enterprise_platform_example.yaml -d enterprise-output/
+python yamlforge.py examples/openshift/complete_enterprise_platform_example.yaml -d enterprise-output/ --auto-deploy
 ```
 
 ### OpenShift Applications
 ```bash
 # Application deployment
-python yamlforge.py examples/openshift/applications_example.yaml -d apps-output/
+python yamlforge.py examples/openshift/applications_example.yaml -d apps-output/ --auto-deploy
 
 # Day 2 operations
-python yamlforge.py examples/openshift/day2_operations_example.yaml -d day2-output/
+python yamlforge.py examples/openshift/day2_operations_example.yaml -d day2-output/ --auto-deploy
 ```
 
 ### Multi-Provider OpenShift
@@ -268,7 +268,7 @@ python yamlforge.py examples/testing/cloud_workspace_example.yaml -d workspace-o
 - `testing/multi_provider_example.yaml` - Multi-provider testing
 - `extended-providers/multi_provider_new_example.yaml` - Extended providers
 
-### 🎯 **OpenShift**
+### OpenShift
 - `openshift/complete_multicloud_openshift_example.yaml` - Complete deployment
 - `openshift/applications_example.yaml` - Application deployment
 - `openshift/multi_cloud_openshift_example.yaml` - Multi-cloud OpenShift
