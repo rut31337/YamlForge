@@ -19,13 +19,23 @@ pip-delete-this-directory.txt
 .terraform/
 .terraform.lock.hcl
 
-# Test files
+# Test files and temporary files
 test_*.yaml
 test_*.yml
 test_*.tf
 test_*.py
 *_test.tf
 output_*.tf
+temp_*.yaml
+temp_*.yml
+temp_*.tf
+temp_*.py
+tmp_*.yaml
+tmp_*.yml
+tmp_*.tf
+tmp_*.py
+*_temp.*
+*_tmp.*
 
 # Redundant cloud-specific flavor files (not the patterns file!)
 mappings/flavors/aws.yaml
@@ -54,4 +64,13 @@ Thumbs.db
 
 # Environment variables (contains sensitive credentials)
 envvars.sh
-*.env 
+*.env
+
+# Cursor and IDE specific
+.cursor/
+.vscode/
+.idea/
+
+# Temporary directories
+/tmp/
+/temp/ 
