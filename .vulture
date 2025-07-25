@@ -68,3 +68,13 @@ generate_oadp_operator
 # ROSA Version Manager (integrated)
 ROSAVersionManager
 retry_with_backoff
+
+# Image Resolver Classes (stubs for future functionality)
+AlibabaImageResolver
+GCPImageResolver
+OCIImageResolver
+
+# OpenShift Operator Classes (stubs)
+GitOpsOperator
+PipelinesOperator
+ServerlessOperator
