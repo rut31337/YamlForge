@@ -1,0 +1,43 @@
+# YamlForge Repository Rules for Cursor
+
+## Code Style and Formatting
+- Do not use emoji characters in code, comments, or output messages
+- Use clear, descriptive text instead of emojis
+- Maintain consistent Python code formatting (PEP 8)
+- Use meaningful variable and function names
+
+## File Management
+- Do not create test files or temporary files in the repository directory
+- Use `/tmp` or a dedicated test directory outside the repo for temporary files
+- Clean up any temporary files after testing
+- Do not commit test files or temporary files to the repository
+
+## Development Workflow
+- Always test code changes before committing
+- Run Vulture static analysis before making changes
+- Follow the existing code structure and patterns
+- Use the established ignore patterns for Vulture
+
+## Documentation
+- Write clear, concise documentation
+- Update README files when making significant changes
+- Include usage examples in documentation
+- Document any new features or changes
+
+## Code Quality
+- Remove unused code when identified by Vulture
+- Keep future feature stubs but mark them clearly
+- Maintain clean, readable code
+- Follow the established naming conventions
+
+## Testing
+- Test changes in isolation before integration
+- Use the --no-credentials mode for testing when appropriate
+- Verify functionality across different providers
+- Clean up test artifacts after completion
+
+## Git Integration
+- Use meaningful commit messages
+- Follow the established Git workflow
+- Run pre-commit hooks before committing
+- Keep commits focused and atomic 
