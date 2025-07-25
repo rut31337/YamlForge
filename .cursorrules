@@ -7,10 +7,11 @@
 - Use meaningful variable and function names
 
 ## File Management
-- Do not create test files or temporary files in the repository directory
-- Use `/tmp` or a dedicated test directory outside the repo for temporary files
+- NEVER create test files, temporary files, or output directories inside the YamlForge repository
+- Use `/tmp` or a directory completely outside the repo for all test files and output
 - Clean up any temporary files after testing
 - Do not commit test files or temporary files to the repository
+- Keep the repository directory clean and focused on source code only
 
 ## Development Workflow
 - Always test code changes before committing
@@ -39,6 +40,8 @@
 ## YamlForge Execution
 - When running yamlforge.py, source ~/.envvars.sh if cloud credentials are required
 - Always pre-create the output directory specified with -d before running yamlforge.py
+- NEVER create test YAML files or output directories inside the YamlForge repository
+- Use /tmp or a directory outside the repo for all test files and output
 - Reuse the same test YAML config and directory as much as possible
 - Avoid creating new test YAMLs and directories for every test
 - Use consistent test patterns to prevent file sprawl
