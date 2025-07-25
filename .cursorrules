@@ -8,8 +8,6 @@
 
 ## File Management
 - NEVER create test files, temporary files, or output directories inside the YamlForge repository
-- Use any directory completely outside the repo for all test files and output
-- Clean up any temporary files after testing
 - Do not commit test files or temporary files to the repository
 - Keep the repository directory clean and focused on source code only
 
@@ -25,30 +23,67 @@
 - Include usage examples in documentation
 - Document any new features or changes
 
+## YAML Schema and Examples
+- **Completely understand the YamlForge schema before creating any YAML files**
+- Study existing examples in the `examples/` directory to understand patterns
+- Review the schema documentation in `docs/yamlforge-schema.json`
+- **If creating a test YAML during development and it might be useful as an example, ask**: "Should I add this to the examples directory?"
+- Ensure all YAML files follow the established schema and naming conventions
+
 ## Code Quality
 - Remove unused code when identified by Vulture
 - Keep future feature stubs but mark them clearly
 - Maintain clean, readable code
 - Follow the established naming conventions
+- **Don't assume tasks are 100% complete or enterprise-ready** - be realistic about implementation status
+- **Don't add comments/documentation claiming new functionality** unless specifically requested
+- **Avoid adding defaults for YamlForge attributes** unless explicitly specified
 
 ## Testing
 - Test changes in isolation before integration
-- Use the --no-credentials mode for testing when appropriate
 - Verify functionality across different providers
+- **Use /tmp subdirectories for all test files and output when testing YamlForge**
+- **Create unique subdirectories in /tmp for each test session** (e.g., /tmp/yamlforge-test-{timestamp})
+- **Create test directories before running yamlforge.py**: mkdir -p /tmp/yamlforge-test-{timestamp}
+- **Clean up test directories after verification**: rm -rf /tmp/yamlforge-test-*
 - Clean up test artifacts after completion
+- **Before creating any YAML files, completely understand the YamlForge schema**
 
 ## YamlForge Execution
 - When running yamlforge.py, source ~/.envvars.sh if cloud credentials are required
 - Always pre-create the output directory specified with -d before running yamlforge.py
 - NEVER create test YAML files or output directories inside the YamlForge repository
-- Use any directory outside the repo for all test files and output
 - Reuse the same test YAML config and directory as much as possible
 - Avoid creating new test YAMLs and directories for every test
 - Use consistent test patterns to prevent file sprawl
 - Clean up test output directories after verification
+- **Use --auto-deploy when you don't need to step through each Terraform step** (for automated testing and deployment)
+- **Use --verbose when debugging code or need detailed output** (shows generated files, detailed AMI search info, etc.)
+- **Use --no-credentials for testing without cloud credentials** (skips dynamic lookups, uses placeholders)
 
 ## Git Integration
-- Use meaningful commit messages
+- Use meaningful commit messages with clear descriptions of what was changed and why
 - Follow the established Git workflow
 - Run pre-commit hooks before committing
-- Keep commits focused and atomic 
+- Keep commits focused and atomic
+- **DO NOT commit every single change** - batch related changes together
+- **ALWAYS ask for permission before committing** - recommend commits and wait for approval
+- **Commit strategy:**
+  - Group related changes into logical commits (e.g., "Add feature X", "Fix bug Y", "Update documentation")
+  - Commit when a feature is complete or a bug is fixed, not for every file edit
+  - Use descriptive commit messages that explain the purpose, not just what files changed
+  - Consider using `git add -p` to selectively stage changes within files
+  - Test changes before committing to ensure they work together
+- **When to recommend a commit:**
+  - Feature completion (not individual feature steps)
+  - Bug fixes (complete fixes, not partial attempts)
+  - Documentation updates (grouped by topic)
+  - Refactoring (complete refactoring, not individual method changes)
+  - Configuration changes (grouped by purpose)
+  - Significant code cleanup or optimization
+  - Breaking changes or major refactoring
+- **Commit recommendation format:**
+  - Describe what changes are ready to commit
+  - Explain why this is a good commit point
+  - Suggest a commit message
+  - Ask for permission: "Should I commit these changes?" 
