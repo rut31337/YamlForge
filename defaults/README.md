@@ -1,6 +1,6 @@
 # Defaults Directory
 
-This directory contains default configuration files for each cloud provider. These files define fallback settings used when specific credentials or configurations are not available.
+This directory contains default configuration files for each cloud provider. These files define fallback settings used when specific environment variables or configurations are not available.
 
 ## Structure
 
@@ -36,16 +36,16 @@ This directory contains default configuration files for each cloud provider. The
 
 Each cloud provider's resolver has different configuration needs:
 
-1. **AWS**: Always loads `defaults/aws.yaml` for AMI owner mappings, then uses `credentials/aws.yaml` for dynamic API calls
-2. **GCP**: Uses `credentials/gcp.yaml` for authentication, uses built-in image discovery settings when credentials unavailable
-3. **Azure/IBM**: Uses `credentials/{provider}.yaml` for authentication (defaults reserved for future use)
+1. **AWS**: Always loads `defaults/aws.yaml` for AMI owner mappings, then uses environment variables for dynamic API calls
+2. **GCP**: Uses environment variables for authentication, uses built-in image discovery settings when credentials unavailable
+3. **Azure/IBM**: Uses environment variables for authentication (defaults reserved for future use)
 
 ## Example: Configuration Sources
 
 ```yaml
-# AWS: defaults/aws.yaml (AMI owners) + credentials/aws.yaml (API access) 
-# GCP: credentials/gcp.yaml (API access) → built-in settings (image discovery)
-# Azure/IBM: credentials/{provider}.yaml (API access) only
+# AWS: defaults/aws.yaml (AMI owners) + environment variables (API access)
+# GCP: environment variables (API access) → built-in settings (image discovery)
+# Azure/IBM: environment variables (API access) only
 # OpenShift: defaults/openshift.yaml (networking, sizing) → Always loaded
 ```
 

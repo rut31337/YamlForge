@@ -29,7 +29,7 @@
 # Multi-Cloud Support:
 # - Key entries (RHEL9-latest, RHEL8-latest, Ubuntu2204-latest, Ubuntu2004-latest)
 #   include explicit mappings for AWS, Azure, GCP, OCI, VMware, and Alibaba Cloud
-# - Other entries may be AWS/GCP only (legacy compatibility)
+# - Other entries may be AWS/GCP only (compatibility)
 
 images:
   # RHEL Gold Images (Cloud Access)
@@ -326,7 +326,7 @@ images:
 
   # Ubuntu Images (Canonical)
   # Multi-Cloud: Ubuntu2204-latest, Ubuntu2004-latest → AWS, GCP, OCI, Alibaba + Azure, VMware
-  # Legacy: Ubuntu-latest, Ubuntu1804-latest → AWS, GCP only
+  # Note: Ubuntu-latest, Ubuntu1804-latest → AWS, GCP only
   Ubuntu-latest:
     description: "Ubuntu latest LTS"
     aws:

@@ -896,7 +896,7 @@ echo "🧹 ROSA cleanup script completed!"
             
             # Handle cluster types that can use multiple providers
             if cluster_type == 'openshift-dedicated':
-                dedicated_cloud = cluster.get('cloud_provider')
+                dedicated_cloud = cluster.get('provider')
                 required_providers.add(dedicated_cloud)
             elif cluster_type == 'self-managed':
                 self_managed_provider = cluster.get('provider')

@@ -306,7 +306,7 @@ output "rosa_classic_oidc_endpoint_{clean_name}" {{
     def _generate_rosa_classic_cli(self, cluster_config: Dict, clean_name: str, region: str, 
                                   version: str, machine_type: str, worker_count: int, 
                                   multi_az: bool, guid: str) -> str:
-        """Generate ROSA Classic cluster using ROSA CLI (legacy method)"""
+        """Generate ROSA Classic cluster using ROSA CLI (direct method)"""
         cluster_name = cluster_config.get('name')
         
         terraform_config = f'''
@@ -466,7 +466,7 @@ output "rosa_hcp_oidc_endpoint_{clean_name}" {{
     def _generate_rosa_hcp_cli(self, cluster_config: Dict, clean_name: str, region: str, 
                               version: str, machine_type: str, worker_count: int, 
                               guid: str, yaml_data: Dict) -> str:
-        """Generate ROSA HCP cluster using ROSA CLI (legacy method)"""
+        """Generate ROSA HCP cluster using ROSA CLI (direct method)"""
         cluster_name = cluster_config.get('name')
         
         terraform_config = f'''

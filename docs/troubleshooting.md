@@ -270,7 +270,7 @@ terraform plan
 ### File Locations
 - **Examples:** `examples/`
 - **Mappings:** `mappings/`
-- **Credentials:** `credentials/`
+- **Environment Variables:** Use `envvars.example.sh` as a template
 - **Defaults:** `defaults/`
 
 ### Getting Support

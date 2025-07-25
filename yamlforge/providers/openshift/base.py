@@ -211,14 +211,15 @@ class BaseOpenShiftProvider:
             if cluster_type in ['rosa-classic', 'rosa-hcp', 'openshift-dedicated']:
                 providers_needed.add('rhcs')  # Red Hat Cloud Services
             if cluster_type == 'aro':
-                providers_needed.add('azapi')  # Azure API
+                # ARO uses standard Azure provider (azurerm)
+                pass
             if cluster_type == 'self-managed':
                 # Self-managed can run on any provider, check the provider field
                 self_managed_provider = cluster.get('provider')
                 providers_needed.add(self_managed_provider)
             if cluster_type == 'openshift-dedicated':
-                # Dedicated can run on multiple clouds, check cloud_provider
-                dedicated_cloud = cluster.get('cloud_provider')
+                # Dedicated can run on multiple clouds, check provider
+                dedicated_cloud = cluster.get('provider')
                 providers_needed.add(dedicated_cloud)
             if cluster_type == 'hypershift':
                 # HyperShift worker nodes can run on any provider
@@ -256,9 +257,13 @@ class BaseOpenShiftProvider:
 # OPENSHIFT CREDENTIALS
 # =============================================================================
 
-# ROSA clusters use ROSA CLI for authentication - no OpenShift variables needed
-
-
+# Red Hat Pull Secret for enhanced content access
+variable "redhat_pull_secret" {
+  description = "Red Hat pull secret for accessing Red Hat container registries and additional content"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
 
 # =============================================================================
 # OPENSHIFT CONFIGURATION
@@ -267,7 +272,7 @@ class BaseOpenShiftProvider:
 variable "openshift_version" {
   description = "Default OpenShift version to deploy"
   type        = string
-          default     = "4.18.19"
+  default     = "4.18.19"
 }
 
 variable "deploy_day2_operations" {
@@ -569,7 +574,7 @@ output "{clean_name}_ca_certificate" {{
             elif cluster_type == 'rosa-hcp':
                 cluster_endpoint = f"rhcs_cluster_rosa_hcp.{clean_name}.api_url"
             elif cluster_type == 'aro':
-                cluster_endpoint = f"azapi_resource.{clean_name}.output.properties.apiserverProfile.url"
+                cluster_endpoint = f"azurerm_redhat_openshift_cluster.aro_{clean_name}.api_server_profile[0].url"
             elif cluster_type == 'openshift-dedicated':
                 cluster_endpoint = f"rhcs_cluster_rosa_classic.{clean_name}.api_url"  # OSD uses similar API
             elif cluster_type == 'self-managed':
@@ -602,69 +607,63 @@ output "{clean_name}_ca_certificate" {{
 # ===== FULL CLUSTER ADMIN PROVIDERS for {cluster_name} =====
 provider "kubernetes" {{
   alias = "{clean_name}_cluster_admin"
-  count = {cluster_condition}
   
-  host  = {cluster_endpoint}
-  token = {cluster_endpoint} != "" ? base64decode(kubernetes_secret.{clean_name}_cluster_admin_token[0].data["token"]) : ""
-  cluster_ca_certificate = {cluster_endpoint} != "" ? base64decode(kubernetes_secret.{clean_name}_cluster_admin_token[0].data["ca.crt"]) : ""
+  host  = try({cluster_endpoint}, "")
+  token = try({cluster_endpoint}, "") != "" ? try(base64decode(kubernetes_secret.{clean_name}_cluster_admin_token[0].data["token"]), "") : ""
+  cluster_ca_certificate = try({cluster_endpoint}, "") != "" ? try(base64decode(kubernetes_secret.{clean_name}_cluster_admin_token[0].data["ca.crt"]), "") : ""
   
   insecure = false
 }}
 
 provider "helm" {{
   alias = "{clean_name}_cluster_admin"
-  count = {cluster_condition}
   
   kubernetes {{
-    host  = {cluster_endpoint}
-    token = {cluster_endpoint} != "" ? base64decode(kubernetes_secret.{clean_name}_cluster_admin_token[0].data["token"]) : ""
-    cluster_ca_certificate = {cluster_endpoint} != "" ? base64decode(kubernetes_secret.{clean_name}_cluster_admin_token[0].data["ca.crt"]) : ""
+    host  = try({cluster_endpoint}, "")
+    token = try({cluster_endpoint}, "") != "" ? try(base64decode(kubernetes_secret.{clean_name}_cluster_admin_token[0].data["token"]), "") : ""
+    cluster_ca_certificate = try({cluster_endpoint}, "") != "" ? try(base64decode(kubernetes_secret.{clean_name}_cluster_admin_token[0].data["ca.crt"]), "") : ""
   }}
 }}
 
 # ===== LIMITED CLUSTER ADMIN PROVIDERS for {cluster_name} =====
 provider "kubernetes" {{
   alias = "{clean_name}_cluster_admin_limited"
-  count = {cluster_condition}
   
-  host  = {cluster_endpoint}
-  token = length(kubernetes_secret.{clean_name}_cluster_admin_limited_token) > 0 ? base64decode(kubernetes_secret.{clean_name}_cluster_admin_limited_token[0].data["token"]) : ""
-  cluster_ca_certificate = length(kubernetes_secret.{clean_name}_cluster_admin_limited_token) > 0 ? base64decode(kubernetes_secret.{clean_name}_cluster_admin_limited_token[0].data["ca.crt"]) : ""
+  host  = try({cluster_endpoint}, "")
+  token = try({cluster_endpoint}, "") != "" ? try(base64decode(kubernetes_secret.{clean_name}_cluster_admin_limited_token[0].data["token"]), "") : ""
+  cluster_ca_certificate = try({cluster_endpoint}, "") != "" ? try(base64decode(kubernetes_secret.{clean_name}_cluster_admin_limited_token[0].data["ca.crt"]), "") : ""
   
   insecure = false
 }}
 
 provider "helm" {{
   alias = "{clean_name}_cluster_admin_limited"
-  count = {cluster_condition}
   
   kubernetes {{
-    host  = {cluster_endpoint}
-    token = length(kubernetes_secret.{clean_name}_cluster_admin_limited_token) > 0 ? base64decode(kubernetes_secret.{clean_name}_cluster_admin_limited_token[0].data["token"]) : ""
-    cluster_ca_certificate = length(kubernetes_secret.{clean_name}_cluster_admin_limited_token) > 0 ? base64decode(kubernetes_secret.{clean_name}_cluster_admin_limited_token[0].data["ca.crt"]) : ""
+    host  = try({cluster_endpoint}, "")
+    token = try({cluster_endpoint}, "") != "" ? try(base64decode(kubernetes_secret.{clean_name}_cluster_admin_limited_token[0].data["token"]), "") : ""
+    cluster_ca_certificate = try({cluster_endpoint}, "") != "" ? try(base64decode(kubernetes_secret.{clean_name}_cluster_admin_limited_token[0].data["ca.crt"]), "") : ""
   }}
 }}
 
 # ===== APPLICATION DEPLOYER PROVIDERS for {cluster_name} =====
 provider "kubernetes" {{
   alias = "{clean_name}_app_deployer"
-  count = {cluster_condition}
   
-  host  = {cluster_endpoint}
-  token = {cluster_endpoint} != "" ? base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["token"]) : ""
-  cluster_ca_certificate = {cluster_endpoint} != "" ? base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["ca.crt"]) : ""
+  host  = try({cluster_endpoint}, "")
+  token = try({cluster_endpoint}, "") != "" ? try(base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["token"]), "") : ""
+  cluster_ca_certificate = try({cluster_endpoint}, "") != "" ? try(base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["ca.crt"]), "") : ""
   
   insecure = false
 }}
 
 provider "helm" {{
   alias = "{clean_name}_app_deployer"
-  count = {cluster_condition}
   
   kubernetes {{
-    host  = {cluster_endpoint}
-    token = {cluster_endpoint} != "" ? base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["token"]) : ""
-    cluster_ca_certificate = {cluster_endpoint} != "" ? base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["ca.crt"]) : ""
+    host  = try({cluster_endpoint}, "")
+    token = try({cluster_endpoint}, "") != "" ? try(base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["token"]), "") : ""
+    cluster_ca_certificate = try({cluster_endpoint}, "") != "" ? try(base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["ca.crt"]), "") : ""
   }}
 }}
 
@@ -697,7 +696,7 @@ provider "helm" {{
             if cluster_type in ['rosa-classic', 'rosa-hcp']:
                 cluster_endpoint = f"rhcs_cluster_rosa_{cluster_type.replace('-', '_')}.{clean_name}.api_url"
             elif cluster_type == 'aro':
-                cluster_endpoint = f"azapi_resource.{clean_name}.output.api_server_profile[0].url"
+                cluster_endpoint = f"azurerm_redhat_openshift_cluster.aro_{clean_name}.api_server_profile[0].url"
             elif cluster_type == 'openshift-dedicated':
                 cluster_endpoint = f"rhcs_cluster_dedicated.{clean_name}.api_url"
             else:
@@ -1080,7 +1079,7 @@ output "{clean_name}_app_deployer_token" {{
         elif cluster_type == 'rosa-hcp':
             return f"rhcs_cluster_rosa_hcp.{clean_name}.api_url"
         elif cluster_type == 'aro':
-            return f"azapi_resource.{clean_name}.output.properties.apiserverProfile.url"
+            return f"azurerm_redhat_openshift_cluster.aro_{clean_name}.api_server_profile[0].url"
         elif cluster_type == 'openshift-dedicated':
             return f"rhcs_cluster_rosa_classic.{clean_name}.api_url"  # OSD uses similar API
         elif cluster_type == 'self-managed':

@@ -26,9 +26,20 @@ This directory contains examples focused on individual cloud providers, showcasi
   - Ideal for users with limited organization-level permissions
   - Uses data sources instead of project creation
 
+### **Azure Examples**
+- **`azure_full_subscription_example.yaml`** - Use entire Azure subscription (default)
+  - Deploy with automatic resource group creation per region
+  - Ideal for users with full subscription permissions
+  - Creates and manages resource groups automatically
+
+- **`azure_shared_subscription_example.yaml`** - Use existing Azure resource group
+  - Deploy to an existing resource group in a shared subscription
+  - Ideal for enterprise scenarios with limited Azure permissions
+  - Uses data sources instead of resource group creation
+
 ### **IBM Cloud Examples**
 - **`ibm_classic_example.yaml`** - IBM Classic Infrastructure deployment
-  - Legacy IBM Cloud infrastructure model
+  - IBM Cloud Classic infrastructure model
   - Classic instance types (B1.*, C1.*, M1.*)
   - Traditional datacenter-style deployment
 
@@ -52,6 +63,12 @@ python yamlforge.py examples/cloud-specific/gcp_dynamic_example.yaml -d terrafor
 
 # Deploy to existing GCP project (requires GCP_EXISTING_PROJECT_ID env var)
 python yamlforge.py examples/cloud-specific/gcp_existing_project_example.yaml -d terraform-gcp-existing/
+
+# Deploy with full Azure subscription access (default behavior)
+python yamlforge.py examples/cloud-specific/azure_full_subscription_example.yaml -d terraform-azure-full/
+
+# Deploy to existing Azure resource group (requires AZURE_EXISTING_RESOURCE_GROUP_NAME env var)
+python yamlforge.py examples/cloud-specific/azure_shared_subscription_example.yaml -d terraform-azure-shared/
 
 # Deploy IBM VPC infrastructure
 python yamlforge.py examples/cloud-specific/ibm_vpc_example.yaml -d terraform-ibm/

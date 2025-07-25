@@ -5,17 +5,17 @@ This directory contains all the configuration files that define how YAML infrast
 ## Configuration Sources
 
 ### **Credentials vs Defaults**
-- **Credentials** (`credentials/{provider}.yaml`): Authentication and API access configuration
+- **Environment Variables** (`envvars.example.sh`): Authentication and API access configuration via environment variables
 - **Defaults** (`defaults/{provider}.yaml`): Essential provider-specific mappings and settings (always used)
 
 ### **GCP Image Discovery**
-- **Primary**: `credentials/gcp.yaml` with GCP SDK authentication
+- **Primary**: Environment variables with GCP SDK authentication
 - **Fallback**: Built-in image discovery settings
 - **Benefits**: Always-available image resolution with minimal dependencies
 
 ### **AWS AMI Resolution**
 - **Configuration**: `defaults/aws.yaml` with AMI owner mappings (always loaded)
-- **API Access**: `credentials/aws.yaml` for dynamic AWS API calls
+- **API Access**: Environment variables for dynamic AWS API calls
 - **Benefits**: Flexible owner configuration with secure credential management
 
 ## Directory Structure
@@ -49,7 +49,7 @@ Contains advanced instance type mappings with multiple options per size category
 - **azure.yaml**: Advanced Azure VM size mappings with multiple options per category, including specifications and cost factors  
 - **gcp.yaml**: Advanced GCP machine type mappings with multiple options per size, including performance and cost characteristics
 - **ibm_vpc.yaml**: Advanced IBM Cloud VPC instance profile mappings (bx2-, cx2-, mx2-) for modern VPC infrastructure
-- **ibm_classic.yaml**: IBM Cloud Classic Infrastructure instance types (B1., C1., M1.) for legacy infrastructure
+- **ibm_classic.yaml**: IBM Cloud Classic Infrastructure instance types (B1., C1., M1.) for classic infrastructure
 
 **Advanced Flavor System:**
 Each cloud-specific flavor file provides multiple instance options per size category (e.g., small, medium, large), allowing the system to select the most appropriate instance type based on workload requirements and cost considerations. Each option includes:

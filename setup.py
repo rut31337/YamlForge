@@ -70,7 +70,6 @@ setup(
             "defaults/**/*.yaml", 
             "mappings/*.yaml",
             "mappings/**/*.yaml",
-            "credentials/*.yaml",
         ]
     },
     

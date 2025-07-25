@@ -1,0 +1,102 @@
+---
+# Azure Shared Subscription Example
+# Demonstrates how to use an existing Azure resource group in a shared subscription
+# This is ideal for enterprise scenarios where users have access to specific resource groups
+
+guid: "azu01"
+
+yamlforge:
+  cloud_workspace:
+    name: "shared-subscription-deployment"
+    description: "Deployment using existing Azure resource group"
+  
+  # Azure Configuration: Use existing resource group in shared subscription
+  azure:
+    use_existing_resource_group: true
+    existing_resource_group_name: "rg-shared-dev-001"  # Replace with your actual resource group name
+    existing_resource_group_location: "eastus"         # Replace with your resource group location
+    
+  # NOTE: When using existing resource group, the resources will be deployed 
+  # to the existing RG instead of creating new ones per region
+
+  instances:
+    # Web server in shared resource group
+    - name: "web-server"
+      provider: "azure"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "eastus"  # Should match existing_resource_group_location
+      tags:
+        role: "web"
+        environment: "development"
+        cost_center: "engineering"
+    
+    # Application server in shared resource group  
+    - name: "app-server"
+      provider: "azure"
+      size: "large"
+      image: "RHEL9-latest"
+      region: "eastus"
+      tags:
+        role: "application"
+        environment: "development"
+        cost_center: "engineering"
+    
+    # Database server in shared resource group
+    - name: "db-server"
+      provider: "azure"
+      size: "xlarge"
+      image: "RHEL9-latest"
+      region: "eastus"
+      tags:
+        role: "database"
+        environment: "development"
+        cost_center: "engineering"
+
+  # Security groups (will be created as Azure NSGs in the existing resource group)
+  security_groups:
+    - name: "web-access"
+      description: "Web server access rules"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "80"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "443"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "10.0.0.0/8"
+
+    - name: "app-access"
+      description: "Application server access rules"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "8080"
+          source: "10.0.0.0/16"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "10.0.0.0/8"
+
+    - name: "db-access"
+      description: "Database server access rules"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "3306"
+          source: "10.0.0.0/16"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "10.0.0.0/8"
+
+  tags:
+    deployment_type: "shared_subscription"
+    managed_by: "yamlforge"
+    cost_center: "engineering"
+    project: "web-application" 

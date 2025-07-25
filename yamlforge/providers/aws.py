@@ -57,7 +57,7 @@ class AWSImageResolver:
             raise Exception("ami_owners section missing from defaults/aws.yaml")
 
         # Check if credentials are available for dynamic discovery
-        has_credentials = self.credentials and self.credentials.aws_config
+        has_credentials = self.credentials and self.credentials.get_aws_credentials()
 
         if not has_credentials:
             print("Warning: AWS credentials not found. "
@@ -486,7 +486,7 @@ class AWSProvider:
             )
 
         # Check if credentials are available when AWS instances are being processed
-        has_credentials = self.converter.credentials and self.converter.credentials.aws_config
+        has_credentials = self.converter.credentials and self.converter.credentials.get_aws_credentials()
 
         if not has_credentials:
             raise ValueError(

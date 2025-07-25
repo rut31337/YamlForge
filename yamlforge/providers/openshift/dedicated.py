@@ -19,9 +19,9 @@ class OpenShiftDedicatedProvider(BaseOpenShiftProvider):
         
         clean_name = self.clean_name(cluster_name)
         
-        cloud_provider = cluster_config.get('cloud_provider')
+        cloud_provider = cluster_config.get('provider')
         if not cloud_provider:
-            raise ValueError(f"OpenShift Dedicated cluster '{cluster_name}' must specify 'cloud_provider'")
+            raise ValueError(f"OpenShift Dedicated cluster '{cluster_name}' must specify 'provider'")
             
         region = cluster_config.get('region')
         if not region:

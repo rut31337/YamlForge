@@ -1,0 +1,17 @@
+# Azure Red Hat OpenShift (ARO) Simple Example
+
+guid: "test1"
+
+yamlforge:
+  cloud_workspace:
+    name: "test-aro-deployment"
+    description: "Simple ARO cluster deployment"
+
+  openshift_clusters:
+    # Production ARO cluster with enhanced security
+    - name: "test-aro-cluster"
+      type: "aro"                          # Azure Red Hat OpenShift
+      region: "eastus"                     # Azure region
+      version: "latest"                    # OpenShift version
+      size: "small"                        # Cluster size (small/medium/large)
+      worker_count: 3                      # Number of worker nodes

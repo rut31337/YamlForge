@@ -62,7 +62,7 @@ dns_config:
     zone_name: ""
     
     # Project ID where root zone is hosted
-    # Defaults to project_id from credentials/gcp.yaml if not specified
+    # Defaults to project_id from environment variables if not specified
     # Set explicitly only if root zone is in a different project
     project_id: ""
     

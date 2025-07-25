@@ -46,7 +46,7 @@ yamlforge:
         source: 192.168.1.0/24
   tags:
     cloud_provider: ibm_classic
-    infrastructure_type: legacy
+    infrastructure_type: classic
     deployment_model: classic
     performance_tier: enterprise
     environment: production

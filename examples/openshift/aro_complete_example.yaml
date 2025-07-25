@@ -1,0 +1,172 @@
+# Azure Red Hat OpenShift (ARO) Complete Example
+# Demonstrates comprehensive ARO cluster deployment with YamlForge
+# Enhanced Terraform automation with automatic service principal creation
+
+guid: "aro01"
+
+yamlforge:
+  cloud_workspace:
+    name: "enterprise-aro-deployment"
+    description: "Complete ARO cluster deployment with enhanced security and networking"
+
+  # Multiple ARO clusters with different configurations
+  openshift_clusters:
+    # Production ARO cluster with enhanced security
+    - name: "prod-aro-cluster"
+      type: "aro"                          # Azure Red Hat OpenShift
+      region: "eastus"                     # Azure region
+      version: "4.18.19"                   # OpenShift version
+      size: "small"                        # Cluster size (small/medium/large)
+      
+      # Worker node configuration
+      worker_count: 3                      # Number of worker nodes
+      worker_disk_size: 256                # Disk size in GB
+      
+      # Security configuration
+      private: false                       # Public cluster for demo (use true for production)
+      fips_enabled: true                   # FIPS validation for compliance
+      
+      # Custom networking configuration
+      networking:
+        vnet_cidr: "10.1.0.0/16"
+        master_subnet_cidr: "10.1.0.0/24"
+        worker_subnet_cidr: "10.1.1.0/24"
+        pod_cidr: "10.128.0.0/14"
+        service_cidr: "172.30.0.0/16"
+
+    # Development ARO cluster with minimal configuration
+    - name: "dev-aro-cluster"
+      type: "aro"
+      region: "westus2"                    # Different region for geo-distribution
+      version: "4.18.19"
+      size: "medium"                       # Smaller for development
+      
+      # Basic configuration
+      worker_count: 3                      # Minimum for multi-AZ
+      worker_disk_size: 128                # Standard disk size
+      private: false                       # Public for easier development access
+      
+      # Custom networking to avoid conflicts
+      networking:
+        vnet_cidr: "10.2.0.0/16"
+        master_subnet_cidr: "10.2.0.0/24"
+        worker_subnet_cidr: "10.2.1.0/24"
+        pod_cidr: "10.129.0.0/14"
+        service_cidr: "172.31.0.0/16"
+
+    # Private ARO cluster for maximum security
+    - name: "secure-aro-cluster"
+      type: "aro"
+      region: "centralus"
+      version: "4.18.19"
+      size: "medium"
+      
+      # Maximum security configuration
+      private: true                        # Private API server and ingress
+      fips_enabled: true                   # FIPS compliance
+      worker_count: 4
+      worker_disk_size: 256
+      
+      # Isolated networking
+      networking:
+        vnet_cidr: "10.3.0.0/16"
+        master_subnet_cidr: "10.3.0.0/24"
+        worker_subnet_cidr: "10.3.1.0/24"
+        pod_cidr: "10.130.0.0/14"
+        service_cidr: "172.32.0.0/16"
+
+  # OpenShift Applications for ARO clusters
+  openshift_applications:
+    # Multi-cluster application deployment
+    - type: "multi-cluster"
+      name: "enterprise-monitoring"
+      description: "Monitoring stack deployed across all ARO clusters"
+      clusters:
+        - "prod-aro-cluster"
+        - "dev-aro-cluster"
+        - "secure-aro-cluster"
+      
+      applications:
+        - name: "prometheus-stack"
+          namespace: "monitoring"
+          source: "helm"
+          chart: "kube-prometheus-stack"
+          version: "58.2.2"
+          
+        - name: "grafana-dashboard"
+          namespace: "monitoring"
+          source: "helm"
+          chart: "grafana"
+          version: "7.3.9"
+
+    # Production-specific applications
+    - type: "single-cluster"
+      cluster: "prod-aro-cluster"
+      name: "production-workloads"
+      description: "Production applications for main ARO cluster"
+      
+      applications:
+        - name: "ingress-nginx"
+          namespace: "ingress-nginx"
+          source: "helm"
+          chart: "ingress-nginx"
+          version: "4.8.3"
+          
+        - name: "cert-manager"
+          namespace: "cert-manager"
+          source: "helm"
+          chart: "cert-manager"
+          version: "v1.13.3"
+
+  # OpenShift Operators for enhanced functionality
+  openshift_operators:
+    # Core operators for all clusters
+    - type: "multi-cluster"
+      name: "core-operators"
+      description: "Essential operators for all ARO clusters"
+      clusters:
+        - "prod-aro-cluster"
+        - "dev-aro-cluster" 
+        - "secure-aro-cluster"
+      
+      operators:
+        # GitOps for application deployment
+        - name: "openshift-gitops"
+          namespace: "openshift-gitops"
+          channel: "gitops-1.12"
+          
+        # Logging stack
+        - name: "cluster-logging"
+          namespace: "openshift-logging"
+          channel: "stable"
+          
+        # Monitoring enhancements
+        - name: "cluster-monitoring"
+          namespace: "openshift-monitoring"
+          channel: "stable"
+
+    # Storage operators for production
+    - type: "single-cluster"
+      cluster: "prod-aro-cluster"
+      name: "storage-operators"
+      description: "Advanced storage operators for production cluster"
+      
+      operators:
+        - name: "odf-operator"
+          namespace: "openshift-storage"
+          channel: "stable-4.15"
+          
+        - name: "local-storage-operator"
+          namespace: "openshift-local-storage"
+          channel: "stable"
+
+# Environment configuration
+environment: "production"
+
+# Tags for all resources
+tags:
+  Project: "Enterprise-ARO"
+  Environment: "Multi-Tier"
+  Owner: "Platform-Team"
+  CostCenter: "Engineering"
+  Compliance: "SOC2" 

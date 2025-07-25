@@ -43,6 +43,9 @@ class SelfManagedOpenShiftProvider(BaseOpenShiftProvider):
             cluster_config.get('size'), 'self-managed'
         )
         
+        if 'master_count' not in size_config:
+            raise ValueError(f"Cluster size configuration for '{cluster_config.get('size')}' is missing 'master_count' field. Available fields: {list(size_config.keys())}")
+        
         master_count = size_config['master_count']
         worker_count = cluster_config.get('worker_count')
         
@@ -90,6 +93,8 @@ class SelfManagedOpenShiftProvider(BaseOpenShiftProvider):
         master_machine_type = self.get_openshift_machine_type('gcp', size_config['master_size'], 'master')
         worker_machine_type = self.get_openshift_machine_type('gcp', size_config['worker_size'], 'worker')
         
+        if 'master_count' not in size_config:
+            raise ValueError(f"Cluster size configuration is missing 'master_count' field. Available fields: {list(size_config.keys())}")
         master_count = size_config['master_count']
         worker_count = cluster_config.get('worker_count')
         

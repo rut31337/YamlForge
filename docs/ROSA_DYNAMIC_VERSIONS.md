@@ -283,7 +283,7 @@ pip install -r requirements.txt
 - Latest series: `4.19.x` releases
 - Stable series: `4.18.x` releases  
 - LTS series: `4.17.x`, `4.16.x`, `4.15.x` releases
-- Legacy series: `4.14.x`, `4.13.x` releases
+- Earlier series: `4.14.x`, `4.13.x` releases
 
 **Dynamic support:** All versions currently supported by Red Hat for ROSA deployments
 

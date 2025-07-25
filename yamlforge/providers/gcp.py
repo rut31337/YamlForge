@@ -41,13 +41,18 @@ class GCPImageResolver:
     def load_config(self):
         """Load GCP configuration from credentials system."""
         # Check if credentials are available for dynamic discovery
-        has_credentials = self.credentials and self.credentials.gcp_config
+        if not self.credentials:
+            print("Warning: GCP credentials not found. Image discovery will fail if GCP images are requested.")
+            return {'project_id': '', 'has_credentials': False}
+            
+        gcp_creds = self.credentials.get_gcp_credentials()
+        has_credentials = gcp_creds.get('available', False)
 
         if not has_credentials:
             print("Warning: GCP credentials not found. Image discovery will fail if GCP images are requested.")
 
         return {
-            'project_id': has_credentials and self.credentials.gcp_config.get('project_id', ''),
+            'project_id': gcp_creds.get('project_id', '') if has_credentials else '',
             'has_credentials': has_credentials
         }
 
@@ -160,24 +165,16 @@ class GCPProvider:
         user_management = defaults_config.get('user_management', {})
 
         # Check if credentials are available
-        has_credentials = self.converter.credentials and self.converter.credentials.gcp_config
+        gcp_creds = self.converter.credentials.get_gcp_credentials() if self.converter.credentials else {}
+        has_credentials = gcp_creds.get('available', False)
 
-        # Get project configuration from credentials or environment
-        project_id = ""
+        # Get project configuration from environment variables
+        project_id = gcp_creds.get('project_id', '') if has_credentials else ""
         billing_account_id = ""
         organization_id = ""
         folder_id = ""
         use_existing_project = False
         existing_project_id = ""
-        
-        if has_credentials:
-            gcp_creds = self.converter.credentials.gcp_config
-            project_id = gcp_creds.get('project_id', '')
-            billing_account_id = gcp_creds.get('billing_account_id', '')
-            organization_id = gcp_creds.get('organization_id', '')
-            folder_id = gcp_creds.get('folder_id', '')
-            use_existing_project = gcp_creds.get('use_existing_project', False)
-            existing_project_id = gcp_creds.get('existing_project_id', '')
 
         # Fall back to environment variables if not in credentials
         if not billing_account_id:
@@ -476,8 +473,8 @@ class GCPProvider:
 
         return default_image
 
-    def generate_gcp_firewall_rules_legacy(self, sg_name, rules):
-        """Generate GCP firewall rules (legacy method)."""
+    def generate_gcp_firewall_rules_alternative(self, sg_name, rules):
+        """Generate GCP firewall rules (alternative method)."""
         clean_name = sg_name.replace("-", "_").replace(".", "_")
         firewall_config = ""
 

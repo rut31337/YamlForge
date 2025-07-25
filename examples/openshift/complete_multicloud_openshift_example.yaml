@@ -108,7 +108,7 @@ yamlforge:
     base_domain: dev.openshift.example.com
   - name: enterprise-dedicated-aws
     type: openshift-dedicated
-    cloud_provider: aws
+    provider: aws
     region: us-east-1
     size: large
     version: 4.14.15
@@ -121,7 +121,7 @@ yamlforge:
     multi_az: true
   - name: enterprise-dedicated-gcp
     type: openshift-dedicated
-    cloud_provider: gcp
+    provider: gcp
     region: us-central1
     size: large
     version: 4.14.15

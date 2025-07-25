@@ -326,12 +326,25 @@ class YamlForgeConverter:
         
         # Default SSH key configuration if none provided
         if not ssh_keys:
-            return {
-                'default': {
-                    'public_key': None,
-                    'username': 'ec2-user'  # Default username
+            # Try to get SSH key from environment variables via credentials system
+            from yamlforge.core.credentials import CredentialsManager
+            creds_manager = CredentialsManager()
+            default_ssh_key = creds_manager.get_default_ssh_key()
+            
+            if default_ssh_key and default_ssh_key.get('available'):
+                return {
+                    'default': {
+                        'public_key': default_ssh_key['public_key'],
+                        'username': 'cloud-user'  # Default username
+                    }
                 }
-            }
+            else:
+                return {
+                    'default': {
+                        'public_key': None,
+                        'username': 'cloud-user'  # Default username
+                    }
+                }
         
         # Ensure all SSH keys have required fields
         normalized_keys = {}
@@ -340,13 +353,13 @@ class YamlForgeConverter:
                 # Simple string format: just the public key
                 normalized_keys[key_name] = {
                     'public_key': key_config,
-                    'username': 'ec2-user'  # Default username
+                    'username': 'cloud-user'  # Default username
                 }
             elif isinstance(key_config, dict):
                 # Full configuration format
                 normalized_keys[key_name] = {
                     'public_key': key_config.get('public_key'),
-                    'username': key_config.get('username', 'ec2-user'),
+                    'username': key_config.get('username', 'cloud-user'),
                     'comment': key_config.get('comment', '')
                 }
         
@@ -474,9 +487,9 @@ class YamlForgeConverter:
                 if cluster_type in ['self-managed', 'hypershift']:
                     providers_in_use.add('kubectl')
                 
-                # Add Azure-specific providers for ARO
+                # ARO uses standard Azure provider (azurerm)
                 if cluster_type == 'aro':
-                    providers_in_use.add('azapi')
+                    providers_in_use.add('azure')
                 
                 # Add cloud provider for the cluster
                 if cluster_type in ['rosa-classic', 'rosa-hcp']:
@@ -645,6 +658,10 @@ terraform {{
     azurerm = {
       source  = "hashicorp/azurerm"
       version = "~> 3.0"
+    }
+    azuread = {
+      source  = "hashicorp/azuread"
+      version = "~> 2.0"
     }'''
             elif provider == 'gcp':
                 terraform_content += '''
@@ -750,6 +767,17 @@ data "aws_caller_identity" "current" {}
 provider "azurerm" {
   features {}
   subscription_id = var.azure_subscription_id
+  
+  # Use environment variables for authentication
+  # Set ARM_CLIENT_ID, ARM_CLIENT_SECRET, ARM_TENANT_ID, ARM_SUBSCRIPTION_ID
+  # Or use Azure CLI with: az login
+}
+
+# Azure Active Directory Provider (required for ARO)
+provider "azuread" {
+  # Use environment variables for authentication
+  # Set ARM_CLIENT_ID, ARM_CLIENT_SECRET, ARM_TENANT_ID
+  # Or use Azure CLI with: az login
 }
 
 '''
@@ -1371,7 +1399,7 @@ output "external_ips" {
             elif 'UBUNTU' in image.upper():
                 return 'ubuntu'
             elif any(os_name in image.upper() for os_name in ['RHEL', 'REDHAT']):
-                return 'ec2-user'
+                return 'cloud-user'
             elif 'CENTOS' in image.upper():
                 return 'centos'
             else:
@@ -1431,6 +1459,12 @@ variable "azure_location" {
   description = "Azure location for deployment"
   type        = string
   default     = "East US"
+}
+
+variable "arm_client_secret" {
+  description = "Azure service principal client secret for ARO clusters"
+  type        = string
+  sensitive   = true
 }
 
 '''
@@ -1609,6 +1643,12 @@ variable "environment" {
   default     = "development"
 }
 
+variable "common_tags" {
+  description = "Common tags to apply to all resources"
+  type        = map(string)
+  default     = {}
+}
+
 '''
 
         return variables_content
@@ -1722,9 +1762,23 @@ aws_billing_account_id = "{aws_billing_account_id or ''}"
 '''
 
         if 'azure' in required_providers:
-            tfvars_content += '''# Azure Configuration
-azure_subscription_id = "your-subscription-id-here"
+            # Get Azure credentials from environment variables (no defaults)
+            azure_creds = self.credentials.get_azure_credentials()
+            subscription_id = azure_creds.get('subscription_id')
+            
+            if not subscription_id:
+                raise ValueError("Azure subscription ID not found. Please set ARM_SUBSCRIPTION_ID or AZURE_SUBSCRIPTION_ID environment variable.")
+            
+            # Get ARM_CLIENT_SECRET for ARO service principal
+            arm_client_secret = azure_creds.get('client_secret')
+            
+            if not arm_client_secret:
+                raise ValueError("Azure client secret not found. Please set ARM_CLIENT_SECRET environment variable.")
+                
+            tfvars_content += f'''# Azure Configuration (from environment variables)
+azure_subscription_id = "{subscription_id}"
 azure_location        = "East US"
+arm_client_secret     = "{arm_client_secret}"
 
 '''
 
@@ -1810,8 +1864,26 @@ rhcs_url   = "https://api.openshift.com"
 
 '''
 
-        # NOTE: RHCS credentials are already configured above
-        # No additional OpenShift credentials needed - using rhcs_token and rhcs_url
+        # Red Hat Pull Secret for enhanced content access
+        openshift_creds = self.credentials.get_openshift_credentials()
+        pull_secret = os.getenv('OCP_PULL_SECRET')
+        
+        if pull_secret and pull_secret.strip():
+            # Escape the JSON for use in tfvars (single line, escaped quotes)
+            escaped_pull_secret = pull_secret.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '')
+            tfvars_content += f'''# Red Hat Pull Secret for enhanced content access
+# Automatically detected from OCP_PULL_SECRET environment variable
+# This enables access to Red Hat container registries and additional content
+redhat_pull_secret = "{escaped_pull_secret}"
+
+'''
+        else:
+            tfvars_content += '''# Red Hat Pull Secret for enhanced content access (optional but recommended)
+# Download from: https://console.redhat.com/openshift/install/pull-secret
+# Set OCP_PULL_SECRET environment variable or configure here
+redhat_pull_secret = ""
+
+'''
 
         return tfvars_content
 
@@ -2806,7 +2878,7 @@ rhcs_url   = "https://api.openshift.com"
         return None
     
     def get_instance_cost(self, provider, instance_type, size, provider_flavors):
-        """Get hourly cost for a specific instance type (legacy method)."""
+        """Get hourly cost for a specific instance type (alternative method)."""
         cost_info = self.get_instance_cost_info(provider, instance_type, size, provider_flavors)
         return cost_info['cost'] if cost_info else None
 
@@ -2929,6 +3001,19 @@ rhcs_url   = "https://api.openshift.com"
         # Parse rule data
         protocol = rule.get('protocol', 'tcp').lower()
         port = rule.get('port')
+        port_range = rule.get('port_range')
+        
+        # Handle port_range field (e.g., '22', '80-90', '443')
+        if port_range and not port:
+            if '-' in str(port_range):
+                # Range format like '80-90'
+                from_port, to_port = str(port_range).split('-', 1)
+                from_port = int(from_port.strip())
+                to_port = int(to_port.strip())
+            else:
+                # Single port like '22'
+                port = int(port_range)
+        
         from_port = rule.get('from_port', port)
         to_port = rule.get('to_port', port)
         direction = rule.get('direction', 'ingress')
@@ -2949,10 +3034,14 @@ rhcs_url   = "https://api.openshift.com"
             elif protocol == 'icmp':
                 protocol = 'Icmp'
 
+        # Validate that ports are specified
+        if from_port is None or to_port is None:
+            raise ValueError(f"Security group rule missing port configuration. Must specify 'port', 'port_range', or 'from_port'/'to_port'. Rule: {rule}")
+        
         return {
             'direction': direction,
-            'from_port': from_port or 80,
-            'to_port': to_port or 80,
+            'from_port': from_port,
+            'to_port': to_port,
             'protocol': protocol,
             'cidr_blocks': cidr_blocks
         }
@@ -3071,7 +3160,7 @@ rhcs_url   = "https://api.openshift.com"
             provider = region_data['provider']
             # Get deployment name from cloud_workspace
             cloud_workspace = config.get('cloud_workspace', {})
-            deployment_name = cloud_workspace.get('name', 'yamlforge-deployment')
+            deployment_name = f"{cloud_workspace.get('name', 'yamlforge-deployment')}-{self.get_validated_guid(config)}"
             deployment_config = config.get('network', {})
 
             # Generate regional networking

@@ -1,97 +1,53 @@
 """
 Credentials Management Module
 
-Handles cloud provider credentials for discovery and Terraform generation.
+Handles cloud provider credentials via environment variables only.
+All credential configuration moved to environment variables - no file loading.
 """
 
-import yaml
+import os
 from pathlib import Path
 
 
 class CredentialsManager:
-    """Manages cloud provider credentials for discovery and Terraform generation."""
+    """Manages cloud provider credentials via environment variables only."""
 
-    def __init__(self, credentials_dir="credentials"):
-        """Initialize the instance."""
-        self.credentials_dir = Path(credentials_dir)
-        self.aws_config = None
-        self.azure_config = None
-        self.gcp_config = None
-        self.ibm_config = None
-        self.openshift_config = None
-        self.load_all_credentials()
-
-    def load_all_credentials(self):
-        """Load credentials for all cloud providers."""
-        self.aws_config = self.load_credential_file("aws.yaml")
-        self.azure_config = self.load_credential_file("azure.yaml")
-        self.gcp_config = self.load_credential_file("gcp.yaml")
-        self.ibm_config = self.load_credential_file("ibm.yaml")
-        self.openshift_config = self.load_credential_file("openshift.yaml")
-
-    def load_credential_file(self, filename):
-        """Load a specific credential configuration file."""
-        file_path = self.credentials_dir / filename
-        if file_path.exists():
-            try:
-                with open(file_path, 'r') as f:
-                    return yaml.safe_load(f)
-            except Exception as e:
-                print(f"Warning: Could not load {filename}: {e}")
-        return {}
+    def __init__(self, credentials_dir=None):
+        """Initialize the instance - credentials_dir parameter kept for compatibility but not used."""
+        # All credentials now come from environment variables only
+        pass
 
     def get_aws_credentials(self):
-        """Get AWS credentials and configuration with auto-discovery."""
-        import os
+        """Get AWS credentials from environment variables with auto-discovery."""
+        # Check for AWS credentials in environment variables
+        access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
+        secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+        aws_profile = os.getenv('AWS_PROFILE')
         
-        if not self.aws_config:
-            return {}
-
-        # Check which authentication method is enabled
-        config = self.aws_config
+        if not (access_key_id and secret_access_key) and not aws_profile:
+            return {'available': False}
         
-        # Auto-detect environment variables first (highest priority)
-        if (os.getenv('AWS_ACCESS_KEY_ID') and os.getenv('AWS_SECRET_ACCESS_KEY')) or os.getenv('AWS_PROFILE'):
-            creds = {
-                'type': 'environment',
-                'region': os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
-            }
-        # Method 1: Access Keys (from config)
-        elif config.get('access_key', {}).get('enabled', False):
-            access_key_config = config['access_key']
+        region = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
+        
+        # Determine credential type
+        if access_key_id and secret_access_key:
             creds = {
                 'type': 'access_key',
-                'access_key_id': access_key_config.get('access_key_id'),
-                'secret_access_key': access_key_config.get('secret_access_key'),
-                'region': access_key_config.get('region', 'us-east-1')
+                'access_key_id': access_key_id,
+                'secret_access_key': secret_access_key,
+                'region': region
             }
-        # Method 2: IAM Role
-        elif config.get('iam_role', {}).get('enabled', False):
-            role_config = config['iam_role']
-            creds = {
-                'type': 'iam_role',
-                'role_arn': role_config.get('role_arn'),
-                'session_name': role_config.get('session_name', 'yamlforge'),
-                'region': role_config.get('region', 'us-east-1')
-            }
-        # Method 3: AWS Profile
-        elif config.get('profile', {}).get('enabled', False):
-            profile_config = config['profile']
-            profile_name = os.getenv('AWS_PROFILE', profile_config.get('profile_name', 'default'))
+        elif aws_profile:
             creds = {
                 'type': 'profile',
-                'profile_name': profile_name,
-                'region': profile_config.get('region', 'us-east-1')
-            }
-        # Method 4: Environment Variables (from config)
-        elif config.get('environment', {}).get('enabled', False):
-            env_config = config['environment']
-            creds = {
-                'type': 'environment',
-                'region': env_config.get('region', 'us-east-1')
+                'profile_name': aws_profile,
+                'region': region
             }
         else:
-            return {}
+            creds = {
+                'type': 'environment',
+                'region': region
+            }
 
         # Auto-discover AWS account information using boto3
         try:
@@ -104,8 +60,6 @@ class CredentialsManager:
 
     def _discover_aws_account_info(self, creds):
         """Auto-discover AWS account information using STS."""
-        import os
-        
         try:
             import boto3
             from botocore.exceptions import ClientError, NoCredentialsError
@@ -130,20 +84,6 @@ class CredentialsManager:
                 )
             elif creds['type'] == 'environment':
                 session = boto3.Session(region_name=creds['region'])
-            elif creds['type'] == 'iam_role':
-                # For IAM roles, create base session first then assume role
-                base_session = boto3.Session(region_name=creds['region'])
-                sts = base_session.client('sts')
-                assumed_role = sts.assume_role(
-                    RoleArn=creds['role_arn'],
-                    RoleSessionName=creds['session_name']
-                )
-                session = boto3.Session(
-                    aws_access_key_id=assumed_role['Credentials']['AccessKeyId'],
-                    aws_secret_access_key=assumed_role['Credentials']['SecretAccessKey'],
-                    aws_session_token=assumed_role['Credentials']['SessionToken'],
-                    region_name=creds['region']
-                )
             
             if not session:
                 return {}
@@ -174,170 +114,129 @@ class CredentialsManager:
             return {'available': False}
 
     def get_azure_credentials(self):
-        """Get Azure credentials and configuration."""
-        if not self.azure_config:
-            return {}
-
-        config = self.azure_config
-
-        # Method 1: Service Principal
-        if config.get('service_principal', {}).get('enabled', False):
-            sp_config = config['service_principal']
-            return {
-                'type': 'service_principal',
-                'client_id': sp_config.get('client_id'),
-                'client_secret': sp_config.get('client_secret'),
-                'tenant_id': sp_config.get('tenant_id'),
-                'subscription_id': sp_config.get('subscription_id')
-            }
-
-        # Method 2: Managed Identity
-        if config.get('managed_identity', {}).get('enabled', False):
-            mi_config = config['managed_identity']
-            return {
-                'type': 'managed_identity',
-                'client_id': mi_config.get('client_id'),
-                'subscription_id': mi_config.get('subscription_id')
-            }
-
-        # Method 3: Azure CLI
-        if config.get('azure_cli', {}).get('enabled', False):
-            cli_config = config['azure_cli']
-            return {
-                'type': 'azure_cli',
-                'subscription_id': cli_config.get('subscription_id'),
-                'tenant_id': cli_config.get('tenant_id')
-            }
-
-        # Method 4: Environment Variables
-        if config.get('environment', {}).get('enabled', False):
-            env_config = config['environment']
-            return {
-                'type': 'environment',
-                'subscription_id': env_config.get('subscription_id')
-            }
-
-        return {}
+        """Get Azure credentials from environment variables."""
+        # Check for Azure credentials in environment variables
+        client_id = os.getenv('ARM_CLIENT_ID') or os.getenv('AZURE_CLIENT_ID')
+        client_secret = os.getenv('ARM_CLIENT_SECRET') or os.getenv('AZURE_CLIENT_SECRET')
+        subscription_id = os.getenv('ARM_SUBSCRIPTION_ID') or os.getenv('AZURE_SUBSCRIPTION_ID')
+        tenant_id = os.getenv('ARM_TENANT_ID') or os.getenv('AZURE_TENANT_ID')
+        
+        if not all([client_id, client_secret, subscription_id, tenant_id]):
+            return {'available': False}
+        
+        return {
+            'type': 'service_principal',
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'tenant_id': tenant_id,
+            'subscription_id': subscription_id,
+            'available': True
+        }
 
     def get_gcp_credentials(self):
-        """Get GCP credentials and configuration."""
-        if not self.gcp_config:
-            return {}
-
-        config = self.gcp_config
-
-        # Method 1: Service Account Key File
-        if config.get('service_account', {}).get('enabled', False):
-            sa_config = config['service_account']
-            return {
-                'type': 'service_account',
-                'key_file_path': sa_config.get('key_file_path'),
-                'project_id': sa_config.get('project_id')
-            }
-
-        # Method 2: Application Default Credentials
-        if config.get('application_default', {}).get('enabled', False):
-            adc_config = config['application_default']
-            return {
-                'type': 'application_default',
-                'project_id': adc_config.get('project_id')
-            }
-
-        # Method 3: Workload Identity
-        if config.get('workload_identity', {}).get('enabled', False):
-            wi_config = config['workload_identity']
-            return {
-                'type': 'workload_identity',
-                'service_account_email': wi_config.get('service_account_email'),
-                'project_id': wi_config.get('project_id')
-            }
-
-        # Method 4: Environment Variables
-        if config.get('environment', {}).get('enabled', False):
-            env_config = config['environment']
-            return {
-                'type': 'environment',
-                'project_id': env_config.get('project_id')
-            }
-
-        return {}
+        """Get GCP credentials from environment variables."""
+        # Check for GCP credentials in environment variables
+        service_account_key = os.getenv('GCP_SERVICE_ACCOUNT_KEY') or os.getenv('GOOGLE_CREDENTIALS')
+        project_id = os.getenv('GCP_PROJECT_ID') or os.getenv('GOOGLE_PROJECT')
+        
+        if not service_account_key or not project_id:
+            return {'available': False}
+        
+        return {
+            'type': 'service_account_key',
+            'service_account_key': service_account_key,
+            'project_id': project_id,
+            'available': True
+        }
 
     def get_ibm_credentials(self):
-        """Get IBM Cloud credentials and configuration."""
-        if not self.ibm_config:
-            return {}
+        """Get IBM Cloud credentials from environment variables."""
+        # Check for IBM Cloud credentials in environment variables  
+        api_key = os.getenv('IC_API_KEY') or os.getenv('IBM_CLOUD_API_KEY')
+        region = os.getenv('IBM_CLOUD_REGION', 'us-south')
+        
+        if not api_key:
+            return {'available': False}
+        
+        return {
+            'type': 'api_key',
+            'api_key': api_key,
+            'region': region,
+            'available': True
+        }
 
-        config = self.ibm_config
+    def get_oci_credentials(self):
+        """Get Oracle Cloud Infrastructure credentials from environment variables."""
+        # Check for OCI credentials in environment variables
+        user_ocid = os.getenv('OCI_USER_OCID') or os.getenv('TF_VAR_user_ocid')
+        fingerprint = os.getenv('OCI_FINGERPRINT') or os.getenv('TF_VAR_fingerprint')
+        tenancy_ocid = os.getenv('OCI_TENANCY_OCID') or os.getenv('TF_VAR_tenancy_ocid')
+        region = os.getenv('OCI_REGION', 'us-ashburn-1')
+        private_key = os.getenv('OCI_PRIVATE_KEY')
+        private_key_path = os.getenv('OCI_PRIVATE_KEY_PATH') or os.getenv('TF_VAR_private_key_path')
+        
+        if not all([user_ocid, fingerprint, tenancy_ocid]):
+            return {'available': False}
+        
+        if not private_key and not private_key_path:
+            return {'available': False}
+        
+        return {
+            'type': 'api_key',
+            'user_ocid': user_ocid,
+            'fingerprint': fingerprint,
+            'tenancy_ocid': tenancy_ocid,
+            'region': region,
+            'private_key': private_key,
+            'private_key_path': private_key_path,
+            'available': True
+        }
 
-        # Method 1: API Key
-        if config.get('api_key', {}).get('enabled', False):
-            api_key_config = config['api_key']
-            return {
-                'type': 'api_key',
-                'api_key': api_key_config.get('api_key'),
-                'account_id': api_key_config.get('account_id')
-            }
+    def get_vmware_credentials(self):
+        """Get VMware vSphere credentials from environment variables."""
+        # Check for VMware credentials in environment variables
+        user = os.getenv('VSPHERE_USER')
+        password = os.getenv('VSPHERE_PASSWORD')
+        server = os.getenv('VSPHERE_SERVER')
+        
+        if not all([user, password, server]):
+            return {'available': False}
+        
+        return {
+            'type': 'username_password',
+            'user': user,
+            'password': password,
+            'server': server,
+            'datacenter': os.getenv('VMWARE_DATACENTER', 'Datacenter'),
+            'cluster': os.getenv('VMWARE_CLUSTER', 'Cluster'),
+            'datastore': os.getenv('VMWARE_DATASTORE', 'datastore1'),
+            'network': os.getenv('VMWARE_NETWORK', 'VM Network'),
+            'allow_unverified_ssl': os.getenv('VMWARE_ALLOW_UNVERIFIED_SSL', 'true').lower() == 'true',
+            'available': True
+        }
 
-        # Method 2: Service ID
-        if config.get('service_id', {}).get('enabled', False):
-            service_config = config['service_id']
-            return {
-                'type': 'service_id',
-                'service_id': service_config.get('service_id'),
-                'api_key': service_config.get('api_key')
-            }
-
-        # Method 3: Environment Variables
-        if config.get('environment', {}).get('enabled', False):
-            return {
-                'type': 'environment'
-            }
-
-        return {}
-
-    def get_terraform_variables(self):
-        """Get Terraform variables from credential configurations."""
-        variables = {}
-
-        # AWS Variables
-        aws_creds = self.get_aws_credentials()
-        aws_terraform = self.aws_config.get('terraform_vars', {}) if self.aws_config else {}
-        if aws_creds:
-            variables['aws_region'] = aws_creds.get('region', aws_terraform.get('aws_region', 'us-east-1'))
-
-        # Azure Variables
-        azure_creds = self.get_azure_credentials()
-        azure_terraform = self.azure_config.get('terraform_vars', {}) if self.azure_config else {}
-        if azure_creds:
-            variables['azure_subscription_id'] = azure_creds.get('subscription_id', azure_terraform.get('azure_subscription_id', ''))
-            variables['azure_location'] = azure_terraform.get('azure_location', 'East US')
-            variables['azure_resource_group_name'] = azure_terraform.get('azure_resource_group_name', 'yamlforge-rg')
-
-        # GCP Variables
-        gcp_creds = self.get_gcp_credentials()
-        gcp_terraform = self.gcp_config.get('terraform_vars', {}) if self.gcp_config else {}
-        if gcp_creds:
-            variables['gcp_project_id'] = gcp_creds.get('project_id', gcp_terraform.get('gcp_project_id', ''))
-            variables['gcp_region'] = gcp_terraform.get('gcp_region', 'us-east1')
-            variables['gcp_zone'] = gcp_terraform.get('gcp_zone', 'us-east1-a')
-
-        # IBM Variables
-        ibm_creds = self.get_ibm_credentials()
-        ibm_terraform = self.ibm_config.get('terraform_vars', {}) if self.ibm_config else {}
-        if ibm_creds:
-            variables['ibm_api_key'] = ibm_creds.get('api_key', ibm_terraform.get('ibm_api_key', ''))
-            variables['ibm_region'] = ibm_terraform.get('ibm_region', 'us-south')
-            variables['ibm_zone'] = ibm_terraform.get('ibm_zone', 'us-south-1')
-            variables['ibm_resource_group_id'] = ibm_terraform.get('ibm_resource_group_id', '')
-
-        return variables
+    def get_alibaba_credentials(self):
+        """Get Alibaba Cloud credentials from environment variables."""
+        # Check for Alibaba Cloud credentials in environment variables
+        access_key = os.getenv('ALICLOUD_ACCESS_KEY')
+        secret_key = os.getenv('ALICLOUD_SECRET_KEY')
+        region = os.getenv('ALICLOUD_REGION', 'us-east-1')
+        
+        if not all([access_key, secret_key]):
+            return {'available': False}
+        
+        return {
+            'type': 'access_key',
+            'access_key': access_key,
+            'secret_key': secret_key,
+            'region': region,
+            'available': True
+        }
 
     def get_openshift_credentials(self):
         """Get OpenShift credentials from environment variables."""
-        import os
-        
         # Red Hat OpenShift Cluster Manager API credentials (for ROSA, OpenShift Dedicated)
-        redhat_token = os.getenv('REDHAT_OPENSHIFT_TOKEN')
+        redhat_token = os.getenv('REDHAT_OPENSHIFT_TOKEN') or os.getenv('OCM_TOKEN') or os.getenv('ROSA_TOKEN')
         redhat_url = os.getenv('REDHAT_OPENSHIFT_URL', 'https://api.openshift.com')
         
         # OpenShift cluster connection credentials (for existing clusters)
@@ -365,15 +264,35 @@ class CredentialsManager:
             }
         }
 
-    def get_default_ssh_key(self):
-        """Get default SSH public key from environment variables or core defaults."""
-        import os
+    def get_cert_manager_credentials(self):
+        """Get cert-manager EAB credentials from environment variables."""
+        # ZeroSSL EAB credentials
+        zerossl_kid = os.getenv('ZEROSSL_EAB_KID')
+        zerossl_hmac = os.getenv('ZEROSSL_EAB_HMAC')
         
+        # SSL.com EAB credentials
+        sslcom_kid = os.getenv('SSLCOM_EAB_KID')
+        sslcom_hmac = os.getenv('SSLCOM_EAB_HMAC')
+        
+        return {
+            'zerossl': {
+                'eab_kid': zerossl_kid,
+                'eab_hmac': zerossl_hmac,
+                'available': bool(zerossl_kid and zerossl_hmac)
+            },
+            'sslcom': {
+                'eab_kid': sslcom_kid,
+                'eab_hmac': sslcom_hmac,
+                'available': bool(sslcom_kid and sslcom_hmac)
+            }
+        }
+
+    def get_default_ssh_key(self):
+        """Get default SSH public key from environment variables or auto-detect."""
         # Priority order:
         # 1. SSH_PUBLIC_KEY environment variable
         # 2. YAMLFORGE_SSH_PUBLIC_KEY environment variable  
-        # 3. defaults/core.yaml configuration
-        # 4. Auto-detect from ~/.ssh/id_rsa.pub or ~/.ssh/id_ed25519.pub
+        # 3. Auto-detect from ~/.ssh/id_rsa.pub or ~/.ssh/id_ed25519.pub (if enabled in defaults)
         
         # Check environment variables first
         ssh_key = os.getenv('SSH_PUBLIC_KEY')
@@ -392,15 +311,15 @@ class CredentialsManager:
                 'available': True
             }
         
-        # Check core defaults configuration
-        core_config = {}
+        # Check core defaults configuration for auto-detection settings
         try:
-            from pathlib import Path
+            import yaml
             core_defaults_path = Path('defaults/core.yaml')
             if core_defaults_path.exists():
-                import yaml
                 with open(core_defaults_path, 'r') as f:
                     core_config = yaml.safe_load(f) or {}
+                    
+                    # Check for configured default key in core config
                     default_key = core_config.get('security', {}).get('default_ssh_public_key', '')
                     if default_key and default_key.strip():
                         return {
@@ -408,27 +327,27 @@ class CredentialsManager:
                             'source': 'defaults/core.yaml configuration',
                             'available': True
                         }
+                    
+                    # Check if auto-detection is enabled
+                    auto_detect_enabled = core_config.get('security', {}).get('auto_detect_ssh_keys', False)
+                    if auto_detect_enabled:
+                        ssh_dir = Path.home() / '.ssh'
+                        for key_file in ['id_ed25519.pub', 'id_rsa.pub']:
+                            key_path = ssh_dir / key_file
+                            if key_path.exists():
+                                try:
+                                    with open(key_path, 'r') as f:
+                                        ssh_key = f.read().strip()
+                                        if ssh_key:
+                                            return {
+                                                'public_key': ssh_key,
+                                                'source': f'Auto-detected from {key_path}',
+                                                'available': True
+                                            }
+                                except Exception:
+                                    continue
         except Exception:
             pass  # Silently continue
-        
-        # Auto-detect from common SSH key locations (only if enabled)
-        auto_detect_enabled = core_config.get('security', {}).get('auto_detect_ssh_keys', False)
-        if auto_detect_enabled:
-            ssh_dir = Path.home() / '.ssh'
-            for key_file in ['id_ed25519.pub', 'id_rsa.pub']:
-                key_path = ssh_dir / key_file
-                if key_path.exists():
-                    try:
-                        with open(key_path, 'r') as f:
-                            ssh_key = f.read().strip()
-                            if ssh_key:
-                                return {
-                                    'public_key': ssh_key,
-                                    'source': f'Auto-detected from {key_path}',
-                                    'available': True
-                                }
-                    except Exception:
-                        continue
         
         # No SSH key found
         return {
@@ -436,3 +355,29 @@ class CredentialsManager:
             'source': 'No SSH key found',
             'available': False
         }
+
+    def get_terraform_variables(self):
+        """Get basic Terraform variables from environment-based credentials."""
+        variables = {}
+
+        # AWS Variables
+        aws_creds = self.get_aws_credentials()
+        if aws_creds.get('available'):
+            variables['aws_region'] = aws_creds.get('region', 'us-east-1')
+
+        # Azure Variables  
+        azure_creds = self.get_azure_credentials()
+        if azure_creds.get('available'):
+            variables['azure_subscription_id'] = azure_creds.get('subscription_id', '')
+
+        # GCP Variables
+        gcp_creds = self.get_gcp_credentials()
+        if gcp_creds.get('available'):
+            variables['gcp_project_id'] = gcp_creds.get('project_id', '')
+
+        # IBM Variables
+        ibm_creds = self.get_ibm_credentials()
+        if ibm_creds.get('available'):
+            variables['ibm_region'] = ibm_creds.get('region', 'us-south')
+
+        return variables

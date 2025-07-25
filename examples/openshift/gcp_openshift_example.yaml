@@ -59,7 +59,7 @@ yamlforge:
       method: upi
   - name: gcp-dedicated
     type: openshift-dedicated
-    cloud_provider: gcp
+    provider: gcp
     region: us-west1
     size: medium
     version: 4.14.15

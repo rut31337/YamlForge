@@ -118,7 +118,8 @@ See [AI Prompt Engineering Guide](docs/ai-prompts.md) for detailed prompting tec
 
 ### Configuration
 - [Mappings & Flavors](configuration/mappings.md)
-- [Credentials Setup](configuration/credentials.md)
+- [Environment Variables Setup](docs/quickstart.md#step-1-set-up-environment-variables)
+- [Azure Credentials Guide](docs/azure-credentials.md)
 - [Networking](configuration/networking.md)
 
 ### AI Assistance

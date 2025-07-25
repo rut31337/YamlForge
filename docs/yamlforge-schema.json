@@ -17,6 +17,7 @@
       "properties": {
         "cloud_workspace": {"$ref": "#/definitions/cloud_workspace"},
         "gcp": {"$ref": "#/definitions/gcp_config"},
+        "azure": {"$ref": "#/definitions/azure_config"},
         "instances": {"$ref": "#/definitions/instances"},
         "openshift_clusters": {"$ref": "#/definitions/openshift_clusters"},
         "openshift_operators": {"$ref": "#/definitions/openshift_operators"},
@@ -328,11 +329,30 @@
           "type": "string",
           "description": "GCP organization ID for new project creation"
         },
-        "folder_id": {
-          "type": "string",
-          "description": "GCP folder ID for new project creation (alternative to organization_id)"
-        }
-      }
-    }
-  }
-} 
+                 "folder_id": {
+           "type": "string",
+           "description": "GCP folder ID for new project creation (alternative to organization_id)"
+         }
+       }
+     },
+     "azure_config": {
+       "type": "object",
+       "description": "Azure-specific configuration options",
+       "properties": {
+         "use_existing_resource_group": {
+           "type": "boolean",
+           "description": "Use an existing Azure resource group instead of creating new ones",
+           "default": false
+         },
+         "existing_resource_group_name": {
+           "type": "string",
+           "description": "Name of the existing Azure resource group to use (required if use_existing_resource_group is true)"
+         },
+         "existing_resource_group_location": {
+           "type": "string",
+           "description": "Location of the existing Azure resource group (e.g., eastus, westus2)"
+         }
+       }
+     }
+   }
+ } 

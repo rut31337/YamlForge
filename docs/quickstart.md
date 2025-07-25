@@ -35,6 +35,14 @@ export AWS_ACCESS_KEY_ID=YOUR_AWS_ACCESS_KEY
 export AWS_SECRET_ACCESS_KEY=YOUR_AWS_SECRET_KEY
 export AWS_BILLING_ACCOUNT_ID=YOUR_AWS_BILLING_ACCOUNT_ID
 
+# Azure Credentials (required for Azure deployments and ARO clusters)
+# NOTE: ARO requires full subscription access, not compatible with shared resource groups
+# Get from: az ad sp create-for-rbac --role="Contributor" --scopes="/subscriptions/YOUR_SUBSCRIPTION_ID"
+export ARM_CLIENT_ID=YOUR_AZURE_CLIENT_ID
+export ARM_CLIENT_SECRET=YOUR_AZURE_CLIENT_SECRET
+export ARM_SUBSCRIPTION_ID=YOUR_AZURE_SUBSCRIPTION_ID  # Your Azure subscription ID
+export ARM_TENANT_ID=YOUR_AZURE_TENANT_ID
+
 # SSH Public Key (for instance access)
 export SSH_PUBLIC_KEY="ssh-rsa YOUR_PUBLIC_KEY_HERE your-email@example.com"
 
@@ -183,6 +191,59 @@ yamlforge:
       size: "medium"
       image: "RHEL9-latest"
       region: "us-central1"
+```
+
+### Azure Full Subscription Setup (Default)
+
+```yaml
+guid: "full01"
+
+yamlforge:
+  cloud_workspace:
+    name: "full-subscription-deployment"
+    description: "Multi-region deployment with full subscription access"
+
+  instances:
+    - name: "web-eastus"
+      provider: "azure"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "eastus"
+    
+    - name: "web-westus"
+      provider: "azure"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "westus2"  # Creates separate resource group automatically
+```
+
+### Azure Shared Subscription Setup
+
+**Note:** This model is for Azure VMs only. ARO clusters require full subscription access.
+
+```yaml
+guid: "azu01"
+
+yamlforge:
+  cloud_workspace:
+    name: "shared-subscription-deployment"
+    description: "Deployment using existing Azure resource group (VMs only, not ARO)"
+  
+  # Use existing Azure resource group in shared subscription
+  azure:
+    use_existing_resource_group: true
+    existing_resource_group_name: "rg-shared-dev-001"
+    existing_resource_group_location: "eastus"
+
+  instances:
+    - name: "azure-server"
+      provider: "azure"
+      size: "medium"
+      image: "RHEL9-latest"
+      region: "eastus"
+  
+  # NOTE: ARO clusters not supported with shared resource groups
+  # For ARO, use the "Azure Full Subscription Setup" instead
 ```
 
 ### OpenShift Setup

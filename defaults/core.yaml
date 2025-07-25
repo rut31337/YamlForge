@@ -10,13 +10,13 @@ provider_selection:
     - "vmware"      # Exclude on-premises VMware from cost comparisons
     - "alibaba"     # Exclude Alibaba Cloud for compliance reasons
     # - "oci"         # Exclude Oracle Cloud for security policies
-    # - "ibm_classic" # Exclude legacy IBM Classic infrastructure
+    # - "ibm_classic" # Exclude IBM Classic infrastructure
     # []  # Empty list means all providers are considered
 
   # Provider priority order for tie-breaking in cost comparisons
   # When multiple providers have identical costs, prefer higher priority
   priority_order:
-    - "ibm_classic"   # IBM Classic (legacy)
+    - "ibm_classic"   # IBM Classic infrastructure
     - "ibm_vpc"       # IBM Cloud VPC
     - "gcp"           # Google Cloud Platform
     - "aws"           # Amazon Web Services
