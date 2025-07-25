@@ -1,52 +1,44 @@
 ---
+guid: "ibm02"
+
 yamlforge:
   cloud_workspace:
-    name: ibm-classic-demo
-    description: IBM Classic infrastructure demonstration
-  instances:
-  - name: ibm-classic-web
-    provider: ibm_classic
-    size: medium
-    image: RHEL9-latest
-    region: dal10
-  - name: ibm-classic-app
-    provider: ibm_classic
-    size: large
-    image: RHEL8-latest
-    region: wdc07
-  - name: ibm-classic-database
-    provider: ibm_classic
-    cores: 8
-    memory: 32768
-    image: RHEL9-latest
-    region: dal10
-    storage: SAN
-  - name: ibm-classic-hpc
-    provider: ibm_classic
-    cores: 16
-    memory: 65536
-    image: RHEL8-latest
-    region: dal10
-    network_speed: '1000'
+    name: "ibm-classic-demo-{guid}"
+    description: "IBM Classic deployment example"
+  
+  ibm_classic:
+    default_datacenter: "dal10"
+    default_domain: "example.com"
+  
   security_groups:
-    ibm-classic-sg:
-      description: IBM Classic security configuration
+    - name: "web-sg-{guid}"
+      description: "Web server security group"
       rules:
-      - protocol: tcp
-        port: 80
-        source: 0.0.0.0/0
-      - protocol: tcp
-        port: 443
-        source: 0.0.0.0/0
-      - protocol: tcp
-        port: 22
-        source: 10.0.0.0/8
-      - protocol: tcp
-        port: 3306
-        source: 192.168.1.0/24
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "80"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "443"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+  
+  instances:
+    - name: "web-server-{guid}"
+      provider: "ibm_classic"
+      size: "medium"
+      region: "dal10"
+      image: "RHEL9-latest"
+      security_groups: ["web-sg-{guid}"]
+      tags:
+        environment: "production"
+        tier: "web"
+        yamlforge_workspace: "ibm-classic-demo-{guid}"
+  
   tags:
-    cloud_provider: ibm_classic
-    infrastructure_type: classic
-    deployment_model: classic
-    performance_tier: enterprise
-    environment: production
+    project: "ibm-classic-demo"
+    managed_by: "yamlforge"

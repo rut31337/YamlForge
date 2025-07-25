@@ -4,6 +4,8 @@ IBM Classic Provider Module
 Contains IBM Classic-specific implementations for VM generation and networking.
 """
 
+import os
+
 
 class IBMClassicProvider:
     """IBM Classic-specific provider implementation."""
@@ -11,10 +13,23 @@ class IBMClassicProvider:
     def __init__(self, converter):
         """Initialize the instance."""
         self.converter = converter
+        self.config = self.load_config()
+
+    def load_config(self):
+        """Load IBM Classic configuration from environment variables."""
+        # IBM Classic always has full account access (like AWS)
+        # No resource group concept - uses tagging for organization
+        return {
+            'account_id': os.environ.get('IBMCLOUD_ACCOUNT_ID', ''),
+            'default_datacenter': os.environ.get('IBMCLOUD_CLASSIC_DATACENTER', 'dal10'),
+            'default_domain': os.environ.get('IBMCLOUD_CLASSIC_DOMAIN', 'example.com')
+        }
 
     def generate_ibm_classic_vm(self, instance, index, clean_name, size, yaml_data=None):
         """Generate IBM Classic virtual guest."""
         instance_name = instance.get("name", f"instance_{index}")
+        # Replace {guid} placeholder in instance name
+        instance_name = self.converter.replace_guid_placeholders(instance_name)
 
         # Get datacenter
         datacenter = self.converter.resolve_instance_region(instance, "ibm_classic")
@@ -53,7 +68,7 @@ resource "ibm_compute_ssh_key" "{ssh_key_name}" {{
 # IBM Cloud Classic Instance: {instance_name}
 resource "ibm_compute_vm_instance" "{clean_name}_{self.converter.get_validated_guid(yaml_data)}" {{
   hostname                 = "{instance_name}"
-  domain                   = "example.com"
+  domain                   = "{self.config['default_domain']}"
   os_reference_code        = "{ibm_image}"
   datacenter               = "{datacenter}"
   network_speed            = 100
@@ -67,7 +82,8 @@ resource "ibm_compute_vm_instance" "{clean_name}_{self.converter.get_validated_g
   
   tags = [
     "environment:agnosticd",
-    "managed-by:yamlforge"
+    "managed-by:yamlforge",
+    "yamlforge-workspace:{yaml_data.get('yamlforge', {}).get('cloud_workspace', {}).get('name', 'default')}-{self.converter.get_validated_guid(yaml_data)}"
   ]
 }}
 '''
@@ -136,14 +152,3 @@ resource "ibm_compute_ssh_key" "main_key_{self.converter.get_validated_guid(yaml
 }}
 '''
 
-    def format_ibm_tags(self, tags):
-        """Format tags for IBM (key:value format)."""
-        if not tags:
-            return ""
-
-        tag_items = []
-        for key, value in tags.items():
-            tag_items.append(f'"{key}:{value}"')
-
-        return f'''
-  tags = [{", ".join(tag_items)}]'''

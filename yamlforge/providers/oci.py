@@ -100,13 +100,8 @@ class OCIProvider:
     def __init__(self, converter):
         """Initialize the instance."""
         self.converter = converter
-        self._oci_resolver = None
 
-    def get_oci_resolver(self):
-        """Get OCI image resolver, creating it only when needed."""
-        if self._oci_resolver is None:
-            self._oci_resolver = OCIImageResolver(self.converter.credentials)
-        return self._oci_resolver
+
 
     def get_oci_shape(self, size_or_instance_type):
         """Get OCI shape from size mapping or return direct instance type."""
@@ -170,6 +165,8 @@ class OCIProvider:
     def generate_oci_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None):
         """Generate native OCI Compute instance."""
         instance_name = instance.get("name", f"instance_{index}")
+        # Replace {guid} placeholder in instance name
+        instance_name = self.converter.replace_guid_placeholders(instance_name)
         image = instance.get("image", "RHEL9-latest")
 
         # Resolve region and availability domain
@@ -188,14 +185,13 @@ class OCIProvider:
                                f"Zone region: '{expected_region}', Instance region: '{oci_region}'")
             
             print(f"Using user-specified zone '{user_specified_zone}' for instance '{instance_name}' in region '{oci_region}'")
-            availability_domain = user_specified_zone
             
         elif user_specified_zone and not has_region:
             raise ValueError(f"Instance '{instance_name}': Zone '{user_specified_zone}' can only be specified when using 'region' (not 'location'). "
                            f"Either remove 'zone' or change 'location' to 'region'.")
         else:
             # Let Terraform automatically select the best available zone
-            availability_domain = f"{oci_region}-AD-1"  # OCI requires explicit AD, use first available
+            pass
 
         # Get shape
         oci_shape = self.get_oci_shape(size)
@@ -316,7 +312,6 @@ data "oci_core_images" "{clean_name}_image" {{
         network_name = network_config.get('name', f"{deployment_name}-vcn")
         cidr_block = network_config.get('cidr_block', '10.0.0.0/16')
 
-        clean_network_name = self.converter.clean_name(network_name)
         clean_region = region.replace("-", "_").replace(".", "_")
 
         return f'''
@@ -428,6 +423,8 @@ resource "oci_core_subnet" "main_subnet_{clean_region}_{self.converter.get_valid
 
     def generate_oci_security_group(self, sg_name, rules, region, yaml_data=None):
         """Generate OCI network security group with rules for specific region."""
+        # Replace {guid} placeholder in security group name
+        sg_name = self.converter.replace_guid_placeholders(sg_name)
         clean_name = sg_name.replace("-", "_").replace(".", "_")
         clean_region = region.replace("-", "_").replace(".", "_")
         regional_sg_name = f"{clean_name}_{clean_region}"
@@ -472,16 +469,5 @@ resource "oci_core_network_security_group_security_rule" "{regional_sg_name}_rul
 
         return security_group_config
 
-    def format_oci_tags(self, tags):
-        """Format tags for OCI (freeform tags)."""
-        if not tags:
-            return ""
-
-        tag_items = []
-        for key, value in tags.items():
-            tag_items.append(f'    "{key}" = "{value}"')
-
-        return f'''
-  freeform_tags = {{
-{chr(10).join(tag_items)}
-  }}''' 
+    # TODO: Implement OCI tag formatting if needed for future features
+ 

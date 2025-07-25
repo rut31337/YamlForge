@@ -165,12 +165,8 @@ class OpenShiftProvider(BaseOpenShiftProvider):
         
         # Generate application deployment providers for clusters that will have applications
         applications = yaml_data.get('openshift_applications', [])
-        operators = yaml_data.get('openshift_operators', [])
         
         clusters_needing_apps = set()
-        
-        # ALL CLUSTERS GET ADMIN SERVICE ACCOUNTS - users need cluster management access
-        all_cluster_names = [cluster.get('name') for cluster in clusters if cluster.get('name')]
         
         # Identify clusters that need application deployment access
         if applications:
@@ -907,60 +903,7 @@ echo "🧹 ROSA cleanup script completed!"
         
         return required_providers
     
-    def validate_openshift_configuration(self, yaml_data: Dict) -> List[str]:
-        """Validate OpenShift configuration and return list of validation errors"""
-        
-        errors = []
-        clusters = yaml_data.get('openshift_clusters', [])
-        
-        if not clusters:
-            return errors  # No clusters is valid
-        
-        cluster_names = []
-        
-        # Validate basic cluster configuration
-        for i, cluster in enumerate(clusters):
-            cluster_name = cluster.get('name')
-            cluster_type = cluster.get('type')
-            
-            if not cluster_name:
-                errors.append(f"OpenShift cluster {i+1}: 'name' is required")
-                continue
-            
-            # Check for duplicate cluster names
-            if cluster_name in cluster_names:
-                errors.append(f"Duplicate OpenShift cluster name: {cluster_name}")
-            cluster_names.append(cluster_name)
-            
-            if not cluster_type:
-                errors.append(f"OpenShift cluster '{cluster_name}': 'type' is required")
-            elif cluster_type not in self.OPENSHIFT_PROVIDER_MAP:
-                supported_types = list(self.OPENSHIFT_PROVIDER_MAP.keys())
-                errors.append(f"OpenShift cluster '{cluster_name}': unsupported type '{cluster_type}'. Supported: {supported_types}")
-            
-            # Validate HyperShift configuration
-            if cluster_type == 'hypershift':
-                management_cluster = cluster.get('management_cluster')
-                if not management_cluster:
-                    errors.append(f"HyperShift cluster '{cluster_name}' must specify 'management_cluster'")
-                elif management_cluster not in cluster_names:
-                    # Check if management cluster exists in the list
-                    management_exists = any(c.get('name') == management_cluster for c in clusters)
-                    if not management_exists:
-                        errors.append(f"HyperShift cluster '{cluster_name}' references non-existent management cluster '{management_cluster}'")
-            
-            elif cluster_type == 'self-managed':
-                provider = cluster.get('provider')
-                if not provider:
-                    errors.append(f"Self-managed OpenShift cluster '{cluster_name}' must specify 'provider'")
-                elif provider not in ['aws', 'azure', 'gcp', 'ibm_vpc', 'ibm_classic', 'oci', 'vmware', 'alibaba']:
-                    errors.append(f"Self-managed OpenShift cluster '{cluster_name}' has unsupported provider '{provider}'")
-        
-        # Validate applications configuration
-        application_errors = self.application_provider.validate_applications(yaml_data, clusters)
-        errors.extend(application_errors)
-        
-        return errors
+
 
 
 # Export the main provider and all sub-providers

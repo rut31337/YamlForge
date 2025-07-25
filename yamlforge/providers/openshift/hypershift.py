@@ -118,19 +118,7 @@ class HyperShiftProvider(BaseOpenShiftProvider):
         else:
             return f"# TODO: HyperShift worker infrastructure for {provider} not yet implemented\n"
     
-    def get_default_region(self, provider: str) -> str:
-        """Get default region for each provider"""
-        defaults = {
-            'aws': 'us-east-1',
-            'azure': 'eastus',
-            'gcp': 'us-central1',
-            'ibm_vpc': 'us-south',
-            'ibm_classic': 'dal10',
-            'oci': 'us-ashburn-1',
-            'vmware': 'datacenter1',
-            'alibaba': 'cn-hangzhou'
-        }
-        return defaults.get(provider, 'us-east-1')
+
     
     def generate_aws_hypershift_workers(self, cluster_config: Dict, region: str, worker_count: int, machine_type: str, deployment_condition: str) -> str:
         """Generate AWS worker infrastructure for HyperShift"""

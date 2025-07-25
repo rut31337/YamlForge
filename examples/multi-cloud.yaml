@@ -1,0 +1,69 @@
+guid: "multi1"
+
+yamlforge:
+  cloud_workspace:
+    name: "multi-cloud-demo-{guid}"
+    description: "Multi-cloud deployment demonstration"
+    tags:
+      deployment_type: "multi_cloud"
+      environment: "demo"
+  
+  security_groups:
+    - name: "demo-sg-{guid}"
+      description: "Demo security group for multi-cloud VMs"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+          description: "SSH access from internet"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "80"
+          source: "0.0.0.0/0"
+          description: "HTTP access from internet"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "443"
+          source: "0.0.0.0/0"
+          description: "HTTPS access from internet"
+  
+  instances:
+    - name: "aws-vm-{guid}"
+      provider: "aws"
+      size: "large"
+      image: "RHEL9-latest"
+      region: "us-east-2"
+      security_groups: ["demo-sg-{guid}"]
+      tags:
+        provider: "aws"
+        deployment_method: "direct"
+        tier: "demo"
+    
+    - name: "gcp-vm-{guid}"
+      provider: "gcp"
+      size: "large"
+      image: "RHEL9-latest"
+      region: "us-central1"
+      security_groups: ["demo-sg-{guid}"]
+      tags:
+        provider: "gcp"
+        deployment_method: "direct"
+        tier: "demo"
+    
+    - name: "cheapest-vm-{guid}"
+      region: "us-east-2"
+      provider: "cheapest"
+      size: "large"
+      image: "RHEL9-latest"
+      security_groups: ["demo-sg-{guid}"]
+      tags:
+        provider: "cheapest"
+        deployment_method: "cost_optimized"
+        tier: "demo"
+  
+  tags:
+    project: "multi-cloud-demo"
+    architecture: "multi_cloud"
+    environment: "demo"
+    managed_by: "yamlforge" 

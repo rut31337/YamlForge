@@ -1,105 +1,42 @@
 ---
+guid: "ibm01"
+
 yamlforge:
   cloud_workspace:
-    name: ibm-vpc-comprehensive
-    description: IBM VPC comprehensive deployment example
-  instances:
-  - name: ibm-web-server-1
-    provider: ibm_vpc
-    size: medium
-    image: RHEL9-latest
-    region: us-south
-    zone: us-south-1
-    subnet: web-subnet
-    security_groups:
-    - web-sg
-  - name: ibm-web-server-2
-    provider: ibm_vpc
-    size: medium
-    image: RHEL9-latest
-    region: us-south
-    zone: us-south-2
-    subnet: web-subnet
-    security_groups:
-    - web-sg
-  - name: ibm-app-server-1
-    provider: ibm_vpc
-    size: large
-    image: RHEL9-latest
-    region: us-south
-    zone: us-south-2
-    subnet: app-subnet
-    security_groups:
-    - app-sg
-  - name: ibm-app-server-2
-    provider: ibm_vpc
-    size: large
-    image: RHEL9-latest
-    region: us-south
-    zone: us-south-3
-    subnet: app-subnet
-    security_groups:
-    - app-sg
-  - name: ibm-database-primary
-    provider: ibm_vpc
-    cores: 8
-    memory: 32768
-    image: RHEL9-latest
-    region: us-south
-    zone: us-south-3
-    subnet: data-subnet
-    security_groups:
-    - data-sg
-  - name: ibm-database-replica
-    provider: ibm_vpc
-    cores: 8
-    memory: 32768
-    image: RHEL9-latest
-    region: us-south
-    zone: us-south-1
-    subnet: data-subnet
-    security_groups:
-    - data-sg
+    name: "ibm-vpc-demo-{guid}"
+    description: "IBM VPC deployment example"
+  
+  ibm_vpc:
+    use_existing_resource_group: false
+  
   security_groups:
-    web-sg:
-      description: Web tier security group
+    - name: "web-sg-{guid}"
+      description: "Web server security group"
       rules:
-      - protocol: tcp
-        port: 80
-        source: 0.0.0.0/0
-      - protocol: tcp
-        port: 443
-        source: 0.0.0.0/0
-      - protocol: tcp
-        port: 22
-        source: 10.240.0.0/16
-    app-sg:
-      description: Application tier security group
-      rules:
-      - protocol: tcp
-        port: 8080
-        source: 10.240.1.0/24
-      - protocol: tcp
-        port: 8443
-        source: 10.240.1.0/24
-      - protocol: tcp
-        port: 22
-        source: 10.240.0.0/16
-    data-sg:
-      description: Database tier security group
-      rules:
-      - protocol: tcp
-        port: 3306
-        source: 10.240.2.0/24
-      - protocol: tcp
-        port: 5432
-        source: 10.240.2.0/24
-      - protocol: tcp
-        port: 22
-        source: 10.240.0.0/16
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "80"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "443"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+  
+  instances:
+    - name: "web-server-{guid}"
+      provider: "ibm_vpc"
+      size: "medium"
+      region: "us-south"
+      image: "RHEL9-latest"
+      security_groups: ["web-sg-{guid}"]
+      tags:
+        environment: "production"
+        tier: "web"
+  
   tags:
-    cloud_provider: ibm_vpc
-    architecture: three_tier
-    high_availability: enabled
-    multi_zone: 'true'
-    environment: production
+    project: "ibm-vpc-demo"
+    managed_by: "yamlforge"

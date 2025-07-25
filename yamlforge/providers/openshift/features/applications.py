@@ -566,48 +566,4 @@ resource "kubernetes_manifest" "{clean_app_name}_{clean_cluster_name}_multi_argo
   depends_on = [kubernetes_service_account.{clean_cluster_name}_app_deployer]
 }}'''
 
-    def validate_applications(self, config: Dict[str, Any], cluster_configs: List[Dict[str, Any]]) -> List[str]:
-        """Validate application configurations and return list of errors."""
-        applications = config.get('openshift_applications', [])
-        errors = []
-        
-        cluster_names = [cluster.get('name') for cluster in cluster_configs]
-        
-        for i, app in enumerate(applications):
-            app_name = app.get('name')
-            app_type = app.get('type')
-            cluster = app.get('cluster')
-            
-            # Validate required fields
-            if not app_name:
-                errors.append(f"Application {i+1}: 'name' is required")
-                
-            if not app_type:
-                errors.append(f"Application '{app_name}': 'type' is required")
-            elif app_type not in ['deployment', 'helm', 'argocd', 'multi-cluster']:
-                errors.append(f"Application '{app_name}': unsupported type '{app_type}'")
-            
-            # Validate cluster references (except for multi-cluster apps)
-            if app_type != 'multi-cluster':
-                if not cluster:
-                    errors.append(f"Application '{app_name}': 'cluster' is required for type '{app_type}'")
-                elif cluster not in cluster_names:
-                    errors.append(f"Application '{app_name}': references non-existent cluster '{cluster}'")
-            
-            # Type-specific validations
-            if app_type == 'helm':
-                if not app.get('chart'):
-                    errors.append(f"Helm application '{app_name}': 'chart' is required")
-                    
-            elif app_type == 'argocd':
-                if not app.get('git_repo'):
-                    errors.append(f"ArgoCD application '{app_name}': 'git_repo' is required")
-                    
-            elif app_type == 'multi-cluster':
-                target_clusters = app.get('clusters', [])
-                if target_clusters:
-                    for target_cluster in target_clusters:
-                        if target_cluster not in cluster_names:
-                            errors.append(f"Multi-cluster application '{app_name}': references non-existent cluster '{target_cluster}'")
-        
-        return errors 
+ 

@@ -86,13 +86,8 @@ class AlibabaProvider:
     def __init__(self, converter):
         """Initialize the instance."""
         self.converter = converter
-        self._alibaba_resolver = None
 
-    def get_alibaba_resolver(self):
-        """Get Alibaba Cloud image resolver, creating it only when needed."""
-        if self._alibaba_resolver is None:
-            self._alibaba_resolver = AlibabaImageResolver(self.converter.credentials)
-        return self._alibaba_resolver
+
 
     def get_alibaba_instance_type(self, size_or_instance_type):
         """Get Alibaba Cloud instance type from size mapping or return direct instance type."""
@@ -141,9 +136,11 @@ class AlibabaProvider:
         # Default fallback
         return "aliyun_3_x64_20G_alibase_20230727.vhd"
 
-    def generate_alibaba_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None):
+    def generate_alibaba_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None):  # noqa: vulture
         """Generate native Alibaba Cloud ECS instance."""
         instance_name = instance.get("name", f"instance_{index}")
+        # Replace {guid} placeholder in instance name
+        instance_name = self.converter.replace_guid_placeholders(instance_name)
         image = instance.get("image", "RHEL9-latest")
 
         # Resolve region and zone
@@ -260,13 +257,12 @@ USERDATA
 
         return vm_config
 
-    def generate_alibaba_networking(self, deployment_name, deployment_config, region, yaml_data=None):
+    def generate_alibaba_networking(self, deployment_name, deployment_config, region, yaml_data=None):  # noqa: vulture
         """Generate Alibaba Cloud networking resources for specific region."""
         network_config = deployment_config.get('network', {})
         network_name = network_config.get('name', f"{deployment_name}-vpc")
         cidr_block = network_config.get('cidr_block', '10.0.0.0/16')
 
-        clean_network_name = self.converter.clean_name(network_name)
         clean_region = region.replace("-", "_").replace(".", "_")
 
         return f'''
@@ -319,8 +315,10 @@ resource "alicloud_route_table_attachment" "main_rta_{clean_region}_{self.conver
 }}
 '''
 
-    def generate_alibaba_security_group(self, sg_name, rules, region, yaml_data=None):
+    def generate_alibaba_security_group(self, sg_name, rules, region, yaml_data=None):  # noqa: vulture
         """Generate Alibaba Cloud security group with rules for specific region."""
+        # Replace {guid} placeholder in security group name
+        sg_name = self.converter.replace_guid_placeholders(sg_name)
         clean_name = sg_name.replace("-", "_").replace(".", "_")
         clean_region = region.replace("-", "_").replace(".", "_")
         regional_sg_name = f"{clean_name}_{clean_region}"
@@ -356,32 +354,6 @@ resource "alicloud_security_group_rule" "{regional_sg_name}_rule_{i+1}_{self.con
 
         return security_group_config
 
-    def format_alibaba_tags(self, tags):
-        """Format tags for Alibaba Cloud."""
-        if not tags:
-            return ""
 
-        tag_items = []
-        for key, value in tags.items():
-            tag_items.append(f'    {key} = "{value}"')
 
-        return f'''
-  tags = {{
-{chr(10).join(tag_items)}
-  }}'''
-
-    def generate_alibaba_resource_group(self, workspace_config):
-        """Generate Alibaba Cloud resource group configuration from cloud-agnostic workspace config."""
-        return f'''
-# Alibaba Cloud Resource Group - {workspace_config['name']}
-resource "alicloud_resource_manager_resource_group" "main" {{
-  resource_group_name = "{workspace_config['name']}"
-  display_name        = "{workspace_config.get('description', workspace_config['name'])}"
-
-  tags = {{
-    Environment = "agnosticd"
-    ManagedBy   = "yamlforge"
-    Project     = "{workspace_config['name']}"
-  }}
-}}
-''' 
+ 

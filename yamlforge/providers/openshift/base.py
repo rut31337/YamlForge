@@ -111,6 +111,11 @@ class BaseOpenShiftProvider:
         Raises:
             ValueError: If version is unsupported and auto_upgrade_unsupported is False
         """
+        # Skip version validation in no-credentials mode
+        if self.converter and self.converter.no_credentials:
+            print(f"  NO-CREDENTIALS MODE: Skipping OpenShift version validation for '{version}'")
+            return version
+        
         try:
             # Import the dynamic version manager
             from .rosa_dynamic import DynamicROSAVersionProvider
@@ -181,10 +186,7 @@ class BaseOpenShiftProvider:
             
         return base_networking
         
-    def get_networking_value(self, cluster_type: str, key: str, default: str = None) -> str:
-        """Get a specific networking value for a cluster type with fallbacks"""
-        networking_defaults = self.get_default_base_networking(cluster_type)
-        return networking_defaults.get(key, default or '')
+
         
     def get_merged_networking_config(self, cluster_config: Dict, cluster_type: str) -> Dict[str, str]:
         """Get merged networking configuration with user overrides taking precedence"""
@@ -387,136 +389,7 @@ variable "openshift_{clean_name}_token" {{
         else:
             raise ValueError(f"No flavor configurations found for provider '{provider}'. Please ensure the appropriate YAML files are present in mappings/flavors/.") 
 
-    def generate_application_service_account(self, cluster_name: str) -> str:
-        """Generate service account and token secret for application deployment."""
-        clean_name = self.clean_name(cluster_name)
-        token_duration = self.get_token_duration()
-        
-        return f'''
-# =============================================================================
-# APPLICATION DEPLOYMENT SERVICE ACCOUNT: {cluster_name}
-# =============================================================================
-
-# Service Account for deploying applications to {cluster_name}
-resource "kubernetes_service_account" "{clean_name}_app_deployer" {{
-  count = var.deploy_day2_operations ? 1 : 0
-  
-  metadata {{
-    name      = "yamlforge-app-deployer"
-    namespace = "default"
-    annotations = {{
-      "yamlforge.io/cluster" = "{cluster_name}"
-      "yamlforge.io/purpose" = "application-deployment"
-    }}
-  }}
-}}
-
-# ClusterRole for application deployment permissions
-resource "kubernetes_cluster_role" "{clean_name}_app_deployer_role" {{
-  count = var.deploy_day2_operations ? 1 : 0
-  
-  metadata {{
-    name = "yamlforge-app-deployer"
-    annotations = {{
-      "yamlforge.io/cluster" = "{cluster_name}"
-    }}
-  }}
-
-  rule {{
-    api_groups = [""]
-    resources  = ["namespaces", "services", "configmaps", "secrets", "persistentvolumeclaims"]
-    verbs      = ["get", "list", "create", "update", "patch", "delete"]
-  }}
-  
-  rule {{
-    api_groups = ["apps"]
-    resources  = ["deployments", "replicasets", "daemonsets", "statefulsets"]
-    verbs      = ["get", "list", "create", "update", "patch", "delete"]
-  }}
-  
-  rule {{
-    api_groups = ["networking.k8s.io"]
-    resources  = ["ingresses", "networkpolicies"]
-    verbs      = ["get", "list", "create", "update", "patch", "delete"]
-  }}
-  
-  rule {{
-    api_groups = ["route.openshift.io"]
-    resources  = ["routes"]
-    verbs      = ["get", "list", "create", "update", "patch", "delete"]
-  }}
-  
-  rule {{
-    api_groups = ["argoproj.io"]
-    resources  = ["applications", "applicationsets"]
-    verbs      = ["get", "list", "create", "update", "patch", "delete"]
-  }}
-  
-  rule {{
-    api_groups = ["helm.cattle.io"]
-    resources  = ["helmcharts", "helmchartconfigs"]
-    verbs      = ["get", "list", "create", "update", "patch", "delete"]
-  }}
-}}
-
-# ClusterRoleBinding to grant permissions to service account
-resource "kubernetes_cluster_role_binding" "{clean_name}_app_deployer_binding" {{
-  count = var.deploy_day2_operations ? 1 : 0
-  provider = kubernetes.{clean_name}
-  
-  metadata {{
-    name = "yamlforge-app-deployer"
-    annotations = {{
-      "yamlforge.io/cluster" = "{cluster_name}"
-    }}
-  }}
-
-  role_ref {{
-    api_group = "rbac.authorization.k8s.io"
-    kind      = "ClusterRole"
-    name      = kubernetes_cluster_role.{clean_name}_app_deployer_role.metadata[0].name
-  }}
-
-  subject {{
-    kind      = "ServiceAccount"
-    name      = kubernetes_service_account.{clean_name}_app_deployer.metadata[0].name
-    namespace = kubernetes_service_account.{clean_name}_app_deployer.metadata[0].namespace
-  }}
-}}
-
-# Service Account Token Secret (with expiration)
-resource "kubernetes_secret" "{clean_name}_app_deployer_token" {{
-  count = var.deploy_day2_operations ? 1 : 0
-  provider = kubernetes.{clean_name}
-  
-  metadata {{
-    name      = "yamlforge-app-deployer-token"
-    namespace = "default"
-    annotations = {{
-      "kubernetes.io/service-account.name" = kubernetes_service_account.{clean_name}_app_deployer.metadata[0].name
-      "kubernetes.io/service-account.token-expiration-time" = "{token_duration}"
-      "yamlforge.io/cluster" = "{cluster_name}"
-      "yamlforge.io/purpose" = "application-deployment-token"
-      "yamlforge.io/token-duration" = "{token_duration}"
-    }}
-  }}
-
-  type = "kubernetes.io/service-account-token"
-}}
-
-# Output the service account token for application deployment
-output "{clean_name}_app_deployer_token" {{
-  description = "Service account token for deploying applications to {cluster_name}"
-  value       = length(kubernetes_secret.{clean_name}_app_deployer_token) > 0 ? kubernetes_secret.{clean_name}_app_deployer_token[0].data["token"] : ""
-  sensitive   = true
-}}
-
-# Output the cluster CA certificate
-output "{clean_name}_ca_certificate" {{
-  description = "CA certificate for {cluster_name} cluster"
-  value       = length(kubernetes_secret.{clean_name}_app_deployer_token) > 0 ? kubernetes_secret.{clean_name}_app_deployer_token[0].data["ca.crt"] : ""
-  sensitive   = true
-}}''' 
+ 
 
     def generate_application_providers(self, cluster_configs: List[Dict], deployment_method: str = 'terraform') -> str:
         """Generate Kubernetes and Helm provider configurations for the 3-tier service account model."""
@@ -671,70 +544,7 @@ provider "helm" {{
         
         return provider_config
     
-    def generate_application_only_providers(self, cluster_configs: List[Dict]) -> str:
-        """Generate Kubernetes and Helm provider configurations specifically for application deployment."""
-        if not cluster_configs:
-            return ""
-            
-        provider_config = '''
-# =============================================================================
-# KUBERNETES & HELM PROVIDERS FOR APPLICATION DEPLOYMENT
-# =============================================================================
 
-'''
-        
-        for cluster in cluster_configs:
-            cluster_name = cluster.get('name')
-            if not cluster_name:
-                continue
-                
-            clean_name = self.clean_name(cluster_name)
-            cluster_type = cluster.get('type', 'unknown')
-            provider = cluster.get('provider')
-            
-            # Determine the cluster endpoint based on OpenShift type
-            if cluster_type in ['rosa-classic', 'rosa-hcp']:
-                cluster_endpoint = f"rhcs_cluster_rosa_{cluster_type.replace('-', '_')}.{clean_name}.api_url"
-            elif cluster_type == 'aro':
-                cluster_endpoint = f"azurerm_redhat_openshift_cluster.aro_{clean_name}.api_server_profile[0].url"
-            elif cluster_type == 'openshift-dedicated':
-                cluster_endpoint = f"rhcs_cluster_dedicated.{clean_name}.api_url"
-            else:
-                # For self-managed and hypershift, determine based on provider
-                if provider == 'aws':
-                    cluster_endpoint = f"module.{clean_name}.cluster_endpoint"
-                elif provider == 'azure':
-                    cluster_endpoint = f"azurerm_kubernetes_cluster.{clean_name}.kube_config.0.host"
-                else:
-                    cluster_endpoint = f"module.{clean_name}.cluster_endpoint"
-            
-            provider_config += f'''
-# Application Kubernetes Provider for {cluster_name} cluster
-provider "kubernetes" {{
-  alias = "{clean_name}"
-  
-  host  = {cluster_endpoint}
-  token = length(kubernetes_secret.{clean_name}_app_deployer_token) > 0 ? base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["token"]) : ""
-  cluster_ca_certificate = length(kubernetes_secret.{clean_name}_app_deployer_token) > 0 ? base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["ca.crt"]) : ""
-  
-  # Ignore TLS verification for development/testing
-  insecure = false
-}}
-
-# Application Helm Provider for {cluster_name} cluster
-provider "helm" {{
-  alias = "{clean_name}"
-  
-  kubernetes {{
-    host  = {cluster_endpoint}
-    token = length(kubernetes_secret.{clean_name}_app_deployer_token) > 0 ? base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["token"]) : ""
-    cluster_ca_certificate = length(kubernetes_secret.{clean_name}_app_deployer_token) > 0 ? base64decode(kubernetes_secret.{clean_name}_app_deployer_token[0].data["ca.crt"]) : ""
-  }}
-}}
-
-'''
-        
-        return provider_config
 
     def generate_full_admin_service_account(self, cluster_config: Dict) -> str:
         """Generate full cluster-admin service account with unlimited privileges."""
@@ -1057,12 +867,7 @@ output "{clean_name}_app_deployer_token" {{
   sensitive   = true
 }}'''
     
-    def _get_cluster_endpoint_output(self, cluster_name: str) -> str:
-        """Get the appropriate cluster endpoint output reference for a cluster."""
-        # This method should be called with the cluster configuration
-        # For now, return a generic reference that will be overridden by specific cluster types
-        clean_name = self.clean_name(cluster_name)
-        return f"module.{clean_name}.cluster_endpoint"
+
     
     def _get_cluster_endpoint_for_type(self, cluster_config: Dict) -> str:
         """Get the appropriate cluster endpoint reference based on cluster type."""

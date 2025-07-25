@@ -7,7 +7,7 @@ networking, security groups, and other AWS cloud resources.
 
 import yaml
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime
 import os # Added for create_rosa_account_roles_via_cli
 
 # AWS imports
@@ -421,48 +421,7 @@ class AWSImageResolver:
             print(f"Warning: Failed to find AMI with pattern '{name_pattern}': {e}")
             return None
 
-    def resolve_rhel_ami(self, rhel_version, architecture="x86_64", is_gold=False, region=None):
-        """Resolve RHEL AMI for a given version."""
-        if not region:
-            raise ValueError("Region must be specified for AMI resolution")
 
-        if is_gold:
-            owner_key = 'redhat_gold'
-            name_pattern = f"RHEL-{rhel_version}*_HVM*Access*"
-            # Add is-public=false filter for GOLD images (private AMIs)
-            additional_filters = [
-                {'Name': 'is-public', 'Values': ['false']}
-            ]
-        else:
-            owner_key = 'redhat_public'
-            name_pattern = f"RHEL-{rhel_version}*_HVM*"
-            additional_filters = None
-
-        owner = self._get_required_config_owner(owner_key)
-        return self.find_latest_ami(name_pattern, owner, region, architecture, additional_filters)
-
-    def resolve_ami_by_pattern(self, name_pattern, owner_key, region, architecture='x86_64', additional_filters=None):
-        """Resolve AMI by pattern and owner key."""
-        owner = self._get_required_config_owner(owner_key)
-        result = self.find_latest_ami(name_pattern, owner, region, architecture, additional_filters)
-        # Return just the AMI ID for backward compatibility
-        return result['ami_id'] if result else None
-
-    def resolve_fedora_ami(self, fedora_version=None, region=None, architecture='x86_64'):
-        """Resolve Fedora AMI."""
-        if not region:
-            raise ValueError("Region must be specified for AMI resolution")
-
-        if fedora_version:
-            name_pattern = f"Fedora-Cloud-Base-{fedora_version}*"
-        else:
-            name_pattern = "Fedora-Cloud-Base-*"
-
-        owner_key = 'fedora'
-        owner = self._get_required_config_owner(owner_key)
-        result = self.find_latest_ami(name_pattern, owner, region, architecture)
-        # Return just the AMI ID for backward compatibility
-        return result['ami_id'] if result else None
 
 
 class AWSProvider:
@@ -484,6 +443,11 @@ class AWSProvider:
                 "   pip install -r requirements-aws.txt\n\n"
                 "Alternative: Use a different provider or remove AWS instances from your configuration."
             )
+
+        # Skip credential validation in no-credentials mode
+        if self.converter.no_credentials:
+            print("  NO-CREDENTIALS MODE: Skipping AWS credential validation")
+            return
 
         # Check if credentials are available when AWS instances are being processed
         has_credentials = self.converter.credentials and self.converter.credentials.get_aws_credentials()
@@ -546,29 +510,17 @@ class AWSProvider:
 
         return filters
 
-    def get_aws_instance_type(self, size_or_instance_type):
-        """Get AWS instance type from size mapping or return direct instance type."""
-        # If it looks like a direct AWS instance type, return it as-is  
-        if any(prefix in size_or_instance_type for prefix in ['t3', 't4', 'm5', 'm6', 'c5', 'c6', 'r5', 'r6', 'g4', 'p3', 'p4']):
-            return size_or_instance_type
-        
-        # Check for advanced flavor mappings
-        aws_flavors = self.converter.flavors.get('aws', {}).get('flavor_mappings', {})
-        size_mapping = aws_flavors.get(size_or_instance_type, {})
 
-        if size_mapping:
-            # Return the first (preferred) instance type for this size
-            instance_type = list(size_mapping.keys())[0]
-            return instance_type
 
-        # No mapping found for this size
-        raise ValueError(f"No AWS instance type mapping found for size '{size_or_instance_type}'. "
-                       f"Available sizes: {list(aws_flavors.keys())}")
-
-    def resolve_aws_ami(self, image_key, instance_name, architecture="x86_64", region=None):
+    def resolve_aws_ami(self, image_key, instance_name, architecture="x86_64", region=None, yaml_data=None):
         """Resolve AWS AMI using dynamic discovery or graceful failure."""
         if not region:
             raise ValueError(f"Region must be specified for AWS AMI resolution for image '{image_key}'")
+
+        # Check if we're in no-credentials mode
+        if self.converter.no_credentials:
+            print(f"  NO-CREDENTIALS MODE: Using placeholder AMI for '{image_key}' in region '{region}'")
+            return "ami-PLACEHOLDER-REPLACE-WITH-ACTUAL-AMI", "placeholder"
 
         image_config = self.converter.images.get(image_key, {})
         aws_config = image_config.get('aws', {})
@@ -581,7 +533,7 @@ class AWSProvider:
                 # Simple search notification - details available in verbose mode
             else:
                 # No AWS config found - check if user wants graceful fallback
-                yamlforge_config = self.converter.current_yaml_data.get('yamlforge', {})
+                yamlforge_config = (yaml_data or {}).get('yamlforge', {})
                 aws_yamlforge_config = yamlforge_config.get('aws', {})
                 use_data_sources = aws_yamlforge_config.get('use_data_sources', False)
                 
@@ -604,6 +556,15 @@ class AWSProvider:
                         f"       use_data_sources: true\n\n"
                         f"4️⃣  Use a different cloud provider"
                     )
+
+        # Check if user wants to use data sources instead of API calls
+        yamlforge_config = (yaml_data or {}).get('yamlforge', {})
+        aws_yamlforge_config = yamlforge_config.get('aws', {})
+        use_data_sources = aws_yamlforge_config.get('use_data_sources', False)
+        
+        if use_data_sources:
+            print(f"ℹ️  Using Terraform data source for {image_key} (use_data_sources enabled)")
+            return None, None
 
         # Validate AWS setup before attempting AMI resolution
         self.validate_aws_setup()
@@ -724,8 +685,10 @@ class AWSProvider:
                     else:
                         raise ValueError(self._generate_smart_aws_error('general_error', image_key, region, e)) from e
 
-    def generate_aws_security_group(self, sg_name, rules, region, yaml_data=None):
+    def generate_aws_security_group(self, sg_name, rules, region, yaml_data=None):  # noqa: vulture
         """Generate AWS security group."""
+        # Replace {guid} placeholder in security group name
+        sg_name = self.converter.replace_guid_placeholders(sg_name)
         clean_name = sg_name.replace("-", "_").replace(".", "_")
         clean_region = region.replace("-", "_").replace(".", "_")
         guid = self.converter.get_validated_guid(yaml_data)
@@ -746,11 +709,31 @@ resource "aws_security_group" "{regional_sg_name}_{guid}" {{{self.get_aws_provid
             rule_data = self.converter.generate_native_security_group_rule(rule, 'aws')
             direction = rule_data['direction']
 
+            # Handle different source types
+            if rule_data['is_source_cidr']:
+                # CIDR block source
+                source_config = f'''    cidr_blocks = {self.format_cidr_blocks_hcl(rule_data['source_cidr_blocks'])}'''
+            else:
+                # Provider-specific source (e.g., security group reference)
+                source_config = f'''    security_groups = ["{rule_data['source']}"]'''
+
+            # Handle different destination types (for egress rules)
+            destination_config = ""
+            if direction == 'egress' and rule_data['destination']:
+                if rule_data['is_destination_cidr']:
+                    # CIDR block destination
+                    destination_config = f'''
+    cidr_blocks = {self.format_cidr_blocks_hcl(rule_data['destination_cidr_blocks'])}'''
+                else:
+                    # Provider-specific destination (e.g., security group reference)
+                    destination_config = f'''
+    security_groups = ["{rule_data['destination']}"]'''
+
             rule_block = f'''  {direction} {{
     from_port   = {rule_data['from_port']}
     to_port     = {rule_data['to_port']}
     protocol    = "{rule_data['protocol']}"
-    cidr_blocks = {self.format_cidr_blocks_hcl(rule_data['cidr_blocks'])}
+{source_config}{destination_config}
   }}
 
 '''
@@ -767,9 +750,11 @@ resource "aws_security_group" "{regional_sg_name}_{guid}" {{{self.get_aws_provid
 '''
         return security_group_config
 
-    def generate_aws_vm(self, instance, index, clean_name, strategy_info, available_subnets=None, yaml_data=None):
+    def generate_aws_vm(self, instance, index, clean_name, strategy_info, available_subnets=None, yaml_data=None):  # noqa: vulture
         """Generate AWS EC2 instance."""
         instance_name = instance.get("name", f"instance_{index}")
+        # Replace {guid} placeholder in instance name
+        instance_name = self.converter.replace_guid_placeholders(instance_name)
         image = instance.get("image", "RHEL_9_LATEST")
 
         # Resolve region using region/location logic
@@ -808,10 +793,14 @@ resource "aws_security_group" "{regional_sg_name}_{guid}" {{{self.get_aws_provid
 
         # Resolve AMI using dynamic discovery or data source
         ami_reference, resolution_type = self.resolve_aws_ami(
-            image, clean_name, strategy_info['architecture'], aws_region
+            image, clean_name, strategy_info['architecture'], aws_region, yaml_data
         )
 
-        if not ami_reference:
+        if resolution_type == "placeholder":
+            # No-credentials mode: use placeholder AMI directly
+            ami_reference = ami_reference  # This is the placeholder AMI ID
+            ami_data_source = ""
+        elif not ami_reference:
             # Fallback if resolution failed
             ami_data_source = self.converter.generate_ami_data_source(image, clean_name, strategy_info['architecture'])
             ami_reference = f"data.aws_ami.{clean_name}_ami.id"
@@ -823,20 +812,18 @@ resource "aws_security_group" "{regional_sg_name}_{guid}" {{{self.get_aws_provid
             ami_data_source = resolution_type or ""  # This contains the actual data source HCL
             ami_reference = f"data.aws_ami.{clean_name}_ami.id"
 
-        # Get security groups for this instance
-        sg_refs = self.converter.get_instance_security_groups(instance)
-
         # Get security group references with regional awareness
         aws_sg_refs = []
         sg_names = instance.get('security_groups', [])
         for sg_name in sg_names:
+            # Replace {guid} placeholder in security group name
+            sg_name = self.converter.replace_guid_placeholders(sg_name)
             # Generate regional security group reference with GUID
             clean_sg = sg_name.replace("-", "_").replace(".", "_")
             clean_region = aws_region.replace("-", "_").replace(".", "_")
             aws_sg_refs.append(f"aws_security_group.{clean_sg}_{clean_region}_{guid}.id")
 
-        # Get subnet for this instance
-        subnet_ref = self.converter.get_instance_subnet(instance, available_subnets or {})
+
 
         # Get user data script
         user_data_script = instance.get('user_data_script') or instance.get('user_data')
@@ -918,13 +905,14 @@ USERDATA
 '''
         return instance_config
 
-    def generate_aws_networking(self, deployment_name, deployment_config, region, yaml_data=None):
+    def generate_aws_networking(self, deployment_name, deployment_config, region, yaml_data=None):  # noqa: vulture
         """Generate AWS networking resources for specific region."""
         network_config = deployment_config.get('network', {})
         network_name = network_config.get('name', f"{deployment_name}-vpc")
+        # Replace {guid} placeholder in network name
+        network_name = self.converter.replace_guid_placeholders(network_name)
         cidr_block = network_config.get('cidr_block', '10.0.0.0/16')
         
-        clean_network_name = self.converter.clean_name(network_name)
         clean_region = region.replace("-", "_").replace(".", "_")
         guid = self.converter.get_validated_guid(yaml_data)
 
@@ -990,6 +978,8 @@ resource "aws_route_table" "main_rt_{clean_region}_{guid}" {{{self.get_aws_provi
 
     def generate_rosa_compatible_subnets(self, network_name, cidr_block, region, guid, yaml_data=None):
         """Generate ROSA-compatible multi-AZ subnets (both public and private for ROSA Classic Multi-AZ)."""
+        # Replace {guid} placeholder in network name
+        network_name = self.converter.replace_guid_placeholders(network_name)
         clean_region = region.replace("-", "_").replace(".", "_")
         
         # Use Terraform data source to get actual available AZs for the region
@@ -1082,108 +1072,9 @@ output "private_subnet_ids_{clean_region}_{guid}" {{
   description = "Private subnet IDs for ROSA clusters in {region}"
   value       = local.private_subnet_ids_{clean_region}_{guid}
 }}
-
-output "all_subnet_ids_{clean_region}_{guid}" {{
-  description = "All subnet IDs (public + private) for ROSA Classic Multi-AZ in {region}"
-  value       = local.all_subnet_ids_{clean_region}_{guid}
-}}
-
-output "region_azs_{clean_region}_{guid}" {{
-  description = "Availability zones for ROSA clusters in {region}"
-  value       = local.region_azs_{clean_region}_{guid}
-}}
-
-# NAT Gateways for private subnets (one per AZ for high availability)
-resource "aws_eip" "nat_eip_{clean_region}_{guid}" {{
-  count = local.selected_az_count_{clean_region}_{guid}
-  
-  domain = "vpc"
-  
-  tags = {{
-    Name = "{network_name}-nat-eip-${{count.index + 1}}-${{local.selected_azs_{clean_region}_{guid}[count.index]}}"
-    Environment = "{yaml_data.get('environment', 'unknown') if yaml_data else 'unknown'}"
-    ManagedBy = "yamlforge"
-  }}
-  
-  depends_on = [aws_internet_gateway.main_igw_{clean_region}_{guid}]
-}}
-
-resource "aws_nat_gateway" "nat_gw_{clean_region}_{guid}" {{
-  count = local.selected_az_count_{clean_region}_{guid}
-  
-  allocation_id = aws_eip.nat_eip_{clean_region}_{guid}[count.index].id
-  subnet_id     = aws_subnet.public_subnet_{clean_region}_{guid}[count.index].id
-  
-  tags = {{
-    Name = "{network_name}-nat-gw-${{count.index + 1}}-${{local.selected_azs_{clean_region}_{guid}[count.index]}}"
-    Environment = "{yaml_data.get('environment', 'unknown') if yaml_data else 'unknown'}"
-    ManagedBy = "yamlforge"
-  }}
-  
-  depends_on = [aws_internet_gateway.main_igw_{clean_region}_{guid}]
-}}
-
-# Private route tables (one per AZ)
-resource "aws_route_table" "private_rt_{clean_region}_{guid}" {{
-  count = local.selected_az_count_{clean_region}_{guid}
-  
-  vpc_id = local.vpc_id_{clean_region}_{guid}
-
-  route {{
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.nat_gw_{clean_region}_{guid}[count.index].id
-  }}
-
-  tags = {{
-    Name = "{network_name}-private-rt-${{count.index + 1}}-${{local.selected_azs_{clean_region}_{guid}[count.index]}}"
-    Environment = "{yaml_data.get('environment', 'unknown') if yaml_data else 'unknown'}"
-    ManagedBy = "yamlforge"
-  }}
-}}
-
-# Associate private subnets with their respective route tables
-resource "aws_route_table_association" "private_rta_{clean_region}_{guid}" {{
-  count = local.selected_az_count_{clean_region}_{guid}
-  
-  subnet_id      = aws_subnet.private_subnet_{clean_region}_{guid}[count.index].id
-  route_table_id = aws_route_table.private_rt_{clean_region}_{guid}[count.index].id
-}}
-
-# Associate public subnets with the main route table
-resource "aws_route_table_association" "public_rta_{clean_region}_{guid}" {{
-  count = local.selected_az_count_{clean_region}_{guid}
-  
-  subnet_id      = aws_subnet.public_subnet_{clean_region}_{guid}[count.index].id
-  route_table_id = aws_route_table.main_rt_{clean_region}_{guid}.id
-}}
 '''
         
         return subnet_config
-
-    def format_aws_tags(self, tags):
-        """Format tags for AWS (key-value pairs)."""
-        if not tags:
-            return ""
-
-        tag_items = []
-        for key, value in tags.items():
-            tag_items.append(f'    {key} = "{value}"')
-
-        return f'''
-  tags = {{
-{chr(10).join(tag_items)}
-  }}'''
-
-    def generate_aws_organization_from_config(self, workspace_config):
-        """Generate AWS organization configuration from cloud-agnostic workspace config."""
-        # AWS doesn't have a direct equivalent to resource groups or projects
-        # This is a placeholder for potential AWS organization/account management
-        return f'''
-# AWS Organization - {workspace_config['name']}
-# Note: AWS organization management typically done outside Terraform
-# Consider using AWS Organizations for account hierarchy management
-
-'''
 
     def _check_aws_credentials_status(self):
         """Check AWS credentials availability and return specific status info."""
@@ -1242,7 +1133,7 @@ resource "aws_route_table_association" "public_rta_{clean_region}_{guid}" {{
                 'message': 'boto3 SDK not installed'
             }
 
-    def _generate_smart_aws_error(self, context, image_key=None, region=None, original_error=None):
+    def _generate_smart_aws_error(self, context, image_key=None, region=None):
         """Generate intelligent, consolidated AWS error message based on actual conditions."""
         # Check actual credential status
         cred_status = self._check_aws_credentials_status()
@@ -1265,7 +1156,7 @@ resource "aws_route_table_association" "public_rta_{clean_region}_{guid}" {{
         # Add specific guidance based on credential status
         if not cred_status['available']:
             if cred_status['issue'] == 'no_sdk':
-                error_msg += "🔧 SDK Issue: boto3 not installed\n"
+                error_msg += "SDK Issue: boto3 not installed\n"
                 error_msg += "NOTE: To fix: pip install boto3\n\n"
             elif cred_status['issue'] == 'no_credentials':
                 error_msg += "[CREDS] Credential Status: No AWS credentials found\n"
@@ -1283,7 +1174,7 @@ resource "aws_route_table_association" "public_rta_{clean_region}_{guid}" {{
                 error_msg += f"[CREDS] Credential Status: {cred_status['message']}\n"
                 error_msg += "NOTE: To fix: Check IAM permissions for EC2 and required services\n\n"
             elif cred_status['issue'] == 'connection_error':
-                error_msg += f"🌐 Connection Status: {cred_status['message']}\n"
+                error_msg += f"Connection Status: {cred_status['message']}\n"
                 error_msg += "NOTE: To fix: Check internet connectivity and AWS service status\n\n"
         else:
             # Credentials are working, so the issue is likely image-specific
@@ -1313,13 +1204,13 @@ resource "aws_route_table_association" "public_rta_{clean_region}_{guid}" {{
         
         # Always offer fallback mode as an alternative
         if not use_data_sources:
-            error_msg += "🔄 Alternative: Enable Terraform data source fallback\n"
+            error_msg += "Alternative: Enable Terraform data source fallback\n"
             error_msg += "   Add to your YAML:\n"
             error_msg += "   yamlforge:\n"
             error_msg += "     aws:\n"
             error_msg += "       use_data_sources: true\n\n"
         
-        error_msg += "🌐 Or: Use a different cloud provider"
+        error_msg += "Or: Use a different cloud provider"
         
         return error_msg
     
@@ -1474,217 +1365,7 @@ resource "aws_route_table_association" "public_rta_{clean_region}_{guid}" {{
             print(f"Error checking ROSA CLI authentication: {str(e)}")
             return False
 
-    def generate_rosa_sts_roles(self, yaml_data=None):
-        """Generate IAM roles required for ROSA STS clusters."""
-        guid = self.converter.get_validated_guid(yaml_data)
-        
-        terraform_config = f'''
-# =============================================================================
-# ROSA STS IAM ROLES - Automatically generated by YamlForge
-# =============================================================================
-# These roles allow Red Hat OpenShift Service on AWS (ROSA) to manage clusters
-# in your AWS account using AWS Security Token Service (STS).
 
-# =============================================================================
-# ROSA IAM ROLES - CREATED FRESH (NO IMPORTS)
-# =============================================================================
-# All ROSA IAM roles are created fresh by Terraform for clean deployments.
-
-# =============================================================================
-# ROSA IAM ROLE DEFINITIONS
-# =============================================================================
-
-# ROSA Installer Role - Used by Red Hat OCM to create and manage clusters
-resource "aws_iam_role" "rosa_installer_role" {{
-  name = "ManagedOpenShift-Installer-Role"
-  
-  assume_role_policy = jsonencode({{
-    Version = "2012-10-17"
-    Statement = [
-      {{
-        Effect = "Allow"
-        Principal = {{
-          AWS = "arn:aws:iam::710019948333:role/RH-Managed-OpenShift-Installer"
-        }}
-        Action = "sts:AssumeRole"
-      }}
-    ]
-  }})
-
-  tags = {{
-    Name = "ROSA Installer Role"
-    ManagedBy = "yamlforge"
-    Environment = var.environment
-    "red.hat.managed" = "true"
-  }}
-}}
-
-# Attach AWS managed policy for ROSA Installer
-resource "aws_iam_role_policy_attachment" "rosa_installer_policy" {{
-  role       = aws_iam_role.rosa_installer_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/ROSAInstallerPolicy"
-}}
-
-# ROSA Support Role - Used by Red Hat support for troubleshooting
-resource "aws_iam_role" "rosa_support_role" {{
-  name = "ManagedOpenShift-Support-Role"
-  
-  assume_role_policy = jsonencode({{
-    Version = "2012-10-17"
-    Statement = [
-      {{
-        Effect = "Allow"
-        Principal = {{
-          AWS = "arn:aws:iam::710019948333:role/RH-Technical-Support-Access"
-        }}
-        Action = "sts:AssumeRole"
-      }}
-    ]
-  }})
-
-  tags = {{
-    Name = "ROSA Support Role"
-    ManagedBy = "yamlforge"
-    Environment = var.environment
-    "red.hat.managed" = "true"
-  }}
-}}
-
-# Attach AWS managed policy for ROSA Support
-resource "aws_iam_role_policy_attachment" "rosa_support_policy" {{
-  role       = aws_iam_role.rosa_support_role.name
-  policy_arn = "arn:aws:iam::aws:policy/job-function/ViewOnlyAccess"
-}}
-
-# Additional support policy for cluster access
-resource "aws_iam_role_policy_attachment" "rosa_support_policy_additional" {{
-  role       = aws_iam_role.rosa_support_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/ROSASRESupportPolicy"
-}}
-
-# ROSA Worker Role - Used by worker nodes in the cluster
-resource "aws_iam_role" "rosa_worker_role" {{
-  name = "ManagedOpenShift-Worker-Role"
-  
-  assume_role_policy = jsonencode({{
-    Version = "2012-10-17"
-    Statement = [
-      {{
-        Effect = "Allow"
-        Principal = {{
-          Service = "ec2.amazonaws.com"
-        }}
-        Action = "sts:AssumeRole"
-      }}
-    ]
-  }})
-
-  tags = {{
-    Name = "ROSA Worker Role"
-    ManagedBy = "yamlforge"
-    Environment = var.environment
-    "red.hat.managed" = "true"
-  }}
-}}
-
-# Attach AWS managed policies for ROSA Worker nodes
-resource "aws_iam_role_policy_attachment" "rosa_worker_policy_1" {{
-  role       = aws_iam_role.rosa_worker_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-}}
-
-resource "aws_iam_role_policy_attachment" "rosa_worker_policy_2" {{
-  role       = aws_iam_role.rosa_worker_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/ROSAWorkerInstancePolicy"
-}}
-
-# Instance profile for worker nodes
-resource "aws_iam_instance_profile" "rosa_worker_profile" {{
-  name = "ManagedOpenShift-Worker-Role"
-  role = aws_iam_role.rosa_worker_role.name
-
-  tags = {{
-    Name = "ROSA Worker Instance Profile"
-    ManagedBy = "yamlforge"
-    Environment = var.environment
-    "red.hat.managed" = "true"
-  }}
-
-  # Prevent conflicts if profile already exists
-  lifecycle {{
-    ignore_changes = [role]
-  }}
-}}
-
-# ROSA Control Plane Role - Used by control plane nodes (Classic clusters only)
-resource "aws_iam_role" "rosa_master_role" {{
-  name = "ManagedOpenShift-ControlPlane-Role"
-  
-  assume_role_policy = jsonencode({{
-    Version = "2012-10-17"
-    Statement = [
-      {{
-        Effect = "Allow"
-        Principal = {{
-          Service = "ec2.amazonaws.com"
-        }}
-        Action = "sts:AssumeRole"
-      }}
-    ]
-  }})
-
-  tags = {{
-    Name = "ROSA Control Plane Role"
-    ManagedBy = "yamlforge"
-    Environment = var.environment
-    "red.hat.managed" = "true"
-  }}
-}}
-
-# Instance profile for control plane nodes
-resource "aws_iam_instance_profile" "rosa_master_profile" {{
-  name = "ManagedOpenShift-ControlPlane-Role"
-  role = aws_iam_role.rosa_master_role.name
-
-  tags = {{
-    Name = "ROSA Control Plane Instance Profile"
-    ManagedBy = "yamlforge"
-    Environment = var.environment
-    "red.hat.managed" = "true"
-  }}
-
-  # Prevent conflicts if profile already exists  
-  lifecycle {{
-    ignore_changes = [role]
-  }}
-}}
-
-# =============================================================================
-# ROSA STS ROLE OUTPUTS
-# =============================================================================
-
-output "rosa_installer_role_arn" {{
-  description = "ARN of the ROSA Installer Role"
-  value       = aws_iam_role.rosa_installer_role.arn
-}}
-
-output "rosa_support_role_arn" {{
-  description = "ARN of the ROSA Support Role"
-  value       = aws_iam_role.rosa_support_role.arn
-}}
-
-output "rosa_worker_role_arn" {{
-  description = "ARN of the ROSA Worker Role"
-  value       = aws_iam_role.rosa_worker_role.arn
-}}
-
-output "rosa_master_role_arn" {{
-  description = "ARN of the ROSA Control Plane Role"
-  value       = aws_iam_role.rosa_master_role.arn
-}}
-
-'''
-        return terraform_config
 
     def generate_rosa_operator_roles(self, cluster_name, region, guid, yaml_data=None):
         """Generate reference to operator roles for ROSA clusters.
@@ -1737,143 +1418,9 @@ output "oidc_endpoint_url" {{
 '''
         return terraform_config
 
-    def generate_rosa_cluster_resource(self, cluster_config, region, guid, yaml_data=None):
-        """Generate the ROSA cluster resource with all required dependencies."""
-        
-        cluster_name = cluster_config.get('name', 'rosa-cluster')
-        instance_type = cluster_config.get('instance_type', 'm5.xlarge')
-        replicas = cluster_config.get('replicas', 2)
-        version = cluster_config.get('openshift_version', '4.14')
-        multi_az = cluster_config.get('multi_az', False)
-        
-        # Determine availability zones
-        if multi_az:
-            availability_zones = f'slice(local.selected_azs_{region}_{guid}, 0, 3)'
-        else:
-            availability_zones = f'[local.selected_azs_{region}_{guid}[0]]'
-        
-        terraform_config = f'''
-# =============================================================================
-# ROSA CLUSTER RESOURCE (Automated Terraform Generation)
-# =============================================================================
-# Red Hat OpenShift Service on AWS cluster with full STS integration
 
-# ROSA Classic Cluster
-resource "rhcs_cluster_rosa_classic" "{cluster_name.replace('-', '_')}" {{
-  name               = "{cluster_name}"
-  cloud_region       = "{region}"
-  aws_account_id     = data.aws_caller_identity.current.account_id
-  
-  # OpenShift Configuration
-  version                = "{version}"
-  channel_group         = "stable"
-  compute_machine_type  = "{instance_type}"
-  replicas              = {replicas}
-  
-  # Multi-AZ Configuration
-  multi_az           = {str(multi_az).lower()}
-  availability_zones = {availability_zones}
-  
-  # Network Configuration
-  aws_subnet_ids = local.public_subnet_ids_{region}_{guid}
-  machine_cidr   = local.vpc_cidr_{region}_{guid}
-  
-  # STS Role Configuration (automatically referenced)
-  sts = {{
-    role_arn               = aws_iam_role.rosa_installer_role.arn
-    support_role_arn      = aws_iam_role.rosa_support_role.arn
-    instance_iam_roles = {{
-      master_role_arn = aws_iam_role.rosa_master_role.arn
-      worker_role_arn = aws_iam_role.rosa_worker_role.arn
-    }}
-    operator_role_prefix = local.operator_role_prefix
-    oidc_config_id      = rhcs_rosa_oidc_config.oidc_config.id
-  }}
-  
-  # Cluster Properties
-  properties = {{
-    rosa_creator_arn = data.aws_caller_identity.current.arn
-  }}
-  
-  # Dependencies - ensure all prerequisites are created first
-  depends_on = [
-    aws_iam_role.rosa_installer_role,
-    aws_iam_role.rosa_support_role,
-    aws_iam_role.rosa_worker_role,
-    aws_iam_role.rosa_master_role,
-    rhcs_rosa_oidc_config.oidc_config,
-    aws_vpc.main_vpc_{region}_{guid},
-    aws_subnet.public_subnet_{region}_{guid}
-  ]
-  
-  tags = {{
-    Environment = var.environment
-    ManagedBy = "yamlforge"
-    "red.hat.managed" = "true"
-    Region = "{region}"
-  }}
-  
-  # Lifecycle management
-  lifecycle {{
-    prevent_destroy = true
-  }}
-}}
 
-# Cluster outputs
-output "{cluster_name.replace('-', '_')}_cluster_id" {{
-  description = "ROSA cluster ID"
-  value       = rhcs_cluster_rosa_classic.{cluster_name.replace('-', '_')}.id
-}}
 
-output "{cluster_name.replace('-', '_')}_cluster_state" {{
-  description = "ROSA cluster state"
-  value       = rhcs_cluster_rosa_classic.{cluster_name.replace('-', '_')}.state
-}}
-
-output "{cluster_name.replace('-', '_')}_api_url" {{
-  description = "ROSA cluster API URL"
-  value       = rhcs_cluster_rosa_classic.{cluster_name.replace('-', '_')}.api_url
-}}
-
-output "{cluster_name.replace('-', '_')}_console_url" {{
-  description = "ROSA cluster console URL"
-  value       = rhcs_cluster_rosa_classic.{cluster_name.replace('-', '_')}.console_url
-}}
-
-'''
-        return terraform_config
-
-    def generate_rosa_required_providers(self):
-        """Generate required providers for ROSA cluster management."""
-        
-        terraform_config = '''
-# =============================================================================
-# ROSA TERRAFORM PROVIDERS (Required for Automated ROSA Management)
-# =============================================================================
-
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-    rhcs = {
-      source  = "terraform-redhat/rhcs"
-      version = ">= 1.4.0"
-    }
-  }
-  required_version = ">= 1.0"
-}
-
-# Configure the Red Hat Cloud Services provider
-provider "rhcs" {
-  # Configuration will be provided via environment variables:
-  # RHCS_TOKEN or RHCS_CLIENT_ID + RHCS_CLIENT_SECRET
-  # RHCS_URL (defaults to https://api.openshift.com)
-}
-
-'''
-        return terraform_config
 
     def generate_rosa_sts_data_sources(self, yaml_data=None):
         """Generate data sources for ROSA STS roles that were created via CLI."""

@@ -12,8 +12,8 @@ from pathlib import Path
 class CredentialsManager:
     """Manages cloud provider credentials via environment variables only."""
 
-    def __init__(self, credentials_dir=None):
-        """Initialize the instance - credentials_dir parameter kept for compatibility but not used."""
+    def __init__(self):
+        """Initialize the instance - all credentials come from environment variables only."""
         # All credentials now come from environment variables only
         pass
 
@@ -149,21 +149,7 @@ class CredentialsManager:
             'available': True
         }
 
-    def get_ibm_credentials(self):
-        """Get IBM Cloud credentials from environment variables."""
-        # Check for IBM Cloud credentials in environment variables  
-        api_key = os.getenv('IC_API_KEY') or os.getenv('IBM_CLOUD_API_KEY')
-        region = os.getenv('IBM_CLOUD_REGION', 'us-south')
-        
-        if not api_key:
-            return {'available': False}
-        
-        return {
-            'type': 'api_key',
-            'api_key': api_key,
-            'region': region,
-            'available': True
-        }
+
 
     def get_oci_credentials(self):
         """Get Oracle Cloud Infrastructure credentials from environment variables."""
@@ -233,37 +219,6 @@ class CredentialsManager:
             'available': True
         }
 
-    def get_openshift_credentials(self):
-        """Get OpenShift credentials from environment variables."""
-        # Red Hat OpenShift Cluster Manager API credentials (for ROSA, OpenShift Dedicated)
-        redhat_token = os.getenv('REDHAT_OPENSHIFT_TOKEN') or os.getenv('OCM_TOKEN') or os.getenv('ROSA_TOKEN')
-        redhat_url = os.getenv('REDHAT_OPENSHIFT_URL', 'https://api.openshift.com')
-        
-        # OpenShift cluster connection credentials (for existing clusters)
-        cluster_url = os.getenv('OPENSHIFT_CLUSTER_URL')
-        cluster_token = os.getenv('OPENSHIFT_TOKEN')
-        username = os.getenv('OPENSHIFT_USERNAME')
-        password = os.getenv('OPENSHIFT_PASSWORD')
-        namespace = os.getenv('OPENSHIFT_NAMESPACE', 'default')
-        kubeconfig = os.getenv('OPENSHIFT_KUBECONFIG')
-        
-        return {
-            'redhat_cluster_manager': {
-                'token': redhat_token,
-                'url': redhat_url,
-                'available': bool(redhat_token)
-            },
-            'cluster_connection': {
-                'url': cluster_url,
-                'token': cluster_token,
-                'username': username,
-                'password': password,
-                'namespace': namespace,
-                'kubeconfig': kubeconfig,
-                'available': bool(cluster_token or (username and password) or kubeconfig)
-            }
-        }
-
     def get_cert_manager_credentials(self):
         """Get cert-manager EAB credentials from environment variables."""
         # ZeroSSL EAB credentials
@@ -286,6 +241,42 @@ class CredentialsManager:
                 'available': bool(sslcom_kid and sslcom_hmac)
             }
         }
+
+    @property
+    def oci_config(self):
+        """Get OCI configuration for providers."""
+        oci_creds = self.get_oci_credentials()
+        if not oci_creds.get('available'):
+            return None
+        
+        return {
+            'user_ocid': oci_creds.get('user_ocid'),
+            'key_file': oci_creds.get('private_key_path'),
+            'fingerprint': oci_creds.get('fingerprint'),
+            'tenancy_ocid': oci_creds.get('tenancy_ocid'),
+            'region': oci_creds.get('region')
+        }
+
+    @property
+    def alibaba_config(self):
+        """Get Alibaba Cloud configuration for providers."""
+        alibaba_creds = self.get_alibaba_credentials()
+        if not alibaba_creds.get('available'):
+            return None
+        
+        return {
+            'access_key_id': alibaba_creds.get('access_key'),
+            'access_key_secret': alibaba_creds.get('secret_key'),
+            'region': alibaba_creds.get('region')
+        }
+
+
+
+
+
+
+
+
 
     def get_default_ssh_key(self):
         """Get default SSH public key from environment variables or auto-detect."""
@@ -356,28 +347,3 @@ class CredentialsManager:
             'available': False
         }
 
-    def get_terraform_variables(self):
-        """Get basic Terraform variables from environment-based credentials."""
-        variables = {}
-
-        # AWS Variables
-        aws_creds = self.get_aws_credentials()
-        if aws_creds.get('available'):
-            variables['aws_region'] = aws_creds.get('region', 'us-east-1')
-
-        # Azure Variables  
-        azure_creds = self.get_azure_credentials()
-        if azure_creds.get('available'):
-            variables['azure_subscription_id'] = azure_creds.get('subscription_id', '')
-
-        # GCP Variables
-        gcp_creds = self.get_gcp_credentials()
-        if gcp_creds.get('available'):
-            variables['gcp_project_id'] = gcp_creds.get('project_id', '')
-
-        # IBM Variables
-        ibm_creds = self.get_ibm_credentials()
-        if ibm_creds.get('available'):
-            variables['ibm_region'] = ibm_creds.get('region', 'us-south')
-
-        return variables

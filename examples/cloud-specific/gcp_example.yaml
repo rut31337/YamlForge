@@ -1,53 +1,42 @@
 ---
-guid: gcp01
+guid: "gcp01"
+
 yamlforge:
   cloud_workspace:
-    name: gcp-specific-demo
-    description: GCP-specific features demonstration workspace
-  instances:
-  - name: gcp-web-server
-    provider: gcp
-    size: medium
-    image: RHEL9-latest
-    region: us-central1
-    zone: us-central1-a
-  - name: gcp-app-server
-    provider: gcp
-    size: large
-    image: RHEL8-latest
-    region: us-west1
-    zone: us-west1-b
-  - name: gcp-custom-worker
-    provider: gcp
-    cores: 4
-    memory: 8192
-    image: RHEL9-latest
-    region: us-east1
-    zone: us-east1-c
-  - name: gcp-preemptible-worker
-    provider: gcp
-    size: small
-    image: Fedora-latest
-    region: us-central1
-    zone: us-central1-a
-    preemptible: true
+    name: "gcp-demo-{guid}"
+    description: "GCP deployment example"
+  
+  gcp:
+    use_existing_project: false
+  
   security_groups:
-    gcp-web-sg:
-      description: GCP web server security group
+    - name: "web-sg-{guid}"
+      description: "Web server security group"
       rules:
-      - protocol: tcp
-        port: 80
-        source_ranges:
-        - 0.0.0.0/0
-      - protocol: tcp
-        port: 443
-        source_ranges:
-        - 0.0.0.0/0
-      - protocol: tcp
-        port: 22
-        source_ranges:
-        - 10.0.0.0/8
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "80"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "443"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+  
+  instances:
+    - name: "web-server-{guid}"
+      provider: "gcp"
+      size: "medium"
+      region: "us-central1"
+      image: "RHEL9-latest"
+      security_groups: ["web-sg-{guid}"]
+      tags:
+        environment: "production"
+        tier: "web"
+  
   tags:
-    cloud_provider: gcp
-    deployment_type: multi_zone
-    environment: production
+    project: "gcp-demo"
+    managed_by: "yamlforge"

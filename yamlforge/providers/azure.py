@@ -115,12 +115,14 @@ class AzureProvider:
 
         return default_image
 
-    def generate_azure_security_group(self, sg_name, rules, region, yaml_data=None):
+    def generate_azure_security_group(self, sg_name, rules, region, yaml_data=None):  # noqa: vulture
         """Generate Azure network security group with rules for specific region."""
+        # Replace {guid} placeholder in security group name
+        sg_name = self.converter.replace_guid_placeholders(sg_name)
         clean_name = sg_name.replace("-", "_").replace(".", "_")
         clean_region = region.replace("-", "_").replace(".", "_")
         regional_sg_name = f"{clean_name}_{clean_region}"
-        regional_rg_ref = f"azurerm_resource_group.main_{clean_region}"
+
 
         security_group_config = f'''
 # Azure Network Security Group: {sg_name} (Region: {region})
@@ -146,7 +148,19 @@ resource "azurerm_network_security_group" "{regional_sg_name}_{self.converter.ge
                 port_range = str(from_port)
             
             # Determine source address
-            source_address = rule_data['cidr_blocks'][0] if rule_data['cidr_blocks'] else '*'
+            if rule_data['is_source_cidr']:
+                source_address = rule_data['source_cidr_blocks'][0] if rule_data['source_cidr_blocks'] else '*'
+            else:
+                # For now, Azure only supports CIDR blocks in the generic approach
+                # Provider-specific sources would need custom handling
+                source_address = '*'
+
+            # Determine destination address
+            if rule_data['destination'] and rule_data['is_destination_cidr']:
+                destination_address = rule_data['destination_cidr_blocks'][0] if rule_data['destination_cidr_blocks'] else '*'
+            else:
+                # Default destination for Azure
+                destination_address = '*'
 
             rule_block = f'''  security_rule {{
     name                       = "{sg_name}-rule-{i+1}"
@@ -157,7 +171,7 @@ resource "azurerm_network_security_group" "{regional_sg_name}_{self.converter.ge
     source_port_range          = "*"
     destination_port_range     = "{port_range}"
     source_address_prefix      = "{source_address}"
-    destination_address_prefix = "*"
+    destination_address_prefix = "{destination_address}"
   }}
 
 '''
@@ -172,9 +186,11 @@ resource "azurerm_network_security_group" "{regional_sg_name}_{self.converter.ge
 '''
         return security_group_config
 
-    def generate_azure_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None):
+    def generate_azure_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None):  # noqa: vulture
         """Generate native Azure virtual machine."""
         instance_name = instance.get("name", f"instance_{index}")
+        # Replace {guid} placeholder in instance name
+        instance_name = self.converter.replace_guid_placeholders(instance_name)
         image = instance.get("image", "RHEL9-latest")
 
         # Resolve region using region/location logic
@@ -346,13 +362,12 @@ resource "azurerm_linux_virtual_machine" "{clean_name}_{self.converter.get_valid
 '''
         return vm_config
 
-    def generate_azure_networking(self, deployment_name, deployment_config, region, yaml_data=None):
+    def generate_azure_networking(self, deployment_name, deployment_config, region, yaml_data=None):  # noqa: vulture
         """Generate Azure networking resources for specific region."""
         network_config = deployment_config.get('network', {})
         network_name = network_config.get('name', f"{deployment_name}-vnet")
         cidr_block = network_config.get('cidr_block', '10.0.0.0/16')
 
-        clean_network_name = self.converter.clean_name(network_name)
         clean_region = region.replace("-", "_").replace(".", "_")
 
         # Get Azure configuration from YAML (override environment/defaults)
@@ -427,70 +442,5 @@ resource "azurerm_subnet" "main_subnet_{clean_region}_{guid}" {{
         
         return networking_config
 
-    def format_azure_tags(self, tags):
-        """Format tags for Azure (key-value pairs)."""
-        if not tags:
-            return ""
 
-        tag_items = []
-        for key, value in tags.items():
-            # Azure tag keys cannot contain spaces, convert to camelCase or use underscores
-            azure_key = key.replace(' ', '_')
-            tag_items.append(f'    {azure_key} = "{value}"')
 
-        return f'''
-  tags = {{
-{chr(10).join(tag_items)}
-  }}'''
-
-    def generate_azure_resource_group(self, resource_group_name, location, tags=None):
-        """Generate Azure resource group configuration."""
-        tag_block = self.format_azure_tags(tags) if tags else '''
-  tags = {
-    Environment = "agnosticd"
-    ManagedBy   = "yamlforge"
-  }'''
-
-        return f'''
-# Azure Resource Group
-resource "azurerm_resource_group" "main" {{
-  name     = "{resource_group_name}"
-  location = "{location}"
-{tag_block}
-}}
-
-'''
-
-    def generate_azure_resource_group_from_config(self, workspace_config):
-        """Generate Azure resource group from cloud-agnostic workspace config."""
-        # Generate a clean resource group name
-        rg_name = workspace_config['name'].replace('_', '-').replace(' ', '-')
-
-        # Merge tags
-        all_tags = {
-            'environment': 'agnosticd',
-            'managed-by': 'yamlforge',
-            'description': workspace_config['description']
-        }
-
-        # Add custom tags
-        all_tags.update(workspace_config.get('tags', {}))
-
-        # Get location (default to East US if not specified)
-        location = workspace_config.get('location', 'East US')
-
-        return f'''
-# Azure Resource Group - {workspace_config['name']}
-resource "azurerm_resource_group" "main" {{
-  name     = "{rg_name}"
-  location = "{location}"
-
-  tags = {{
-    environment  = "{all_tags['environment']}"
-    managed_by   = "{all_tags['managed-by']}"
-    description  = "{all_tags['description']}"
-{chr(10).join([f'    {k} = "{v}"' for k, v in workspace_config.get('tags', {}).items()])}
-  }}
-}}
-
-'''

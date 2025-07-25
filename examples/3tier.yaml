@@ -1,0 +1,97 @@
+guid: "3tier1"
+
+yamlforge:
+  cloud_workspace:
+    name: "3tier-demo-{guid}"
+    description: "Simple 3-tier architecture demonstration"
+    tags:
+      architecture: "3tier"
+      environment: "demo"
+  
+  security_groups:
+    - name: "web-sg-{guid}"
+      description: "Web tier security group - public facing"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "80"
+          source: "0.0.0.0/0"
+          description: "HTTP from internet"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "443"
+          source: "0.0.0.0/0"
+          description: "HTTPS from internet"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "10.0.0.0/16"
+          description: "SSH from VPC"
+    
+    - name: "app-sg-{guid}"
+      description: "Application tier security group - internal"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "8080"
+          source: "10.0.1.0/24"
+          description: "HTTP from web tier subnet"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "10.0.0.0/16"
+          description: "SSH from VPC"
+    
+    - name: "db-sg-{guid}"
+      description: "Database tier security group - restricted"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "3306"
+          source: "10.0.3.0/24"
+          description: "MySQL from app tier subnet"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "10.0.0.0/16"
+          description: "SSH from VPC"
+  
+  instances:
+    - name: "web-server-{guid}"
+      provider: "aws"
+      image: "RHEL9-latest"
+      size: "small"
+      region: "us-east-1"
+      security_groups: ["web-sg-{guid}"]
+      tags:
+        Tier: "Web"
+        Role: "Frontend"
+        Environment: "Demo"
+    
+    - name: "app-server-{guid}"
+      provider: "aws"
+      image: "RHEL9-latest"
+      size: "small"
+      region: "us-east-1"
+      security_groups: ["app-sg-{guid}"]
+      tags:
+        Tier: "Application"
+        Role: "BusinessLogic"
+        Environment: "Demo"
+    
+    - name: "db-server-{guid}"
+      provider: "aws"
+      image: "RHEL9-latest"
+      size: "small"
+      region: "us-east-1"
+      security_groups: ["db-sg-{guid}"]
+      tags:
+        Tier: "Database"
+        Role: "DataStorage"
+        Environment: "Demo"
+  
+  tags:
+    project: "3tier-demo"
+    architecture: "3tier"
+    environment: "demo"
+    managed_by: "yamlforge" 

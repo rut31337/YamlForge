@@ -29,13 +29,13 @@ class OpenShiftNetworkingProvider(BaseOpenShiftProvider):
         
         return terraform_config
     
-    def generate_ingress_resources(self, ingress_config: Dict) -> str:
+    def generate_ingress_resources(self) -> str:
         """Generate advanced ingress configurations"""
         
         # TODO: Implement advanced ingress configurations
         return "# TODO: Advanced ingress configurations\n"
     
-    def generate_external_dns(self, external_dns_config: Dict) -> str:
+    def generate_external_dns(self) -> str:
         """Generate ExternalDNS configuration"""
         
         terraform_config = '''

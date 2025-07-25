@@ -1,0 +1,126 @@
+guid: "ent01"
+
+yamlforge:
+  cloud_workspace:
+    name: "enterprise-demo-{guid}"
+    description: "Enterprise deployment with resource groups and advanced features"
+    tags:
+      environment: "enterprise"
+      compliance: "sox"
+      cost_center: "it-ops"
+  
+  # Azure-specific configuration for resource groups
+  azure:
+    use_existing_resource_group: true
+    existing_resource_group_name: "enterprise-rg"
+    existing_resource_group_location: "eastus"
+  
+  # GCP-specific configuration for existing project
+  gcp:
+    use_existing_project: true
+    existing_project_id: "enterprise-project-123"
+  
+  # IBM VPC-specific configuration for resource groups
+  ibm_vpc:
+    use_existing_resource_group: true
+    existing_resource_group_name: "enterprise-resource-group"
+  
+  security_groups:
+    - name: "web-tier-{guid}"
+      description: "Web tier security group"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "80"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "443"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "10.0.0.0/8"
+    
+    - name: "app-tier-{guid}"
+      description: "Application tier security group"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "8080"
+          source: "10.0.1.0/24"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "10.0.0.0/8"
+    
+    - name: "db-tier-{guid}"
+      description: "Database tier security group"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "3306"
+          source: "10.0.2.0/24"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "10.0.0.0/8"
+  
+  instances:
+    # Web tier - Azure with existing resource group
+    - name: "web-azure-{guid}"
+      provider: "azure"
+      size: "medium"
+      region: "eastus"
+      image: "RHEL9-latest"
+      security_groups: ["web-tier-{guid}"]
+      tags:
+        tier: "web"
+        environment: "production"
+        compliance: "sox"
+        cost_center: "web-ops"
+    
+    # App tier - GCP with existing project
+    - name: "app-gcp-{guid}"
+      provider: "gcp"
+      size: "large"
+      region: "us-central1"
+      image: "RHEL9-latest"
+      security_groups: ["app-tier-{guid}"]
+      tags:
+        tier: "application"
+        environment: "production"
+        compliance: "sox"
+        cost_center: "app-ops"
+    
+    # Database tier - IBM VPC with existing resource group
+    - name: "db-ibm-{guid}"
+      provider: "ibm_vpc"
+      size: "large"
+      region: "us-south"
+      image: "RHEL9-latest"
+      security_groups: ["db-tier-{guid}"]
+      tags:
+        tier: "database"
+        environment: "production"
+        compliance: "sox"
+        cost_center: "db-ops"
+    
+    # Backup server - AWS (full account access)
+    - name: "backup-aws-{guid}"
+      provider: "aws"
+      size: "medium"
+      region: "us-east-1"
+      image: "RHEL9-latest"
+      security_groups: ["app-tier-{guid}"]
+      tags:
+        tier: "backup"
+        environment: "production"
+        compliance: "sox"
+        cost_center: "backup-ops"
+  
+  tags:
+    project: "enterprise-demo"
+    architecture: "multi_cloud_enterprise"
+    compliance: "sox_ready"
+    managed_by: "yamlforge" 

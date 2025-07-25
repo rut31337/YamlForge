@@ -72,7 +72,7 @@ resource "kubernetes_manifest" "cluster_upgrade_{clean_cluster_name}" {{
 
 '''
     
-    def generate_lifecycle_management(self, lifecycle_config: Dict) -> str:
+    def generate_lifecycle_management(self) -> str:
         """Generate cluster lifecycle management resources"""
         
         terraform_config = '''
@@ -90,7 +90,7 @@ resource "kubernetes_manifest" "cluster_upgrade_{clean_cluster_name}" {{
         
         return terraform_config
     
-    def generate_blue_green_automation(self, blue_green_config: Dict) -> str:
+    def generate_blue_green_automation(self) -> str:
         """Generate blue/green deployment automation"""
         
         terraform_config = '''
@@ -108,7 +108,7 @@ resource "kubernetes_manifest" "cluster_upgrade_{clean_cluster_name}" {{
         
         return terraform_config
     
-    def generate_upgrade_automation(self, upgrade_config: Dict) -> str:
+    def generate_upgrade_automation(self) -> str:
         """Generate cluster upgrade automation"""
         
         terraform_config = '''

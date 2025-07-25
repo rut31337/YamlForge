@@ -5,6 +5,8 @@ Contains IBM VPC-specific implementations for VM generation, networking,
 and security groups.
 """
 
+import os
+
 
 class IBMVPCProvider:
     """IBM VPC-specific provider implementation."""
@@ -12,6 +14,23 @@ class IBMVPCProvider:
     def __init__(self, converter):
         """Initialize the instance."""
         self.converter = converter
+        self.config = self.load_config()
+
+    def load_config(self):
+        """Load IBM VPC configuration from environment variables."""
+        # Get IBM VPC resource group configuration from environment variables
+        use_existing_resource_group = False
+        existing_resource_group_name = ""
+        
+        use_existing_rg_str = os.environ.get('IBMCLOUD_VPC_USE_EXISTING_RESOURCE_GROUP', '').lower()
+        use_existing_resource_group = use_existing_rg_str in ['true', '1', 'yes']
+        
+        existing_resource_group_name = os.environ.get('IBMCLOUD_VPC_RESOURCE_GROUP_NAME', '')
+
+        return {
+            'use_existing_resource_group': use_existing_resource_group,
+            'existing_resource_group_name': existing_resource_group_name
+        }
 
     def get_ibm_instance_profile(self, size_or_instance_type):
         """Get IBM instance profile from size mapping or return direct instance type."""
@@ -36,10 +55,12 @@ class IBMVPCProvider:
 
     def generate_ibm_security_group(self, sg_name, rules, region, yaml_data=None):
         """Generate IBM security group with rules for specific region."""
+        # Replace {guid} placeholder in security group name
+        sg_name = self.converter.replace_guid_placeholders(sg_name)
         clean_name = sg_name.replace("-", "_").replace(".", "_")
         clean_region = region.replace("-", "_").replace(".", "_")
         regional_sg_name = f"{clean_name}_{clean_region}"
-        regional_vpc_ref = f"ibm_is_vpc.main_vpc_{clean_region}.id"
+
 
         security_group_config = f'''
 # IBM Cloud VPC Security Group: {sg_name} (Region: {region})
@@ -65,7 +86,7 @@ resource "ibm_is_security_group" "{regional_sg_name}_{self.converter.get_validat
 resource "ibm_is_security_group_rule" "{regional_sg_name}_rule_{i+1}" {{
   group     = ibm_is_security_group.{regional_sg_name}.id
   direction = "{direction}"
-  remote    = "{rule_data['cidr_blocks'][0] if rule_data['cidr_blocks'] else '0.0.0.0/0'}"
+  remote    = "{rule_data['source_cidr_blocks'][0] if rule_data['source_cidr_blocks'] else '0.0.0.0/0'}"
 
   tcp {{
     port_min = {rule_data['from_port']}
@@ -80,6 +101,8 @@ resource "ibm_is_security_group_rule" "{regional_sg_name}_rule_{i+1}" {{
     def generate_ibm_vpc_vm(self, instance, index, clean_name, size, yaml_data=None):
         """Generate IBM VPC virtual server instance."""
         instance_name = instance.get("name", f"instance_{index}")
+        # Replace {guid} placeholder in instance name
+        instance_name = self.converter.replace_guid_placeholders(instance_name)
         image = instance.get("image", "RHEL9-latest")
         
         # Resolve region first
@@ -175,7 +198,7 @@ resource "ibm_is_instance" "{clean_name}_{self.converter.get_validated_guid(yaml
   }}
 
   # Create and attach floating IP
-  resource_group = data.ibm_resource_group.default.id
+  resource_group = local.resource_group_id_{ibm_region.replace("-", "_").replace(".", "_")}_{self.converter.get_validated_guid(yaml_data)}
 }}
 
 # IBM Cloud Floating IP for {instance_name}
@@ -195,12 +218,49 @@ resource "ibm_is_floating_ip" "{clean_name}_fip_{self.converter.get_validated_gu
         network_name = network_config.get('name', f"{deployment_name}-vpc")
         cidr_block = network_config.get('cidr_block', '10.0.0.0/16')
 
-        clean_network_name = self.converter.clean_name(network_name)
         clean_region = region.replace("-", "_").replace(".", "_")
 
-        return f'''
+        # Get IBM VPC configuration from YAML (override environment/defaults)
+        yaml_ibm_config = yaml_data.get('yamlforge', {}).get('ibm_vpc', {}) if yaml_data else {}
+        
+        # Get configuration with YAML overrides (exactly like Azure)
+        use_existing_resource_group = yaml_ibm_config.get('use_existing_resource_group', self.config['use_existing_resource_group'])
+        existing_resource_group_name = yaml_ibm_config.get('existing_resource_group_name', self.config['existing_resource_group_name'])
+
+        guid = self.converter.get_validated_guid(yaml_data)
+        
+        if use_existing_resource_group and existing_resource_group_name:
+            # Use existing resource group (like Azure)
+            networking_config = f'''
+# Using existing IBM Cloud Resource Group: {existing_resource_group_name}
+data "ibm_resource_group" "main_{clean_region}_{guid}" {{
+  name = "{existing_resource_group_name}"
+}}
+
+# Local value to reference resource group
+locals {{
+  resource_group_id_{clean_region}_{guid} = data.ibm_resource_group.main_{clean_region}_{guid}.id
+  resource_group_name_{clean_region}_{guid} = data.ibm_resource_group.main_{clean_region}_{guid}.name
+}}
+'''
+        else:
+            # Create new resource group (default behavior)
+            networking_config = f'''
+# IBM Cloud Resource Group: {network_name} (Region: {region})
+resource "ibm_resource_group" "main_{clean_region}_{guid}" {{
+  name = "{network_name}-{region}"
+}}
+
+# Local value to reference resource group
+locals {{
+  resource_group_id_{clean_region}_{guid} = ibm_resource_group.main_{clean_region}_{guid}.id
+  resource_group_name_{clean_region}_{guid} = ibm_resource_group.main_{clean_region}_{guid}.name
+}}
+'''
+
+        networking_config += f'''
 # IBM Cloud VPC: {network_name} (Region: {region})
-resource "ibm_is_vpc" "main_vpc_{clean_region}_{self.converter.get_validated_guid(yaml_data)}" {{
+resource "ibm_is_vpc" "main_vpc_{clean_region}_{guid}" {{
   name = "{network_name}-{region}"
   
   tags = [
@@ -210,9 +270,9 @@ resource "ibm_is_vpc" "main_vpc_{clean_region}_{self.converter.get_validated_gui
 }}
 
 # IBM Cloud Subnet: {network_name} subnet
-resource "ibm_is_subnet" "main_subnet_{clean_region}_{self.converter.get_validated_guid(yaml_data)}" {{
+resource "ibm_is_subnet" "main_subnet_{clean_region}_{guid}" {{
   name                     = "{network_name}-subnet-{region}"
-  vpc                      = ibm_is_vpc.main_vpc_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id
+  vpc                      = ibm_is_vpc.main_vpc_{clean_region}_{guid}.id
   zone                     = "{region}-1"
   total_ipv4_address_count = 256
   
@@ -223,7 +283,7 @@ resource "ibm_is_subnet" "main_subnet_{clean_region}_{self.converter.get_validat
 }}
 
 # IBM Cloud SSH Key (Global)
-resource "ibm_is_ssh_key" "main_key_{clean_region}_{self.converter.get_validated_guid(yaml_data)}" {{
+resource "ibm_is_ssh_key" "main_key_{clean_region}_{guid}" {{
   name       = "{network_name}-key-{region}"
   public_key = var.ssh_public_key
   type       = "rsa"
@@ -234,18 +294,10 @@ resource "ibm_is_ssh_key" "main_key_{clean_region}_{self.converter.get_validated
   ]
 }}
 '''
+        
+        return networking_config
 
-    def format_ibm_tags(self, tags):
-        """Format tags for IBM (key:value format)."""
-        if not tags:
-            return ""
 
-        tag_items = []
-        for key, value in tags.items():
-            tag_items.append(f'"{key}:{value}"')
-
-        return f'''
-  tags = [{", ".join(tag_items)}]'''
 
     def get_ibm_vpc_image(self, image):
         """Get IBM VPC image name pattern from centralized mappings."""

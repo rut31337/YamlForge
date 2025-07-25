@@ -1,0 +1,38 @@
+guid: "aws01"
+
+yamlforge:
+  cloud_workspace:
+    name: "aws-demo-{guid}"
+    description: "AWS deployment example"
+  
+  security_groups:
+    - name: "web-sg-{guid}"
+      description: "Web server security group"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "80"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "443"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+  
+  instances:
+    - name: "web-server-{guid}"
+      provider: "aws"
+      size: "medium"
+      region: "us-east-1"
+      image: "RHEL9-latest"
+      security_groups: ["web-sg-{guid}"]
+      tags:
+        environment: "production"
+        tier: "web"
+  
+  tags:
+    project: "aws-demo"
+    managed_by: "yamlforge" 

@@ -64,10 +64,10 @@ resource "kubernetes_manifest" "{clean_name}_subscription" {{
         # Add Knative Serving if enabled
         if enable_serving:
             # Knative Serving configuration options with YAML defaults
-            domain_mapping = operator_config.get('domain_mapping', defaults.get('domain_mapping', True))
-            auto_tls = operator_config.get('auto_tls', defaults.get('auto_tls', False))
-            scale_to_zero_grace_period = operator_config.get('scale_to_zero_grace_period', defaults.get('scale_to_zero_grace_period', '30s'))
-            ingress_class = operator_config.get('ingress_class', defaults.get('ingress_class', 'kourier.ingress.networking.knative.dev'))
+
+
+
+
             
             terraform_config += f'''# Knative Serving Namespace
 resource "kubernetes_manifest" "{clean_name}_serving_namespace" {{

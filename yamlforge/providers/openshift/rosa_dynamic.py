@@ -4,14 +4,9 @@ Integrates dynamic version checking into the ROSA provider
 """
 
 import os
-import sys
-from pathlib import Path
-
-# Add the root directory to path to import get_rosa_versions
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "tools"))
 
 try:
-    from get_rosa_versions import ROSAVersionManager
+    from ...core.rosa_versions import ROSAVersionManager
     DYNAMIC_VERSIONS_AVAILABLE = True
 except ImportError:
     DYNAMIC_VERSIONS_AVAILABLE = False
@@ -64,47 +59,11 @@ class DynamicROSAVersionProvider:
     
 
     
-    def validate_and_fix_cluster_config(self, cluster_config):
-        """
-        Validate and fix a single cluster configuration
-        
-        Args:
-            cluster_config: Dictionary with cluster configuration
-            
-        Returns:
-            Updated cluster configuration
-        """
-        if not isinstance(cluster_config, dict):
-            return cluster_config
-        
-        current_version = cluster_config.get('version')
-        cluster_type = cluster_config.get('type', 'rosa')
-        
-        # Map cluster types to version check type
-        version_type = 'rosa'
-        if 'hypershift' in cluster_type.lower():
-            version_type = 'hypershift'
-        
-        recommended_version = self.get_recommended_version(current_version, version_type)
-        
-        if current_version != recommended_version:
-            print(f"ROSA: Updating cluster '{cluster_config.get('name', 'unnamed')}' "
-                  f"version {current_version} -> {recommended_version}")
-            cluster_config = cluster_config.copy()
-            cluster_config['version'] = recommended_version
-        
-        return cluster_config
+
 
 
 # Global instance for use in ROSA provider
 _dynamic_provider = DynamicROSAVersionProvider()
 
 
-def get_recommended_rosa_version(input_version=None, cluster_type="rosa"):
-    """Get recommended ROSA version (module-level function)"""
-    return _dynamic_provider.get_recommended_version(input_version, cluster_type)
-
-
-def validate_rosa_cluster_config(cluster_config):
-    """Validate and fix ROSA cluster configuration (module-level function)"""
-    return _dynamic_provider.validate_and_fix_cluster_config(cluster_config) 
+ 

@@ -1,0 +1,151 @@
+guid: "sg001"
+
+yamlforge:
+  cloud_workspace:
+    name: "security-groups-demo-{guid}"
+    description: "Comprehensive security groups example with advanced features"
+  
+  security_groups:
+    # Basic web server security group
+    - name: "web-sg-{guid}"
+      description: "Web server security group with standard ports"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "80"
+          source: "0.0.0.0/0"
+          description: "HTTP access"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "443"
+          source: "0.0.0.0/0"
+          description: "HTTPS access"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "10.0.0.0/8"
+          description: "SSH from internal network"
+    
+    # Application server security group with port ranges
+    - name: "app-sg-{guid}"
+      description: "Application server security group with port ranges"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "8080-8090"
+          source: "10.0.1.0/24"
+          description: "Application ports from web tier"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "10.0.0.0/8"
+          description: "SSH from internal network"
+        - direction: "egress"
+          protocol: "tcp"
+          port_range: "443"
+          source: "0.0.0.0/0"
+          description: "HTTPS outbound for updates"
+    
+    # Database security group with restricted access
+    - name: "db-sg-{guid}"
+      description: "Database security group with restricted access"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "3306"
+          source: "10.0.2.0/24"
+          description: "MySQL from app tier"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "5432"
+          source: "10.0.2.0/24"
+          description: "PostgreSQL from app tier"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "10.0.0.0/8"
+          description: "SSH from internal network"
+    
+    # Monitoring security group with ICMP
+    - name: "monitoring-sg-{guid}"
+      description: "Monitoring security group with ICMP and custom protocols"
+      rules:
+        - direction: "ingress"
+          protocol: "icmp"
+          port_range: "0"
+          source: "10.0.0.0/8"
+          description: "ICMP ping for monitoring"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "9100"
+          source: "10.0.0.0/8"
+          description: "Prometheus metrics"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "9090"
+          source: "10.0.0.0/8"
+          description: "Prometheus web interface"
+    
+    # AWS-specific security group with security group references
+    - name: "aws-specific-sg-{guid}"
+      description: "AWS-specific security group using security group references"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "80"
+          source: "sg-12345678"
+          description: "Allow traffic from specific AWS security group"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "443"
+          source: "sg-87654321"
+          description: "Allow HTTPS from another security group"
+  
+  instances:
+    # Web server with basic security group
+    - name: "web-server-{guid}"
+      provider: "aws"
+      size: "small"
+      region: "us-east-1"
+      image: "RHEL9-latest"
+      security_groups: ["web-sg-{guid}"]
+      tags:
+        tier: "web"
+        environment: "production"
+    
+    # Application server with port ranges
+    - name: "app-server-{guid}"
+      provider: "azure"
+      size: "medium"
+      region: "eastus"
+      image: "RHEL9-latest"
+      security_groups: ["app-sg-{guid}"]
+      tags:
+        tier: "application"
+        environment: "production"
+    
+    # Database server with restricted access
+    - name: "db-server-{guid}"
+      provider: "gcp"
+      size: "medium"
+      region: "us-central1"
+      image: "RHEL9-latest"
+      security_groups: ["db-sg-{guid}"]
+      tags:
+        tier: "database"
+        environment: "production"
+    
+    # Monitoring server with ICMP
+    - name: "monitoring-server-{guid}"
+      provider: "ibm_vpc"
+      size: "small"
+      region: "us-south"
+      image: "RHEL9-latest"
+      security_groups: ["monitoring-sg-{guid}"]
+      tags:
+        tier: "monitoring"
+        environment: "production"
+  
+  tags:
+    project: "security-groups-demo"
+    managed_by: "yamlforge"

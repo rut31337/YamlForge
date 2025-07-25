@@ -84,6 +84,25 @@ export GCP_EXISTING_PROJECT_ID=my-existing-project-123
 # export GCP_FOLDER_ID=folders/123456789     # Alternative to organization_id
 
 # =============================================================================
+# IBM CLOUD CREDENTIALS AND CONFIGURATION
+# =============================================================================
+
+# IBM Cloud API Key (required for both Classic and VPC)
+export IBMCLOUD_API_KEY=YOUR_IBM_CLOUD_API_KEY
+
+# IBM Cloud Account ID (required for Classic, optional for VPC)
+export IBMCLOUD_ACCOUNT_ID=YOUR_IBM_CLOUD_ACCOUNT_ID
+
+# IBM Cloud VPC Configuration (following Azure pattern exactly)
+# These are fallbacks - YAML takes precedence
+export IBMCLOUD_VPC_USE_EXISTING_RESOURCE_GROUP=false
+export IBMCLOUD_VPC_RESOURCE_GROUP_NAME=""
+
+# IBM Cloud Classic Configuration (always full account access)
+export IBMCLOUD_CLASSIC_DATACENTER=dal10
+export IBMCLOUD_CLASSIC_DOMAIN=example.com
+
+# =============================================================================
 # RED HAT OPENSHIFT CREDENTIALS
 # =============================================================================
 

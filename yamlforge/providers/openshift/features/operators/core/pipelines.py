@@ -28,9 +28,9 @@ class PipelinesOperator(BaseOpenShiftProvider):
         # Configuration options with YAML defaults
         enable_tekton_config = operator_config.get('enable_tekton_config', defaults.get('enable_tekton_config', True))
         enable_performance_config = operator_config.get('enable_performance_config', defaults.get('enable_performance_config', True))
-        enable_dev_tools = operator_config.get('enable_dev_tools', defaults.get('enable_dev_tools', True))
-        pipeline_timeout = operator_config.get('pipeline_timeout', defaults.get('pipeline_timeout', '1h'))
-        task_timeout = operator_config.get('task_timeout', defaults.get('task_timeout', '30m'))
+
+
+
         default_timeout_minutes = operator_config.get('default_timeout_minutes', defaults.get('default_timeout_minutes', 60))
         
         terraform_config = f'''

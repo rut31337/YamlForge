@@ -18,6 +18,8 @@
         "cloud_workspace": {"$ref": "#/definitions/cloud_workspace"},
         "gcp": {"$ref": "#/definitions/gcp_config"},
         "azure": {"$ref": "#/definitions/azure_config"},
+        "ibm_vpc": {"$ref": "#/definitions/ibm_vpc_config"},
+        "ibm_classic": {"$ref": "#/definitions/ibm_classic_config"},
         "instances": {"$ref": "#/definitions/instances"},
         "openshift_clusters": {"$ref": "#/definitions/openshift_clusters"},
         "openshift_operators": {"$ref": "#/definitions/openshift_operators"},
@@ -292,12 +294,35 @@
             "type": "array",
             "items": {
               "type": "object",
+              "required": ["direction", "protocol", "port_range", "source"],
               "properties": {
-                "direction": {"type": "string", "enum": ["ingress", "egress"]},
-                "protocol": {"type": "string"},
-                "port": {"type": "integer"},
-                "port_range": {"type": "string"},
-                "source": {"type": "string"}
+                "direction": {
+                  "type": "string", 
+                  "enum": ["ingress", "egress"],
+                  "description": "Direction of traffic flow (ingress = incoming, egress = outgoing)"
+                },
+                "protocol": {
+                  "type": "string",
+                  "enum": ["tcp", "udp", "icmp", "icmpv6", "all", "ah", "esp", "gre", "ipip"],
+                  "description": "Network protocol. Common: tcp, udp, icmp, icmpv6, all. Advanced: ah, esp, gre, ipip"
+                },
+                "port_range": {
+                  "type": "string",
+                  "pattern": "^([0-9]+|[0-9]+-[0-9]+)$",
+                  "description": "Port or port range (e.g., '22', '80-90', '443'). Single port '22' becomes range '22-22'"
+                },
+                "source": {
+                  "type": "string",
+                  "description": "Source CIDR block (e.g., '0.0.0.0/0', '10.0.0.0/8') or provider-specific reference (e.g., 'sg-12345678' for AWS, 'tags' for GCP). Not supported with 'cheapest' provider."
+                },
+                "destination": {
+                  "type": "string",
+                  "description": "Destination CIDR block or provider-specific reference. Required for egress rules, optional for ingress rules. Same format as source."
+                },
+                "description": {
+                  "type": "string",
+                  "description": "Optional description for the security group rule"
+                }
               }
             }
           }
@@ -351,6 +376,37 @@
          "existing_resource_group_location": {
            "type": "string",
            "description": "Location of the existing Azure resource group (e.g., eastus, westus2)"
+         }
+       }
+     },
+     "ibm_vpc_config": {
+       "type": "object",
+       "description": "IBM VPC-specific configuration options",
+       "properties": {
+         "use_existing_resource_group": {
+           "type": "boolean",
+           "description": "Use an existing IBM Cloud resource group instead of creating new ones",
+           "default": false
+         },
+         "existing_resource_group_name": {
+           "type": "string",
+           "description": "Name of the existing IBM Cloud resource group to use (required if use_existing_resource_group is true)"
+         }
+       }
+     },
+     "ibm_classic_config": {
+       "type": "object",
+       "description": "IBM Classic-specific configuration options",
+       "properties": {
+         "default_datacenter": {
+           "type": "string",
+           "description": "Default datacenter for IBM Classic instances (e.g., dal10, wdc07)",
+           "default": "dal10"
+         },
+         "default_domain": {
+           "type": "string",
+           "description": "Default domain for IBM Classic instances",
+           "default": "example.com"
          }
        }
      }

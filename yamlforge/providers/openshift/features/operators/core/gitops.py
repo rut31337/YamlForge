@@ -20,22 +20,22 @@ class GitOpsOperator(BaseOpenShiftProvider):
         # Load defaults from YAML configuration
         defaults = self.operator_config.get('defaults', {})
         subscription_config = self.operator_config.get('subscription', {})
-        server_config = self.operator_config.get('server', {})
+
         controller_config = self.operator_config.get('controller', {})
         repo_server_config = self.operator_config.get('repoServer', {})
         redis_config = self.operator_config.get('redis', {})
-        application_set_config = self.operator_config.get('applicationSet', {})
+
         
         operator_name = operator_config.get('name', defaults.get('name', 'openshift-gitops'))
         clean_name = self.clean_name(operator_name)
         
         # Configuration options with YAML defaults
-        enable_cluster_admin = operator_config.get('enable_cluster_admin', defaults.get('enable_cluster_admin', False))
-        enable_dex = operator_config.get('enable_dex', defaults.get('enable_dex', True))
-        enable_rbac = operator_config.get('enable_rbac', defaults.get('enable_rbac', True))
+
+
+
         server_route_enabled = operator_config.get('server_route_enabled', defaults.get('server_route_enabled', True))
         server_insecure = operator_config.get('server_insecure', defaults.get('server_insecure', False))
-        default_rbac_policy = operator_config.get('default_rbac_policy', defaults.get('default_rbac_policy', ''))
+
         
         terraform_config = f'''
 # =============================================================================

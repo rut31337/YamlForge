@@ -1,0 +1,90 @@
+guid: "gpu01"
+
+yamlforge:
+  cloud_workspace:
+    name: "gpu-workloads-{guid}"
+    description: "Multi-cloud GPU deployment for AI/ML workloads"
+  
+  security_groups:
+    - name: "gpu-access-{guid}"
+      description: "Machine Learning GPU instances"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "8888"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "6006"
+          source: "0.0.0.0/0"
+  
+  instances:
+    # Development GPU instances
+    - name: "ml-dev-small-{guid}"
+      provider: "aws"
+      size: "gpu_small"
+      region: "us-east-1"
+      image: "RHEL9-latest"
+      security_groups: ["gpu-access-{guid}"]
+      tags:
+        workload_type: "development"
+        gpu_tier: "small"
+        framework: "tensorflow"
+    
+    - name: "ml-training-medium-{guid}"
+      provider: "azure"
+      size: "gpu_medium"
+      region: "eastus"
+      image: "RHEL9-latest"
+      security_groups: ["gpu-access-{guid}"]
+      tags:
+        workload_type: "training"
+        gpu_tier: "medium"
+        framework: "pytorch"
+    
+    # Cost-optimized GPU instances
+    - name: "budget-gpu-{guid}"
+      provider: "cheapest"
+      cores: 8
+      memory: 32768
+      gpu_count: 1
+      region: "us-east-1"
+      image: "RHEL9-latest"
+      security_groups: ["gpu-access-{guid}"]
+      tags:
+        workload_type: "custom_training"
+        optimization: "cost_optimized"
+        requirement: "8cpu-32gb-1gpu"
+    
+    # High-end GPU instances
+    - name: "aws-p4d-{guid}"
+      provider: "aws"
+      flavor: "p4d.24xlarge"
+      region: "us-east-1"
+      image: "RHEL9-latest"
+      security_groups: ["gpu-access-{guid}"]
+      tags:
+        workload_type: "flagship_training"
+        gpu_type: "nvidia_a100"
+        provider_optimized: "true"
+    
+    - name: "azure-nd-{guid}"
+      provider: "azure"
+      flavor: "Standard_ND96amsr_A100_v4"
+      region: "eastus"
+      image: "RHEL9-latest"
+      security_groups: ["gpu-access-{guid}"]
+      tags:
+        workload_type: "enterprise_training"
+        gpu_type: "nvidia_a100"
+        provider_optimized: "true"
+  
+  tags:
+    project: "ai-ml-infrastructure"
+    managed_by: "yamlforge"
+    workload_category: "gpu_compute"
+    cost_center: "research_and_development" 

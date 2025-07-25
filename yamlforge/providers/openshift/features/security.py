@@ -50,9 +50,9 @@ class OpenShiftSecurityProvider(BaseOpenShiftProvider):
     def generate_pod_security_standards(self, pod_security_config: Dict, cluster_name: str, clean_cluster_name: str) -> str:
         """Generate Pod Security Standards configuration"""
         
-        enforce_level = pod_security_config.get('enforce', 'restricted')
+
         audit_level = pod_security_config.get('audit', 'restricted')
-        warn_level = pod_security_config.get('warn', 'restricted')
+
         
         return f'''
 # Pod Security Standards for {cluster_name}

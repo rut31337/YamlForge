@@ -67,19 +67,7 @@ class SelfManagedOpenShiftProvider(BaseOpenShiftProvider):
         else:
             return f"# TODO: Self-managed OpenShift on {provider} not yet implemented\n"
     
-    def get_default_region(self, provider: str) -> str:
-        """Get default region for each provider"""
-        defaults = {
-            'aws': 'us-east-1',
-            'azure': 'eastus',
-            'gcp': 'us-central1',
-            'ibm_vpc': 'us-south',
-            'ibm_classic': 'dal10',
-            'oci': 'us-ashburn-1',
-            'vmware': 'datacenter1',
-            'alibaba': 'cn-hangzhou'
-        }
-        return defaults.get(provider, 'us-east-1')
+
     
     def generate_gcp_self_managed_infrastructure(self, cluster_config: Dict, size_config: Dict, version: str) -> str:
         """Generate GCP infrastructure for self-managed OpenShift"""

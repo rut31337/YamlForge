@@ -37,7 +37,7 @@ class YamlForgeConverter:
         # Load OpenShift-specific flavors from dedicated directory
         openshift_flavors = self.load_flavors("mappings/flavors_openshift")
         self.flavors.update(openshift_flavors)
-        self.cloud_patterns = self.load_cloud_patterns("mappings/cloud_patterns.yaml")
+
         self.core_config = self.load_core_config("defaults/core.yaml")
 
         # Initialize credentials manager
@@ -61,6 +61,9 @@ class YamlForgeConverter:
         
         # Cache for resolved regions to prevent multiple validations
         self._region_cache = {}
+        
+        # No-credentials mode flag (set by main.py)
+        self.no_credentials = False
 
     def get_aws_provider(self):
         """Return the AWS provider instance for use by other components."""
@@ -86,11 +89,11 @@ class YamlForgeConverter:
             
             if result.returncode != 0:
                 raise ValueError(
-                    "❌ Terraform Version Error: Failed to execute 'terraform --version'\n\n"
-                    "💡 Please ensure Terraform is installed and available in your PATH:\n\n"
-                    "1️⃣  Download and install Terraform:\n"
+                    "Terraform Version Error: Failed to execute 'terraform --version'\n\n"
+                    "Please ensure Terraform is installed and available in your PATH:\n\n"
+                    "1. Download and install Terraform:\n"
                     "   https://developer.hashicorp.com/terraform/downloads\n\n"
-                    "2️⃣  Or use package managers:\n"
+                    "2. Or use package managers:\n"
                     "   # macOS (Homebrew)\n"
                     "   brew install terraform\n\n"
                     "   # Linux (Ubuntu/Debian)\n"
@@ -107,8 +110,8 @@ class YamlForgeConverter:
             
             if not version_match:
                 raise ValueError(
-                    f"❌ Terraform Version Error: Could not parse version from output:\n{version_output}\n\n"
-                    "💡 Please ensure you have a standard Terraform installation."
+                    f"Terraform Version Error: Could not parse version from output:\n{version_output}\n\n"
+                    "Please ensure you have a standard Terraform installation."
                 )
             
             major, minor, patch = map(int, version_match.groups())
@@ -122,24 +125,24 @@ class YamlForgeConverter:
                 min_version_str = f"{min_version[0]}.{min_version[1]}.{min_version[2]}"
                 
                 raise ValueError(
-                    f"❌ Terraform Version Error: Version {current_version_str} is too old\n\n"
-                    f"🔄 Required: Terraform v{min_version_str} or newer\n"
-                    f"📦 Current: Terraform v{current_version_str}\n\n"
-                    "💡 YamlForge requires a modern Terraform version to resolve provider dependencies correctly.\n\n"
-                    "🚀 Upgrade Terraform:\n\n"
-                    "1️⃣  Download latest version:\n"
+                    f"Terraform Version Error: Version {current_version_str} is too old\n\n"
+                    f"Required: Terraform v{min_version_str} or newer\n"
+                    f"Current: Terraform v{current_version_str}\n\n"
+                    "YamlForge requires a modern Terraform version to resolve provider dependencies correctly.\n\n"
+                    "Upgrade Terraform:\n\n"
+                    "1. Download latest version:\n"
                     "   https://developer.hashicorp.com/terraform/downloads\n\n"
-                    "2️⃣  Or use tfswitch for easy version management:\n"
+                    "2. Or use tfswitch for easy version management:\n"
                     "   curl -L https://raw.githubusercontent.com/warrensbox/terraform-switcher/release/install.sh | bash\n"
                     "   tfswitch\n\n"
-                    "3️⃣  Update via package managers:\n"
+                    "3. Update via package managers:\n"
                     "   # macOS (Homebrew)\n"
                     "   brew upgrade terraform\n\n"
                     "   # Linux (Ubuntu/Debian)\n"
                     "   sudo apt update && sudo apt upgrade terraform\n\n"
-                    "4️⃣  Verify upgrade:\n"
+                    "4. Verify upgrade:\n"
                     "   terraform --version\n\n"
-                    "📋 Why this matters: Older Terraform versions have known issues with\n"
+                    "Why this matters: Older Terraform versions have known issues with\n"
                     "   ROSA/OpenShift provider dependency resolution that cause deployment failures."
                 )
             
@@ -149,18 +152,18 @@ class YamlForgeConverter:
             
         except subprocess.TimeoutExpired:
             raise ValueError(
-                "❌ Terraform Version Error: Command 'terraform --version' timed out\n\n"
-                "💡 This might indicate a problem with your Terraform installation.\n"
+                "Terraform Version Error: Command 'terraform --version' timed out\n\n"
+                "This might indicate a problem with your Terraform installation.\n"
                 "   Please verify Terraform is properly installed and functional."
             )
         except FileNotFoundError:
             raise ValueError(
-                "❌ Terraform Version Error: 'terraform' command not found\n\n"
-                "💡 Terraform is required to deploy the generated configurations.\n\n"
-                "🚀 Install Terraform:\n\n"
-                "1️⃣  Download from official site:\n"
+                "Terraform Version Error: 'terraform' command not found\n\n"
+                "Terraform is required to deploy the generated configurations.\n\n"
+                "Install Terraform:\n\n"
+                "1. Download from official site:\n"
                 "   https://developer.hashicorp.com/terraform/downloads\n\n"
-                "2️⃣  Or use package managers:\n"
+                "2. Or use package managers:\n"
                 "   # macOS (Homebrew)\n"
                 "   brew install terraform\n\n"
                 "   # Linux (Ubuntu/Debian)\n"
@@ -169,19 +172,23 @@ class YamlForgeConverter:
                 "   sudo apt update && sudo apt install terraform\n\n"
                 "   # Windows (Chocolatey)\n"
                 "   choco install terraform\n\n"
-                "3️⃣  Verify installation:\n"
+                "3. Verify installation:\n"
                 "   terraform --version\n\n"
-                "📋 Note: YamlForge generates Terraform configurations, so Terraform\n"
+                "Note: YamlForge generates Terraform configurations, so Terraform\n"
                 "   is essential for deploying your infrastructure."
             )
         except Exception as e:
             raise ValueError(
-                f"❌ Terraform Version Error: Unexpected error checking Terraform version:\n{str(e)}\n\n"
-                "💡 Please ensure Terraform is properly installed and accessible."
+                f"Terraform Version Error: Unexpected error checking Terraform version:\n{str(e)}\n\n"
+                "Please ensure Terraform is properly installed and accessible."
             )
 
     def get_validated_guid(self, yaml_data=None):
         """Get GUID from environment variable or root-level YAML config with validation."""
+        # Return cached GUID if already validated
+        if hasattr(self, '_validated_guid') and self._validated_guid:
+            return self._validated_guid
+        
         # Try environment variable first (highest priority)
         guid = os.environ.get('GUID', '').strip()
         
@@ -200,22 +207,24 @@ class YamlForgeConverter:
                     f"to comply with DNS RFC and Kubernetes standards. "
                     f"Examples: 'abc12', 'web01', 'k8s99', '12345'"
                 )
+            # Cache the validated GUID
+            self._validated_guid = guid
             return guid
         else:
             raise ValueError(
                 "GUID is required but not provided.\n\n"
-                "💡 Please choose one of these options:\n\n"
-                "1️⃣  Set environment variable (recommended):\n"
+                "Please choose one of these options:\n\n"
+                "1. Set environment variable (recommended):\n"
                 "   export GUID=web01\n\n"
-                "2️⃣  Add to YAML root level:\n"
+                "2. Add to YAML root level:\n"
                 "   guid: \"web01\"\n"
                 "   yamlforge:\n"
                 "     ...\n\n"
-                "📋 GUID Requirements:\n"
+                "GUID Requirements:\n"
                 "   • Exactly 5 characters\n"
                 "   • Lowercase alphanumeric only (a-z, 0-9)\n"
                 "   • Examples: web01, app42, test1, dev99\n\n"
-                "🎯 Quick Start:\n"
+                "Quick Start:\n"
                 "   export GUID=test1 && ./yamlforge.py your-config.yaml -d output/"
             )
 
@@ -240,7 +249,13 @@ class YamlForgeConverter:
         
         # Update GUID in providers that need it
         if hasattr(self.gcp_provider, 'update_guid'):
-            self.gcp_provider.update_guid(self.get_validated_guid(yaml_data))
+            try:
+                guid = self.get_validated_guid(yaml_data)
+                self.gcp_provider.update_guid(guid)
+            except Exception as e:
+                # Only raise if we don't already have a valid GUID
+                if not hasattr(self, '_validated_guid') or not self._validated_guid:
+                    raise
 
     def load_images(self, file_path):
         """Load image mappings from YAML file."""
@@ -283,15 +298,7 @@ class YamlForgeConverter:
                     print(f"Warning: Could not load {file_path}: {e}")
         return flavors
 
-    def load_cloud_patterns(self, file_path):
-        """Load cloud-specific flavor patterns from YAML file."""
-        try:
-            with open(file_path, 'r') as f:
-                data = yaml.safe_load(f)
-                return data or {}
-        except FileNotFoundError:
-            print(f"Warning: {file_path} not found. Using empty cloud patterns.")
-            return {}
+
 
     def load_core_config(self, file_path):
         """Load core yamlforge configuration from YAML file."""
@@ -411,7 +418,7 @@ class YamlForgeConverter:
             print(f"ℹ️  Provider exclusions for {analysis_type}: {excluded_list} (excluded from cost comparison)")
             available_providers = self.get_effective_providers()
             available_list = ', '.join(available_providers)
-            print(f"✅ Available providers: {available_list}")
+            print(f"Available providers: {available_list}")
 
     def detect_required_providers(self, yaml_data):
         """Detect which cloud providers are actually being used."""
@@ -536,7 +543,7 @@ class YamlForgeConverter:
                         
                         instance_list = ', '.join(aws_instances) if aws_instances else 'OpenShift clusters'
                         
-                        error_msg = str(e).replace("❌ AWS Provider Error:", f"❌ AWS Provider Error (needed for: {instance_list}):")
+                        error_msg = str(e).replace("AWS Provider Error:", f"AWS Provider Error (needed for: {instance_list}):")
                         raise ValueError(error_msg) from e
             
             # Add validation for other providers as needed
@@ -596,47 +603,29 @@ class YamlForgeConverter:
                         f"Configuration Error: Instance '{instance_name}' uses meta provider '{provider}' "
                         f"with 'region' field. Meta providers automatically select the optimal cloud provider "
                         f"and region based on cost analysis.\n\n"
-                        f"🔧 Fix: Replace 'region' with 'location' for geographic preference:\n"
-                        f"   # ❌ Wrong:\n"
+                        f"Fix: Replace 'region' with 'location' for geographic preference:\n"
+                        f"   # Wrong:\n"
                         f"   region: \"{instance['region']}\"\n\n"
-                        f"   # ✅ Correct:\n"
+                        f"   # Correct:\n"
                         f"   location: \"us-east\"  # Geographic preference\n\n"
-                        f"📋 Meta provider behavior:\n"
+                        f"Meta provider behavior:\n"
                         f"   • '{provider}' evaluates all cloud providers\n"
                         f"   • Selects cheapest option across AWS, GCP, Azure, etc.\n"
                         f"   • Uses 'location' for geographic guidance only\n"
                         f"   • Chooses optimal region within selected cloud provider"
                     )
 
-    def generate_terraform_project(self, yaml_data):
-        """Generate organized Terraform project files with full regional infrastructure."""
-        # Set YAML data for GUID extraction
-        self.set_yaml_data(yaml_data)
-        
-        files = {}
-        required_providers = self.detect_required_providers(yaml_data)
 
-        # Generate complete main.tf with regional infrastructure
-        main_content = self.generate_complete_terraform(yaml_data, required_providers)
 
-        # Generate variables file
-        variables_content = self.generate_variables_tf(required_providers, yaml_data)
-
-        # Generate terraform.tfvars example  
-        tfvars_content = self.generate_tfvars_example(required_providers, yaml_data)
-
-        files['main.tf'] = main_content
-        files['variables.tf'] = variables_content
-        files['terraform.tfvars'] = tfvars_content
-
-        return files
-
-    def generate_complete_terraform(self, yaml_data, required_providers):
+    def generate_complete_terraform(self, yaml_data, required_providers, full_yaml_data=None):
         """Generate complete Terraform configuration with regional infrastructure."""
+        # Use full_yaml_data if provided, otherwise fall back to yaml_data
+        effective_yaml_data = full_yaml_data if full_yaml_data is not None else yaml_data
+        
         # Ensure YAML data is set for GUID extraction
-        if self.current_yaml_data != yaml_data:
-            self.set_yaml_data(yaml_data)
-            
+        if self.current_yaml_data != effective_yaml_data:
+            self.set_yaml_data(effective_yaml_data)
+        
         terraform_content = f'''# Generated by YamlForge v2.0 - Regional Multi-Cloud Infrastructure
 # Required providers: {', '.join(required_providers)}
 # Regional security groups and networking included
@@ -794,7 +783,8 @@ provider "google" {
             elif provider == 'ibm_vpc':
                 terraform_content += '''# IBM Cloud Provider Configuration
 provider "ibm" {
-  region = var.ibm_region
+  ibmcloud_api_key = var.ibm_api_key
+  region           = var.ibm_region
 }
 
 '''
@@ -876,7 +866,7 @@ provider "rhcs" {
         self.validate_meta_provider_configuration(instances)
         
         for i, instance in enumerate(instances):
-            terraform_content += self.generate_virtual_machine(instance, i+1, yaml_data)
+            terraform_content += self.generate_virtual_machine(instance, i+1, yaml_data, full_yaml_data=effective_yaml_data)
 
         # ROSA clusters use ROSA CLI instead of Terraform providers
 
@@ -969,6 +959,8 @@ output "aws_instances" {
         
         for instance in instances:
             instance_name = instance.get("name", "unknown")
+            # Replace {guid} placeholder in instance name
+            instance_name = self.replace_guid_placeholders(instance_name)
             clean_name = self.clean_name(instance_name)
             ssh_username = self.get_instance_ssh_username(instance, 'aws', yaml_data)
             
@@ -1259,6 +1251,8 @@ output "all_instances_summary" {
         for provider, instances in provider_instances.items():
             for instance in instances:
                 instance_name = instance.get("name", "unknown")
+                # Replace {guid} placeholder in instance name
+                instance_name = self.replace_guid_placeholders(instance_name)
                 clean_name = self.clean_name(instance_name)
                 ssh_username = self.get_instance_ssh_username(instance, provider, yaml_data)
                 
@@ -1313,6 +1307,8 @@ output "external_ips" {
         for provider, instances in provider_instances.items():
             for instance in instances:
                 instance_name = instance.get("name", "unknown")
+                # Replace {guid} placeholder in instance name
+                instance_name = self.replace_guid_placeholders(instance_name)
                 clean_name = self.clean_name(instance_name)
                 
                 # Generate provider-specific IP reference
@@ -1482,8 +1478,14 @@ variable "gcp_region" {
 
 '''
 
-        if 'ibm_vpc' in required_providers:
+        if 'ibm_vpc' in required_providers or 'ibm_classic' in required_providers:
             variables_content += '''# IBM Cloud Variables
+variable "ibm_api_key" {
+  description = "IBM Cloud API key for authentication"
+  type        = string
+  sensitive   = true
+}
+
 variable "ibm_region" {
   description = "IBM Cloud region for deployment"
   type        = string
@@ -1668,10 +1670,7 @@ variable "common_tags" {
         if ssh_key_info.get('available'):
             # Mask the SSH key for security (show first 20 and last 10 characters)
             ssh_key = ssh_key_info.get('public_key', '')
-            if len(ssh_key) > 40:
-                masked_key = ssh_key[:20] + "..." + ssh_key[-10:]
-            else:
-                masked_key = ssh_key[:10] + "..." if len(ssh_key) > 10 else ssh_key
+
                 
             tfvars_content += f'''# SSH public key for instance access
 # Automatically detected from: {ssh_key_info.get('source')}
@@ -1723,13 +1722,11 @@ aws_billing_account_id = "{aws_billing_account_id or ''}"
             
             # AWS account information - try environment variables first, then AWS SDK
             account_id_from_env = None
-            user_arn_from_env = None
             billing_account_id = aws_billing_account_id
             
             if aws_creds.get('available'):
                 # Use auto-discovered values from AWS SDK
                 account_id_from_env = aws_creds.get('account_id')
-                user_arn_from_env = aws_creds.get('user_arn', '')
                 # Use environment variable for billing account ID if set, otherwise use account ID
                 billing_account_id = billing_account_id or account_id_from_env
                 
@@ -1794,8 +1791,22 @@ gcp_region = "us-east1"
 
 '''
 
-        if 'ibm_vpc' in required_providers:
-            tfvars_content += '''# IBM Cloud Configuration
+        if 'ibm_vpc' in required_providers or 'ibm_classic' in required_providers:
+            # Check for IBM Cloud API key from environment variables
+            ibm_api_key = os.getenv('IC_API_KEY') or os.getenv('IBMCLOUD_API_KEY')
+            
+            if ibm_api_key:
+                tfvars_content += f'''# IBM Cloud Configuration
+# API key automatically detected from environment variable
+ibm_api_key = "{ibm_api_key}"
+ibm_region = "us-south"
+
+'''
+            else:
+                tfvars_content += '''# IBM Cloud Configuration
+# Set IC_API_KEY or IBMCLOUD_API_KEY environment variable
+# Or configure ibm_api_key here
+ibm_api_key = "your-ibm-cloud-api-key-here"
 ibm_region = "us-south"
 
 '''
@@ -1843,11 +1854,6 @@ alibaba_region     = "cn-hangzhou"
 '''
             
             if rhcs_token:
-                # Mask the token for security (show first 10 and last 10 characters)
-                if len(rhcs_token) > 30:
-                    masked_token = rhcs_token[:10] + "..." + rhcs_token[-10:]
-                else:
-                    masked_token = rhcs_token[:5] + "..." if len(rhcs_token) > 10 else rhcs_token
                 
                 tfvars_content += f'''# Red Hat OpenShift Cluster Manager Token
 # Automatically detected from environment variable
@@ -1865,7 +1871,6 @@ rhcs_url   = "https://api.openshift.com"
 '''
 
         # Red Hat Pull Secret for enhanced content access
-        openshift_creds = self.credentials.get_openshift_credentials()
         pull_secret = os.getenv('OCP_PULL_SECRET')
         
         if pull_secret and pull_secret.strip():
@@ -1887,20 +1892,20 @@ redhat_pull_secret = ""
 
         return tfvars_content
 
-    def convert(self, config, output_dir, verbose=False):
+    def convert(self, config, output_dir, verbose=False, full_yaml_data=None):
         """Convert YAML configuration to Terraform and write files to output directory."""
         self.verbose = verbose
-        # Set YAML data for GUID extraction
-        self.set_yaml_data(config)
+        # Set YAML data for GUID extraction - use full YAML data if provided
+        yaml_data_for_guid = full_yaml_data if full_yaml_data is not None else config
+        self.set_yaml_data(yaml_data_for_guid)
         
         # Validate cloud provider setup early
         self.validate_provider_setup(config)
         
         required_providers = self.detect_required_providers(config)
 
-
         # Generate the complete terraform configuration
-        terraform_config = self.generate_complete_terraform(config, required_providers)
+        terraform_config = self.generate_complete_terraform(config, required_providers, full_yaml_data)
         
         # Write the main.tf file
         main_tf_path = os.path.join(output_dir, 'main.tf')
@@ -1965,21 +1970,27 @@ redhat_pull_secret = ""
                 print(f"  - {variables_path}")
                 print(f"  - {tfvars_path}")
 
-    def convert_yaml_to_terraform(self, config):
-        """Convert YAML configuration to Terraform (compatibility method)."""
-        # Set YAML data for GUID extraction
-        self.set_yaml_data(config)
-        
-        required_providers = self.detect_required_providers(config)
 
-        # Use the complete terraform generation for full functionality
-        return self.generate_complete_terraform(config, required_providers)
 
     def clean_name(self, name):
         """Clean a name for use as a Terraform resource identifier."""
         if not name:
             return "unnamed"
+        
+        # Replace {guid} placeholder with actual GUID if present
+        if '{guid}' in name:
+            guid = self.get_validated_guid()
+            name = name.replace('{guid}', guid)
+        
         return name.replace("-", "_").replace(".", "_").replace(" ", "_")
+
+    def replace_guid_placeholders(self, text):
+        """Replace {guid} placeholders in text with actual GUID."""
+        if not text or '{guid}' not in text:
+            return text
+        
+        guid = self.get_validated_guid()
+        return text.replace('{guid}', guid)
 
     def resolve_instance_region(self, instance, provider):
         """Resolve instance region with support for both direct regions and mapped locations."""
@@ -2314,23 +2325,23 @@ redhat_pull_secret = ""
                 elif gpu_count:
                     req_desc += f", {gpu_count} GPU(s)"
                 
-                print(f"📋 Auto-matched flavor for {req_desc}:")
-                print(f"  🎯 Recommended flavor: {closest_flavor['flavor']}")
-                print(f"  📊 Avg specs: {closest_flavor['avg_vcpus']:.1f} vCPUs, {closest_flavor['avg_memory_gb']:.1f}GB RAM", end="")
-                if closest_flavor['avg_gpus'] > 0:
-                    gpu_info = f", {closest_flavor['avg_gpus']:.1f} GPUs"
-                    if closest_flavor['gpu_types']:
-                        gpu_info += f" ({', '.join(closest_flavor['gpu_types'])})"
-                    print(gpu_info)
-                else:
-                    print()
-                print(f"  ✅ Available on: {', '.join(closest_flavor['available_providers'])}")
-                
-                # Use the found flavor instead of specs
-                size = closest_flavor['flavor']
-                # Clear the hardware specs since we're now using flavor
-                cores = None
-                memory = None
+                print(f"Auto-matched flavor for {req_desc}:")
+                print(f"  Recommended flavor: {closest_flavor['flavor']}")
+            print(f"  Avg specs: {closest_flavor['avg_vcpus']:.1f} vCPUs, {closest_flavor['avg_memory_gb']:.1f}GB RAM", end="")
+            if closest_flavor['avg_gpus'] > 0:
+                gpu_info = f", {closest_flavor['avg_gpus']:.1f} GPUs"
+                if closest_flavor['gpu_types']:
+                    gpu_info += f" ({', '.join(closest_flavor['gpu_types'])})"
+                print(gpu_info)
+            else:
+                print()
+            print(f"  Available on: {', '.join(closest_flavor['available_providers'])}")
+            
+            # Use the found flavor instead of specs
+            size = closest_flavor['flavor']
+            # Clear the hardware specs since we're now using flavor
+            cores = None
+            memory = None
         
         # Get cost information for all providers
         provider_costs = {}
@@ -2714,8 +2725,7 @@ redhat_pull_secret = ""
                 if gpu_type:
                     available_gpu_types.add(gpu_type)
         
-        # Check if requested GPU type matches any available GPU type
-        normalized_requested = requested_gpu_type.upper().strip()
+
         
         for available_gpu in available_gpu_types:
             if self.gpu_type_matches(available_gpu, requested_gpu_type):
@@ -2877,13 +2887,10 @@ redhat_pull_secret = ""
         
         return None
     
-    def get_instance_cost(self, provider, instance_type, size, provider_flavors):
-        """Get hourly cost for a specific instance type (alternative method)."""
-        cost_info = self.get_instance_cost_info(provider, instance_type, size, provider_flavors)
-        return cost_info['cost'] if cost_info else None
+
 
     # Placeholder methods for provider delegation
-    def generate_virtual_machine(self, instance, index, yaml_data, available_subnets=None):
+    def generate_virtual_machine(self, instance, index, yaml_data, available_subnets=None, full_yaml_data=None):
         """Generate virtual machine configuration using provider modules."""
         provider = instance.get("provider")
         if not provider:
@@ -2893,7 +2900,6 @@ redhat_pull_secret = ""
         # Handle cheapest provider meta-provider
         selected_instance_type = None
         if provider == 'cheapest':
-            original_provider = provider
             provider = self.find_cheapest_provider(instance)
             # Update the instance with the selected provider for consistency
             instance = instance.copy()
@@ -2903,7 +2909,6 @@ redhat_pull_secret = ""
             selected_instance_type = self.get_cheapest_instance_type(instance, provider)
             print(f"Selected cheapest provider: {provider}")
         elif provider == 'cheapest-gpu':
-            original_provider = provider
             provider = self.find_cheapest_gpu_provider(instance)
             # Update the instance with the selected provider for consistency
             instance = instance.copy()
@@ -2931,99 +2936,108 @@ redhat_pull_secret = ""
         # Determine instance type (priority: direct specification > cheapest selection > size mapping)
         instance_type = direct_instance_type or selected_instance_type or self.resolve_instance_type(provider, size, instance)
 
+        # Use full_yaml_data if provided, otherwise fall back to yaml_data
+        effective_yaml_data = full_yaml_data if full_yaml_data is not None else yaml_data
+
         if provider == 'aws':
             strategy_info = {'instance_type': instance_type, 'architecture': 'x86_64'}
-            return self.aws_provider.generate_aws_vm(instance, index, clean_name, strategy_info, available_subnets, yaml_data)
+            return self.aws_provider.generate_aws_vm(instance, index, clean_name, strategy_info, available_subnets, effective_yaml_data)
         elif provider == 'azure':
-            return self.azure_provider.generate_azure_vm(instance, index, clean_name, instance_type, available_subnets, yaml_data)
+            return self.azure_provider.generate_azure_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data)
         elif provider == 'gcp':
-            return self.gcp_provider.generate_gcp_vm(instance, index, clean_name, instance_type, available_subnets, yaml_data)
+            return self.gcp_provider.generate_gcp_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data)
         elif provider == 'oci':
-            return self.oci_provider.generate_oci_vm(instance, index, clean_name, instance_type, available_subnets, yaml_data)
+            return self.oci_provider.generate_oci_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data)
         elif provider == 'vmware':
-            return self.vmware_provider.generate_vmware_vm(instance, index, clean_name, instance_type, available_subnets, yaml_data)
+            return self.vmware_provider.generate_vmware_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data)
         elif provider == 'alibaba':
-            return self.alibaba_provider.generate_alibaba_vm(instance, index, clean_name, instance_type, available_subnets, yaml_data)
+            return self.alibaba_provider.generate_alibaba_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data)
         elif provider in ['ibm_vpc', 'ibm_classic']:
             if provider == 'ibm_vpc':
-                return self.ibm_vpc_provider.generate_ibm_vpc_vm(instance, index, clean_name, instance_type, yaml_data)
+                return self.ibm_vpc_provider.generate_ibm_vpc_vm(instance, index, clean_name, instance_type, effective_yaml_data)
             else:
-                return self.ibm_classic_provider.generate_ibm_classic_vm(instance, index, clean_name, instance_type, yaml_data)
+                return self.ibm_classic_provider.generate_ibm_classic_vm(instance, index, clean_name, instance_type, effective_yaml_data)
         else:
             raise ValueError(f"Unsupported provider: {provider}")
 
-    # Security Group and Networking Methods
-    def get_instance_security_groups(self, instance):
-        """Get security group references for an instance with regional awareness."""
-        provider = instance.get('provider')
-        region = self.resolve_instance_region(instance, provider)
-        sg_names = instance.get('security_groups', [])
 
-        # Generate regional security group references
-        regional_sg_refs = []
-        for sg_name in sg_names:
-            # Create region-specific security group reference
-            clean_sg_name = self.get_regional_sg_name(sg_name, provider, region)
-            regional_sg_refs.append(clean_sg_name)
-
-        return regional_sg_refs
-
-    def get_regional_sg_name(self, sg_name, provider, region):
-        """Generate region-specific security group name."""
-        clean_sg = sg_name.replace("-", "_").replace(".", "_")
-        clean_region = region.replace("-", "_").replace(".", "_")
-        return f"{clean_sg}_{clean_region}"
-
-    def get_instance_subnet(self, instance, available_subnets):
-        """Get subnet for this instance with regional awareness."""
-        provider = instance.get('provider')
-        if provider in ['aws', 'azure', 'gcp', 'ibm_vpc']:  # Regional providers
-            region = self.resolve_instance_region(instance, provider)
-            if region:
-                clean_region = region.replace("-", "_").replace(".", "_")
-            else:
-                clean_region = "default"
-
-            subnet_name = instance.get('subnet')
-            if subnet_name and subnet_name in available_subnets:
-                # Return custom subnet reference with regional suffix
-                clean_subnet = subnet_name.replace("-", "_").replace(".", "_")
-                return f"{clean_subnet}_{clean_region}"
-
-            # Return regional main subnet
-            return f"main_subnet_{clean_region}"
-        else:
-            # Non-regional providers (like ibm_classic)
-            return "main_subnet"
 
     def generate_native_security_group_rule(self, rule, provider):
         """Generate native security group rule data for specified provider."""
         # Parse rule data
-        protocol = rule.get('protocol', 'tcp').lower()
-        port = rule.get('port')
+        protocol = rule.get('protocol', '').lower()
         port_range = rule.get('port_range')
-        
-        # Handle port_range field (e.g., '22', '80-90', '443')
-        if port_range and not port:
-            if '-' in str(port_range):
-                # Range format like '80-90'
-                from_port, to_port = str(port_range).split('-', 1)
-                from_port = int(from_port.strip())
-                to_port = int(to_port.strip())
-            else:
-                # Single port like '22'
-                port = int(port_range)
-        
-        from_port = rule.get('from_port', port)
-        to_port = rule.get('to_port', port)
         direction = rule.get('direction', 'ingress')
-
-        # Handle source/destination
-        source = rule.get('source', rule.get('cidr', '0.0.0.0/0'))
-        if isinstance(source, str):
-            cidr_blocks = [source]
+        source = rule.get('source', '0.0.0.0/0')
+        destination = rule.get('destination')
+        
+        # Validate required fields
+        if not protocol:
+            raise ValueError(f"Security group rule missing required 'protocol' field. Rule: {rule}")
+        if not port_range:
+            raise ValueError(f"Security group rule missing required 'port_range' field. Rule: {rule}")
+        if not source:
+            raise ValueError(f"Security group rule missing required 'source' field. Rule: {rule}")
+        
+        # Validate destination for egress rules
+        if direction == 'egress' and not destination:
+            raise ValueError(f"Security group egress rule missing required 'destination' field. Rule: {rule}")
+        
+        # Validate protocol
+        valid_protocols = ['tcp', 'udp', 'icmp', 'icmpv6', 'all', 'ah', 'esp', 'gre', 'ipip']
+        if protocol not in valid_protocols:
+            raise ValueError(f"Invalid protocol '{protocol}'. Valid protocols: {', '.join(valid_protocols)}. Rule: {rule}")
+        
+        # Validate port_range format
+        import re
+        port_pattern = re.compile(r'^([0-9]+|[0-9]+-[0-9]+)$')
+        if not port_pattern.match(port_range):
+            raise ValueError(f"Invalid port_range '{port_range}'. Must be single port (e.g., '22') or range (e.g., '80-90'). Rule: {rule}")
+        
+        # Parse port_range to from_port and to_port
+        if '-' in port_range:
+            from_port, to_port = port_range.split('-', 1)
+            from_port = int(from_port.strip())
+            to_port = int(to_port.strip())
         else:
-            cidr_blocks = source if source else ['0.0.0.0/0']
+            # Single port becomes range
+            from_port = int(port_range)
+            to_port = from_port
+        
+        # Validate port numbers
+        if from_port < 0 or from_port > 65535 or to_port < 0 or to_port > 65535:
+            raise ValueError(f"Port numbers must be between 0 and 65535. Got: {from_port}-{to_port}. Rule: {rule}")
+        if from_port > to_port:
+            raise ValueError(f"Invalid port range: from_port ({from_port}) cannot be greater than to_port ({to_port}). Rule: {rule}")
+        
+        # Validate source format
+        self._validate_security_group_source(source, provider, rule)
+        
+        # Validate destination format if provided
+        if destination:
+            self._validate_security_group_source(destination, provider, rule)
+        
+        # Handle source/destination
+        if self._is_cidr_block(source):
+            source_cidr_blocks = [source]
+        else:
+            # Provider-specific source (e.g., security group reference)
+            source_cidr_blocks = [source]  # Will be handled differently by providers
+        
+        if destination and self._is_cidr_block(destination):
+            destination_cidr_blocks = [destination]
+        elif destination:
+            # Provider-specific destination
+            destination_cidr_blocks = [destination]
+        else:
+            destination_cidr_blocks = []
+
+        # Convert direction for different providers
+        if provider == 'azure':
+            direction = "Inbound" if direction == 'ingress' else "Outbound"
+        elif provider in ['gcp', 'oci']:
+            direction = direction.upper()  # INGRESS/EGRESS
+        # AWS, IBM VPC, Alibaba use lowercase ingress/egress (no conversion needed)
 
         # Convert protocol for different providers
         if provider == 'azure':
@@ -3033,18 +3047,59 @@ redhat_pull_secret = ""
                 protocol = 'Udp'
             elif protocol == 'icmp':
                 protocol = 'Icmp'
-
-        # Validate that ports are specified
-        if from_port is None or to_port is None:
-            raise ValueError(f"Security group rule missing port configuration. Must specify 'port', 'port_range', or 'from_port'/'to_port'. Rule: {rule}")
+            elif protocol == 'icmpv6':
+                protocol = 'Icmpv6'
+            elif protocol == 'all':
+                protocol = '*'
+            # Other protocols remain as-is
         
         return {
             'direction': direction,
             'from_port': from_port,
             'to_port': to_port,
             'protocol': protocol,
-            'cidr_blocks': cidr_blocks
+            'source_cidr_blocks': source_cidr_blocks,
+            'destination_cidr_blocks': destination_cidr_blocks,
+            'source': source,  # Keep original source for provider-specific handling
+            'destination': destination,  # Keep original destination for provider-specific handling
+            'is_source_cidr': self._is_cidr_block(source),
+            'is_destination_cidr': self._is_cidr_block(destination) if destination else True
         }
+    
+    def _is_cidr_block(self, source):
+        """Check if source is a CIDR block."""
+        import re
+        cidr_pattern = re.compile(r'^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$|^([0-9a-fA-F:]+::?)+/[0-9]{1,3}$')
+        return bool(cidr_pattern.match(source))
+    
+    def _validate_security_group_source(self, source, provider, rule):
+        """Validate security group source based on provider capabilities."""
+        # CIDR blocks are always supported
+        if self._is_cidr_block(source):
+            return
+        
+        # Provider-specific source validation
+        if provider == 'cheapest':
+            raise ValueError(f"Provider-specific source '{source}' not supported with 'cheapest' provider. Use CIDR blocks only. Rule: {rule}")
+        
+        # AWS security group references
+        if provider == 'aws' and source.startswith('sg-'):
+            return
+        
+        # GCP tag-based sources
+        if provider == 'gcp' and source == 'tags':
+            return
+        
+        # Azure application security groups (future support)
+        if provider == 'azure' and source.startswith('asg-'):
+            return
+        
+        # IBM VPC security group references (future support)
+        if provider == 'ibm_vpc' and source.startswith('sg-'):
+            return
+        
+        # If we get here, it's an unsupported source type for this provider
+        raise ValueError(f"Unsupported source '{source}' for provider '{provider}'. Use CIDR blocks or provider-specific references. Rule: {rule}")
 
     def analyze_regional_security_groups(self, config):
         """Analyze which security groups are needed in which regions."""
@@ -3280,4 +3335,70 @@ redhat_pull_secret = ""
 
     def generate_ami_data_source(self, image_key, instance_name, architecture):
         """Generate AWS AMI data source."""
-        return ""
+        clean_name = self.clean_name(instance_name)
+        
+        # Handle different image types
+        if "FEDORA" in image_key.upper():
+            # Fedora images
+            fedora_version = self.extract_fedora_version(image_key)
+            owner = "125523088429"  # Fedora project account
+            name_pattern = f"Fedora-Cloud-Base-{fedora_version}*"
+            arch = "x86_64"  # Default architecture for Fedora
+            is_gold = False
+        else:
+            # RHEL images (default)
+            rhel_version, arch = self.extract_rhel_info(image_key)
+            is_gold = "GOLD" in image_key.upper() or "BYOS" in image_key.upper()
+            
+            # Determine owner based on image type
+            if is_gold:
+                owner = "309956199498"  # Red Hat Gold account
+                # Use pattern that targets latest versions (e.g., RHEL-9.6.*_HVM.*Access*)
+                # This will naturally select the highest version due to lexicographic sorting
+                name_pattern = f"RHEL-{rhel_version}.*_HVM.*Access*"
+            else:
+                owner = "309956199498"  # Red Hat public account
+                # Use pattern that targets latest versions (e.g., RHEL-9.6.*_HVM*)
+                # This will naturally select the highest version due to lexicographic sorting
+                name_pattern = f"RHEL-{rhel_version}.*_HVM*"
+        
+        # Generate the data source
+        data_source = f'''
+# AWS AMI Data Source for {image_key}
+data "aws_ami" "{clean_name}_ami" {{
+  most_recent = true
+  owners      = ["{owner}"]
+
+  filter {{
+    name   = "name"
+    values = ["{name_pattern}"]
+  }}
+
+  filter {{
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }}
+
+  filter {{
+    name   = "architecture"
+    values = ["{arch}"]
+  }}
+
+  filter {{
+    name   = "root-device-type"
+    values = ["ebs"]
+  }}'''
+
+        # Add is-public filter for GOLD images
+        if is_gold:
+            data_source += f'''
+
+  filter {{
+    name   = "is-public"
+    values = ["false"]
+  }}'''
+
+        data_source += f'''
+}}
+'''
+        return data_source

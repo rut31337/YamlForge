@@ -7,10 +7,9 @@ networking, firewall rules, project management, user access control, and other G
 
 import yaml
 import os
-import uuid
 import json
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime
 import re
 import subprocess
 
@@ -74,39 +73,7 @@ class GCPImageResolver:
             print(f"Warning: Failed to create GCP client: {e}")
             return None
 
-    def find_latest_image_by_family(self, family, architecture="X86_64"):
-        """Find the latest image by family."""
-        cache_key = f"{family}_{architecture}"
 
-        # Check cache first
-        if self.is_cache_valid(family):
-            return self.cache[cache_key]
-
-        client = self.get_client()
-        if client is None:
-            return None
-
-        try:
-            # Get the latest image from the family
-            request = compute_v1.GetFromFamilyImageRequest(
-                project="rhel-cloud",  # Red Hat's project for RHEL images
-                family=family
-            )
-
-            image = client.get_from_family(request=request)
-
-            if image:
-                # Cache the result
-                self.cache[cache_key] = image.self_link
-                import time
-                self.cache_timestamps[cache_key] = time.time()
-                return image.self_link
-
-            return None
-
-        except Exception as e:
-            print(f"Warning: Failed to find GCP image for family '{family}': {e}")
-            return None
 
     def is_cache_valid(self, family):
         """Check if cached result is still valid."""
@@ -119,7 +86,6 @@ class GCPProvider:
     def __init__(self, converter):
         """Initialize the instance."""
         self.converter = converter
-        self._gcp_resolver = None
         self.config = self.load_config()
         self.guid = None  # Will be set later when YAML data is available
 
@@ -238,11 +204,7 @@ class GCPProvider:
             'has_credentials': has_credentials
         }
 
-    def get_gcp_resolver(self):
-        """Get GCP image resolver, creating it only when needed."""
-        if self._gcp_resolver is None:
-            self._gcp_resolver = GCPImageResolver(self.converter.credentials)
-        return self._gcp_resolver
+
 
     def get_gcp_machine_type(self, size_or_instance_type):
         """Get GCP machine type from size mapping or return direct instance type."""
@@ -270,6 +232,11 @@ class GCPProvider:
 
     def check_machine_type_availability(self, machine_type, region, zone=None):
         """Check if a GCP machine type is available in the specified region/zone."""
+        # Skip availability checking in no-credentials mode
+        if self.converter.no_credentials:
+            print(f"  NO-CREDENTIALS MODE: Skipping machine type availability check for '{machine_type}' in region '{region}'")
+            return True
+        
         if not GOOGLE_CLOUD_AVAILABLE:
             return self._fallback_machine_type_check(machine_type, region)
         
@@ -473,42 +440,11 @@ class GCPProvider:
 
         return default_image
 
-    def generate_gcp_firewall_rules_alternative(self, sg_name, rules):
-        """Generate GCP firewall rules (alternative method)."""
-        clean_name = sg_name.replace("-", "_").replace(".", "_")
-        firewall_config = ""
-
-        for i, rule in enumerate(rules):
-            rule_data = self.converter.generate_native_security_group_rule(rule, 'gcp')
-            direction = "INGRESS" if rule_data['direction'] == 'ingress' else "EGRESS"
-
-            rule_name = f"{clean_name}_rule_{i+1}"
-            ports = [str(rule_data['from_port'])] if rule_data['from_port'] == rule_data['to_port'] else [f"{rule_data['from_port']}-{rule_data['to_port']}"]
-
-            firewall_config += f'''
-# GCP Firewall Rule: {sg_name} Rule {i+1}
-resource "google_compute_firewall" "{rule_name}" {{
-  name    = "{sg_name}-rule-{i+1}"
-  network = google_compute_network.main_network.name
-
-  allow {{
-    protocol = "{rule_data['protocol']}"
-    ports    = {ports}
-  }}
-
-  direction     = "{direction}"
-  source_ranges = [{', '.join([f'"{cidr}"' for cidr in rule_data['cidr_blocks']])}]
-
-  target_tags = ["{clean_name}"]
-}}
-
-'''
-
-        return firewall_config
-
     def generate_gcp_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None):
         """Generate native GCP Compute Engine instance."""
         instance_name = instance.get("name", f"instance_{index}")
+        # Replace {guid} placeholder in instance name
+        instance_name = self.converter.replace_guid_placeholders(instance_name)
         image = instance.get("image", "RHEL9-latest")
 
         # Resolve region and zone
@@ -678,6 +614,8 @@ resource "google_dns_record_set" "{clean_name}_internal_dns_{self.get_validated_
 
     def generate_gcp_firewall_rules(self, sg_name, rules, region):
         """Generate GCP firewall rules for specific region (equivalent to security groups)."""
+        # Replace {guid} placeholder in security group name
+        sg_name = self.converter.replace_guid_placeholders(sg_name)
         clean_name = sg_name.replace("-", "_").replace(".", "_")
         clean_region = region.replace("-", "_").replace(".", "_")
         regional_fw_name = f"{clean_name}_{clean_region}"
@@ -693,6 +631,28 @@ resource "google_dns_record_set" "{clean_name}_internal_dns_{self.get_validated_
             # Create unique firewall rule name
             rule_name = f"{regional_fw_name}_rule_{i+1}"
 
+            # Handle different source types
+            source_cidr_blocks = rule_data.get('source_cidr_blocks', [])
+            if rule_data.get('is_source_cidr', False):
+                source_ranges = [f'"{cidr}"' for cidr in source_cidr_blocks]
+                source_config = f'''  source_ranges = [{', '.join(source_ranges)}]'''
+            else:
+                # Provider-specific source (e.g., tags)
+                source_config = f'''  source_tags = ["{rule_data['source']}"]'''
+
+            # Handle different destination types
+            destination_config = ""
+            destination_cidr_blocks = rule_data.get('destination_cidr_blocks', [])
+            if rule_data.get('destination'):
+                if rule_data.get('is_destination_cidr', False):
+                    destination_ranges = [f'"{cidr}"' for cidr in destination_cidr_blocks]
+                    destination_config = f'''
+  destination_ranges = [{', '.join(destination_ranges)}]'''
+                else:
+                    # Provider-specific destination (e.g., tags)
+                    destination_config = f'''
+  target_tags = ["{rule_data['destination']}"]'''
+
             firewall_config += f'''
 # GCP Firewall Rule: {sg_name} Rule {i+1} (Region: {region})
 resource "google_compute_firewall" "{rule_name}_{self.get_validated_guid()}" {{
@@ -706,7 +666,7 @@ resource "google_compute_firewall" "{rule_name}_{self.get_validated_guid()}" {{
   }}
 
   direction     = "{direction}"
-  source_ranges = [{', '.join([f'"{cidr}"' for cidr in rule_data['cidr_blocks']])}]
+{source_config}{destination_config}
   target_tags   = ["{sg_name}"]
 }}
 '''
@@ -719,7 +679,6 @@ resource "google_compute_firewall" "{rule_name}_{self.get_validated_guid()}" {{
         network_name = network_config.get('name', f"{deployment_name}-network")
         cidr_block = network_config.get('cidr_block', '10.0.0.0/16')
 
-        clean_network_name = self.converter.clean_name(network_name)
         clean_region = region.replace("-", "_").replace(".", "_")
 
         return f'''
@@ -809,55 +768,7 @@ resource "google_compute_firewall" "main_ssh_{clean_region}_{self.get_validated_
         # Fall back to config domain (from environment or defaults)
         return self.config.get('root_zone_domain', 'example.com')
     
-    def generate_vm_dns_outputs(self, yaml_data):
-        """Generate output statements for all VM DNS records and FQDNs."""
-        if not yaml_data:
-            return "    # No VM instances configured"
-        
-        instances = yaml_data.get('instances', [])
-        gcp_instances = []
-        
-        # Find all GCP instances
-        for instance in instances:
-            provider = instance.get('provider')
-            
-            # Resolve meta providers to actual providers
-            if provider == 'cheapest':
-                provider = self.converter.find_cheapest_provider(instance, suppress_output=True)
-            elif provider == 'cheapest-gpu':
-                provider = self.converter.find_cheapest_gpu_provider(instance, suppress_output=True)
-            
-            if provider == 'gcp':
-                gcp_instances.append(instance)
-        
-        if not gcp_instances:
-            return "    # No GCP instances configured"
-        
-        output_lines = []
-        root_domain = self.get_root_zone_domain(yaml_data)
-        guid = self.get_validated_guid()
-        
-        for instance in gcp_instances:
-            instance_name = instance.get("name", "unknown")
-            clean_name = self.converter.clean_name(instance_name)
-            
-            # Public FQDN (external IP)
-            public_fqdn = f"{instance_name}.{guid}.{root_domain}"
-            # Private FQDN (internal IP)
-            private_fqdn = f"{instance_name}-internal.{guid}.{root_domain}"
-            
-            output_lines.append(f'''    "{instance_name}" = {{
-      public_fqdn = "{public_fqdn}"
-      private_fqdn = "{private_fqdn}"
-      public_ip = google_compute_address.{clean_name}_ip_{guid}.address
-      private_ip = google_compute_instance.{clean_name}_{guid}.network_interface[0].network_ip
-      dns_records = [
-        google_dns_record_set.{clean_name}_dns_{guid}[0].name,
-        google_dns_record_set.{clean_name}_internal_dns_{guid}[0].name
-      ]
-    }}''')
-        
-        return '\n'.join(output_lines)
+
 
     def generate_project_management(self, yaml_data):
         """Generate GCP project management, user access, and DNS infrastructure."""
@@ -1271,25 +1182,15 @@ output "project_info" {{
         
         return project_terraform
 
-    def format_gcp_labels(self, tags):
-        """Format tags as GCP labels (lowercase, hyphens only)."""
-        if not tags:
-            return ""
 
-        label_items = []
-        for key, value in tags.items():
-            # GCP label keys must be lowercase and use hyphens
-            gcp_key = key.lower().replace('_', '-').replace(' ', '-')
-            gcp_value = str(value).lower().replace('_', '-').replace(' ', '-')
-            label_items.append(f'    {gcp_key} = "{gcp_value}"')
-
-        return f'''
-  labels = {{
-{chr(10).join(label_items)}
-  }}'''
 
     def get_available_zones_for_region(self, region):
         """Get available zones for a specific region with intelligent fallback."""
+        # Skip zone discovery in no-credentials mode
+        if self.converter.no_credentials:
+            print(f"  NO-CREDENTIALS MODE: Using placeholder zone for region '{region}'")
+            return [f"{region}-a"]  # Return a placeholder zone
+        
         if not GOOGLE_CLOUD_AVAILABLE:
             return self._fallback_get_zones_for_region(region)
         

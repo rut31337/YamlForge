@@ -1,0 +1,70 @@
+# Vulture configuration for YamlForge
+# This file contains all the methods and functions that are dynamically called
+# and should be ignored by Vulture to reduce false positives
+
+# Core converter methods that are dynamically called
+generate_aws_vm
+generate_aws_security_group
+generate_aws_networking
+generate_azure_vm
+generate_azure_security_group
+generate_azure_networking
+generate_gcp_vm
+generate_gcp_firewall_rules
+generate_ibm_vpc_vm
+generate_ibm_security_group
+generate_ibm_classic_vm
+generate_oci_vm
+generate_oci_security_group
+generate_alibaba_vm
+generate_alibaba_security_group
+generate_alibaba_networking
+generate_vmware_vm
+
+# Credential methods that are dynamically accessed
+get_aws_credentials
+get_azure_credentials
+get_gcp_credentials
+get_ibm_vpc_credentials
+get_ibm_classic_credentials
+get_oci_credentials
+get_alibaba_credentials
+get_vmware_credentials
+get_cert_manager_credentials
+
+# Property decorators that are dynamically accessed
+oci_config
+alibaba_config
+
+# OpenShift methods that are dynamically called
+validate_openshift_version
+
+# ROSA methods that are dynamically called
+create_rosa_account_roles_via_cli
+generate_rosa_operator_roles
+generate_rosa_oidc_config
+generate_rosa_sts_data_sources
+
+# OpenShift feature methods that are stubs for future functionality
+generate_lifecycle_management
+generate_blue_green_automation
+generate_upgrade_automation
+generate_ingress_resources
+generate_external_dns
+
+# OpenShift operator methods that are stubs
+generate_gitops_operator
+generate_pipelines_operator
+generate_serverless_operator
+generate_logging_operator
+generate_monitoring_operator
+generate_storage_operator
+generate_service_mesh_operator
+generate_metallb_operator
+generate_submariner_operator
+generate_cert_manager_operator
+generate_oadp_operator
+
+# ROSA Version Manager (integrated)
+ROSAVersionManager
+retry_with_backoff

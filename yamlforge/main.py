@@ -22,7 +22,7 @@ __version__ = "0.99.0a1"
 def run_command(command, cwd=None, description=""):
     """Run a shell command and return success status."""
     try:
-        print(f"🔧 {description}")
+        print(f"  {description}")
         print(f"   Executing: {command}")
         result = subprocess.run(command, shell=True, cwd=cwd, check=True, 
                               capture_output=False, text=True)
@@ -160,8 +160,7 @@ def generate_deployment_instructions(config, output_dir):
         instructions += f"  cd {output_dir} && terraform destroy\n"
         return instructions
     
-    # Determine which deployment steps are needed
-    deployment_steps = []
+
     
     # Handle CLI vs Terraform deployment methods
     if deployment_method == 'cli':
@@ -191,7 +190,6 @@ def generate_deployment_instructions(config, output_dir):
     
     else:
         # Terraform method - detailed phased deployment
-        basic_cmd = f"cd {output_dir} && terraform init && terraform plan && terraform apply"
         
         # Simplified deployment - everything deploys together with proper terraform dependencies
         instructions += f"Deploy All Infrastructure and Clusters:\n"
@@ -315,12 +313,30 @@ def main():
     parser.add_argument('-d', '--output-dir', required=True, help='Output directory for generated Terraform files')
     parser.add_argument('--auto-deploy', action='store_true', help='Automatically execute Terraform and ROSA deployment after generation. WARNING: This will provision REAL cloud infrastructure and incur ACTUAL costs on your cloud provider accounts (VMs, storage, networking, OpenShift clusters can cost $100s+ per month). Use only when you understand the financial implications.')
     parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output (show generated files, detailed AMI search info, etc.)')
+    parser.add_argument('--no-credentials', action='store_true', help='Skip credential-dependent operations (dynamic image lookup, zone lookup, ROSA version lookup, etc.). WARNING: Generated Terraform will likely not work without manual updates to placeholders.')
     
     args = parser.parse_args()
     
     # Print startup message
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"YamlForge {__version__} begins at {current_time}")
+    
+    # Show warning if no-credentials mode is enabled
+    if args.no_credentials:
+        print("\n" + "="*80)
+        print("  NO-CREDENTIALS MODE ENABLED")
+        print("="*80)
+        print("This mode skips all credential-dependent operations:")
+        print("  • Dynamic image lookup (AMIs, GCP images, etc.)")
+        print("  • Zone availability checking")
+        print("  • ROSA version discovery")
+        print("  • Machine type validation")
+        print("  • DNS zone discovery")
+        print()
+        print("  WARNING: The generated Terraform will likely NOT work without")
+        print("   manual updates to replace placeholders with actual values.")
+        print("   This mode is intended for testing and development only.")
+        print("="*80 + "\n")
     
     # Validate that the input file exists
     if not os.path.exists(args.input_file):
@@ -387,9 +403,13 @@ def main():
     # Set verbose flag on converter so providers can access it
     converter.verbose = args.verbose
     
+    # Set no-credentials flag on converter
+    converter.no_credentials = args.no_credentials
+    
     # Import and run the converter
     try:
-        converter.convert(config, args.output_dir, verbose=args.verbose)
+        # Pass the full YAML data so GUID can be extracted from root level
+        converter.convert(config, args.output_dir, verbose=args.verbose, full_yaml_data=raw_yaml_data)
         print(f"Terraform configuration generated successfully in '{args.output_dir}'")
         print()
         

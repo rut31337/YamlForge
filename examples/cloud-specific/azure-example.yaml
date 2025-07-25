@@ -1,0 +1,41 @@
+guid: "az01"
+
+yamlforge:
+  cloud_workspace:
+    name: "azure-demo-{guid}"
+    description: "Azure deployment example"
+  
+  azure:
+    use_existing_resource_group: false
+  
+  security_groups:
+    - name: "web-sg-{guid}"
+      description: "Web server security group"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "80"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "443"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+  
+  instances:
+    - name: "web-server-{guid}"
+      provider: "azure"
+      size: "medium"
+      region: "eastus"
+      image: "RHEL9-latest"
+      security_groups: ["web-sg-{guid}"]
+      tags:
+        environment: "production"
+        tier: "web"
+  
+  tags:
+    project: "azure-demo"
+    managed_by: "yamlforge" 

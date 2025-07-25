@@ -179,9 +179,7 @@ output "rosa_hcp_console_url_{clean_name}" {{
         # Get private cluster setting
         private_cluster = cluster_config.get('private', False)
         
-        # Get auto-scaling configuration
-        auto_scaling = cluster_config.get('auto_scaling', {})
-        auto_scaling_enabled = auto_scaling.get('enabled', False)
+
         
         # Always use deployment separation for ROSA Classic clusters to enable phased deployment
         needs_rosa_separation = cluster_config.get('_needs_rosa_separation', False)
@@ -357,9 +355,8 @@ output "rosa_classic_console_url_{clean_name}" {{
         # Get private cluster setting
         private_cluster = cluster_config.get('private', False)
         
-        # Get auto-scaling configuration
-        auto_scaling = cluster_config.get('auto_scaling', {})
-        auto_scaling_enabled = auto_scaling.get('enabled', False)
+
+
         
         # Always use deployment separation for ROSA HCP clusters to enable phased deployment
         needs_rosa_separation = cluster_config.get('_needs_rosa_separation', False)
