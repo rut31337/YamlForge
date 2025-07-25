@@ -36,6 +36,14 @@
 - Verify functionality across different providers
 - Clean up test artifacts after completion
 
+## YamlForge Execution
+- When running yamlforge.py, source ~/.envvars.sh if cloud credentials are required
+- Always pre-create the output directory specified with -d before running yamlforge.py
+- Reuse the same test YAML config and directory as much as possible
+- Avoid creating new test YAMLs and directories for every test
+- Use consistent test patterns to prevent file sprawl
+- Clean up test output directories after verification
+
 ## Git Integration
 - Use meaningful commit messages
 - Follow the established Git workflow
