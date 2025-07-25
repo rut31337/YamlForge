@@ -99,28 +99,20 @@ See [AI Prompt Engineering Guide](docs/ai-prompts.md) for detailed prompting tec
 ## Documentation
 
 ### Getting Started
-- [Installation Guide](installation.md)
-- [Quick Start Guide](quickstart.md)
-- [GUID Configuration](guid-configuration.md)
-- [Examples Gallery](examples.md)
+- [Installation Guide](docs/installation.md)
+- [Quick Start Guide](docs/quickstart.md)
+- [Examples Gallery](docs/examples.md)
 
 ### Features
-- [Multi-Cloud Support](features/multi-cloud.md)
-- [Cost Optimization](features/cost-optimization.md)
-- [GPU Support](features/gpu-support.md)
-- [Auto Discovery](features/auto-discovery.md)
+- [Cost Optimization](docs/features/cost-optimization.md)
 
 ### OpenShift
-- [OpenShift Overview](openshift/overview.md)
-- [Cluster Management](openshift/clusters.md)
-- [Application Deployment](openshift/applications.md)
-- [Security & Service Accounts](openshift/security.md)
+- [OpenShift Overview](docs/openshift/overview.md)
+- [ARO Guide](docs/openshift/aro-guide.md)
 
 ### Configuration
-- [Mappings & Flavors](configuration/mappings.md)
 - [Environment Variables Setup](docs/quickstart.md#step-1-set-up-environment-variables)
 - [Azure Credentials Guide](docs/azure-credentials.md)
-- [Networking](configuration/networking.md)
 
 ### AI Assistance
 - [AI Training Guide](docs/ai-training.md) - Comprehensive AI training materials
@@ -128,8 +120,8 @@ See [AI Prompt Engineering Guide](docs/ai-prompts.md) for detailed prompting tec
 - [JSON Schema](docs/yamlforge-schema.json) - Complete schema for AI validation
 
 ### Help
-- [Troubleshooting](troubleshooting.md)
-- [Examples Directory](../examples/)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Examples Directory](examples/)
 
 ## Example Configuration
 
@@ -211,4 +203,4 @@ MIT License - see the LICENSE file for details.
 
 ---
 
-**Ready to get started?** Check out the [Quick Start Guide](quickstart.md) or explore the [Examples Directory](../examples/)! 
+**Ready to get started?** Check out the [Quick Start Guide](docs/quickstart.md) or explore the [Examples Directory](examples/)! 
