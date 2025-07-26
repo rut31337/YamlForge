@@ -6,7 +6,7 @@
 
 A comprehensive tool that generates Terraform configurations from simple YAML specifications, supporting multiple cloud providers and OpenShift platforms with automated deployment capabilities.
 
-  ALPHA SOFTWARE WARNING 
+⚠️  ALPHA SOFTWARE WARNING ⚠️
 
 This is v0.99 ALPHA - Work in Progress
 
@@ -201,7 +201,7 @@ YamlForge generates production-ready Terraform with:
 
 ## Author
 
-**Patrick T. Rutledge III** - [rut31337@gmail.com](mailto:rut31337@gmail.com)
+**Patrick T. Rutledge III**
 
 Project Link: [https://github.com/rut31337/YamlForge](https://github.com/rut31337/YamlForge)
 

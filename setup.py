@@ -30,7 +30,7 @@ setup(
     long_description=read_readme(),
     long_description_content_type="text/markdown",
     author="Patrick T. Rutledge III",
-    author_email="rut31337@gmail.com",
+    author_email="",
     url="https://github.com/rut31337/YamlForge",
     license="Apache-2.0",
     
