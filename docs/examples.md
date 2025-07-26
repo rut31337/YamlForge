@@ -4,6 +4,18 @@ Comprehensive collection of YamlForge examples for every use case.
 
 ## Getting Started Examples
 
+### Configuration Analysis
+```bash
+# Analyze any configuration without generating Terraform
+python yamlforge.py examples/testing/simple_test.yaml --analyze
+
+# Analyze multi-cloud configuration
+python yamlforge.py examples/testing/multi_provider_example.yaml --analyze
+
+# Analyze cost-optimized configuration
+python yamlforge.py examples/cost-conscious/cheapest_provider_example.yaml --analyze
+```
+
 ### Basic Single-Cloud
 ```bash
 # Simple AWS deployment

@@ -27,19 +27,34 @@ This directory contains examples demonstrating how to use YamlForge for multi-cl
 
 ## Usage
 
+### Analyze Examples (Recommended First Step)
+```bash
+# Analyze any example without generating Terraform
+python yamlforge.py examples/simple.yaml --analyze
+
+# Analyze multi-cloud configuration
+python yamlforge.py examples/multi-cloud.yaml --analyze
+
+# Analyze cost-optimized configuration
+python yamlforge.py examples/advanced/cost-optimization.yaml --analyze
+
+# Analyze GPU configuration
+python yamlforge.py examples/gpu-example.yaml --analyze
+```
+
 ### Deploy a Simple Example
 ```bash
 # Deploy a basic single instance
-yamlforge examples/simple.yaml
+python yamlforge.py examples/simple.yaml -d output/ --auto-deploy
 
 # Deploy multi-cloud infrastructure
-yamlforge examples/multi-cloud.yaml
+python yamlforge.py examples/multi-cloud.yaml -d output/ --auto-deploy
 
 # Deploy 3-tier architecture
-yamlforge examples/3tier.yaml
+python yamlforge.py examples/3tier.yaml -d output/ --auto-deploy
 
 # Deploy security groups example
-yamlforge examples/security-groups.yaml
+python yamlforge.py examples/security-groups.yaml -d output/ --auto-deploy
 ```
 
 ### Deploy Cloud-Specific Examples

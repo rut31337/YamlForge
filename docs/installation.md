@@ -164,6 +164,10 @@ sudo dnf install terraform
 Test your installation:
 
 ```bash
+# Test YamlForge analysis mode (no Terraform generation)
+export GUID=test1
+python yamlforge.py examples/testing/simple_test.yaml --analyze
+
 # Test YamlForge with a simple example
 export GUID=test1
 python yamlforge.py examples/testing/simple_test.yaml -d test-output/

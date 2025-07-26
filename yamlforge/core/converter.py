@@ -26,10 +26,11 @@ from ..providers.openshift import OpenShiftProvider
 class YamlForgeConverter:
     """Main converter class that orchestrates multi-cloud infrastructure generation."""
 
-    def __init__(self, images_file="mappings/images.yaml"):
+    def __init__(self, images_file="mappings/images.yaml", analyze_mode=False):
         """Initialize the converter with mappings and provider modules."""
-        # Check Terraform version early
-        self.validate_terraform_version()
+        # Check Terraform version early (skip if in analyze mode)
+        if not analyze_mode:
+            self.validate_terraform_version()
         
         self.images = self.load_images(images_file)
         self.locations = self.load_locations("mappings/locations.yaml")
@@ -211,22 +212,26 @@ class YamlForgeConverter:
             self._validated_guid = guid
             return guid
         else:
-            raise ValueError(
-                "GUID is required but not provided.\n\n"
-                "Please choose one of these options:\n\n"
-                "1. Set environment variable (recommended):\n"
-                "   export GUID=web01\n\n"
-                "2. Add to YAML root level:\n"
-                "   guid: \"web01\"\n"
-                "   yamlforge:\n"
-                "     ...\n\n"
-                "GUID Requirements:\n"
-                "   • Exactly 5 characters\n"
-                "   • Lowercase alphanumeric only (a-z, 0-9)\n"
-                "   • Examples: web01, app42, test1, dev99\n\n"
-                "Quick Start:\n"
-                "   export GUID=test1 && ./yamlforge.py your-config.yaml -d output/"
-            )
+            # In analyze mode, return a placeholder instead of raising an error
+            if hasattr(self, 'analyze_mode') and self.analyze_mode:
+                return "analyze"
+            else:
+                raise ValueError(
+                    "GUID is required but not provided.\n\n"
+                    "Please choose one of these options:\n\n"
+                    "1. Set environment variable (recommended):\n"
+                    "   export GUID=web01\n\n"
+                    "2. Add to YAML root level:\n"
+                    "   guid: \"web01\"\n"
+                    "   yamlforge:\n"
+                    "     ...\n\n"
+                    "GUID Requirements:\n"
+                    "   • Exactly 5 characters\n"
+                    "   • Lowercase alphanumeric only (a-z, 0-9)\n"
+                    "   • Examples: web01, app42, test1, dev99\n\n"
+                    "Quick Start:\n"
+                    "   export GUID=test1 && ./yamlforge.py your-config.yaml -d output/"
+                )
 
     def validate_guid_format(self, guid):
         """Validate that GUID meets DNS RFC and Kubernetes standards."""
@@ -395,30 +400,39 @@ class YamlForgeConverter:
         # Fall back to default SSH key
         return self.get_default_ssh_key(yaml_data)
 
-    def get_effective_providers(self, include_excluded=False):
+    def get_effective_providers(self, include_excluded=False, instance_exclusions=None):
         """Get list of providers that can be used for cheapest provider selection."""
         all_providers = ['aws', 'azure', 'gcp', 'ibm_vpc', 'ibm_classic', 'oci', 'vmware', 'alibaba']
         
         if include_excluded:
             return all_providers
             
+        # Start with global exclusions from core config
         excluded_providers = self.core_config.get('provider_selection', {}).get('exclude_from_cheapest', [])
+        
+        # Add instance-specific exclusions if provided
+        if instance_exclusions:
+            excluded_providers = list(set(excluded_providers + instance_exclusions))
+        
         available_providers = [p for p in all_providers if p not in excluded_providers]
         
         return available_providers
 
-    def log_provider_exclusions(self, analysis_type, suppress_output=False):
+    def log_provider_exclusions(self, analysis_type, suppress_output=False, instance_exclusions=None, suppress_exclusions=False):
         """Log information about provider exclusions for cheapest provider selection."""
-        if suppress_output:
+        if suppress_output or suppress_exclusions:
             return
             
-        excluded_providers = self.core_config.get('provider_selection', {}).get('exclude_from_cheapest', [])
-        if excluded_providers:
-            excluded_list = ', '.join(excluded_providers)
-            print(f"  Provider exclusions for {analysis_type}: {excluded_list} (excluded from cost comparison)")
-            available_providers = self.get_effective_providers()
-            available_list = ', '.join(available_providers)
-            print(f"Available providers: {available_list}")
+        # Get global exclusions
+        global_excluded = self.core_config.get('provider_selection', {}).get('exclude_from_cheapest', [])
+        
+        # Combine with instance-specific exclusions
+        all_excluded = list(set(global_excluded + (instance_exclusions or [])))
+        
+        if all_excluded:
+            excluded_list = ', '.join(all_excluded)
+            print(f"   Per Instance provider exclusions for {analysis_type}: {excluded_list} (excluded from cost comparison)")
+            # Don't show available providers here since they're shown in the main analysis
 
     def detect_required_providers(self, yaml_data):
         """Detect which cloud providers are actually being used."""
@@ -2344,15 +2358,18 @@ redhat_pull_secret = ""
         # Get cost information for all providers
         provider_costs = {}
         
+        # Get instance-specific exclusions
+        instance_exclusions = instance.get('exclude_providers', [])
+        
         if size:
             # Size-based selection (existing functionality)
-            provider_costs = self.find_cheapest_by_size(size, gpu_type)
+            provider_costs = self.find_cheapest_by_size(size, gpu_type, instance_exclusions)
             analysis_type = f"size '{size}'"
             if gpu_type:
                 analysis_type += f" with {gpu_type} GPU"
         elif cores and memory:
             # Hardware specification-based selection (with optional GPU)
-            provider_costs = self.find_cheapest_by_specs(cores, memory, gpu_count, gpu_type)
+            provider_costs = self.find_cheapest_by_specs(cores, memory, gpu_count, gpu_type, instance_exclusions)
             memory_gb = memory / 1024
             
             if gpu_count and gpu_type:
@@ -2383,9 +2400,11 @@ redhat_pull_secret = ""
         # Only print cost analysis if not suppressed
         if not suppress_output:
             instance_name = instance.get('name', 'unnamed')
-            # Log provider exclusions if any
-            self.log_provider_exclusions("cheapest provider selection", suppress_output)
-            print(f"Cost analysis for instance '{instance_name}' ({analysis_type}):")
+            # Get instance-specific exclusions
+            instance_exclusions = instance.get('exclude_providers', [])
+            # Log provider exclusions if any (always suppress since they're shown under instance name)
+            self.log_provider_exclusions("cheapest provider selection", suppress_output, instance_exclusions, True)
+            print(f"   Cost analysis for instance '{instance_name}':")
             for provider, info in sorted(provider_costs.items(), key=lambda x: x[1]['cost']):
                 marker = " ← SELECTED" if provider == cheapest_provider else ""
                 vcpus = info.get('vcpus', 'N/A')
@@ -2395,9 +2414,9 @@ redhat_pull_secret = ""
                 
                 if gpu_count > 0:
                     gpu_info = f", {gpu_count}x {detected_gpu_type}" if detected_gpu_type else f", {gpu_count} GPU(s)"
-                    print(f"  {provider}: ${info['cost']:.4f}/hour ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}")
+                    print(f"     {provider}: ${info['cost']:.4f}/hour ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}")
                 else:
-                    print(f"  {provider}: ${info['cost']:.4f}/hour ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB){marker}")
+                    print(f"     {provider}: ${info['cost']:.4f}/hour ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB){marker}")
         
         return cheapest_provider
     
@@ -2409,8 +2428,11 @@ redhat_pull_secret = ""
         if gpu_type:
             self.validate_gpu_type(gpu_type)
         
+        # Get instance-specific exclusions
+        instance_exclusions = instance.get('exclude_providers', [])
+        
         # Get cost information for all providers (GPU instances only)
-        provider_costs = self.find_cheapest_gpu_by_specs(gpu_type)
+        provider_costs = self.find_cheapest_gpu_by_specs(gpu_type, instance_exclusions)
         
         if gpu_type:
             analysis_type = f"cheapest {gpu_type} GPU"
@@ -2429,9 +2451,9 @@ redhat_pull_secret = ""
         # Only print cost analysis if not suppressed
         if not suppress_output:
             instance_name = instance.get('name', 'unnamed')
-            # Log provider exclusions if any
-            self.log_provider_exclusions("cheapest GPU provider selection", suppress_output)
-            print(f"GPU-optimized cost analysis for instance '{instance_name}' ({analysis_type}):")
+            # Log provider exclusions if any (always suppress since they're shown under instance name)
+            self.log_provider_exclusions("cheapest GPU provider selection", suppress_output, instance_exclusions, True)
+            print(f"   GPU-optimized cost analysis for instance '{instance_name}':")
             for provider, info in sorted(provider_costs.items(), key=lambda x: x[1]['cost']):
                 marker = " ← SELECTED" if provider == cheapest_provider else ""
                 vcpus = info.get('vcpus', 'N/A')
@@ -2440,16 +2462,16 @@ redhat_pull_secret = ""
                 detected_gpu_type = info.get('gpu_type', '')
                 
                 gpu_info = f", {gpu_count}x {detected_gpu_type}" if detected_gpu_type else f", {gpu_count} GPU(s)"
-                print(f"  {provider}: ${info['cost']:.4f}/hour ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}")
+                print(f"     {provider}: ${info['cost']:.4f}/hour ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}")
         
         return cheapest_provider
     
-    def find_cheapest_gpu_by_specs(self, gpu_type=None):
+    def find_cheapest_gpu_by_specs(self, gpu_type=None, instance_exclusions=None):
         """Find cheapest GPU instances across all providers, ignoring CPU/memory constraints."""
         provider_costs = {}
         
         # Get available providers (excluding those configured to be excluded from cheapest)
-        available_providers = self.get_effective_providers()
+        available_providers = self.get_effective_providers(instance_exclusions=instance_exclusions)
         
         # Check each provider's flavor mappings for GPU instances
         for provider in available_providers:
@@ -2543,12 +2565,12 @@ redhat_pull_secret = ""
         # Final fallback
         return "gpu_small"  # This should be mapped in flavor files
     
-    def find_cheapest_by_size(self, size, gpu_type=None):
+    def find_cheapest_by_size(self, size, gpu_type=None, instance_exclusions=None):
         """Find cheapest provider for a generic size, optionally filtered by GPU type."""
         provider_costs = {}
         
         # Get available providers (excluding those configured to be excluded from cheapest)
-        available_providers = self.get_effective_providers()
+        available_providers = self.get_effective_providers(instance_exclusions=instance_exclusions)
         
         # Check generic flavors for cost comparison
         if size in self.flavors:
@@ -2575,13 +2597,13 @@ redhat_pull_secret = ""
         
         return provider_costs
     
-    def find_cheapest_by_specs(self, required_cores, required_memory_mb, required_gpus=None, gpu_type=None):
+    def find_cheapest_by_specs(self, required_cores, required_memory_mb, required_gpus=None, gpu_type=None, instance_exclusions=None):
         """Find cheapest provider for specific CPU/memory/GPU requirements."""
         provider_costs = {}
         required_memory_gb = required_memory_mb / 1024
         
         # Get available providers (excluding those configured to be excluded from cheapest)
-        available_providers = self.get_effective_providers()
+        available_providers = self.get_effective_providers(instance_exclusions=instance_exclusions)
         
         # Check each provider's flavor mappings for instances that meet requirements
         for provider in available_providers:

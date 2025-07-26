@@ -72,39 +72,14 @@ yamlforge:
 
 ---
 
-##  Tools Created
+##  YamlForge Integration
 
-### **1. `tools/get_rosa_versions.py`** - Version Management Engine
-```bash
-# Get latest supported version
-python3 tools/get_rosa_versions.py --latest
-
-# List all supported versions  
-python3 tools/get_rosa_versions.py --list
-
-# Check if specific version is supported
-python3 tools/get_rosa_versions.py --check "4.14.15"
-
-# JSON output for scripting
-python3 tools/get_rosa_versions.py --latest --json
-```
-
-### **2. `tools/fix_rosa_config.sh`** - Configuration Fixer
-```bash
-# Fix YAML with dynamic version checking
-tools/fix_rosa_config.sh --auto-fix my-rosa-config.yaml
-
-# Preview changes (dry run)
-tools/fix_rosa_config.sh --dry-run my-rosa-config.yaml
-
-# Interactive mode
-tools/fix_rosa_config.sh my-rosa-config.yaml
-```
-
-### **3. YamlForge Integration** - Built-in Support
+### **Built-in Dynamic Version Management**
 - **Automatic version validation** during Terraform generation
 - **Seamless integration** with ROSA provider
 - **Zero configuration** - works out of the box
+- **Live version fetching** from Red Hat API
+- **ROSA CLI fallback** for version discovery
 
 ---
 
@@ -178,24 +153,25 @@ openshift_clusters:
   - name: "prod-cluster" 
     version: "4.14.15"  #  Outdated
 
-# Fix automatically
-tools/fix_rosa_config.sh --auto-fix my-config.yaml
+# YamlForge automatically detects and validates versions
+yamlforge my-config.yaml -d terraform/
 
-# After  
+# After (YamlForge updates to latest supported)
 openshift_clusters:
   - name: "prod-cluster"
     version: "4.19.3"   #  Latest supported
 ```
 
-### **Example 2: Version Checking**
+### **Example 2: Version Validation**
 ```bash
-# Check if version is supported
-python3 tools/get_rosa_versions.py --check "4.18.19"
-# Output: Version 4.18.19:  SUPPORTED
+# YamlForge automatically validates versions during processing
+yamlforge my-config.yaml -d terraform/
 
-python3 tools/get_rosa_versions.py --check "4.14.15" 
-# Output: Version 4.14.15:  NOT SUPPORTED
-#         Recommended: 4.18.19
+# If version is supported: proceeds normally
+# If version is unsupported: shows error with available versions
+# Error: OpenShift version '4.14.15' is not supported.
+# Supported versions include: 4.18.19, 4.19.3, 4.19.2, 4.18.9, 4.18.8
+# Latest version: 4.18.19. Use 'latest' or specify a supported version.
 ```
 
 ### **Example 3: Strict Validation (Default)**

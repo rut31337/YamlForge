@@ -113,17 +113,93 @@ cp envvars.example.sh envvars.sh
 # Edit envvars.sh with your credentials, then:
 source envvars.sh
 
-# Generate and deploy across all clouds
-python yamlforge.py infrastructure.yaml -d output/ --auto-deploy
-
-# Or generate Terraform only (without auto-deploy)
-python yamlforge.py infrastructure.yaml -d output/
+# See Command Line Options section for deployment commands
 ```
+
+## Command Line Options
+
+```bash
+# Analyze configuration without generating Terraform
+python yamlforge.py config.yaml --analyze
+
+# Generate Terraform files
+python yamlforge.py config.yaml -d output/
+
+# Generate and deploy automatically
+python yamlforge.py config.yaml -d output/ --auto-deploy
+
+# Generate with verbose output (shows generated files, detailed AMI search info)
+python yamlforge.py config.yaml -d output/ --verbose
+
+# Generate without cloud credentials (uses placeholders, skips dynamic lookups, mainly for testing/development)
+python yamlforge.py config.yaml -d output/ --no-credentials
+```
+
+**Available Flags:**
+- `--analyze`: Analyze configuration and show provider selections, cost analysis, and mappings without generating Terraform
+- `-d, --output-dir`: Specify output directory for generated Terraform files (required unless using `--analyze`)
+- `--auto-deploy`: Automatically deploy infrastructure after generating Terraform (cannot be used with `--analyze`)
+- `--verbose`: Show detailed output including generated files and dynamic lookups
+- `--no-credentials`: Skip cloud credential validation and use placeholders (mainly for testing/development, may result in unusable Terraform)
+
+## Configuration Analysis
+
+**Explore options without generating Terraform:**
+Perfect for AI chatbots and exploring configurations:
+
+```bash
+# Analyze what providers would be selected and their costs
+python yamlforge.py my-config.yaml --analyze
+```
+
+**Example Analysis Output:**
+```
+================================================================================
+  YAMLFORGE CLOUD ANALYSIS
+================================================================================
+Global provider exclusions: vmware, alibaba (excluded from cost comparison)
+Global unexcluded providers: aws, azure, gcp, ibm_vpc, ibm_classic, oci
+
+INSTANCES (2 found):
+----------------------------------------
+
+1. web-server-test1:
+   Provider: cheapest (gcp)
+   Region: us-east (us-east1)
+   Size: medium (e2-medium)
+   Image: RHEL9-latest (rhel-cloud/rhel-9)
+   Cost analysis for instance 'web-server-test1':
+     gcp: $0.0335/hour (e2-medium, 1 vCPU, 4GB) ← SELECTED
+     aws: $0.0416/hour (t3.medium, 2 vCPU, 4GB)
+     azure: $0.0752/hour (Standard_B4ms, 4 vCPU, 16GB)
+
+2. gpu-worker-test1:
+   Provider: cheapest-gpu (gcp)
+   Region: us-east (us-east1)
+   GPU Count: 1
+   GPU Type: NVIDIA T4
+   GPU Flavor: n1-standard-4-t4
+   Image: RHEL9-latest (rhel-cloud/rhel-9)
+   GPU-optimized cost analysis for instance 'gpu-worker-test1':
+     gcp: $0.3500/hour (n1-standard-4-t4, 4 vCPU, 15GB, 1x NVIDIA T4) ← SELECTED
+     aws: $0.5260/hour (g4dn.xlarge, 4 vCPU, 16GB, 1x NVIDIA T4)
+
+REQUIRED PROVIDERS:
+----------------------------------------
+  • aws
+  • gcp
+```
+
+**Perfect for AI Chatbots:**
+- "What's the cheapest GPU instance?"
+- "What would a medium server cost on different clouds?"
+- "What providers do I need for this configuration?"
+- "Show me the mapped regions and flavors for this configuration"
 
 ### AI-Assisted Configuration
 
 **Training AI to Use YamlForge:**
-Provide the AI with our JSON schema (`docs/yamlforge-schema.json`) and real examples from the `examples/` directory. Emphasize the required 5-character GUID, valid provider names, and exact field structure. See [AI Training Guide](docs/ai-training.md) for comprehensive training materials.
+Provide the AI with our JSON schema ([`docs/yamlforge-schema.json`](docs/yamlforge-schema.json)) and real examples from the `examples/` directory. Emphasize the required 5-character GUID, valid provider names, and exact field structure. See [AI Training Guide](docs/ai-training.md) for comprehensive training materials.
 
 Use AI assistants to generate YamlForge configurations from natural language:
 
@@ -132,11 +208,10 @@ Use AI assistants to generate YamlForge configurations from natural language:
 "Create a YamlForge YAML configuration for: 
 'Production OpenShift cluster on AWS with monitoring and a sample web application'"
 
-# AI generates valid YAML following our schema
-# Save the output and deploy with YamlForge
-python yamlforge.py ai-generated-config.yaml -d output/ --auto-deploy
-```
-
+# AI generates valid YAML following our [schema](docs/yamlforge-schema.json)
+# Save the output and analyze/deploy with YamlForge
+python yamlforge.py ai-generated-config.yaml --analyze  # See what it will do
+python yamlforge.py ai-generated-config.yaml -d output/ --auto-deploy  # Deploy it
 ## Real-World Scenarios
 
 ### Multi-Cloud Strategy
@@ -390,6 +465,9 @@ All mappings can be customized in the `mappings/` directory:
 - `mappings/locations.yaml` - Customize region mappings  
 - `mappings/flavors/` - Customize instance type mappings
 - `mappings/flavors_openshift/` - Customize OpenShift-specific mappings
+
+**Unbiased and Transparent:**
+YamlForge is not biased toward any specific operating system image or cloud provider. We only use information freely available on the internet to determine costs and make recommendations. Users can add their own operating system images in the `mappings/images.yaml` file to customize the available options for their deployments.
 
 ## Supported Platforms
 

@@ -191,6 +191,23 @@
             "additionalProperties": {
               "type": "string"
             }
+          },
+          "exclude_providers": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "aws",
+                "azure",
+                "gcp",
+                "oci",
+                "ibm_vpc",
+                "ibm_classic",
+                "vmware",
+                "alibaba"
+              ]
+            },
+            "description": "Override global provider exclusions for this specific instance (only applies to 'cheapest' and 'cheapest-gpu' providers)"
           }
         }
       }

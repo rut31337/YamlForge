@@ -19,13 +19,24 @@ This directory contains examples for each supported cloud provider, demonstratin
 
 ## Usage
 
+### Analyze Examples (Recommended First Step)
+```bash
+# Analyze cloud-specific configurations
+python yamlforge.py examples/cloud-specific/aws-example.yaml --analyze
+python yamlforge.py examples/cloud-specific/azure-example.yaml --analyze
+python yamlforge.py examples/cloud-specific/gcp_example.yaml --analyze
+python yamlforge.py examples/cloud-specific/ibm_vpc_example.yaml --analyze
+python yamlforge.py examples/cloud-specific/ibm_classic_example.yaml --analyze
+```
+
+### Deploy to Specific Cloud Providers
 ```bash
 # Deploy to specific cloud providers
-yamlforge examples/cloud-specific/aws-example.yaml
-yamlforge examples/cloud-specific/azure-example.yaml
-yamlforge examples/cloud-specific/gcp_example.yaml
-yamlforge examples/cloud-specific/ibm_vpc_example.yaml
-yamlforge examples/cloud-specific/ibm_classic_example.yaml
+python yamlforge.py examples/cloud-specific/aws-example.yaml -d output/ --auto-deploy
+python yamlforge.py examples/cloud-specific/azure-example.yaml -d output/ --auto-deploy
+python yamlforge.py examples/cloud-specific/gcp_example.yaml -d output/ --auto-deploy
+python yamlforge.py examples/cloud-specific/ibm_vpc_example.yaml -d output/ --auto-deploy
+python yamlforge.py examples/cloud-specific/ibm_classic_example.yaml -d output/ --auto-deploy
 ```
 
 ## Provider-Specific Features

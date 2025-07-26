@@ -91,14 +91,27 @@ cp examples/openshift/aws_openshift_simple_example.yaml my-deployment.yaml
 
 ## Step 3: Deploy Infrastructure
 
-### Option A: Automated Deployment (Recommended)
+### Option A: Analyze Configuration (Recommended First Step)
+
+```bash
+# Analyze configuration without generating Terraform
+python yamlforge.py my-deployment.yaml --analyze
+```
+
+This shows you:
+- Which providers will be selected for `cheapest` and `cheapest-gpu` instances
+- Cost analysis for each instance
+- Mapped regions, flavors, and images
+- Required cloud providers
+
+### Option B: Automated Deployment
 
 ```bash
 # Generate and deploy everything automatically
 python yamlforge.py my-deployment.yaml -d output/ --auto-deploy
 ```
 
-### Option B: Manual Deployment
+### Option C: Manual Deployment
 
 ```bash
 # Generate Terraform configuration

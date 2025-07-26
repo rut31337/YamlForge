@@ -252,7 +252,10 @@ python --version
 # Check installed packages
 pip list | grep -E "(yaml|google-cloud)"
 
-# Test basic functionality
+# Test basic functionality (analysis mode)
+python yamlforge.py examples/simple_test.yaml --analyze
+
+# Test basic functionality (generate Terraform)
 python yamlforge.py examples/simple_test.yaml -d test-output/
 ```
 

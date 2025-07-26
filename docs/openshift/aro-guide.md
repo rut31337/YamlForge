@@ -254,13 +254,19 @@ source envvars.sh
 az account show
 ```
 
-### Step 2: Generate Configuration
+### Step 2: Analyze Configuration (Recommended)
+```bash
+# Analyze ARO configuration first
+python yamlforge.py aro-config.yaml --analyze
+```
+
+### Step 3: Generate Configuration
 ```bash
 # Create ARO deployment
 python yamlforge.py aro-config.yaml -d aro-terraform/
 ```
 
-### Step 3: Deploy Infrastructure
+### Step 4: Deploy Infrastructure
 ```bash
 # Deploy with Terraform
 cd aro-terraform/
@@ -269,7 +275,7 @@ terraform plan
 terraform apply
 ```
 
-### Step 4: Access Cluster
+### Step 5: Access Cluster
 ```bash
 # Get cluster credentials from outputs
 terraform output aro_api_server_url

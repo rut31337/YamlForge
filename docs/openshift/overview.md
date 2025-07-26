@@ -186,6 +186,9 @@ export ARM_CLIENT_SECRET=your_secret
 export ARM_SUBSCRIPTION_ID=your_subscription
 export ARM_TENANT_ID=your_tenant
 
+# Analyze ARO configuration first
+python yamlforge.py aro-config.yaml --analyze
+
 # Deploy ARO cluster
 python yamlforge.py aro-config.yaml -d aro-terraform/
 cd aro-terraform/

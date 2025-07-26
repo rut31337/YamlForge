@@ -66,6 +66,18 @@ yamlforge:
 
 YamlForge uses a **unified deployment model** - no complex phased deployments or conditional variables:
 
+### Analyze Configuration (Recommended First Step)
+```bash
+# Analyze OpenShift configuration without generating Terraform
+python yamlforge.py aws_openshift_simple_example.yaml --analyze
+```
+
+This shows you:
+- Required cloud providers
+- Instance types and costs
+- OpenShift cluster configurations
+- Resource requirements
+
 ### Simple Deployment
 ```bash
 # Generate and deploy everything at once
