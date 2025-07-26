@@ -84,3 +84,4 @@ ServerlessOperator
 YamlForgeConverter
 convert
 get_instance_gcp_firewall_refs
+get_aws_provider
