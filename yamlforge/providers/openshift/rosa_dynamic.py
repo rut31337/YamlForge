@@ -23,20 +23,20 @@ class DynamicROSAVersionProvider:
             except Exception:
                 pass  # Fall back to static versions
     
-    def get_recommended_version(self, input_version=None, cluster_type="rosa", auto_upgrade_unsupported=False):
+    def get_recommended_version(self, input_version=None, cluster_type="rosa", auto_discover_version=False):
         """
         Get recommended ROSA version
         
         Args:
             input_version: User-specified version (optional)
             cluster_type: Type of cluster (rosa, hypershift, etc.)
-            auto_upgrade_unsupported: If False, raise exception for unsupported versions; if True, auto-upgrade to latest
+            auto_discover_version: If False, raise exception for unsupported versions; if True, auto-upgrade to latest
             
         Returns:
             Recommended version string
         """
         if self.version_manager:
-            return self.version_manager.get_recommended_version(input_version, cluster_type, auto_upgrade_unsupported)
+            return self.version_manager.get_recommended_version(input_version, cluster_type, auto_discover_version)
         
         # No fallback - require API connectivity
         raise Exception("Cannot get recommended ROSA version: API connectivity required")

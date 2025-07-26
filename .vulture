@@ -85,3 +85,20 @@ YamlForgeConverter
 convert
 get_instance_gcp_firewall_refs
 get_aws_provider
+
+# OpenShift provider methods that are dynamically called
+ROSAProvider
+generate_rosa_classic_cluster
+generate_rosa_hcp_cluster
+load_operator_config
+generate_terraform_providers
+generate_openshift_variables
+generate_application_providers
+generate_full_admin_service_account
+generate_limited_admin_service_account
+generate_app_deployer_service_account
+
+# Variables that are used for future functionality
+needs_rosa_separation
+needs_hypershift_separation
+deployment_group

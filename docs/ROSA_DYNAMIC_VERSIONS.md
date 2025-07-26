@@ -40,7 +40,7 @@ openshift:
 yamlforge:
   # Set in defaults/openshift.yaml or override in main config
   openshift:
-    auto_upgrade_unsupported: true        #  Enable auto-upgrade globally
+    auto_discover_version: true        #  Enable auto-upgrade globally
     
     clusters:
       - name: my-cluster
@@ -53,8 +53,8 @@ yamlforge:
 yamlforge:
   # Global setting - applies to all clusters
   openshift:
-    auto_upgrade_unsupported: false       #  Strict validation (recommended for production)
-    # auto_upgrade_unsupported: true     #  Flexible auto-upgrade (for dev environments)
+    auto_discover_version: false       #  Strict validation (recommended for production)
+# auto_discover_version: true     #  Flexible auto-upgrade (for dev environments)
     
     clusters:
       #  Explicit supported version
@@ -67,7 +67,7 @@ yamlforge:
         
       #  Version may become unsupported over time
       - name: test-cluster 
-        version: "4.16.0"                 # Behavior depends on global auto_upgrade_unsupported setting
+        version: "4.16.0"                 # Behavior depends on global auto_discover_version setting
 ```
 
 ---
@@ -213,7 +213,7 @@ yamlforge my-config.yaml -d terraform/
 # my-config.yaml with auto-upgrade enabled globally
 yamlforge:
   openshift:
-    auto_upgrade_unsupported: true     # Enable auto-upgrade for all clusters
+    auto_discover_version: true     # Enable auto-upgrade for all clusters
     
     clusters:
       - name: "prod-cluster"

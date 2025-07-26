@@ -1,56 +1,6 @@
 # OpenShift Default Configuration
 # Default settings for OpenShift cluster deployments across all providers
 
-# Global OpenShift settings
-openshift:
-  # Default OpenShift version
-  version: "4.18.19"
-  
-  # Version validation behavior
-  # If false (default): Fail when unsupported versions are specified
-  # If true: Auto-upgrade unsupported versions to latest with warning
-  auto_upgrade_unsupported: false
-  
-  # ROSA deployment method configuration
-  rosa_deployment:
-    # Method to use for ROSA cluster creation:
-    # - "cli": Use ROSA CLI commands (traditional method)  
-    # - "terraform": Use RHCS Terraform provider (better lifecycle management)
-    method: "terraform"
-    
-    # Note: When multiple OpenShift cluster types are deployed together,
-    # YamlForge automatically separates them into deployment groups to handle
-    # overlapping Terraform configurations or dependencies:
-    # - ROSA Classic clusters (separate from HCP to avoid Terraform conflicts)
-    # - ROSA HCP clusters (separate from Classic to avoid Terraform conflicts)  
-    # - HyperShift management clusters (must be deployed before hosted clusters)
-    # - HyperShift hosted clusters (require management clusters to be ready)
-    # - Day-2 operations (always deployed last, after all clusters are ready)
-  
-  # Default base networking configuration (can be overridden in input YAML)
-  default_base_networking:
-    # Standard OpenShift networking
-    service_cidr: "172.30.0.0/16"
-    pod_cidr: "10.128.0.0/14"
-    host_prefix: 23
-    
-    # Provider-specific defaults
-    rosa-classic:
-      machine_cidr: "10.0.0.0/16"
-      
-    rosa-hcp:
-      machine_cidr: "10.0.0.0/16"
-      
-    aro:
-      vnet_cidr: "10.1.0.0/16"
-      master_subnet_cidr: "10.1.0.0/24"
-      worker_subnet_cidr: "10.1.1.0/24"
-      
-    openshift-dedicated:
-      machine_cidr: "10.0.0.0/16"
-      
-    self_managed:
-      machine_cidr: "10.2.0.0/16"
 
   # Default feature settings
   features:

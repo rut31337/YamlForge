@@ -214,14 +214,14 @@ class ROSAVersionManager:
         versions = self.get_version_list(cluster_type)
         return version in versions
     
-    def get_recommended_version(self, input_version: Optional[str] = None, cluster_type: str = "rosa", auto_upgrade_unsupported: bool = False) -> str:
+    def get_recommended_version(self, input_version: Optional[str] = None, cluster_type: str = "rosa", auto_discover_version: bool = False) -> str:
         """
         Get recommended version based on input
         
         Args:
             input_version: User-specified version (optional)
             cluster_type: Type of cluster (rosa, hypershift, etc.)
-            auto_upgrade_unsupported: If True, auto-upgrade to latest if input version is unsupported
+            auto_discover_version: If True, auto-upgrade to latest if input version is unsupported
             
         Returns:
             Recommended version string
@@ -235,7 +235,7 @@ class ROSAVersionManager:
             return input_version
         
         # Version not supported
-        if auto_upgrade_unsupported:
+        if auto_discover_version:
             # Auto-upgrade to latest
             latest = self.get_latest_version(cluster_type)
             print(f"Version '{input_version}' not supported. Auto-upgrading to '{latest}'")

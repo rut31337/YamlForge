@@ -25,9 +25,9 @@ class ROSAProvider(BaseOpenShiftProvider):
             raise ValueError(f"ROSA cluster '{cluster_name}' must specify 'region'")
             
         version = cluster_config.get('version')
-        # Get auto_upgrade_unsupported from global defaults
-        auto_upgrade_unsupported = self.openshift_defaults.get('openshift', {}).get('auto_upgrade_unsupported', False)
-        version = self.validate_openshift_version(version, auto_upgrade_unsupported=auto_upgrade_unsupported)
+        # Get auto_discover_version from global defaults
+        auto_discover_version = self.openshift_defaults.get('openshift', {}).get('auto_discover_version', False)
+        version = self.validate_openshift_version(version, auto_discover_version=auto_discover_version)
         
         size = cluster_config.get('size')
         if not size:
@@ -84,9 +84,9 @@ class ROSAProvider(BaseOpenShiftProvider):
             raise ValueError(f"ROSA HCP cluster '{cluster_name}' must specify 'region'")
             
         version = cluster_config.get('version')
-        # Get auto_upgrade_unsupported from global defaults
-        auto_upgrade_unsupported = self.openshift_defaults.get('openshift', {}).get('auto_upgrade_unsupported', False)
-        version = self.validate_openshift_version(version, auto_upgrade_unsupported=auto_upgrade_unsupported)
+        # Get auto_discover_version from global defaults
+        auto_discover_version = self.openshift_defaults.get('openshift', {}).get('auto_discover_version', False)
+        version = self.validate_openshift_version(version, auto_discover_version=auto_discover_version)
         
         size = cluster_config.get('size')
         if not size:

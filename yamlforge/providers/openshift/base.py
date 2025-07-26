@@ -97,19 +97,19 @@ class BaseOpenShiftProvider:
         """Get the cloud provider for an OpenShift cluster type"""
         return self.OPENSHIFT_PROVIDER_MAP.get(cluster_type)
         
-    def validate_openshift_version(self, version: str, auto_upgrade_unsupported: bool = False) -> str:
+    def validate_openshift_version(self, version: str, auto_discover_version: bool = False) -> str:
         """
         Validate OpenShift version using dynamic ROSA version management
         
         Args:
             version: OpenShift version to validate
-            auto_upgrade_unsupported: If False (default), fail on unsupported versions; if True, auto-upgrade to latest
+            auto_discover_version: If False (default), fail on unsupported versions; if True, auto-upgrade to latest
             
         Returns:
             Validated version string
             
         Raises:
-            ValueError: If version is unsupported and auto_upgrade_unsupported is False
+            ValueError: If version is unsupported and auto_discover_version is False
         """
         # Skip version validation in no-credentials mode
         if self.converter and self.converter.no_credentials:
@@ -121,8 +121,8 @@ class BaseOpenShiftProvider:
             from .rosa_dynamic import DynamicROSAVersionProvider
             dynamic_provider = DynamicROSAVersionProvider()
             
-            # Use get_recommended_version which handles all cases including the auto_upgrade flag
-            return dynamic_provider.get_recommended_version(version, auto_upgrade_unsupported=auto_upgrade_unsupported)
+            # Use get_recommended_version which handles all cases including the auto_discover_version flag
+            return dynamic_provider.get_recommended_version(version, auto_discover_version=auto_discover_version)
             
         except Exception as e:
             # If dynamic provider fails, this is a critical error
