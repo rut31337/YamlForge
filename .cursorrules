@@ -1,5 +1,10 @@
 # YamlForge Repository Rules for Cursor
 
+## Workspace Management
+- **Always automatically cd into the YamlForge directory** when starting any development task
+- Ensure you're in the correct workspace root before beginning any development tasks
+- Verify current directory is YamlForge before running any commands
+
 ## Code Style and Formatting
 - Do not use emoji characters in code, comments, or output messages
 - Use clear, descriptive text instead of emojis
@@ -52,11 +57,9 @@
 ## YamlForge Execution
 - When running yamlforge.py, source ~/.envvars.sh if cloud credentials are required
 - Always pre-create the output directory specified with -d before running yamlforge.py
-- NEVER create test YAML files or output directories inside the YamlForge repository
 - Reuse the same test YAML config and directory as much as possible
 - Avoid creating new test YAMLs and directories for every test
 - Use consistent test patterns to prevent file sprawl
-- Clean up test output directories after verification
 - **Use --auto-deploy when you don't need to step through each Terraform step** (for automated testing and deployment)
 - **Use --verbose when debugging code or need detailed output** (shows generated files, detailed AMI search info, etc.)
 - **Use --no-credentials for testing without cloud credentials** (skips dynamic lookups, uses placeholders)
@@ -86,4 +89,20 @@
   - Describe what changes are ready to commit
   - Explain why this is a good commit point
   - Suggest a commit message
-  - Ask for permission: "Should I commit these changes?" 
+  - Ask for permission: "Should I commit these changes?"
+
+## Session Management and Performance
+- **Be aware of session length impact on performance** - long chat sessions can slow down responses
+- **Suggest fresh sessions proactively** when approaching 50-100 messages or 2-3 hours of continuous work
+- **Before suggesting a new session, summarize current progress** and important decisions made
+- **Encourage documentation in code** rather than relying on chat history for important information
+- **Acknowledge performance indicators** - if responses become noticeably slower, mention session length as a possible cause
+- **Guide users toward focused sessions** - recommend breaking large tasks into smaller, focused chat sessions
+- **Support task transitions** - suggest new sessions when switching between major feature areas or provider implementations
+- **Maintain context continuity** - when suggesting a new session, provide clear handoff information about what was accomplished
+
+## Terminal and Process Management
+- **Use tee for output capture** - run commands with `| tee /tmp/output.log` to show output in terminal while saving to file
+- **Avoid backgrounding tee processes** - tee should run in foreground to properly capture output
+- **Clean up log files** - remove temporary output files after completion: `rm /tmp/yamlforge-test.log`
+- **Monitor long-running processes** - for very long operations, consider using screen/tmux for persistence 
