@@ -68,6 +68,7 @@ generate_oadp_operator
 # ROSA Version Manager (integrated)
 ROSAVersionManager
 retry_with_backoff
+get_recommended_version
 
 # Image Resolver Classes (stubs for future functionality)
 AlibabaImageResolver
