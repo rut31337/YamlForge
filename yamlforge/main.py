@@ -45,6 +45,182 @@ def run_command(command, cwd=None, description=""):
         print(f"Failed: {description} - Failed with exit code {e.returncode}")
         return False
 
+def analyze_configuration(converter, config, raw_yaml_data):
+    """Analyze configuration and show provider selections, cost analysis, and flavor mappings."""
+    print("\n" + "="*80)
+    print("  YAMLFORGE CLOUD ANALYSIS")
+    print("="*80)
+    
+    # Get instances
+    instances = config.get('instances', [])
+    
+    # Show global provider exclusions before INSTANCES section
+    global_excluded = converter.core_config.get('provider_selection', {}).get('exclude_from_cheapest', [])
+    if global_excluded:
+        excluded_list = ', '.join(global_excluded)
+        print(f"Global provider exclusions: {excluded_list} (excluded from cost comparison)")
+        available_providers = converter.get_effective_providers()
+        available_list = ', '.join(available_providers)
+        print(f"Global unexcluded providers: {available_list}")
+        print()
+    
+    # Analyze instances
+    if instances:
+        print(f"INSTANCES ({len(instances)} found):")
+        print("-" * 40)
+        
+        # Track which exclusions have been shown to avoid repetition
+        shown_exclusions = set()
+        
+        for i, instance in enumerate(instances, 1):
+            name = instance.get('name', 'unnamed')
+            provider = instance.get('provider', 'unspecified')
+            region = instance.get('region', 'unspecified')
+            size = instance.get('size')
+            cores = instance.get('cores')
+            memory = instance.get('memory')
+            gpu_type = instance.get('gpu_type')
+            gpu_count = instance.get('gpu_count')
+            image = instance.get('image', 'unspecified')
+            instance_exclusions = instance.get('exclude_providers', [])
+            
+            print(f"\n{i}. {name}:")
+            
+            # Show per-instance exclusions and included providers
+            if instance_exclusions:
+                # Show per-instance excluded providers
+                global_excluded = converter.core_config.get('provider_selection', {}).get('exclude_from_cheapest', [])
+                all_excluded = list(set(global_excluded + instance_exclusions))
+                excluded_list = ', '.join(all_excluded)
+                print(f"   Per instance excluded providers: {excluded_list} (excluded from cost comparison)")
+                # Show per-instance included providers
+                available_providers = converter.get_effective_providers(instance_exclusions=instance_exclusions)
+                available_list = ', '.join(available_providers)
+                print(f"   Per instance included providers: {available_list}")
+            
+            # Resolve provider for meta-providers
+            resolved_provider = provider
+            
+            if provider in ['cheapest', 'cheapest-gpu']:
+                try:
+                    if provider == 'cheapest':
+                        resolved_provider = converter.find_cheapest_provider(instance, suppress_output=True)
+                    elif provider == 'cheapest-gpu':
+                        resolved_provider = converter.find_cheapest_gpu_provider(instance, suppress_output=True)
+                except Exception as e:
+                    resolved_provider = f"{provider} (error: {e})"
+            
+            # Show resolved provider
+            if provider in ['cheapest', 'cheapest-gpu']:
+                print(f"   Provider: {provider} ({resolved_provider})")
+            else:
+                print(f"   Provider: {provider}")
+            
+            # Show resolved region with mapped value
+            mapped_region = converter.locations.get(region, {}).get(resolved_provider, region)
+            print(f"   Region: {region} ({mapped_region})")
+            
+            # Show resolved size/specs with mapped value
+            if size:
+                # Get mapped flavor for the resolved provider
+                mapped_flavor = converter.flavors.get(size, {}).get(resolved_provider, size)
+                print(f"   Size: {size} ({mapped_flavor})")
+            elif cores and memory:
+                print(f"   Specs: {cores} cores, {memory}MB RAM")
+            
+            # Show resolved GPU info
+            if gpu_type and gpu_count:
+                print(f"   GPU Count: {gpu_count}")
+                print(f"   GPU Type: {gpu_type}")
+                # Show GPU flavor for cheapest-gpu provider
+                if provider == 'cheapest-gpu':
+                    try:
+                        gpu_flavor = converter.get_cheapest_gpu_instance_type(instance, resolved_provider)
+                        print(f"   GPU Flavor: {gpu_flavor}")
+                    except Exception as e:
+                        print(f"   GPU Flavor: {resolved_provider} (error getting flavor)")
+            elif gpu_count:
+                print(f"   GPU Count: {gpu_count}")
+            
+            # Show resolved image with mapped value
+            image_config = converter.images.get(image, {}).get(resolved_provider, {})
+            if isinstance(image_config, dict):
+                # Extract a simple identifier from the image config
+                if resolved_provider == 'aws':
+                    mapped_image = image_config.get('name_pattern', image)
+                elif resolved_provider == 'azure':
+                    mapped_image = f"{image_config.get('publisher', '')}/{image_config.get('offer', '')}/{image_config.get('sku', '')}"
+                elif resolved_provider == 'gcp':
+                    mapped_image = f"{image_config.get('project', '')}/{image_config.get('family', '')}"
+                else:
+                    mapped_image = str(image_config)
+            else:
+                mapped_image = str(image_config)
+            print(f"   Image: {image} ({mapped_image})")
+            
+            # Show cost analysis for meta-providers
+            if provider in ['cheapest', 'cheapest-gpu']:
+                # Always show cost analysis for the first instance of each type
+                # Don't show per-instance exclusions in cost analysis since they're shown under instance name
+                exclusion_key = tuple(sorted(instance_exclusions)) if instance_exclusions else 'default'
+                should_show_cost_analysis = exclusion_key not in shown_exclusions
+                
+                # For GPU instances, always show cost analysis for the first one
+                if provider == 'cheapest-gpu' and 'gpu' not in shown_exclusions:
+                    should_show_cost_analysis = True
+                
+                try:
+                    if provider == 'cheapest':
+                        converter.find_cheapest_provider(instance, suppress_output=not should_show_cost_analysis)
+                    elif provider == 'cheapest-gpu':
+                        converter.find_cheapest_gpu_provider(instance, suppress_output=not should_show_cost_analysis)
+                    
+                    # Mark these exclusions as shown
+                    if should_show_cost_analysis:
+                        shown_exclusions.add(exclusion_key)
+                    
+                    # Mark GPU instances as shown
+                    if provider == 'cheapest-gpu':
+                        shown_exclusions.add('gpu')
+                        
+                except Exception as e:
+                    print(f"   → Error: {e}")
+    
+    # Analyze OpenShift clusters
+    openshift_clusters = config.get('openshift_clusters', [])
+    if openshift_clusters:
+        print(f"\nOPENSHIFT CLUSTERS ({len(openshift_clusters)} found):")
+        print("-" * 40)
+        
+        for i, cluster in enumerate(openshift_clusters, 1):
+            name = cluster.get('name', 'unnamed')
+            cluster_type = cluster.get('type', 'unspecified')
+            region = cluster.get('region', 'unspecified')
+            version = cluster.get('version', 'unspecified')
+            size = cluster.get('size', 'unspecified')
+            
+            print(f"\n{i}. {name}:")
+            print(f"   Type: {cluster_type}")
+            print(f"   Region: {region}")
+            print(f"   Version: {version}")
+            print(f"   Size: {size}")
+    
+    # Show required providers
+    try:
+        required_providers = converter.detect_required_providers(config)
+        print(f"\nREQUIRED PROVIDERS:")
+        print("-" * 40)
+        for provider in required_providers:
+            print(f"  • {provider}")
+    except Exception as e:
+        print(f"\nREQUIRED PROVIDERS: Error analyzing - {e}")
+    
+    print("\n" + "="*80)
+    print("  ANALYSIS COMPLETE")
+    print("="*80)
+    print("Use 'yamlforge <file> -d <output_dir>' to generate Terraform files")
+    print("Use 'yamlforge <file> -d <output_dir> --auto-deploy' to deploy automatically")
+
 def generate_deployment_instructions(config, output_dir):
     """Generate specific deployment instructions based on YAML configuration."""
     
@@ -323,12 +499,21 @@ def main():
     """Main entry point for yamlforge CLI."""
     parser = argparse.ArgumentParser(description='YamlForge - Convert unified YAML infrastructure to provider-specific Terraform')
     parser.add_argument('input_file', help='YAML infrastructure definition file')
-    parser.add_argument('-d', '--output-dir', required=True, help='Output directory for generated Terraform files')
+    parser.add_argument('-d', '--output-dir', help='Output directory for generated Terraform files (not required with --analyze)')
+    parser.add_argument('--analyze', action='store_true', help='Analyze configuration and show provider selections, cost analysis, and flavor mappings without generating Terraform files. Perfect for AI chatbots and exploring options.')
     parser.add_argument('--auto-deploy', action='store_true', help='Automatically execute Terraform and ROSA deployment after generation. WARNING: This will provision REAL cloud infrastructure and incur ACTUAL costs on your cloud provider accounts (VMs, storage, networking, OpenShift clusters can cost $100s+ per month). Use only when you understand the financial implications.')
     parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output (show generated files, detailed AMI search info, etc.)')
     parser.add_argument('--no-credentials', action='store_true', help='Skip credential-dependent operations (dynamic image lookup, zone lookup, ROSA version lookup, etc.). WARNING: Generated Terraform will likely not work without manual updates to placeholders.')
     
     args = parser.parse_args()
+    
+    # Validate incompatible flags
+    if args.analyze and args.auto_deploy:
+        print("ERROR: --analyze and --auto-deploy cannot be used together")
+        print("  --analyze: Analyze configuration without generating Terraform")
+        print("  --auto-deploy: Generate Terraform and deploy automatically")
+        print("  Use one or the other, not both")
+        sys.exit(1)
     
     # Print startup message
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -356,19 +541,23 @@ def main():
         print(f"ERROR: Input file '{args.input_file}' does not exist")
         sys.exit(1)
     
-    # Validate that the output directory exists
-    if not os.path.exists(args.output_dir):
-        print("Please create the directory first or use an existing directory")
-        sys.exit(1)
-    
-    # Validate that the output directory is a directory
-    if not os.path.isdir(args.output_dir):
-        print(f"ERROR: '{args.output_dir}' is not a directory")
-        sys.exit(1)
+    # Validate output directory (not required for analyze mode)
+    if not args.analyze:
+        if not args.output_dir:
+            print("ERROR: Output directory (-d/--output-dir) is required unless using --analyze")
+            sys.exit(1)
+        
+        if not os.path.exists(args.output_dir):
+            print("Please create the directory first or use an existing directory")
+            sys.exit(1)
+        
+        if not os.path.isdir(args.output_dir):
+            print(f"ERROR: '{args.output_dir}' is not a directory")
+            sys.exit(1)
     
     try:
-        # Create converter instance
-        converter = YamlForgeConverter()
+        # Create converter instance (skip Terraform validation in analyze mode)
+        converter = YamlForgeConverter(analyze_mode=args.analyze)
         # Load and validate the YAML configuration
         with open(args.input_file, 'r') as f:
             raw_yaml_data = yaml.safe_load(f)
@@ -413,24 +602,26 @@ def main():
             if args.verbose:
                 print(f"Could not load OpenShift defaults: {e}")
     
-    # Set verbose flag on converter so providers can access it
+    # Set flags on converter so providers can access them
     converter.verbose = args.verbose
-    
-    # Set no-credentials flag on converter
     converter.no_credentials = args.no_credentials
     
     # Import and run the converter
     try:
-        # Pass the full YAML data so GUID can be extracted from root level
-        converter.convert(config, args.output_dir, verbose=args.verbose, full_yaml_data=raw_yaml_data)
-        print(f"Terraform configuration generated successfully in '{args.output_dir}'")
-        print()
-        
-        if args.auto_deploy:
-            auto_deploy_infrastructure(args.output_dir, raw_yaml_data)
+        if args.analyze:
+            # Run analysis mode
+            analyze_configuration(converter, config, raw_yaml_data)
         else:
-            deployment_instructions = generate_deployment_instructions(config, args.output_dir)
-            print(deployment_instructions)
+            # Pass the full YAML data so GUID can be extracted from root level
+            converter.convert(config, args.output_dir, verbose=args.verbose, full_yaml_data=raw_yaml_data)
+            print(f"Terraform configuration generated successfully in '{args.output_dir}'")
+            print()
+            
+            if args.auto_deploy:
+                auto_deploy_infrastructure(args.output_dir, raw_yaml_data)
+            else:
+                deployment_instructions = generate_deployment_instructions(config, args.output_dir)
+                print(deployment_instructions)
 
     except ValueError as e:
         # Handle user-friendly errors (like GUID validation) without stack trace
