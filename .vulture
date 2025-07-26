@@ -85,11 +85,6 @@ YamlForgeConverter
 convert
 get_instance_gcp_firewall_refs
 get_aws_provider
-get_aws_provider_reference
-generate_native_security_group_rule
-generate_rhel_pattern_config
-determine_default_owner_key
-generate_ami_data_source
 
 # OpenShift provider methods that are dynamically called
 ROSAProvider
@@ -107,7 +102,3 @@ generate_app_deployer_service_account
 needs_rosa_separation
 needs_hypershift_separation
 deployment_group
-
-# Attributes that are used by other modules
-images
-no_credentials
