@@ -79,3 +79,8 @@ OCIImageResolver
 GitOpsOperator
 PipelinesOperator
 ServerlessOperator
+
+# Methods that are used but appear unused to Vulture
+YamlForgeConverter
+convert
+get_instance_gcp_firewall_refs

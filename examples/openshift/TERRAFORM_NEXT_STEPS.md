@@ -1,15 +1,15 @@
-# 🚀 OpenShift Terraform Deployment Guide
+#  OpenShift Terraform Deployment Guide
 
 This guide covers the complete deployment workflow for OpenShift clusters using YamlForge-generated Terraform configurations.
 
-## 📋 Deployment Overview
+##  Deployment Overview
 
 YamlForge uses a **two-phase deployment approach** for safer and more reliable OpenShift deployments:
 
 1. **Phase 1**: Core Infrastructure (AWS + OpenShift Clusters)
 2. **Phase 2**: Day-2 Operations (Monitoring, GitOps, Operators)
 
-## 🎯 Phase 1 - Core Infrastructure Deployment
+##  Phase 1 - Core Infrastructure Deployment
 
 Deploy the essential infrastructure including AWS resources and OpenShift clusters:
 
@@ -21,11 +21,11 @@ terraform apply -auto-approve
 ```
 
 **What gets deployed:**
-- ✅ AWS VPCs, subnets, security groups
-- ✅ ROSA/ARO clusters (control plane + worker nodes)
-- ✅ Basic networking and connectivity
-- ✅ Service accounts and RBAC
-- ❌ **NO** Day-2 operations (monitoring, GitOps, operators)
+-  AWS VPCs, subnets, security groups
+-  ROSA/ARO clusters (control plane + worker nodes)
+-  Basic networking and connectivity
+-  Service accounts and RBAC
+-  **NO** Day-2 operations (monitoring, GitOps, operators)
 
 **Expected wait time:** 10-15 minutes for clusters to become ready
 
@@ -45,11 +45,11 @@ oc get nodes
 ```
 
 **Cluster is ready when:**
-- ✅ All nodes show `Ready` status
-- ✅ Cluster API is accessible
-- ✅ System pods are running
+-  All nodes show `Ready` status
+-  Cluster API is accessible
+-  System pods are running
 
-## 🎯 Phase 2 - Day-2 Operations Deployment
+##  Phase 2 - Day-2 Operations Deployment
 
 Once clusters are ready, deploy monitoring, GitOps, and operators:
 
@@ -59,13 +59,13 @@ terraform apply -var='deploy_day2_operations=true' -auto-approve
 ```
 
 **What gets deployed:**
-- ✅ Cluster monitoring (Prometheus, Grafana)
-- ✅ OpenShift GitOps (ArgoCD)
-- ✅ OpenShift operators (as configured)
-- ✅ Application deployments
-- ✅ Custom resources and configurations
+-  Cluster monitoring (Prometheus, Grafana)
+-  OpenShift GitOps (ArgoCD)
+-  OpenShift operators (as configured)
+-  Application deployments
+-  Custom resources and configurations
 
-## 💡 Deployment Options
+##  Deployment Options
 
 ### Option 1: Complete Deployment (Recommended)
 ```bash
@@ -93,7 +93,7 @@ terraform apply -auto-approve
 terraform apply -var='deploy_day2_operations=true' -auto-approve
 ```
 
-## 🔧 Advanced Configuration
+##  Advanced Configuration
 
 ### Environment Variables
 ```bash
@@ -115,7 +115,7 @@ terraform apply -target='kubernetes_manifest.cluster_monitoring*' -auto-approve
 terraform apply -target='kubernetes_manifest.openshift_gitops*' -auto-approve
 ```
 
-## 🏗️ Resource Dependencies
+##  Resource Dependencies
 
 ```mermaid
 graph TD
@@ -128,7 +128,7 @@ graph TD
     D --> H[Applications]
 ```
 
-## 🛠️ Troubleshooting
+##  Troubleshooting
 
 ### Common Issues
 
@@ -163,7 +163,7 @@ terraform plan -var='deploy_day2_operations=true'
 oc whoami --show-server
 ```
 
-## 📊 Deployment Timeline
+##  Deployment Timeline
 
 | Phase | Duration | Resources |
 |-------|----------|-----------|
@@ -173,7 +173,7 @@ oc whoami --show-server
 | Day-2 Operations | 5-10 min | Monitoring, GitOps, operators |
 | **Total Time** | **20-30 min** | **Complete deployment** |
 
-## 🎯 Production Best Practices
+##  Production Best Practices
 
 1. **Always use two-phase deployment** for production
 2. **Monitor cluster readiness** before Day-2 operations
@@ -181,14 +181,14 @@ oc whoami --show-server
 4. **Use version control** for terraform configurations
 5. **Backup cluster state** before major changes
 
-## 📚 Additional Resources
+##  Additional Resources
 
 - [ROSA Documentation](https://docs.openshift.com/rosa/)
 - [ARO Documentation](https://docs.microsoft.com/en-us/azure/openshift/)
 - [OpenShift Day-2 Operations](https://docs.openshift.com/container-platform/latest/operators/understanding/operators-overview.html)
 - [Terraform RHCS Provider](https://registry.terraform.io/providers/terraform-redhat/rhcs/latest/docs)
 
-## 🚀 Quick Reference
+##  Quick Reference
 
 ```bash
 # Standard deployment workflow
@@ -204,4 +204,4 @@ terraform plan -var='deploy_day2_operations=true'
 
 ---
 
-**🎉 With this approach, you'll have a robust, production-ready OpenShift deployment with zero configuration hassles!** 
+** With this approach, you'll have a robust, production-ready OpenShift deployment with zero configuration hassles!** 

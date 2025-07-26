@@ -2,36 +2,36 @@
 
 YamlForge **automatically fetches supported OpenShift versions** from the Red Hat API and validates/fixes configurations to ensure successful ROSA deployments.
 
-## 🚀 Features
+##  Features
 
-### **✅ Dynamic Version Fetching**
+### ** Dynamic Version Fetching**
 - **Fetches live supported versions** from Red Hat OpenShift Cluster Manager API
 - **ROSA CLI integration** as backup method for version discovery
 - **Caching** to avoid repeated API calls (1-hour cache)
 - **Always current** - no outdated static version lists
 
-### **✅ Intelligent Version Selection**
+### ** Intelligent Version Selection**
 - **Strict validation by default** - Fails on unsupported versions to prevent surprises
 - **Optional auto-upgrade** - Can auto-upgrade unsupported versions if explicitly enabled
 - **Preserves valid versions** when they're already supported  
 - **Detailed error messages** - Shows available versions when validation fails
 - **Keyword support** - Accepts `latest` and `stable` as version aliases
 
-### **✅ Multi-Method Support**
+### ** Multi-Method Support**
 1. **Red Hat API** (primary) - Live data from `api.openshift.com`
 2. **ROSA CLI** (secondary) - Uses local `rosa` command if available
 3. **Requires connectivity** - Ensures always-current version data
 
 ---
 
-## ⚙️ **Version Control Options**
+##  **Version Control Options**
 
 ### **Default Behavior (Strict Validation)**
 ```yaml
 openshift:
   clusters:
     - name: my-cluster
-      version: "1.0.0"  # ❌ FAILS with detailed error message
+      version: "1.0.0"  #  FAILS with detailed error message
       # ... other config
 ```
 
@@ -40,11 +40,11 @@ openshift:
 yamlforge:
   # Set in defaults/openshift.yaml or override in main config
   openshift:
-    auto_upgrade_unsupported: true        # ✅ Enable auto-upgrade globally
+    auto_upgrade_unsupported: true        #  Enable auto-upgrade globally
     
     clusters:
       - name: my-cluster
-        version: "1.0.0"                  # ⚠️ Unsupported version → will auto-upgrade
+        version: "1.0.0"                  #  Unsupported version → will auto-upgrade
         # ... other config
 ```
 
@@ -53,26 +53,26 @@ yamlforge:
 yamlforge:
   # Global setting - applies to all clusters
   openshift:
-    auto_upgrade_unsupported: false       # ✅ Strict validation (recommended for production)
-    # auto_upgrade_unsupported: true     # ✅ Flexible auto-upgrade (for dev environments)
+    auto_upgrade_unsupported: false       #  Strict validation (recommended for production)
+    # auto_upgrade_unsupported: true     #  Flexible auto-upgrade (for dev environments)
     
     clusters:
-      # ✅ Explicit supported version
+      #  Explicit supported version
       - name: production-cluster
         version: "4.18.19"
 
-      # ✅ Always get latest
+      #  Always get latest
       - name: dev-cluster
         version: "latest"
         
-      # ✅ Version may become unsupported over time
+      #  Version may become unsupported over time
       - name: test-cluster 
         version: "4.16.0"                 # Behavior depends on global auto_upgrade_unsupported setting
 ```
 
 ---
 
-## 🛠️ Tools Created
+##  Tools Created
 
 ### **1. `tools/get_rosa_versions.py`** - Version Management Engine
 ```bash
@@ -108,7 +108,7 @@ tools/fix_rosa_config.sh my-rosa-config.yaml
 
 ---
 
-## 📋 Requirements
+##  Requirements
 
 ### **Environment Variables**
 ```bash
@@ -134,7 +134,7 @@ export REDHAT_OPENSHIFT_URL="https://api.openshift.com"
 
 ---
 
-## 🔧 How It Works
+##  How It Works
 
 ### **1. API Query Process**
 ```mermaid
@@ -169,14 +169,14 @@ def get_recommended_version(input_version=None):
 
 ---
 
-## 🎯 Usage Examples
+##  Usage Examples
 
 ### **Example 1: Fix Outdated Configuration**
 ```yaml
 # Before (my-config.yaml)
 openshift_clusters:
   - name: "prod-cluster" 
-    version: "4.14.15"  # ❌ Outdated
+    version: "4.14.15"  #  Outdated
 
 # Fix automatically
 tools/fix_rosa_config.sh --auto-fix my-config.yaml
@@ -184,17 +184,17 @@ tools/fix_rosa_config.sh --auto-fix my-config.yaml
 # After  
 openshift_clusters:
   - name: "prod-cluster"
-    version: "4.19.3"   # ✅ Latest supported
+    version: "4.19.3"   #  Latest supported
 ```
 
 ### **Example 2: Version Checking**
 ```bash
 # Check if version is supported
 python3 tools/get_rosa_versions.py --check "4.18.19"
-# Output: Version 4.18.19: ✅ SUPPORTED
+# Output: Version 4.18.19:  SUPPORTED
 
 python3 tools/get_rosa_versions.py --check "4.14.15" 
-# Output: Version 4.14.15: ❌ NOT SUPPORTED
+# Output: Version 4.14.15:  NOT SUPPORTED
 #         Recommended: 4.18.19
 ```
 
@@ -224,12 +224,12 @@ yamlforge:
 # This succeeds with warning
 yamlforge my-config.yaml -d terraform/
 # Warning: Version 4.14.15 not supported, using 4.18.19
-# ✅ Terraform configuration generated successfully
+#  Terraform configuration generated successfully
 ```
 
 ---
 
-## 🛡️ Error Handling
+##  Error Handling
 
 ### **API Authentication Issues**
 ```bash
@@ -253,7 +253,7 @@ pip install -r requirements.txt
 
 ---
 
-## 🚀 Benefits
+##  Benefits
 
 ### **Always Current**
 - **No manual updates** needed for version lists
@@ -277,7 +277,7 @@ pip install -r requirements.txt
 
 ---
 
-## 📊 Supported Versions
+##  Supported Versions
 
 **Latest supported versions (live from Red Hat API):**
 - Latest series: `4.19.x` releases
@@ -289,7 +289,7 @@ pip install -r requirements.txt
 
 ---
 
-## 🔄 Workflow Integration
+##  Workflow Integration
 
 YamlForge automatically handles version management:
 

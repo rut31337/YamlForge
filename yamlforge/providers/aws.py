@@ -7,7 +7,6 @@ networking, security groups, and other AWS cloud resources.
 
 import yaml
 from pathlib import Path
-from datetime import datetime
 import os # Added for create_rosa_account_roles_via_cli
 
 # AWS imports
@@ -465,7 +464,7 @@ class AWSProvider:
                 "3️⃣  AWS credentials file:\n"
                 "   ~/.aws/credentials\n\n"
                 "4️⃣  IAM roles (for EC2 instances)\n\n"
-                "📋 Alternative: Use a different provider or use Terraform data sources by setting:\n"
+                " Alternative: Use a different provider or use Terraform data sources by setting:\n"
                 "   yamlforge:\n"
                 "     aws:\n"
                 "       use_data_sources: true"
@@ -538,7 +537,7 @@ class AWSProvider:
                 use_data_sources = aws_yamlforge_config.get('use_data_sources', False)
                 
                 if use_data_sources:
-                    print(f"ℹ️  Using Terraform data source for {image_key} (use_data_sources enabled)")
+                    print(f"  Using Terraform data source for {image_key} (use_data_sources enabled)")
                     return None, None
                 else:
                     raise ValueError(
@@ -563,7 +562,7 @@ class AWSProvider:
         use_data_sources = aws_yamlforge_config.get('use_data_sources', False)
         
         if use_data_sources:
-            print(f"ℹ️  Using Terraform data source for {image_key} (use_data_sources enabled)")
+            print(f"  Using Terraform data source for {image_key} (use_data_sources enabled)")
             return None, None
 
         # Validate AWS setup before attempting AMI resolution

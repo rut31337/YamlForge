@@ -47,14 +47,14 @@ ValueError: GUID must be exactly 5 characters, lowercase alphanumeric
 ```
 
 **Valid GUID Examples:**
-- `web01` ✅
-- `app42` ✅  
-- `test1` ✅
+- `web01` 
+- `app42`   
+- `test1` 
 
 **Invalid GUID Examples:**
-- `WEB01` ❌ (uppercase)
-- `web-01` ❌ (special characters)
-- `web001` ❌ (too long)
+- `WEB01`  (uppercase)
+- `web-01`  (special characters)
+- `web001`  (too long)
 
 ## Cloud Provider Issues
 

@@ -349,11 +349,11 @@ class OpenShiftProvider(BaseOpenShiftProvider):
 
 set -e  # Exit on any error
 
-echo "🚀 Starting ROSA cluster creation with YamlForge..."
+echo " Starting ROSA cluster creation with YamlForge..."
 
 # Function to install ROSA CLI if not present
 install_rosa_cli() {
-    echo "📦 Installing ROSA CLI..."
+    echo " Installing ROSA CLI..."
     
     # Create local bin directory if it doesn't exist
     mkdir -p ~/.local/bin
@@ -368,20 +368,20 @@ install_rosa_cli() {
     # Add ~/.local/bin to PATH if not already there
     if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
         export PATH="$HOME/.local/bin:$PATH"
-        echo "✅ Added ~/.local/bin to PATH for this session"
-        echo "💡 To make this permanent, add 'export PATH=\"\\$HOME/.local/bin:\\$PATH\"' to your ~/.bashrc or ~/.zshrc"
+        echo " Added ~/.local/bin to PATH for this session"
+        echo " To make this permanent, add 'export PATH=\"\\$HOME/.local/bin:\\$PATH\"' to your ~/.bashrc or ~/.zshrc"
     fi
     
-    echo "✅ ROSA CLI installed successfully"
+    echo " ROSA CLI installed successfully"
 }
 
 # Function to install AWS CLI if not present
 install_aws_cli() {
-    echo "📦 Installing AWS CLI..."
+    echo " Installing AWS CLI..."
     
     # Check if unzip is available
     if ! command -v unzip &> /dev/null; then
-        echo "❌ unzip is required but not found. Please install unzip first:"
+        echo " unzip is required but not found. Please install unzip first:"
         echo "   • Ubuntu/Debian: apt-get install unzip"
         echo "   • RHEL/CentOS: yum install unzip"
         echo "   • Fedora: dnf install unzip"
@@ -402,33 +402,33 @@ install_aws_cli() {
     # Add ~/.local/bin to PATH if not already there
     if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
         export PATH="$HOME/.local/bin:$PATH"
-        echo "✅ Added ~/.local/bin to PATH for this session"
+        echo " Added ~/.local/bin to PATH for this session"
     fi
     
-    echo "✅ AWS CLI installed successfully"
+    echo " AWS CLI installed successfully"
 }
 
 # Check if ROSA CLI is available, install if needed
 if ! command -v rosa &> /dev/null; then
     install_rosa_cli
 else
-    echo "✅ ROSA CLI already available"
+    echo " ROSA CLI already available"
 fi
 
-echo "📊 ROSA CLI version: $(rosa version)"
+echo " ROSA CLI version: $(rosa version)"
 
 # Check if AWS CLI is available, install if needed
 if ! command -v aws &> /dev/null; then
     install_aws_cli
 else
-    echo "✅ AWS CLI already available"
+    echo " AWS CLI already available"
 fi
 
-echo "📊 AWS CLI version: $(aws --version)"
+echo " AWS CLI version: $(aws --version)"
 
 # Function to automatically login to ROSA
 rosa_auto_login() {
-    echo "🔐 Checking ROSA authentication..."
+    echo " Checking ROSA authentication..."
     
     # Try to get ROSA token from multiple environment variable sources
     TOKEN=""
@@ -441,24 +441,24 @@ rosa_auto_login() {
     fi
     
     if [ -n "$TOKEN" ]; then
-        echo "🔑 Found ROSA token in environment, logging in automatically..."
+        echo " Found ROSA token in environment, logging in automatically..."
         if rosa login --token="$TOKEN"; then
-            echo "✅ ROSA login successful"
+            echo " ROSA login successful"
             return 0
         else
-            echo "❌ ROSA login failed with provided token"
+            echo " ROSA login failed with provided token"
             exit 1
         fi
     else
-        echo "❌ No ROSA token found in environment variables"
-        echo "💡 Please set one of the following environment variables:"
+        echo " No ROSA token found in environment variables"
+        echo " Please set one of the following environment variables:"
         echo "   export ROSA_TOKEN='your_token_here'"
         echo "   export OCM_TOKEN='your_token_here'"
         echo "   export REDHAT_OPENSHIFT_TOKEN='your_token_here'"
         echo ""
-        echo "🌐 Get your token from: https://console.redhat.com/openshift/token/rosa"
+        echo " Get your token from: https://console.redhat.com/openshift/token/rosa"
         echo ""
-        echo "📋 Alternative: Run 'rosa login' manually, then re-run this script"
+        echo " Alternative: Run 'rosa login' manually, then re-run this script"
         exit 1
     fi
 }
@@ -467,22 +467,22 @@ rosa_auto_login() {
 if ! rosa whoami &> /dev/null; then
     rosa_auto_login
 else
-    echo "✅ ROSA CLI already authenticated"
-    echo "👤 Logged in as: $(rosa whoami 2>/dev/null | head -1 || echo 'authenticated user')"
+    echo " ROSA CLI already authenticated"
+    echo " Logged in as: $(rosa whoami 2>/dev/null | head -1 || echo 'authenticated user')"
 fi
 
-echo "✅ Prerequisites verified"
+echo " Prerequisites verified"
 
 # =============================================================================
 # STEP 1: Create ROSA Account Roles (Required Prerequisite)
 # =============================================================================
-echo "🔧 Creating ROSA Account Roles (if not already created)"
-rosa create account-roles --mode auto --yes || echo "✅ Account roles already exist"
+echo " Creating ROSA Account Roles (if not already created)"
+rosa create account-roles --mode auto --yes || echo " Account roles already exist"
 
 # =============================================================================
 # STEP 2: Create ROSA Clusters
 # =============================================================================
-echo "🚀 Creating ROSA clusters..."
+echo " Creating ROSA clusters..."
 
 '''
         
@@ -511,12 +511,12 @@ echo "🚀 Creating ROSA clusters..."
 # Create {cluster_type.upper()} Cluster: {cluster_name}
 # =============================================================================
 
-echo "🔧 Creating {cluster_type.upper()} cluster: {cluster_name}"
+echo " Creating {cluster_type.upper()} cluster: {cluster_name}"
 
 '''
             
             if cluster_type == 'rosa-classic':
-                script_content += f'''echo "🔧 Creating ROSA-CLASSIC cluster: {cluster_name}"
+                script_content += f'''echo " Creating ROSA-CLASSIC cluster: {cluster_name}"
 
 # Create ROSA Classic cluster with STS
 # Note: Using same region as infrastructure and 3 replicas for multi-AZ
@@ -531,7 +531,7 @@ rosa create cluster \\
   --multi-az \\
   --yes
 
-echo "✅ ROSA Classic cluster '{cluster_name}' creation initiated"
+echo " ROSA Classic cluster '{cluster_name}' creation initiated"
 
 '''
             elif cluster_type == 'rosa-hcp':
@@ -539,15 +539,15 @@ echo "✅ ROSA Classic cluster '{cluster_name}' creation initiated"
 SUBNET_IDS=$(terraform output -json | jq -r 'to_entries[] | select(.key | startswith("public_subnet_ids_{region.replace("-", "_")}_")) | .value.value | join(",")')
 
 if [ -z "$SUBNET_IDS" ] || [ "$SUBNET_IDS" = "null" ]; then
-    echo "❌ Could not get subnet IDs from Terraform. Please run 'terraform apply' first."
+    echo " Could not get subnet IDs from Terraform. Please run 'terraform apply' first."
     exit 1
 fi
 
-echo "📊 Using subnet IDs: $SUBNET_IDS"
+echo " Using subnet IDs: $SUBNET_IDS"
 
 # Get AWS Account ID for billing
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-echo "📊 Using AWS Account ID for billing: $AWS_ACCOUNT_ID"
+echo " Using AWS Account ID for billing: $AWS_ACCOUNT_ID"
 
 # Create ROSA HCP cluster with STS, billing account, and OIDC config
 # Note: Replicas adjusted to be multiple of subnet count (3 subnets = 6 replicas)
@@ -565,7 +565,7 @@ rosa create cluster \\
   --mode auto \\
   --yes
 
-echo "✅ ROSA HCP cluster '{cluster_name}' creation initiated"
+echo " ROSA HCP cluster '{cluster_name}' creation initiated"
 
 '''
         
@@ -588,7 +588,7 @@ echo "⏳ Waiting for all ROSA clusters to be ready..."
 # Display cluster information
 # =============================================================================
 
-echo "🎉 All ROSA clusters are ready!"
+echo " All ROSA clusters are ready!"
 echo ""
 
 '''
@@ -596,18 +596,18 @@ echo ""
         # Add status display for each cluster
         for cluster in rosa_clusters:
             cluster_name = cluster.get('name')
-            script_content += f'''echo "📊 Cluster: {cluster_name}"
+            script_content += f'''echo " Cluster: {cluster_name}"
 rosa describe cluster "{cluster_name}"
 echo ""
 
 '''
 
-        script_content += '''echo "🔗 To access your clusters:"
+        script_content += '''echo " To access your clusters:"
 echo "  1. Get console URLs: rosa describe cluster <cluster-name>"
 echo "  2. Create admin user: rosa create admin --cluster=<cluster-name>"
 echo "  3. Login via CLI: oc login <api-url> --username=<admin-username> --password=<admin-password>"
 echo ""
-echo "✅ ROSA cluster setup complete!"
+echo " ROSA cluster setup complete!"
 '''
         
         return script_content
@@ -692,22 +692,22 @@ echo "=============================================="
 
 # Check prerequisites
 if ! command -v rosa &> /dev/null; then
-    echo "❌ ROSA CLI not found. Please install ROSA CLI first."
+    echo " ROSA CLI not found. Please install ROSA CLI first."
     exit 1
 fi
 
 if ! rosa whoami &> /dev/null; then
-    echo "❌ ROSA CLI not logged in. Please run: rosa login"
+    echo " ROSA CLI not logged in. Please run: rosa login"
     exit 1
 fi
 
-echo "✅ ROSA CLI available and authenticated"
-echo "👤 Logged in as: $(rosa whoami 2>/dev/null | head -1 || echo 'authenticated user')"
+echo " ROSA CLI available and authenticated"
+echo " Logged in as: $(rosa whoami 2>/dev/null | head -1 || echo 'authenticated user')"
 echo ""
 
 # Function to list clusters
 list_clusters() {
-    echo "📋 Current ROSA clusters:"
+    echo " Current ROSA clusters:"
     rosa list clusters 2>/dev/null || echo "No clusters found"
     echo ""
 }
@@ -715,7 +715,7 @@ list_clusters() {
 # Function to delete a specific cluster
 delete_cluster() {
     local cluster_name="$1"
-    echo "🗑️  Deleting cluster: $cluster_name"
+    echo "  Deleting cluster: $cluster_name"
     
     if [ "$DRY_RUN" = true ]; then
         echo "   [DRY RUN] Would delete cluster: $cluster_name"
@@ -724,15 +724,15 @@ delete_cluster() {
     
     # Check if cluster exists
     if ! rosa describe cluster --cluster "$cluster_name" &>/dev/null; then
-        echo "   ⚠️  Cluster '$cluster_name' not found, skipping..."
+        echo "     Cluster '$cluster_name' not found, skipping..."
         return 0
     fi
     
     echo "   ⏳ Deleting cluster '$cluster_name' (this may take 10-15 minutes)..."
     if rosa delete cluster --cluster "$cluster_name" --yes; then
-        echo "   ✅ Cluster '$cluster_name' deletion initiated successfully"
+        echo "    Cluster '$cluster_name' deletion initiated successfully"
     else
-        echo "   ❌ Failed to delete cluster '$cluster_name'"
+        echo "    Failed to delete cluster '$cluster_name'"
         return 1
     fi
 }
@@ -743,16 +743,16 @@ wait_for_deletion() {
     echo "   ⏳ Waiting for cluster '$cluster_name' to be fully deleted..."
     
     while rosa describe cluster --cluster "$cluster_name" &>/dev/null; do
-        echo "   📊 Cluster '$cluster_name' still exists, checking again in 30 seconds..."
+        echo "    Cluster '$cluster_name' still exists, checking again in 30 seconds..."
         sleep 30
     done
     
-    echo "   ✅ Cluster '$cluster_name' has been fully deleted"
+    echo "    Cluster '$cluster_name' has been fully deleted"
 }
 
 # Function to delete account roles
 delete_account_roles() {
-    echo "🗑️  Deleting ROSA account roles..."
+    echo "  Deleting ROSA account roles..."
     
     if [ "$DRY_RUN" = true ]; then
         echo "   [DRY RUN] Would delete account roles:"
@@ -768,14 +768,14 @@ delete_account_roles() {
     
     # Delete account roles (both classic and HCP)
     if rosa delete account-roles --mode auto --yes; then
-        echo "   ✅ Account roles deleted successfully"
+        echo "    Account roles deleted successfully"
     else
-        echo "   ⚠️  Some account roles may not have been deleted (this is normal if shared across clusters)"
+        echo "     Some account roles may not have been deleted (this is normal if shared across clusters)"
     fi
 }
 
 # Main execution
-echo "🔍 Scanning for clusters..."
+echo " Scanning for clusters..."
 list_clusters
 
 # Get expected clusters from YamlForge configuration
@@ -789,17 +789,17 @@ EXPECTED_CLUSTERS=('''
         script_content += ''')
 
 if [ "$DRY_RUN" = true ]; then
-    echo "🔎 DRY RUN MODE - Showing what would be deleted:"
+    echo " DRY RUN MODE - Showing what would be deleted:"
     echo ""
 fi
 
 # Handle different execution modes
 if [ "$SPECIFIC_CLUSTER" != "" ]; then
-    echo "🎯 Deleting specific cluster: $SPECIFIC_CLUSTER"
+    echo " Deleting specific cluster: $SPECIFIC_CLUSTER"
     delete_cluster "$SPECIFIC_CLUSTER"
     
 elif [ "$DELETE_ALL" = true ]; then
-    echo "🗑️  Deleting all expected clusters..."
+    echo "  Deleting all expected clusters..."
     
     for cluster_name in "${EXPECTED_CLUSTERS[@]}"; do
         delete_cluster "$cluster_name"
@@ -823,7 +823,7 @@ else
     
     case $choice in
         1)
-            echo "🗑️  Deleting all expected clusters..."
+            echo "  Deleting all expected clusters..."
             for cluster_name in "${EXPECTED_CLUSTERS[@]}"; do
                 delete_cluster "$cluster_name"
             done
@@ -838,21 +838,21 @@ else
             fi
             ;;
         3)
-            echo "🗑️  Full cleanup: Deleting all clusters + account roles..."
+            echo "  Full cleanup: Deleting all clusters + account roles..."
             for cluster_name in "${EXPECTED_CLUSTERS[@]}"; do
                 delete_cluster "$cluster_name"
             done
             delete_account_roles
             ;;
         4)
-            echo "📋 Listing clusters only"
+            echo " Listing clusters only"
             ;;
         5)
-            echo "👋 Exiting without changes"
+            echo " Exiting without changes"
             exit 0
             ;;
         *)
-            echo "❌ Invalid choice"
+            echo " Invalid choice"
             exit 1
             ;;
     esac
@@ -860,11 +860,11 @@ fi
 
 if [ "$DRY_RUN" = false ]; then
     echo ""
-    echo "✅ Cleanup operations completed!"
-    echo "📋 Final cluster status:"
+    echo " Cleanup operations completed!"
+    echo " Final cluster status:"
     list_clusters
     
-    echo "💡 Tips:"
+    echo " Tips:"
     echo "   - Use 'rosa list clusters' to verify all clusters are deleted"
     echo "   - Use 'terraform destroy' to clean up AWS infrastructure"
     echo "   - Account roles are shared and may be used by other clusters"

@@ -206,8 +206,8 @@ export ALICLOUD_REGION=us-east-1
 # SETUP VERIFICATION
 # =============================================================================
 
-echo "✅ YamlForge environment variables loaded!"
-echo "📍 GUID: $GUID"
+echo " YamlForge environment variables loaded!"
+echo " GUID: $GUID"
 
 # Check which providers are configured
 providers=()
@@ -221,9 +221,9 @@ providers=()
 [[ -n "$REDHAT_OPENSHIFT_TOKEN" ]] && providers+=("OpenShift")
 
 if [ ${#providers[@]} -gt 0 ]; then
-    echo "🔐 Configured providers: $(IFS=', '; echo "${providers[*]}")"
+    echo " Configured providers: $(IFS=', '; echo "${providers[*]}")"
 else
-    echo "⚠️  No provider credentials detected - add credentials above"
+    echo "  No provider credentials detected - add credentials above"
 fi
 
 # =============================================================================

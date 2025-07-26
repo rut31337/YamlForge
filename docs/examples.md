@@ -248,22 +248,22 @@ python yamlforge.py examples/testing/cloud_workspace_example.yaml -d workspace-o
 
 ## Example Categories by Use Case
 
-### 🚀 **Getting Started**
+###  **Getting Started**
 - `simple_test.yaml` - Basic single-cloud
 - `testing/fedora_example.yaml` - Simple Fedora deployment
 - `testing/simple_test.yaml` - Minimal configuration
 
-### 💰 **Cost Optimization**
+###  **Cost Optimization**
 - `cost-conscious/cheapest_provider_example.yaml` - Auto cost optimization
 - `cost-conscious/mixed_cheapest_example.yaml` - Mixed strategies
 - `cheapest_gpu_example.yaml` - GPU cost optimization
 
-### 🎮 **GPU & AI/ML**
+###  **GPU & AI/ML**
 - `gpu_workloads_example.yaml` - GPU workloads
 - `gpu_type_specific_example.yaml` - Specific GPU types
 - `minimal_gpu_across_clouds_example.yaml` - Multi-cloud GPU
 
-### 🌐 **Multi-Cloud**
+###  **Multi-Cloud**
 - `multi-cloud/hybrid_rhel_deployment.yaml` - RHEL across clouds
 - `testing/multi_provider_example.yaml` - Multi-provider testing
 - `extended-providers/multi_provider_new_example.yaml` - Extended providers
@@ -273,7 +273,7 @@ python yamlforge.py examples/testing/cloud_workspace_example.yaml -d workspace-o
 - `openshift/applications_example.yaml` - Application deployment
 - `openshift/multi_cloud_openshift_example.yaml` - Multi-cloud OpenShift
 
-### 🔧 **Advanced Features**
+###  **Advanced Features**
 - `auto_flavor_discovery_example.yaml` - Auto discovery
 - `gpu_validation_demo.yaml` - GPU validation
 - `instance_name_validation_example.yaml` - Name validation

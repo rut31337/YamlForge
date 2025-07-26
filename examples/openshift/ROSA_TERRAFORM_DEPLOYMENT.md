@@ -48,7 +48,7 @@ openshift:
 
 YamlForge **automatically detects** when multiple OpenShift cluster types are present and separates them into deployment groups to handle overlapping Terraform configurations or dependencies. This happens automatically - no configuration required.
 
-> **⚠️ Safety First**: All deployment variables default to `false`. You must explicitly enable the deployment groups you want by setting their variables to `true`. This prevents accidental deployments.
+> ** Safety First**: All deployment variables default to `false`. You must explicitly enable the deployment groups you want by setting their variables to `true`. This prevents accidental deployments.
 
 **Supported cluster types with automatic deployment separation:**
 - **ROSA Classic** clusters (separate from HCP to avoid Terraform configuration conflicts)

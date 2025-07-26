@@ -53,10 +53,10 @@ instances:
 ### Sample Output
 
 ```
-🎯 Resolving cheapest provider for instance 'web-server'...
-🔍 Finding cheapest option for size 'medium' with auto cores, auto memory...
-💰 Cheapest option: gcp e2-medium ($0.0335/hour, 1 vCPU, 4GB RAM)
-📊 Cost comparison (top 3):
+ Resolving cheapest provider for instance 'web-server'...
+ Finding cheapest option for size 'medium' with auto cores, auto memory...
+ Cheapest option: gcp e2-medium ($0.0335/hour, 1 vCPU, 4GB RAM)
+ Cost comparison (top 3):
   1. gcp: e2-medium - $0.0335/hour (1 vCPU, 4GB)
   2. azure: Standard_B2ms - $0.0376/hour (2 vCPU, 8GB)
   3. aws: t3.medium - $0.0416/hour (2 vCPU, 4GB)
@@ -207,12 +207,12 @@ instances:
 
 ### Key Advantages
 
-- **🏆 Maximum Cost Savings**: Automatically finds lowest-cost option across all clouds
-- **🚀 No Vendor Lock-in**: Deploy to actually cheapest provider, not predetermined choice  
-- **📊 Transparent Pricing**: See real hourly costs and comparison before deployment
-- **🎯 Intelligent Matching**: Considers both cost and resource efficiency
-- **🔄 Multi-Cloud by Default**: Different instances can land on different optimal providers
-- **⚡ Real-Time Optimization**: Uses current pricing data from all flavor mappings
+- ** Maximum Cost Savings**: Automatically finds lowest-cost option across all clouds
+- ** No Vendor Lock-in**: Deploy to actually cheapest provider, not predetermined choice  
+- ** Transparent Pricing**: See real hourly costs and comparison before deployment
+- ** Intelligent Matching**: Considers both cost and resource efficiency
+- ** Multi-Cloud by Default**: Different instances can land on different optimal providers
+- ** Real-Time Optimization**: Uses current pricing data from all flavor mappings
 
 ### Cost Comparison Examples
 

@@ -89,7 +89,7 @@ export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
 
 YamlForge generates Terraform configurations, so you'll need Terraform installed to deploy them:
 
-> **⚠️ IMPORTANT: Terraform v1.12.0+ Required**  
+> ** IMPORTANT: Terraform v1.12.0+ Required**  
 > YamlForge requires **Terraform v1.12.0 or newer** for proper ROSA/OpenShift provider dependency resolution.  
 > Older versions have known issues that cause deployment failures.
 

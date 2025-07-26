@@ -6,7 +6,7 @@
 
 A comprehensive tool that generates Terraform configurations from simple YAML specifications, supporting multiple cloud providers and OpenShift platforms with automated deployment capabilities.
 
-⚠️  ALPHA SOFTWARE WARNING ⚠️
+  ALPHA SOFTWARE WARNING 
 
 This is v0.99 ALPHA - Work in Progress
 

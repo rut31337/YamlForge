@@ -8,20 +8,20 @@ Azure Red Hat OpenShift (ARO) is a fully managed OpenShift service jointly engin
 
 ## Key Features
 
-### ✅ **Complete Terraform Automation**
+###  **Complete Terraform Automation**
 - **No CLI tools required** - Pure Terraform implementation
 - **Automatic service principal creation** and configuration
 - **Enhanced networking** with Network Security Groups
 - **Resource provider registration** handled automatically
 - **90-minute deployment timeouts** for reliable cluster creation
 
-### ✅ **Enterprise Security**
+###  **Enterprise Security**
 - **Automatic Azure AD integration** with service principals
 - **Role-based access control** with proper permissions
 - **Network security groups** for master and worker subnets
 - **Service endpoints** for Azure Container Registry and Storage
 
-### ✅ **Production Ready**
+###  **Production Ready**
 - **GUID-based resource naming** for uniqueness
 - **Comprehensive outputs** for integration
 - **Proper dependency management** for reliable deployments

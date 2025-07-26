@@ -415,7 +415,7 @@ class YamlForgeConverter:
         excluded_providers = self.core_config.get('provider_selection', {}).get('exclude_from_cheapest', [])
         if excluded_providers:
             excluded_list = ', '.join(excluded_providers)
-            print(f"ℹ️  Provider exclusions for {analysis_type}: {excluded_list} (excluded from cost comparison)")
+            print(f"  Provider exclusions for {analysis_type}: {excluded_list} (excluded from cost comparison)")
             available_providers = self.get_effective_providers()
             available_list = ', '.join(available_providers)
             print(f"Available providers: {available_list}")
@@ -1698,8 +1698,6 @@ ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAA... your-public-key-here"
 '''
             
             # Try to auto-detect AWS credentials from environment variables
-            access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
-            secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
             aws_region = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
             aws_billing_account_id = os.getenv('AWS_BILLING_ACCOUNT_ID')
             

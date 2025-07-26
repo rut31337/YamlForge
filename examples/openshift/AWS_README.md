@@ -179,7 +179,7 @@ openshift_applications:
         termination: "edge"
 ```
 
-## 🔐 **Security Configuration**
+##  **Security Configuration**
 
 ### **RBAC Example**
 ```yaml
@@ -207,7 +207,7 @@ security:
                 app: "api-backend"
 ```
 
-## 💰 **Cost Optimization**
+##  **Cost Optimization**
 
 ### **Cluster Autoscaling**
 ```yaml
@@ -254,7 +254,7 @@ day2_operations:
       - "configmaps"
 ```
 
-## 🏗️ **Infrastructure Components**
+##  **Infrastructure Components**
 
 ### **Jump Host Configuration**
 The examples include a pre-configured jump host with:
@@ -270,7 +270,7 @@ The examples include a pre-configured jump host with:
 - **Security groups** for management access
 - **Multi-AZ** deployment for high availability
 
-## 📚 **Additional Resources**
+##  **Additional Resources**
 
 ### **Prerequisites Setup**
 
@@ -321,7 +321,7 @@ oc get route grafana -n openshift-monitoring
 oc get route prometheus-k8s -n openshift-monitoring
 ```
 
-## 🎯 **Best Practices**
+##  **Best Practices**
 
 1. **Start Simple**: Use `aws_openshift_simple_example.yaml` first
 2. **Customize Gradually**: Add operators and applications as needed
@@ -331,7 +331,7 @@ oc get route prometheus-k8s -n openshift-monitoring
 6. **Secure by Default**: Implement RBAC and network policies
 7. **Backup Strategy**: Configure automated backups for critical data
 
-## 🐛 **Troubleshooting**
+##  **Troubleshooting**
 
 ### **Common Issues**
 
@@ -357,7 +357,7 @@ rosa describe cluster <cluster-name>
 rosa logs install <cluster-name>
 ```
 
-## 📞 **Support**
+##  **Support**
 
 - **YamlForge Issues**: [GitHub Issues](https://github.com/your-org/yamlforge/issues)
 - **ROSA Documentation**: [Red Hat OpenShift Service on AWS](https://docs.openshift.com/rosa/)
