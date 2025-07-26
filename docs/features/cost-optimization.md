@@ -234,7 +234,7 @@ Savings vs GCP n2-standard-2: 15%
 ```
 Cheapest option: aws g4dn.xlarge ($0.526/hour)
 Savings vs Azure NC6s_v3: 31%
-Savings vs GCP nvidia-tesla-t4: 18%
+Savings vs GCP NVIDIA T4: 18%
 ```
 
 ## Best Practices

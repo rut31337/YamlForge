@@ -133,7 +133,7 @@ flavor_mappings:
       vcpus: 6
       memory_gb: 112
       gpu_count: 1
-      gpu_type: "NVIDIA Tesla V100"
+      gpu_type: "NVIDIA V100"
       cost_factor: 25.0
       hourly_cost: 3.06
       storage_gb: 736
@@ -145,7 +145,7 @@ flavor_mappings:
       vcpus: 12
       memory_gb: 224
       gpu_count: 2
-      gpu_type: "NVIDIA Tesla V100"
+      gpu_type: "NVIDIA V100"
       cost_factor: 50.0
       hourly_cost: 6.12
       storage_gb: 1472

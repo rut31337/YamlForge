@@ -12,7 +12,7 @@ YamlForge **automatically fetches supported OpenShift versions** from the Red Ha
 
 ### ** Intelligent Version Selection**
 - **Strict validation by default** - Fails on unsupported versions to prevent surprises
-- **Optional auto-upgrade** - Can auto-upgrade unsupported versions if explicitly enabled
+- **Optional auto-discovery** - Can auto-discover and upgrade unsupported versions if explicitly enabled
 - **Preserves valid versions** when they're already supported  
 - **Detailed error messages** - Shows available versions when validation fails
 - **Keyword support** - Accepts `latest` and `stable` as version aliases
@@ -35,16 +35,16 @@ openshift:
       # ... other config
 ```
 
-### **Auto-Upgrade Unsupported Versions**  
+### **Auto-Discover and Upgrade Unsupported Versions**  
 ```yaml
 yamlforge:
   # Set in defaults/openshift.yaml or override in main config
   openshift:
-    auto_discover_version: true        #  Enable auto-upgrade globally
+    auto_discover_version: true        #  Enable auto-discovery globally
     
     clusters:
       - name: my-cluster
-        version: "1.0.0"                  #  Unsupported version → will auto-upgrade
+        version: "1.0.0"                  #  Unsupported version → will auto-discover and upgrade
         # ... other config
 ```
 
@@ -54,7 +54,7 @@ yamlforge:
   # Global setting - applies to all clusters
   openshift:
     auto_discover_version: false       #  Strict validation (recommended for production)
-# auto_discover_version: true     #  Flexible auto-upgrade (for dev environments)
+# auto_discover_version: true     #  Flexible auto-discovery (for dev environments)
     
     clusters:
       #  Explicit supported version
@@ -208,16 +208,16 @@ yamlforge my-config.yaml -d terraform/
 # Latest version: 4.18.19. Use 'latest' or specify a supported version.
 ```
 
-### **Example 4: Auto-Upgrade Mode**
+### **Example 4: Auto-Discovery Mode**
 ```yaml
-# my-config.yaml with auto-upgrade enabled globally
+# my-config.yaml with auto-discovery enabled globally
 yamlforge:
   openshift:
-    auto_discover_version: true     # Enable auto-upgrade for all clusters
+    auto_discover_version: true     # Enable auto-discovery for all clusters
     
     clusters:
       - name: "prod-cluster"
-        version: "4.14.15"             # Unsupported → will auto-upgrade
+        version: "4.14.15"             # Unsupported → will auto-discover and upgrade
 ```
 
 ```bash

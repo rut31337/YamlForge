@@ -103,7 +103,7 @@ class BaseOpenShiftProvider:
         
         Args:
             version: OpenShift version to validate
-            auto_discover_version: If False (default), fail on unsupported versions; if True, auto-upgrade to latest
+            auto_discover_version: If False (default), fail on unsupported versions; if True, auto-discover and upgrade to latest
             
         Returns:
             Validated version string

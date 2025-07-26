@@ -221,7 +221,7 @@ class ROSAVersionManager:
         Args:
             input_version: User-specified version (optional)
             cluster_type: Type of cluster (rosa, hypershift, etc.)
-            auto_discover_version: If True, auto-upgrade to latest if input version is unsupported
+            auto_discover_version: If True, auto-discover and upgrade to latest if input version is unsupported
             
         Returns:
             Recommended version string
@@ -236,7 +236,7 @@ class ROSAVersionManager:
         
         # Version not supported
         if auto_discover_version:
-            # Auto-upgrade to latest
+            # Auto-discover and upgrade to latest
             latest = self.get_latest_version(cluster_type)
             print(f"Version '{input_version}' not supported. Auto-upgrading to '{latest}'")
             return latest

@@ -30,7 +30,7 @@ class DynamicROSAVersionProvider:
         Args:
             input_version: User-specified version (optional)
             cluster_type: Type of cluster (rosa, hypershift, etc.)
-            auto_discover_version: If False, raise exception for unsupported versions; if True, auto-upgrade to latest
+            auto_discover_version: If False, raise exception for unsupported versions; if True, auto-discover and upgrade to latest
             
         Returns:
             Recommended version string

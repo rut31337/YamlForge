@@ -69,7 +69,7 @@ yamlforge:
       security_groups: ["gpu-access-{guid}"]
       tags:
         workload_type: "flagship_training"
-        gpu_type: "nvidia_a100"
+        gpu_type: "NVIDIA A100"
         provider_optimized: "true"
     
     - name: "azure-nd-{guid}"
@@ -80,7 +80,7 @@ yamlforge:
       security_groups: ["gpu-access-{guid}"]
       tags:
         workload_type: "enterprise_training"
-        gpu_type: "nvidia_a100"
+        gpu_type: "NVIDIA A100"
         provider_optimized: "true"
   
   tags:

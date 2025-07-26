@@ -158,18 +158,18 @@ yamlforge:
     - name: "gpu-aws"
       provider: "aws"
       size: "gpu_large"
-      gpu_type: "nvidia-tesla-v100"
+      gpu_type: "NVIDIA V100"
       gpu_count: 4
       image: "RHEL9-latest"
     - name: "gpu-azure"
       provider: "azure"
       size: "gpu_large"
-      gpu_type: "nvidia-tesla-v100"
+      gpu_type: "NVIDIA V100"
       gpu_count: 4
       image: "RHEL9-latest"
     - name: "gpu-cheapest"
       provider: "cheapest"
-      gpu_type: "nvidia-tesla-v100"
+      gpu_type: "NVIDIA V100"
       gpu_count: 2
       image: "RHEL9-latest"
 ```
@@ -363,7 +363,7 @@ yamlforge:
   instances:
     - name: "gpu-workload"
       provider: "cheapest"
-      gpu_type: "nvidia-tesla-v100"
+      gpu_type: "NVIDIA V100"
       gpu_count: 1
       size: "gpu_medium"
       image: "RHEL9-latest"

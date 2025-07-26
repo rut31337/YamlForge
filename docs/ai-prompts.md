@@ -140,7 +140,7 @@ yamlforge:
   instances:
     - name: "gpu-trainer"
       provider: "cheapest"
-      gpu_type: "nvidia-tesla-v100"
+      gpu_type: "NVIDIA V100"
       gpu_count: 2
       size: "gpu_large"
       image: "RHEL9-latest"

@@ -133,7 +133,7 @@ flavor_mappings:
       vcpus: 4
       memory_gb: 15
       gpu_count: 1
-      gpu_type: "nvidia-tesla-t4"
+      gpu_type: "NVIDIA T4"
       cost_factor: 15.0
       hourly_cost: 0.540
       storage_gb: 100
@@ -145,7 +145,7 @@ flavor_mappings:
       vcpus: 8
       memory_gb: 30
       gpu_count: 1
-      gpu_type: "nvidia-tesla-v100"
+      gpu_type: "NVIDIA V100"
       cost_factor: 30.0
       hourly_cost: 2.480
       storage_gb: 100
