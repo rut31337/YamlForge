@@ -29,8 +29,8 @@ setup(
     description="Multi-Cloud Infrastructure as Code and PaaS Management Suite (ALPHA - Work in Progress)",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
-    author="YamlForge Team",
-    author_email="team@yamlforge.io",
+    author="Patrick T. Rutledge III",
+    author_email="rut31337@gmail.com",
     url="https://github.com/rut31337/YamlForge",
     license="Apache-2.0",
     

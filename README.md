@@ -2,6 +2,8 @@
 
 **Platform for managing multi-cloud infrastructure and OpenShift deployments through unified YAML definitions.**
 
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 A comprehensive tool that generates Terraform configurations from simple YAML specifications, supporting multiple cloud providers and OpenShift platforms with automated deployment capabilities.
 
 ⚠️  ALPHA SOFTWARE WARNING ⚠️
@@ -197,9 +199,28 @@ YamlForge generates production-ready Terraform with:
 3. Add your changes and tests
 4. Submit a pull request
 
+## Author
+
+**Patrick T. Rutledge III** - [rut31337@gmail.com](mailto:rut31337@gmail.com)
+
+Project Link: [https://github.com/rut31337/YamlForge](https://github.com/rut31337/YamlForge)
+
 ## License
 
-MIT License - see the LICENSE file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+The Apache License 2.0 is a permissive license that allows for:
+- Commercial use
+- Modification and distribution
+- Patent use
+- Private use
+
+The license requires:
+- License and copyright notice inclusion
+- State changes when modifying files
+- Apache License 2.0 compatibility
+
+For more information, visit: https://www.apache.org/licenses/LICENSE-2.0
 
 ---
 

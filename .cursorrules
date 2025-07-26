@@ -4,6 +4,8 @@
 - **Always automatically cd into the YamlForge directory** when starting any development task
 - Ensure you're in the correct workspace root before beginning any development tasks
 - Verify current directory is YamlForge before running any commands
+- **Use LF line endings** - all files should use Unix line endings (LF, not CRLF)
+- **Enforce consistent line endings** - use .gitattributes and VS Code settings
 
 ## Code Style and Formatting
 - Do not use emoji characters in code, comments, or output messages
