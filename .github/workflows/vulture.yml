@@ -25,7 +25,7 @@ jobs:
     
     - name: Run Vulture static analysis
       run: |
-        echo "🔍 Running Vulture static analysis..."
+        echo "Running Vulture static analysis..."
         
         # Comprehensive ignore list for YamlForge
         IGNORE_LIST="__init__,main,setup,test_,_test,conftest,generate_aws_vm,generate_aws_security_group,generate_aws_networking,generate_azure_vm,generate_azure_security_group,generate_azure_networking,generate_gcp_vm,generate_gcp_firewall_rules,generate_ibm_vpc_vm,generate_ibm_security_group,generate_ibm_classic_vm,generate_oci_vm,generate_oci_security_group,generate_alibaba_vm,generate_alibaba_security_group,generate_alibaba_networking,generate_vmware_vm,get_aws_credentials,get_azure_credentials,get_gcp_credentials,get_ibm_vpc_credentials,get_ibm_classic_credentials,get_oci_credentials,get_alibaba_credentials,get_vmware_credentials,get_cert_manager_credentials,oci_config,alibaba_config,validate_openshift_version,create_rosa_account_roles_via_cli,generate_rosa_operator_roles,generate_rosa_oidc_config,generate_rosa_sts_data_sources,generate_lifecycle_management,generate_blue_green_automation,generate_upgrade_automation,generate_ingress_resources,generate_external_dns,generate_gitops_operator,generate_pipelines_operator,generate_serverless_operator,generate_logging_operator,generate_monitoring_operator,generate_storage_operator,generate_service_mesh_operator,generate_metallb_operator,generate_submariner_operator,generate_cert_manager_operator,generate_oadp_operator,ROSAVersionManager,retry_with_backoff,AlibabaImageResolver,GCPImageResolver,OCIImageResolver,GitOpsOperator,PipelinesOperator,ServerlessOperator"
@@ -33,4 +33,4 @@ jobs:
         # Run Vulture with ignore patterns
         vulture yamlforge/ --ignore-names "$IGNORE_LIST" --min-confidence 60
         
-        echo "✅ Vulture analysis completed successfully!" 
+        echo "Vulture analysis completed successfully!" 
