@@ -2,8 +2,8 @@
 # Install with: pip install -r requirements-alibaba.txt
 
 # Core
-PyYAML>=6.0
+PyYAML>=6.0.2
 
 # Alibaba Cloud SDK
-alibabacloud-ecs20140526>=3.0.0
+alibabacloud-ecs20140526>=7.0.0
 alibabacloud-tea-openapi>=0.3.0 

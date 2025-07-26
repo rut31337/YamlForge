@@ -2,7 +2,7 @@
 # Install with: pip install -r requirements-minimal.txt
 
 # Core dependencies only - no cloud SDKs
-PyYAML>=6.0
+PyYAML>=6.0.2
 
 # Note: This provides basic YamlForge functionality for:
 # - Azure (pure Terraform)

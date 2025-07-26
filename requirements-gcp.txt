@@ -2,9 +2,9 @@
 # Install with: pip install -r requirements-gcp.txt
 
 # Core
-PyYAML>=6.0
+PyYAML>=6.0.2
 
 # Google Cloud Platform SDK
-google-cloud-compute>=1.14.0
-google-cloud-dns>=0.34.0
+google-cloud-compute>=1.32.0
+google-cloud-dns>=0.35.0
 google-auth>=2.0.0 

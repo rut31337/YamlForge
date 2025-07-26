@@ -2,7 +2,7 @@
 # Install with: pip install -r requirements-oci.txt
 
 # Core
-PyYAML>=6.0
+PyYAML>=6.0.2
 
 # Oracle Cloud Infrastructure SDK
-oci>=2.115.0 
+oci>=2.155.0 
