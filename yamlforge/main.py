@@ -4,6 +4,20 @@ Main entry point for the yamlforge multi-cloud infrastructure converter.
 
 This module provides the command-line interface for YamlForge, which converts
 unified YAML infrastructure definitions into provider-specific Terraform configurations.
+
+Copyright 2025 Patrick T. Rutledge III
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 """
 
 import argparse
@@ -11,7 +25,6 @@ import os
 import sys
 import yaml
 import subprocess
-import time
 from datetime import datetime
 
 from .core.converter import YamlForgeConverter
@@ -24,8 +37,8 @@ def run_command(command, cwd=None, description=""):
     try:
         print(f"  {description}")
         print(f"   Executing: {command}")
-        result = subprocess.run(command, shell=True, cwd=cwd, check=True, 
-                              capture_output=False, text=True)
+        subprocess.run(command, shell=True, cwd=cwd, check=True, 
+                      capture_output=False, text=True)
         print(f"Success: {description}")
         return True
     except subprocess.CalledProcessError as e:

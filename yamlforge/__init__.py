@@ -29,7 +29,8 @@ from .providers.vmware import VMwareProvider
 from .providers.alibaba import AlibabaProvider
 
 __version__ = "0.99.0a1"
-__author__ = "YamlForge Team"
+__author__ = "Patrick T. Rutledge III"
+__copyright__ = "Copyright 2025 Patrick T. Rutledge III"
 
 __all__ = [
     'CredentialsManager',
