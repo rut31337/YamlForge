@@ -475,7 +475,7 @@ YamlForge is not biased toward any specific operating system image or cloud prov
 - **AWS** - Native EC2, VPC, Security Groups, ROSA clusters
 - **Azure** - Virtual Machines, VNets, Network Security Groups, ARO clusters  
 - **GCP** - Compute Engine with dynamic image discovery
-- **IBM Cloud** - VPC Gen 2 and Classic Infrastructure
+- **IBM Cloud** - VPC Gen 2 and Classic Infrastructure ([Configuration](docs/ibm-vpc-configuration.md))
 - **Oracle Cloud (OCI)** - Compute instances and networking
 - **Alibaba Cloud** - ECS instances and VPC
 - **VMware vSphere** - Virtual machines and networking

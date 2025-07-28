@@ -15,6 +15,9 @@ This directory contains examples for each supported cloud provider, demonstratin
 
 ### IBM Cloud
 - **[ibm_vpc_example.yaml](ibm_vpc_example.yaml)** - IBM VPC deployment with resource groups and security groups
+  - Configurable cloud-user creation (`create_cloud_user: true/false`)
+  - SSH access configuration
+  - Resource group management
 - **[ibm_classic_example.yaml](ibm_classic_example.yaml)** - IBM Classic Infrastructure deployment with tagging
 
 ## Usage
@@ -61,6 +64,8 @@ python yamlforge.py examples/cloud-specific/ibm_classic_example.yaml -d output/ 
 
 ### IBM Cloud
 - **IBM VPC**: Resource groups, VPC networking, security groups
+  - `create_cloud_user`: Boolean to control cloud-user account creation (default: true)
+  - `use_existing_resource_group`: Use existing resource group instead of creating new ones
 - **IBM Classic**: Full account access, tagging, classic infrastructure
 
 ## Configuration Patterns

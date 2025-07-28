@@ -440,7 +440,7 @@ class GCPProvider:
 
         return default_image
 
-    def generate_gcp_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None):
+    def generate_gcp_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None, has_guid_placeholder=False):
         """Generate native GCP Compute Engine instance."""
         instance_name = instance.get("name", f"instance_{index}")
         # Replace {guid} placeholder in instance name
@@ -490,10 +490,16 @@ class GCPProvider:
         
         # Get SSH key configuration for this instance
         ssh_key_config = self.converter.get_instance_ssh_key(instance, yaml_data or {})
+        
+        # Get GUID for consistent naming
+        guid = self.get_validated_guid()
+        
+        # Use clean_name directly if GUID is already present, otherwise add GUID
+        resource_name = clean_name if has_guid_placeholder else f"{clean_name}_{guid}"
 
         vm_config = f'''
 # GCP Compute Instance: {instance_name}
-resource "google_compute_instance" "{clean_name}_{self.get_validated_guid()}" {{
+resource "google_compute_instance" "{resource_name}" {{
   name         = "{instance_name}"
   machine_type = "{gcp_machine_type}"
   zone         = "{gcp_zone}"
@@ -507,9 +513,9 @@ resource "google_compute_instance" "{clean_name}_{self.get_validated_guid()}" {{
   }}
 
   network_interface {{
-    subnetwork = google_compute_subnetwork.main_subnet_{gcp_region.replace("-", "_").replace(".", "_")}_{self.get_validated_guid()}.id
+    subnetwork = google_compute_subnetwork.main_subnet_{gcp_region.replace("-", "_").replace(".", "_")}_{guid}.id
     access_config {{
-      nat_ip = google_compute_address.{clean_name}_ip_{self.get_validated_guid()}.address
+      nat_ip = google_compute_address.{resource_name}_ip.address
     }}
   }}
 
@@ -547,13 +553,13 @@ USERDATA'''
 }}
 
 # GCP External IP for {instance_name}
-resource "google_compute_address" "{clean_name}_ip_{self.get_validated_guid()}" {{
+resource "google_compute_address" "{resource_name}_ip" {{
   name    = "{instance_name}-ip"
   region  = "{gcp_region}"
   project = local.project_id
   
   depends_on = [
-    time_sleep.wait_for_compute_api_{self.get_validated_guid()}
+    time_sleep.wait_for_compute_api_{guid}
   ]
   
   lifecycle {{
@@ -585,28 +591,28 @@ resource "google_compute_address" "{clean_name}_ip_{self.get_validated_guid()}" 
         if dns_management_enabled and project_domain:
             vm_config += f'''
 # DNS A Record for {instance_name} (if DNS zone exists)
-resource "google_dns_record_set" "{clean_name}_dns_{self.get_validated_guid()}" {{
-  count = length(google_dns_managed_zone.main_{self.get_validated_guid()}.name_servers) > 0 ? 1 : 0
+resource "google_dns_record_set" "{clean_name}_dns_{guid}" {{
+  count = length(google_dns_managed_zone.main_{guid}.name_servers) > 0 ? 1 : 0
   
-  name         = "{instance_name}.{self.get_validated_guid()}.{project_domain}."
-  managed_zone = google_dns_managed_zone.main_{self.get_validated_guid()}.name
+  name         = "{instance_name}.{guid}.{project_domain}."
+  managed_zone = google_dns_managed_zone.main_{guid}.name
   type         = "A"
   ttl          = 300
   
-  rrdatas = [google_compute_address.{clean_name}_ip_{self.get_validated_guid()}.address]
+  rrdatas = [google_compute_address.{resource_name}_ip.address]
   project = local.project_id
 }}
 
 # Internal DNS A Record for {instance_name} (private IP)
-resource "google_dns_record_set" "{clean_name}_internal_dns_{self.get_validated_guid()}" {{
-  count = length(google_dns_managed_zone.main_{self.get_validated_guid()}.name_servers) > 0 ? 1 : 0
+resource "google_dns_record_set" "{clean_name}_internal_dns_{guid}" {{
+  count = length(google_dns_managed_zone.main_{guid}.name_servers) > 0 ? 1 : 0
   
-  name         = "{instance_name}-internal.{self.get_validated_guid()}.{project_domain}."
-  managed_zone = google_dns_managed_zone.main_{self.get_validated_guid()}.name
+  name         = "{instance_name}-internal.{guid}.{project_domain}."
+  managed_zone = google_dns_managed_zone.main_{guid}.name
   type         = "A"
   ttl          = 300
   
-  rrdatas = [google_compute_instance.{clean_name}_{self.get_validated_guid()}.network_interface[0].network_ip]
+  rrdatas = [google_compute_instance.{resource_name}.network_interface[0].network_ip]
   project = local.project_id
 }}
 '''

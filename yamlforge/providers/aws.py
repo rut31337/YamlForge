@@ -55,8 +55,12 @@ class AWSImageResolver:
         if not ami_owners:
             raise Exception("ami_owners section missing from defaults/aws.yaml")
 
-        # Check if credentials are available for dynamic discovery
-        has_credentials = self.credentials and self.credentials.get_aws_credentials()
+        # Check if credentials are available for dynamic discovery (skip in no-credentials mode)
+        if self.converter and self.converter.no_credentials:
+            has_credentials = False
+            print("  NO-CREDENTIALS MODE: Skipping AWS credential discovery in image resolver")
+        else:
+            has_credentials = self.credentials and self.credentials.get_aws_credentials()
 
         if not has_credentials:
             print("Warning: AWS credentials not found. "
@@ -749,7 +753,7 @@ resource "aws_security_group" "{regional_sg_name}_{guid}" {{{self.get_aws_provid
 '''
         return security_group_config
 
-    def generate_aws_vm(self, instance, index, clean_name, strategy_info, available_subnets=None, yaml_data=None):  # noqa: vulture
+    def generate_aws_vm(self, instance, index, clean_name, strategy_info, available_subnets=None, yaml_data=None, has_guid_placeholder=False):  # noqa: vulture
         """Generate AWS EC2 instance."""
         instance_name = instance.get("name", f"instance_{index}")
         # Replace {guid} placeholder in instance name
@@ -835,7 +839,8 @@ resource "aws_security_group" "{regional_sg_name}_{guid}" {{{self.get_aws_provid
         key_name_ref = "null"
         
         if ssh_key_config and ssh_key_config.get('public_key'):
-            ssh_key_name = f"{clean_name}_key_pair_{guid}"
+            # Use clean_name directly if GUID is already present, otherwise add GUID
+            ssh_key_name = clean_name if has_guid_placeholder else f"{clean_name}_key_pair_{guid}"
             ssh_key_resources = f'''
 # AWS Key Pair for {instance_name}
 resource "aws_key_pair" "{ssh_key_name}" {{{self.get_aws_provider_reference(aws_region, yaml_data)}
@@ -852,57 +857,39 @@ resource "aws_key_pair" "{ssh_key_name}" {{{self.get_aws_provider_reference(aws_
 '''
             key_name_ref = f"aws_key_pair.{ssh_key_name}.key_name"
 
-        # Generate the instance configuration
-        instance_config = ami_data_source + ssh_key_resources + f'''
+        # Use clean_name directly if GUID is already present, otherwise add GUID
+        resource_name = clean_name if has_guid_placeholder else f"{clean_name}_{guid}"
+        
+        # Generate the EC2 instance
+        vm_config = ssh_key_resources + f'''
 # AWS EC2 Instance: {instance_name}
-resource "aws_instance" "{clean_name}_{guid}" {{{self.get_aws_provider_reference(aws_region, yaml_data)}
+resource "aws_instance" "{resource_name}" {{{self.get_aws_provider_reference(aws_region, yaml_data)}
   ami           = {ami_reference}
-  instance_type = "{aws_instance_type}"'''
-
-        # Add key name if SSH key is configured
-        if key_name_ref != "null":
-            instance_config += f'''
-  key_name      = {key_name_ref}'''
-
-        # Add availability zone if user specified one
-        if aws_availability_zone:
-            instance_config += f'''
-  availability_zone = "{aws_availability_zone}"'''
-
-        instance_config += f'''
-
-  # Subnet assignment (uses first public subnet for backwards compatibility)
-  subnet_id = local.vpc_subnet_id_{aws_region.replace("-", "_").replace(".", "_")}_{guid}'''
-
-        # Add user data if provided
-        if user_data_script:
-            instance_config += f'''
-
-  # User Data Script
-  user_data = base64encode(<<-USERDATA
-{user_data_script}
-USERDATA
-  )'''
-
-        # Add security groups if any exist
-        if aws_sg_refs:
-            instance_config += f'''
-
-  # Security Groups
-  vpc_security_group_ids = [
-    {',\n    '.join(aws_sg_refs)}
-  ]'''
-
-        instance_config += f'''
-
+  instance_type = "{aws_instance_type}"
+  key_name      = {key_name_ref}
+  
+  availability_zone = "{aws_availability_zone}" if aws_availability_zone else null
+  
+  vpc_security_group_ids = [{", ".join(aws_sg_refs) if aws_sg_refs else ""}]
+  
+  root_block_device {{
+    volume_size = {instance.get('disk_size', 20)}
+    volume_type = "{instance.get('disk_type', 'gp3')}"
+    encrypted   = true
+  }}
+  
   tags = {{
     Name = "{instance_name}"
     Environment = "{yaml_data.get('environment', 'unknown') if yaml_data else 'unknown'}"
     ManagedBy = "yamlforge"
   }}
+  
+  {f"user_data = base64encode(<<-EOF\n{user_data_script}\nEOF\n)" if user_data_script else ""}
 }}
+
+{ami_data_source}
 '''
-        return instance_config
+        return vm_config
 
     def generate_aws_networking(self, deployment_name, deployment_config, region, yaml_data=None):  # noqa: vulture
         """Generate AWS networking resources for specific region."""
@@ -1225,18 +1212,23 @@ output "private_subnet_ids_{clean_region}_{guid}" {{
             return '["0.0.0.0/0"]'
 
     def create_rosa_account_roles_via_cli(self, yaml_data=None):
-        """Create ROSA account roles using the ROSA CLI instead of Terraform."""
+        """Create ROSA account roles using ROSA CLI."""
         import subprocess
-        import sys
         
         guid = self.converter.get_validated_guid(yaml_data)
         
         try:
-            # Check if rosa CLI is available
+            # Skip account role creation in no-credentials mode
+            if getattr(self.converter, 'no_credentials', False):
+                print("  NO-CREDENTIALS MODE: Skipping ROSA account role creation")
+                return True
+            
+            # Check if ROSA CLI is available
             result = subprocess.run(['rosa', 'version'], capture_output=True, text=True)
             if result.returncode != 0:
-                print("ROSA CLI not found. Please install ROSA CLI first.")
-                print("Installation instructions: https://docs.openshift.com/rosa/rosa_install_access_delete_clusters/rosa_getting_started_iam/rosa-installing-rosa.html")
+                print("ROSA CLI not found. Please install ROSA CLI first:")
+                print("  curl -L https://mirror.openshift.com/pub/openshift-v4/amd64/clients/rosa/latest/rosa-linux.tar.gz | tar xz")
+                print("  sudo mv rosa /usr/local/bin/")
                 return False
                 
             print("ROSA CLI found")

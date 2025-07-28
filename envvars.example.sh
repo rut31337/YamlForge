@@ -102,6 +102,18 @@ export IBMCLOUD_VPC_RESOURCE_GROUP_NAME=""
 export IBMCLOUD_CLASSIC_DATACENTER=dal10
 export IBMCLOUD_CLASSIC_DOMAIN=example.com
 
+# IBM Cloud API Key (required for IBM Cloud deployments)
+export IBM_CLOUD_REGION=us-south
+
+# Available IBM Cloud Regions:
+# - us-south (Dallas), us-east (Washington DC), ca-tor (Toronto)
+# - eu-gb (London), eu-de (Frankfurt)
+# - jp-tok (Tokyo), jp-osa (Osaka), au-syd (Sydney)
+# - br-sao (São Paulo)
+
+# For CLI compatability
+export IC_API_KEY=$IBMCLOUD_API_KEY
+
 # =============================================================================
 # RED HAT OPENSHIFT CREDENTIALS
 # =============================================================================
@@ -122,21 +134,6 @@ export REDHAT_OPENSHIFT_URL="https://api.openshift.com"
 
 # Alternative: Kubeconfig
 # export OPENSHIFT_KUBECONFIG="$(cat ~/.kube/config)"
-
-# =============================================================================
-# IBM CLOUD CREDENTIALS
-# =============================================================================
-
-# IBM Cloud API Key (required for IBM Cloud deployments)
-export IC_API_KEY=YOUR_IBM_CLOUD_API_KEY
-export IBM_CLOUD_API_KEY=YOUR_IBM_CLOUD_API_KEY
-export IBM_CLOUD_REGION=us-south
-
-# Available IBM Cloud Regions:
-# - us-south (Dallas), us-east (Washington DC), ca-tor (Toronto)
-# - eu-gb (London), eu-de (Frankfurt)
-# - jp-tok (Tokyo), jp-osa (Osaka), au-syd (Sydney)
-# - br-sao (São Paulo)
 
 # =============================================================================
 # ORACLE CLOUD INFRASTRUCTURE (OCI) CREDENTIALS

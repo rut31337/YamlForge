@@ -15,7 +15,7 @@ This directory contains examples demonstrating how to use YamlForge for multi-cl
 - **[cloud-specific/aws-example.yaml](cloud-specific/aws-example.yaml)** - AWS deployment
 - **[cloud-specific/azure-example.yaml](cloud-specific/azure-example.yaml)** - Azure deployment
 - **[cloud-specific/gcp_example.yaml](cloud-specific/gcp_example.yaml)** - GCP deployment
-- **[cloud-specific/ibm_vpc_example.yaml](cloud-specific/ibm_vpc_example.yaml)** - IBM VPC deployment
+- **[cloud-specific/ibm_vpc_example.yaml](cloud-specific/ibm_vpc_example.yaml)** - IBM VPC deployment with configurable cloud-user creation
 - **[cloud-specific/ibm_classic_example.yaml](cloud-specific/ibm_classic_example.yaml)** - IBM Classic deployment
 
 ### Advanced Examples

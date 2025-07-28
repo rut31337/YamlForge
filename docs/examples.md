@@ -155,8 +155,11 @@ python yamlforge.py examples/cloud-specific/ibm_classic_example.yaml -d ibm-clas
 # IBM VPC (modern) deployment
 python yamlforge.py examples/cloud-specific/ibm_modern_example.yaml -d ibm-vpc-output/
 
-# IBM VPC example
+# IBM VPC example (with cloud-user configuration)
 python yamlforge.py examples/cloud-specific/ibm_vpc_example.yaml -d ibm-vpc-alt-output/
+
+# IBM VPC with root account (create_cloud_user: false)
+python yamlforge.py examples/cloud-specific/ibm_vpc_example.yaml -d ibm-vpc-root-output/
 ```
 
 ### Architecture Examples

@@ -186,7 +186,7 @@ resource "azurerm_network_security_group" "{regional_sg_name}_{self.converter.ge
 '''
         return security_group_config
 
-    def generate_azure_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None):  # noqa: vulture
+    def generate_azure_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None, has_guid_placeholder=False):  # noqa: vulture
         """Generate native Azure virtual machine."""
         instance_name = instance.get("name", f"instance_{index}")
         # Replace {guid} placeholder in instance name
@@ -222,23 +222,30 @@ resource "azurerm_network_security_group" "{regional_sg_name}_{self.converter.ge
         sg_names = instance.get('security_groups', [])
         for sg_name in sg_names:
             clean_sg = sg_name.replace("-", "_").replace(".", "_")
-            azure_nsg_refs.append(f"azurerm_network_security_group.{clean_sg}_{azure_region.replace('-', '_').replace(' ', '_')}_{self.converter.get_validated_guid(yaml_data)}.id")
+            azure_nsg_refs.append(f"azurerm_network_security_group.{clean_sg}_{azure_region.replace('-', '_').replace(' ', '_')}_{self.converter.get_validated_guid(yaml_data)}")
 
         # Get SSH key configuration for this instance
         ssh_key_config = self.converter.get_instance_ssh_key(instance, yaml_data or {})
+        
+        # Get GUID for consistent naming
+        guid = self.converter.get_validated_guid(yaml_data)
+        
+        # Use clean_name directly if GUID is already present, otherwise add GUID
+        resource_name = clean_name if has_guid_placeholder else f"{clean_name}_{guid}"
         
         # Generate SSH key resource if SSH key is provided
         ssh_key_resources = ""
         ssh_key_reference = "null"
         
         if ssh_key_config and ssh_key_config.get('public_key'):
-            ssh_key_name = f"{clean_name}_ssh_key_{self.converter.get_validated_guid(yaml_data)}"
+            # Use clean_name directly if GUID is already present, otherwise add GUID
+            ssh_key_name = clean_name if has_guid_placeholder else f"{clean_name}_ssh_key_{guid}"
             ssh_key_resources = f'''
 # Azure SSH Public Key: {instance_name}
 resource "azurerm_ssh_public_key" "{ssh_key_name}" {{
   name                = "{instance_name}-ssh-key"
-  resource_group_name = local.resource_group_name_{azure_region.replace("-", "_").replace(" ", "_")}_{self.converter.get_validated_guid(yaml_data)}
-  location            = local.resource_group_location_{azure_region.replace("-", "_").replace(" ", "_")}_{self.converter.get_validated_guid(yaml_data)}
+  resource_group_name = local.resource_group_name_{azure_region.replace("-", "_").replace(" ", "_")}_{guid}
+  location            = local.resource_group_location_{azure_region.replace("-", "_").replace(" ", "_")}_{guid}
   public_key          = "{ssh_key_config['public_key']}"
 
   tags = {{
@@ -255,10 +262,10 @@ resource "azurerm_ssh_public_key" "{ssh_key_name}" {{
 
         vm_config = ssh_key_resources + f'''
 # Azure Public IP: {instance_name}
-resource "azurerm_public_ip" "{clean_name}_ip_{self.converter.get_validated_guid(yaml_data)}" {{
+resource "azurerm_public_ip" "{resource_name}_ip" {{
   name                = "{instance_name}-ip"
-  location            = local.resource_group_location_{azure_region.replace("-", "_").replace(" ", "_")}_{self.converter.get_validated_guid(yaml_data)}
-  resource_group_name = local.resource_group_name_{azure_region.replace("-", "_").replace(" ", "_")}_{self.converter.get_validated_guid(yaml_data)}
+  location            = local.resource_group_location_{azure_region.replace("-", "_").replace(" ", "_")}_{guid}
+  resource_group_name = local.resource_group_name_{azure_region.replace("-", "_").replace(" ", "_")}_{guid}
   allocation_method   = "Static"
 
   tags = {{
@@ -268,16 +275,16 @@ resource "azurerm_public_ip" "{clean_name}_ip_{self.converter.get_validated_guid
 }}
 
 # Azure Network Interface: {instance_name}
-resource "azurerm_network_interface" "{clean_name}_nic_{self.converter.get_validated_guid(yaml_data)}" {{
+resource "azurerm_network_interface" "{resource_name}_nic" {{
   name                = "{instance_name}-nic"
-  location            = local.resource_group_location_{azure_region.replace("-", "_").replace(" ", "_")}_{self.converter.get_validated_guid(yaml_data)}
-  resource_group_name = local.resource_group_name_{azure_region.replace("-", "_").replace(" ", "_")}_{self.converter.get_validated_guid(yaml_data)}
+  location            = local.resource_group_location_{azure_region.replace("-", "_").replace(" ", "_")}_{guid}
+  resource_group_name = local.resource_group_name_{azure_region.replace("-", "_").replace(" ", "_")}_{guid}
 
   ip_configuration {{
     name                          = "internal"
-    subnet_id                     = azurerm_subnet.main_subnet_{azure_region.replace("-", "_").replace(" ", "_")}_{self.converter.get_validated_guid(yaml_data)}.id
+    subnet_id                     = azurerm_subnet.main_subnet_{azure_region.replace("-", "_").replace(" ", "_")}_{guid}.id
     private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.{clean_name}_ip_{self.converter.get_validated_guid(yaml_data)}.id
+    public_ip_address_id          = azurerm_public_ip.{resource_name}_ip.id
   }}
 
   tags = {{
@@ -291,18 +298,18 @@ resource "azurerm_network_interface" "{clean_name}_nic_{self.converter.get_valid
             vm_config += f'''
 
 # Azure NSG Association: {instance_name}
-resource "azurerm_network_interface_security_group_association" "{clean_name}_nsg_assoc_{self.converter.get_validated_guid(yaml_data)}" {{
-  network_interface_id      = azurerm_network_interface.{clean_name}_nic_{self.converter.get_validated_guid(yaml_data)}.id
+resource "azurerm_network_interface_security_group_association" "{resource_name}_nsg_assoc" {{
+  network_interface_id      = azurerm_network_interface.{resource_name}_nic.id
   network_security_group_id = {azure_nsg_refs[0]}
 }}'''
 
         vm_config += f'''
 
 # Azure Linux Virtual Machine: {instance_name}
-resource "azurerm_linux_virtual_machine" "{clean_name}_{self.converter.get_validated_guid(yaml_data)}" {{
+resource "azurerm_linux_virtual_machine" "{resource_name}" {{
   name                = "{instance_name}"
-  resource_group_name = local.resource_group_name_{azure_region.replace("-", "_").replace(" ", "_")}_{self.converter.get_validated_guid(yaml_data)}
-  location            = local.resource_group_location_{azure_region.replace("-", "_").replace(" ", "_")}_{self.converter.get_validated_guid(yaml_data)}
+  resource_group_name = local.resource_group_name_{azure_region.replace("-", "_").replace(" ", "_")}_{guid}
+  location            = local.resource_group_location_{azure_region.replace("-", "_").replace(" ", "_")}_{guid}
   size                = "{azure_vm_size}"
   admin_username      = "azureuser"
   disable_password_authentication = {str(bool(ssh_key_config and ssh_key_config.get('public_key'))).lower()}'''
@@ -315,7 +322,7 @@ resource "azurerm_linux_virtual_machine" "{clean_name}_{self.converter.get_valid
         vm_config += f'''
 
   network_interface_ids = [
-    azurerm_network_interface.{clean_name}_nic_{self.converter.get_validated_guid(yaml_data)}.id,
+    azurerm_network_interface.{resource_name}_nic.id,
   ]'''
 
         # Add SSH key block only if SSH key is available
@@ -441,6 +448,3 @@ resource "azurerm_subnet" "main_subnet_{clean_region}_{guid}" {{
 '''
         
         return networking_config
-
-
-

@@ -18,9 +18,12 @@ class VMwareProvider:
 
     def get_vmware_vm_size(self, size_or_instance_type):
         """Get VMware VM configuration from size mapping or return direct specifications."""
+        # Handle the -vm suffix from generic mappings
+        base_size = size_or_instance_type.replace('-vm', '') if size_or_instance_type.endswith('-vm') else size_or_instance_type
+        
         # Check for advanced flavor mappings
         vmware_flavors = self.converter.flavors.get('vmware', {}).get('flavor_mappings', {})
-        size_mapping = vmware_flavors.get(size_or_instance_type, {})
+        size_mapping = vmware_flavors.get(base_size, {})
 
         if size_mapping:
             # Return the first (preferred) VM configuration for this size
@@ -62,7 +65,7 @@ class VMwareProvider:
         # Default fallback
         return "rhel9-template"
 
-    def generate_vmware_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None):
+    def generate_vmware_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None, has_guid_placeholder=False):
         """Generate VMware vSphere virtual machine."""
         instance_name = instance.get("name", f"instance_{index}")
         # Replace {guid} placeholder in instance name
@@ -91,6 +94,12 @@ class VMwareProvider:
 
         # Get SSH key configuration for this instance
         ssh_key_config = self.converter.get_instance_ssh_key(instance, yaml_data or {})
+        
+        # Get GUID for consistent naming
+        guid = self.converter.get_validated_guid(yaml_data)
+        
+        # Use clean_name directly if GUID is already present, otherwise add GUID
+        resource_name = clean_name if has_guid_placeholder else f"{clean_name}_{guid}"
 
         # Generate customization script for cloud-init if SSH key is provided
         customization_script = ""
@@ -142,7 +151,7 @@ data "vsphere_virtual_machine" "template" {{
 }}
 
 # VMware vSphere Virtual Machine: {instance_name}
-resource "vsphere_virtual_machine" "{clean_name}_{self.converter.get_validated_guid(yaml_data)}" {{
+resource "vsphere_virtual_machine" "{resource_name}" {{
   name             = "{instance_name}"
   resource_pool_id = data.vsphere_compute_cluster.cluster.resource_pool_id
   datastore_id     = data.vsphere_datastore.datastore.id

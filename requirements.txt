@@ -1,20 +1,25 @@
 # Core dependencies
 PyYAML>=6.0.2
 
-# Cloud Provider SDKs (optional - install as needed)
 # AWS
 boto3>=1.39.0
 
-# Google Cloud Platform (GCP)
+# GCP
 google-cloud-compute>=1.32.0
 google-cloud-dns>=0.35.0
 
-# Oracle Cloud Infrastructure (OCI)
+# Oracle Cloud Infrastructure
 oci>=2.155.0
 
 # Alibaba Cloud
 alibabacloud-ecs20140526>=7.0.0
 alibabacloud-tea-openapi>=0.3.0
 
-# Note: Azure, IBM Cloud, and VMware use pure Terraform (no Python SDKs required)
+# IBM Cloud VPC (for dynamic image lookup)
+ibm-cloud-sdk-core>=3.16.7
+ibm-vpc>=0.10.0
+
+# Note: Azure and VMware use pure Terraform (no Python SDKs required)
+
+# HTTP requests
 requests>=2.32.0

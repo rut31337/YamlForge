@@ -136,7 +136,7 @@ class AlibabaProvider:
         # Default fallback
         return "aliyun_3_x64_20G_alibase_20230727.vhd"
 
-    def generate_alibaba_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None):  # noqa: vulture
+    def generate_alibaba_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None, has_guid_placeholder=False):  # noqa: vulture
         """Generate native Alibaba Cloud ECS instance."""
         instance_name = instance.get("name", f"instance_{index}")
         # Replace {guid} placeholder in instance name
@@ -179,13 +179,20 @@ class AlibabaProvider:
 
         # Get SSH key configuration for this instance
         ssh_key_config = self.converter.get_instance_ssh_key(instance, yaml_data or {})
+        
+        # Get GUID for consistent naming
+        guid = self.converter.get_validated_guid(yaml_data)
+        
+        # Use clean_name directly if GUID is already present, otherwise add GUID
+        resource_name = clean_name if has_guid_placeholder else f"{clean_name}_{guid}"
 
         # Generate SSH key pair resource if SSH key is provided
         ssh_key_resources = ""
         key_name_ref = "null"
         
         if ssh_key_config and ssh_key_config.get('public_key'):
-            ssh_key_name = f"{clean_name}_key_pair_{self.converter.get_validated_guid(yaml_data)}"
+            # Use clean_name directly if GUID is already present, otherwise add GUID
+            ssh_key_name = clean_name if has_guid_placeholder else f"{clean_name}_key_pair_{guid}"
             ssh_key_resources = f'''
 # Alibaba Cloud Key Pair for {instance_name}
 resource "alicloud_ecs_key_pair" "{ssh_key_name}" {{
@@ -202,21 +209,21 @@ resource "alicloud_ecs_key_pair" "{ssh_key_name}" {{
         for sg_name in sg_names:
             clean_sg = sg_name.replace("-", "_").replace(".", "_")
             clean_region = alibaba_region.replace("-", "_").replace(".", "_")
-            alibaba_sg_refs.append(f"alicloud_security_group.{clean_sg}_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id")
+            alibaba_sg_refs.append(f"alicloud_security_group.{clean_sg}_{clean_region}_{guid}.id")
 
         alibaba_sg_refs_str = "[" + ", ".join(alibaba_sg_refs) + "]" if alibaba_sg_refs else "[]"
 
         # Generate the ECS instance
         vm_config = ssh_key_resources + f'''
 # Alibaba Cloud ECS Instance: {instance_name}
-resource "alicloud_instance" "{clean_name}_{self.converter.get_validated_guid(yaml_data)}" {{
+resource "alicloud_instance" "{resource_name}" {{
   availability_zone    = "{availability_zone}"
   security_groups      = {alibaba_sg_refs_str}
   instance_type        = "{alibaba_instance_type}"
   system_disk_category = "cloud_efficiency"
   image_id             = "{alibaba_image}"
   instance_name        = "{instance_name}"
-  vswitch_id           = alicloud_vswitch.main_vswitch_{alibaba_region.replace("-", "_").replace(".", "_")}_{self.converter.get_validated_guid(yaml_data)}.id
+  vswitch_id           = alicloud_vswitch.main_vswitch_{alibaba_region.replace("-", "_").replace(".", "_")}_{guid}.id
 
   # Storage configuration
   system_disk_category = "cloud_essd"

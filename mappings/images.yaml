@@ -173,7 +173,7 @@ images:
     ibm_classic:
       os_reference_code: "REDHAT_9_64"
     ibm_vpc:
-      name_pattern: "ibm-redhat-9-*-amd64-*"
+      name_pattern: "ibm-redhat-9-*-minimal-amd64-*"
 
   RHEL8-latest:
     description: "RHEL 8 latest public image"

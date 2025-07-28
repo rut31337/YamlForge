@@ -552,6 +552,16 @@
         "existing_resource_group_name": {
           "type": "string",
           "description": "Name of the existing IBM Cloud resource group to use (required if use_existing_resource_group is true)"
+        },
+        "create_cloud_user": {
+          "type": "boolean",
+          "description": "Create cloud-user account with SSH access instead of using root account",
+          "default": true
+        },
+        "auto_create_outbound_sg": {
+          "type": "boolean",
+          "description": "Automatically create outbound security group for internet access if none configured",
+          "default": true
         }
       }
     },

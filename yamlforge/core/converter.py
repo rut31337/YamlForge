@@ -45,7 +45,8 @@ class YamlForgeConverter:
         self.credentials = CredentialsManager()
 
         # Initialize provider modules (GUID will be set when processing YAML)
-        self.aws_provider = AWSProvider(self)
+        # Note: AWS provider is initialized lazily to avoid credential checks when not needed
+        self._aws_provider = None  # Lazy initialization
         self.azure_provider = AzureProvider(self)
         self.gcp_provider = GCPProvider(self)
         self.ibm_classic_provider = IBMClassicProvider(self)
@@ -68,14 +69,21 @@ class YamlForgeConverter:
 
     def get_aws_provider(self):
         """Return the AWS provider instance for use by other components."""
-        return self.aws_provider
+        if self._aws_provider is None:
+            self._aws_provider = AWSProvider(self)
+        return self._aws_provider
 
     def _has_rosa_clusters(self, yaml_data):
         """Check if YAML configuration contains any ROSA clusters."""
-        if not yaml_data or 'openshift_clusters' not in yaml_data:
+        if not yaml_data:
             return False
         
-        for cluster in yaml_data['openshift_clusters']:
+        # Check if openshift_clusters is at root level (legacy) or under yamlforge section
+        openshift_clusters = yaml_data.get('openshift_clusters', [])
+        if not openshift_clusters and 'yamlforge' in yaml_data:
+            openshift_clusters = yaml_data['yamlforge'].get('openshift_clusters', [])
+        
+        for cluster in openshift_clusters:
             cluster_type = cluster.get('type', '').lower()
             if cluster_type in ['rosa-classic', 'rosa-hcp', 'rosa']:
                 return True
@@ -251,6 +259,10 @@ class YamlForgeConverter:
     def set_yaml_data(self, yaml_data):
         """Set current YAML data for GUID extraction and notify providers."""
         self.current_yaml_data = yaml_data
+        
+        # Clear GUID cache when new YAML data is set
+        if hasattr(self, '_validated_guid'):
+            delattr(self, '_validated_guid')
         
         # Update GUID in providers that need it
         if hasattr(self.gcp_provider, 'update_guid'):
@@ -543,7 +555,7 @@ class YamlForgeConverter:
                 if not use_data_sources:
                     # Only validate if not using data source fallback
                     try:
-                        self.aws_provider.validate_aws_setup()
+                        self.get_aws_provider().validate_aws_setup()
                     except ValueError as e:
                         # Re-raise with context about which instances need AWS
                         aws_instances = []
@@ -1015,19 +1027,22 @@ output "gcp_instances" {
         
         for instance in instances:
             instance_name = instance.get("name", "unknown")
-            clean_name = self.clean_name(instance_name)
+            clean_name, has_guid_placeholder = self.clean_name(instance_name)
+            
+            # Use clean_name directly if GUID is already present, otherwise add GUID
+            resource_name = clean_name if has_guid_placeholder else f"{clean_name}_{guid}"
             
             ssh_username = self.get_instance_ssh_username(instance, 'gcp', yaml_data)
             
             # Build the output with conditional DNS information
             output_block = f'''    "{instance_name}" = {{
-      public_ip = google_compute_address.{clean_name}_ip_{guid}.address
-      private_ip = google_compute_instance.{clean_name}_{guid}.network_interface[0].network_ip
-      machine_type = google_compute_instance.{clean_name}_{guid}.machine_type
-      zone = google_compute_instance.{clean_name}_{guid}.zone
-      self_link = google_compute_instance.{clean_name}_{guid}.self_link
+      public_ip = google_compute_address.{resource_name}_ip.address
+      private_ip = google_compute_instance.{resource_name}.network_interface[0].network_ip
+      machine_type = google_compute_instance.{resource_name}.machine_type
+      zone = google_compute_instance.{resource_name}.zone
+      self_link = google_compute_instance.{resource_name}.self_link
       ssh_username = "{ssh_username}"
-      ssh_command = "ssh {ssh_username}@${{google_compute_address.{clean_name}_ip_{guid}.address}}"'''
+      ssh_command = "ssh {ssh_username}@${{google_compute_address.{resource_name}_ip.address}}"'''
             
             # Add DNS information if DNS is enabled
             if dns_enabled and root_zone_domain:
@@ -1062,17 +1077,21 @@ output "azure_instances" {
         
         for instance in instances:
             instance_name = instance.get("name", "unknown")
-            clean_name = self.clean_name(instance_name)
+            clean_name, has_guid_placeholder = self.clean_name(instance_name)
+            
+            # Use clean_name directly if GUID is already present, otherwise add GUID
+            resource_name = clean_name if has_guid_placeholder else f"{clean_name}_{guid}"
+            
             ssh_username = self.get_instance_ssh_username(instance, 'azure', yaml_data)
             
             outputs.append(f'''    "{instance_name}" = {{
-      public_ip = azurerm_public_ip.{clean_name}_ip_{guid}.ip_address
-      private_ip = azurerm_network_interface.{clean_name}_nic_{guid}.ip_configuration[0].private_ip_address
-      vm_size = azurerm_linux_virtual_machine.{clean_name}_{guid}.size
-      location = azurerm_linux_virtual_machine.{clean_name}_{guid}.location
-      resource_group = azurerm_linux_virtual_machine.{clean_name}_{guid}.resource_group_name
+      public_ip = azurerm_public_ip.{resource_name}_ip.ip_address
+      private_ip = azurerm_network_interface.{resource_name}_nic.ip_configuration[0].private_ip_address
+      vm_size = azurerm_linux_virtual_machine.{resource_name}.size
+      location = azurerm_linux_virtual_machine.{resource_name}.location
+      resource_group = azurerm_linux_virtual_machine.{resource_name}.resource_group_name
       ssh_username = "{ssh_username}"
-      ssh_command = "ssh {ssh_username}@${{azurerm_public_ip.{clean_name}_ip_{guid}.ip_address}}"
+      ssh_command = "ssh {ssh_username}@${{azurerm_public_ip.{resource_name}_ip.ip_address}}"
     }}''')
         
         outputs.append('''  }
@@ -1163,17 +1182,20 @@ output "ibm_vpc_instances" {
         
         for instance in instances:
             instance_name = instance.get("name", "unknown")
-            clean_name = self.clean_name(instance_name)
+            clean_name, has_guid_placeholder = self.clean_name(instance_name)
             ssh_username = self.get_instance_ssh_username(instance, 'ibm_vpc', yaml_data)
             
+            # Use clean_name directly if GUID is already present, otherwise add GUID
+            resource_name = clean_name if has_guid_placeholder else f"{clean_name}_{guid}"
+            
             outputs.append(f'''    "{instance_name}" = {{
-      public_ip = ibm_is_floating_ip.{clean_name}_fip_{guid}.address
-      private_ip = ibm_is_instance.{clean_name}_{guid}.primary_network_interface[0].primary_ipv4_address
-      profile = ibm_is_instance.{clean_name}_{guid}.profile
-      zone = ibm_is_instance.{clean_name}_{guid}.zone
-      vpc = ibm_is_instance.{clean_name}_{guid}.vpc
+      public_ip = ibm_is_floating_ip.{resource_name}_fip.address
+      private_ip = ibm_is_instance.{resource_name}.primary_network_interface[0].primary_ip
+      profile = ibm_is_instance.{resource_name}.profile
+      zone = ibm_is_instance.{resource_name}.zone
+      vpc = ibm_is_instance.{resource_name}.vpc
       ssh_username = "{ssh_username}"
-      ssh_command = "ssh {ssh_username}@${{ibm_is_floating_ip.{clean_name}_fip_{guid}.address}}"
+      ssh_command = "ssh {ssh_username}@${{ibm_is_floating_ip.{resource_name}_fip.address}}"
     }}''')
         
         outputs.append('''  }
@@ -1197,16 +1219,19 @@ output "ibm_classic_instances" {
         
         for instance in instances:
             instance_name = instance.get("name", "unknown")
-            clean_name = self.clean_name(instance_name)
+            clean_name, has_guid_placeholder = self.clean_name(instance_name)
             ssh_username = self.get_instance_ssh_username(instance, 'ibm_classic', yaml_data)
             
+            # Use clean_name directly if GUID is already present, otherwise add GUID
+            resource_name = clean_name if has_guid_placeholder else f"{clean_name}_{guid}"
+            
             outputs.append(f'''    "{instance_name}" = {{
-      public_ip = ibm_compute_vm_instance.{clean_name}_{guid}.ipv4_address
-      private_ip = ibm_compute_vm_instance.{clean_name}_{guid}.ipv4_address_private
-      flavor = ibm_compute_vm_instance.{clean_name}_{guid}.flavor_key_name
-      datacenter = ibm_compute_vm_instance.{clean_name}_{guid}.datacenter
+      public_ip = ibm_compute_vm_instance.{resource_name}.ipv4_address
+      private_ip = ibm_compute_vm_instance.{resource_name}.ipv4_address_private
+      flavor = ibm_compute_vm_instance.{resource_name}.flavor_key_name
+      datacenter = ibm_compute_vm_instance.{resource_name}.datacenter
       ssh_username = "{ssh_username}"
-      ssh_command = "ssh {ssh_username}@${{ibm_compute_vm_instance.{clean_name}_{guid}.ipv4_address}}"
+      ssh_command = "ssh {ssh_username}@${{ibm_compute_vm_instance.{resource_name}.ipv4_address}}"
     }}''')
         
         outputs.append('''  }
@@ -1230,17 +1255,20 @@ output "vmware_instances" {
         
         for instance in instances:
             instance_name = instance.get("name", "unknown")
-            clean_name = self.clean_name(instance_name)
+            clean_name, has_guid_placeholder = self.clean_name(instance_name)
             ssh_username = self.get_instance_ssh_username(instance, 'vmware', yaml_data)
             
+            # Use clean_name directly if GUID is already present, otherwise add GUID
+            resource_name = clean_name if has_guid_placeholder else f"{clean_name}_{guid}"
+            
             outputs.append(f'''    "{instance_name}" = {{
-      ip_address = vsphere_virtual_machine.{clean_name}_{guid}.default_ip_address
-      guest_ip_addresses = vsphere_virtual_machine.{clean_name}_{guid}.guest_ip_addresses
-      num_cpus = vsphere_virtual_machine.{clean_name}_{guid}.num_cpus
-      memory = vsphere_virtual_machine.{clean_name}_{guid}.memory
-      power_state = vsphere_virtual_machine.{clean_name}_{guid}.power_state
+      ip_address = vsphere_virtual_machine.{resource_name}.default_ip_address
+      guest_ip_addresses = vsphere_virtual_machine.{resource_name}.guest_ip_addresses
+      num_cpus = vsphere_virtual_machine.{resource_name}.num_cpus
+      memory = vsphere_virtual_machine.{resource_name}.memory
+      power_state = vsphere_virtual_machine.{resource_name}.power_state
       ssh_username = "{ssh_username}"
-      ssh_command = "ssh {ssh_username}@${{vsphere_virtual_machine.{clean_name}_{guid}.default_ip_address}}"
+      ssh_command = "ssh {ssh_username}@${{vsphere_virtual_machine.{resource_name}.default_ip_address}}"
     }}''')
         
         outputs.append('''  }
@@ -1265,36 +1293,38 @@ output "all_instances_summary" {
         for provider, instances in provider_instances.items():
             for instance in instances:
                 instance_name = instance.get("name", "unknown")
-                # Replace {guid} placeholder in instance name
-                instance_name = self.replace_guid_placeholders(instance_name)
-                clean_name = self.clean_name(instance_name)
+                # clean_name already handles GUID replacement
+                clean_name, has_guid_placeholder = self.clean_name(instance_name)
                 ssh_username = self.get_instance_ssh_username(instance, provider, yaml_data)
+                
+                # Use clean_name directly if GUID is already present, otherwise add GUID
+                resource_name = clean_name if has_guid_placeholder else f"{clean_name}_{guid}"
                 
                 # Generate provider-specific IP reference
                 if provider == 'aws':
-                    ip_ref = f"aws_instance.{clean_name}_{guid}.public_ip"
-                    private_ip_ref = f"aws_instance.{clean_name}_{guid}.private_ip"
+                    ip_ref = f"aws_instance.{resource_name}.public_ip"
+                    private_ip_ref = f"aws_instance.{resource_name}.private_ip"
                 elif provider == 'gcp':
-                    ip_ref = f"google_compute_address.{clean_name}_ip_{guid}.address"
-                    private_ip_ref = f"google_compute_instance.{clean_name}_{guid}.network_interface[0].network_ip"
+                    ip_ref = f"google_compute_address.{resource_name}_ip.address"
+                    private_ip_ref = f"google_compute_instance.{resource_name}.network_interface[0].network_ip"
                 elif provider == 'azure':
-                    ip_ref = f"azurerm_public_ip.{clean_name}_ip_{guid}.ip_address"
-                    private_ip_ref = f"azurerm_network_interface.{clean_name}_nic_{guid}.ip_configuration[0].private_ip_address"
+                    ip_ref = f"azurerm_public_ip.{resource_name}_ip.ip_address"
+                    private_ip_ref = f"azurerm_network_interface.{resource_name}_nic.ip_configuration[0].private_ip_address"
                 elif provider == 'oci':
-                    ip_ref = f"oci_core_instance.{clean_name}_{guid}.public_ip"
-                    private_ip_ref = f"oci_core_instance.{clean_name}_{guid}.private_ip"
+                    ip_ref = f"oci_core_instance.{resource_name}.public_ip"
+                    private_ip_ref = f"oci_core_instance.{resource_name}.private_ip"
                 elif provider == 'alibaba':
-                    ip_ref = f"alicloud_eip_association.{clean_name}_eip_assoc_{guid}.ip_address"
-                    private_ip_ref = f"alicloud_instance.{clean_name}_{guid}.private_ip"
+                    ip_ref = f"alicloud_eip_association.{resource_name}_eip_assoc.ip_address"
+                    private_ip_ref = f"alicloud_instance.{resource_name}.private_ip"
                 elif provider == 'ibm_vpc':
-                    ip_ref = f"ibm_is_floating_ip.{clean_name}_fip_{guid}.address"
-                    private_ip_ref = f"ibm_is_instance.{clean_name}_{guid}.primary_network_interface[0].primary_ipv4_address"
+                    ip_ref = f"ibm_is_floating_ip.{resource_name}_fip.address"
+                    private_ip_ref = f"ibm_is_instance.{resource_name}.primary_network_interface[0].primary_ip"
                 elif provider == 'ibm_classic':
-                    ip_ref = f"ibm_compute_vm_instance.{clean_name}_{guid}.ipv4_address"
-                    private_ip_ref = f"ibm_compute_vm_instance.{clean_name}_{guid}.ipv4_address_private"
+                    ip_ref = f"ibm_compute_vm_instance.{resource_name}.ipv4_address"
+                    private_ip_ref = f"ibm_compute_vm_instance.{resource_name}.ipv4_address_private"
                 elif provider == 'vmware':
-                    ip_ref = f"vsphere_virtual_machine.{clean_name}_{guid}.default_ip_address"
-                    private_ip_ref = f"vsphere_virtual_machine.{clean_name}_{guid}.default_ip_address"
+                    ip_ref = f"vsphere_virtual_machine.{resource_name}.default_ip_address"
+                    private_ip_ref = f"vsphere_virtual_machine.{resource_name}.default_ip_address"
                 else:
                     ip_ref = "\"N/A\""
                     private_ip_ref = "\"N/A\""
@@ -1321,27 +1351,29 @@ output "external_ips" {
         for provider, instances in provider_instances.items():
             for instance in instances:
                 instance_name = instance.get("name", "unknown")
-                # Replace {guid} placeholder in instance name
-                instance_name = self.replace_guid_placeholders(instance_name)
-                clean_name = self.clean_name(instance_name)
+                # clean_name already handles GUID replacement
+                clean_name, has_guid_placeholder = self.clean_name(instance_name)
+                
+                # Use clean_name directly if GUID is already present, otherwise add GUID
+                resource_name = clean_name if has_guid_placeholder else f"{clean_name}_{guid}"
                 
                 # Generate provider-specific IP reference
                 if provider == 'aws':
-                    ip_ref = f"aws_instance.{clean_name}_{guid}.public_ip"
+                    ip_ref = f"aws_instance.{resource_name}.public_ip"
                 elif provider == 'gcp':
-                    ip_ref = f"google_compute_address.{clean_name}_ip_{guid}.address"
+                    ip_ref = f"google_compute_address.{resource_name}_ip.address"
                 elif provider == 'azure':
-                    ip_ref = f"azurerm_public_ip.{clean_name}_ip_{guid}.ip_address"
+                    ip_ref = f"azurerm_public_ip.{resource_name}_ip.ip_address"
                 elif provider == 'oci':
-                    ip_ref = f"oci_core_instance.{clean_name}_{guid}.public_ip"
+                    ip_ref = f"oci_core_instance.{resource_name}.public_ip"
                 elif provider == 'alibaba':
-                    ip_ref = f"alicloud_eip_association.{clean_name}_eip_assoc_{guid}.ip_address"
+                    ip_ref = f"alicloud_eip_association.{resource_name}_eip_assoc.ip_address"
                 elif provider == 'ibm_vpc':
-                    ip_ref = f"ibm_is_floating_ip.{clean_name}_fip_{guid}.address"
+                    ip_ref = f"ibm_is_floating_ip.{resource_name}_fip.address"
                 elif provider == 'ibm_classic':
-                    ip_ref = f"ibm_compute_vm_instance.{clean_name}_{guid}.ipv4_address"
+                    ip_ref = f"ibm_compute_vm_instance.{resource_name}.ipv4_address"
                 elif provider == 'vmware':
-                    ip_ref = f"vsphere_virtual_machine.{clean_name}_{guid}.default_ip_address"
+                    ip_ref = f"vsphere_virtual_machine.{resource_name}.default_ip_address"
                 else:
                     ip_ref = "\"N/A\""
                 
@@ -1420,8 +1452,28 @@ output "external_ips" {
             return 'root'
             
         elif provider in ['ibm_vpc', 'ibm_classic']:
-            # IBM Cloud typically uses root
-            return 'root'
+            # IBM Cloud username depends on RHEL version and cloud-user configuration
+            if any(os_name in image.upper() for os_name in ['RHEL', 'REDHAT']):
+                # Check if cloud-user creation is enabled in IBM VPC config
+                ibm_vpc_config = yaml_data.get('yamlforge', {}).get('ibm_vpc', {})
+                create_cloud_user = ibm_vpc_config.get('create_cloud_user', True)  # Default to True
+                
+                if create_cloud_user:
+                    # Check for RHEL version
+                    import re
+                    version_match = re.search(r'(\d+)', image)
+                    if version_match:
+                        version = version_match.group(1)
+                        if version == '9':
+                            return 'cloud-user'  # RHEL 9 uses cloud-user
+                        else:
+                            return 'root'  # RHEL 8 and earlier use root
+                    else:
+                        return 'root'  # Default to root if version can't be determined
+                else:
+                    return 'root'  # Use root when cloud-user creation is disabled
+            else:
+                return 'root'  # Default for non-RHEL images
             
         elif provider == 'vmware':
             # VMware is highly customizable
@@ -1669,8 +1721,8 @@ variable "common_tags" {
 
         return variables_content
 
-    def generate_tfvars_example(self, required_providers, yaml_data=None):
-        """Generate terraform.tfvars example file."""
+    def generate_terraform_tfvars(self, required_providers, yaml_data=None):
+        """Generate terraform.tfvars configuration file with auto-discovered values."""
         # Get default SSH key
         ssh_key_info = self.credentials.get_default_ssh_key()
         
@@ -1702,8 +1754,12 @@ ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAA... your-public-key-here"
 '''
 
         if 'aws' in required_providers:
-            # Get AWS credentials with auto-discovery
-            aws_creds = self.credentials.get_aws_credentials()
+            # Get AWS credentials with auto-discovery (skip in no-credentials mode)
+            if self.no_credentials:
+                aws_creds = {'available': False}
+                print("  NO-CREDENTIALS MODE: Skipping AWS credential discovery")
+            else:
+                aws_creds = self.credentials.get_aws_credentials()
             
             tfvars_content += '''# =============================================================================
 # AWS CONFIGURATION
@@ -1882,20 +1938,21 @@ rhcs_url   = "https://api.openshift.com"
 
 '''
 
-        # Red Hat Pull Secret for enhanced content access
-        pull_secret = os.getenv('OCP_PULL_SECRET')
-        
-        if pull_secret and pull_secret.strip():
-            # Escape the JSON for use in tfvars (single line, escaped quotes)
-            escaped_pull_secret = pull_secret.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '')
-            tfvars_content += f'''# Red Hat Pull Secret for enhanced content access
+        # Red Hat Pull Secret for enhanced content access (only for OpenShift clusters)
+        if self._has_rosa_clusters(yaml_data):
+            pull_secret = os.getenv('OCP_PULL_SECRET')
+            
+            if pull_secret and pull_secret.strip():
+                # Escape the JSON for use in tfvars (single line, escaped quotes)
+                escaped_pull_secret = pull_secret.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '')
+                tfvars_content += f'''# Red Hat Pull Secret for enhanced content access
 # Automatically detected from OCP_PULL_SECRET environment variable
 # This enables access to Red Hat container registries and additional content
 redhat_pull_secret = "{escaped_pull_secret}"
 
 '''
-        else:
-            tfvars_content += '''# Red Hat Pull Secret for enhanced content access (optional but recommended)
+            else:
+                tfvars_content += '''# Red Hat Pull Secret for enhanced content access (optional but recommended)
 # Download from: https://console.redhat.com/openshift/install/pull-secret
 # Set OCP_PULL_SECRET environment variable or configure here
 redhat_pull_secret = ""
@@ -1931,7 +1988,7 @@ redhat_pull_secret = ""
             f.write(variables_config)
         
         # Generate and write terraform.tfvars
-        tfvars_config = self.generate_tfvars_example(required_providers, config)
+        tfvars_config = self.generate_terraform_tfvars(required_providers, full_yaml_data or config)
         tfvars_path = os.path.join(output_dir, 'terraform.tfvars')
         with open(tfvars_path, 'w') as f:
             f.write(tfvars_config)
@@ -1987,14 +2044,18 @@ redhat_pull_secret = ""
     def clean_name(self, name):
         """Clean a name for use as a Terraform resource identifier."""
         if not name:
-            return "unnamed"
+            return "unnamed", False
+        
+        # Check if {guid} placeholder is present
+        has_guid_placeholder = '{guid}' in name
         
         # Replace {guid} placeholder with actual GUID if present
-        if '{guid}' in name:
+        if has_guid_placeholder:
             guid = self.get_validated_guid()
             name = name.replace('{guid}', guid)
         
-        return name.replace("-", "_").replace(".", "_").replace(" ", "_")
+        cleaned_name = name.replace("-", "_").replace(".", "_").replace(" ", "_")
+        return cleaned_name, has_guid_placeholder
 
     def replace_guid_placeholders(self, text):
         """Replace {guid} placeholders in text with actual GUID."""
@@ -2938,7 +2999,7 @@ redhat_pull_secret = ""
             selected_instance_type = self.get_cheapest_gpu_instance_type(instance, provider)
             print(f"Selected cheapest GPU provider: {provider}")
 
-        clean_name = self.clean_name(instance.get("name", f"instance_{index}"))
+        clean_name, has_guid_placeholder = self.clean_name(instance.get("name", f"instance_{index}"))
         size = instance.get("size")
         instance_name = instance.get("name", "unnamed")
         
@@ -2961,22 +3022,22 @@ redhat_pull_secret = ""
 
         if provider == 'aws':
             strategy_info = {'instance_type': instance_type, 'architecture': 'x86_64'}
-            return self.aws_provider.generate_aws_vm(instance, index, clean_name, strategy_info, available_subnets, effective_yaml_data)
+            return self.get_aws_provider().generate_aws_vm(instance, index, clean_name, strategy_info, available_subnets, effective_yaml_data, has_guid_placeholder)
         elif provider == 'azure':
-            return self.azure_provider.generate_azure_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data)
+            return self.azure_provider.generate_azure_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data, has_guid_placeholder)
         elif provider == 'gcp':
-            return self.gcp_provider.generate_gcp_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data)
+            return self.gcp_provider.generate_gcp_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data, has_guid_placeholder)
         elif provider == 'oci':
-            return self.oci_provider.generate_oci_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data)
+            return self.oci_provider.generate_oci_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data, has_guid_placeholder)
         elif provider == 'vmware':
-            return self.vmware_provider.generate_vmware_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data)
+            return self.vmware_provider.generate_vmware_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data, has_guid_placeholder)
         elif provider == 'alibaba':
-            return self.alibaba_provider.generate_alibaba_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data)
+            return self.alibaba_provider.generate_alibaba_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data, has_guid_placeholder)
         elif provider in ['ibm_vpc', 'ibm_classic']:
             if provider == 'ibm_vpc':
-                return self.ibm_vpc_provider.generate_ibm_vpc_vm(instance, index, clean_name, instance_type, effective_yaml_data)
+                return self.ibm_vpc_provider.generate_ibm_vpc_vm(instance, index, clean_name, instance_type, effective_yaml_data, has_guid_placeholder)
             else:
-                return self.ibm_classic_provider.generate_ibm_classic_vm(instance, index, clean_name, instance_type, effective_yaml_data)
+                return self.ibm_classic_provider.generate_ibm_classic_vm(instance, index, clean_name, instance_type, effective_yaml_data, has_guid_placeholder)
         else:
             raise ValueError(f"Unsupported provider: {provider}")
 
@@ -3181,13 +3242,57 @@ redhat_pull_secret = ""
         for region, region_data in regional_analysis.items():
             provider = region_data['provider']
 
+            # Check if any outbound rules exist in the configured security groups
+            has_outbound_rules = False
+            for sg_name in region_data['security_groups']:
+                sg_config = security_groups[sg_name]
+                rules = sg_config.get('rules', [])
+                for rule in rules:
+                    if rule.get('direction') == 'egress':
+                        has_outbound_rules = True
+                        break
+                if has_outbound_rules:
+                    break
+
+            # Check if auto-create outbound SG is enabled for this provider
+            auto_create_outbound = True  # Default to True
+            if provider == 'ibm_vpc':
+                ibm_vpc_config = config.get('yamlforge', {}).get('ibm_vpc', {})
+                auto_create_outbound = ibm_vpc_config.get('auto_create_outbound_sg', True)
+
+            # Create automatic outbound security group if needed
+            if auto_create_outbound and not has_outbound_rules and provider == 'ibm_vpc':
+                print(f"  INFO: No outbound security group rules found. Creating automatic outbound security group for {region}.")
+                auto_outbound_sg_name = f"auto-outbound-{region}"
+                auto_outbound_rules = [{
+                    'direction': 'egress',
+                    'protocol': 'all',
+                    'port_range': '1-65535',
+                    'destination': '0.0.0.0/0',
+                    'description': 'Allow all outbound traffic (auto-created)'
+                }]
+                sg_terraform += self.ibm_vpc_provider.generate_ibm_security_group(auto_outbound_sg_name, auto_outbound_rules, region, config)
+                
+                # Add the auto-created security group to all instances in this region
+                for instance in config.get('instances', []):
+                    instance_provider = instance.get('provider')
+                    if instance_provider == 'cheapest':
+                        instance_provider = self.find_cheapest_provider(instance, suppress_output=True)
+                    elif instance_provider == 'cheapest-gpu':
+                        instance_provider = self.find_cheapest_gpu_provider(instance, suppress_output=True)
+                    
+                    if instance_provider == 'ibm_vpc' and self.resolve_instance_region(instance, 'ibm_vpc') == region:
+                        if 'security_groups' not in instance:
+                            instance['security_groups'] = []
+                        instance['security_groups'].append(auto_outbound_sg_name)
+
             for sg_name in region_data['security_groups']:
                 sg_config = security_groups[sg_name]
                 rules = sg_config.get('rules', [])
 
                 # Generate region-specific security group
                 if provider == 'aws':
-                    sg_terraform += self.aws_provider.generate_aws_security_group(sg_name, rules, region, config)
+                    sg_terraform += self.get_aws_provider().generate_aws_security_group(sg_name, rules, region, config)
                 elif provider == 'azure':
                     sg_terraform += self.azure_provider.generate_azure_security_group(sg_name, rules, region, config)
                 elif provider == 'gcp':
@@ -3235,12 +3340,20 @@ redhat_pull_secret = ""
             provider = region_data['provider']
             # Get deployment name from cloud_workspace
             cloud_workspace = config.get('cloud_workspace', {})
-            deployment_name = f"{cloud_workspace.get('name', 'yamlforge-deployment')}-{self.get_validated_guid(config)}"
+            workspace_name = cloud_workspace.get('name', 'yamlforge-deployment')
+            
+            # Check if the workspace name already contains a GUID placeholder
+            if '{guid}' in workspace_name:
+                # If it already has {guid}, just replace it without appending another GUID
+                deployment_name = self.replace_guid_placeholders(workspace_name)
+            else:
+                # If it doesn't have {guid}, append the GUID
+                deployment_name = f"{workspace_name}-{self.get_validated_guid(config)}"
             deployment_config = config.get('network', {})
 
             # Generate regional networking
             if provider == 'aws':
-                networking_terraform += self.aws_provider.generate_aws_networking(deployment_name, deployment_config, region, config)
+                networking_terraform += self.get_aws_provider().generate_aws_networking(deployment_name, deployment_config, region, config)
             elif provider == 'azure':
                 networking_terraform += self.azure_provider.generate_azure_networking(deployment_name, deployment_config, region, config)
             elif provider == 'gcp':

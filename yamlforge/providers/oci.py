@@ -162,7 +162,7 @@ class OCIProvider:
         # Default fallback for Oracle Linux
         return 'Oracle Linux'
 
-    def generate_oci_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None):
+    def generate_oci_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None, has_guid_placeholder=False):
         """Generate native OCI Compute instance."""
         instance_name = instance.get("name", f"instance_{index}")
         # Replace {guid} placeholder in instance name
@@ -207,6 +207,12 @@ class OCIProvider:
 
         # Get SSH key configuration for this instance
         ssh_key_config = self.converter.get_instance_ssh_key(instance, yaml_data or {})
+        
+        # Get GUID for consistent naming
+        guid = self.converter.get_validated_guid(yaml_data)
+        
+        # Use clean_name directly if GUID is already present, otherwise add GUID
+        resource_name = clean_name if has_guid_placeholder else f"{clean_name}_{guid}"
 
         # Get OCI NSG references with regional awareness
         oci_nsg_refs = []
@@ -214,19 +220,19 @@ class OCIProvider:
         for sg_name in sg_names:
             clean_sg = sg_name.replace("-", "_").replace(".", "_")
             clean_region = oci_region.replace("-", "_").replace(".", "_")
-            oci_nsg_refs.append(f"oci_core_network_security_group.{clean_sg}_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id")
+            oci_nsg_refs.append(f"oci_core_network_security_group.{clean_sg}_{clean_region}_{guid}.id")
 
         oci_nsg_refs_str = "[" + ", ".join(oci_nsg_refs) + "]" if oci_nsg_refs else "[]"
 
         vm_config = f'''
 # OCI Compute Instance: {instance_name}
-resource "oci_core_instance" "{clean_name}_{self.converter.get_validated_guid(yaml_data)}" {{
+resource "oci_core_instance" "{resource_name}" {{
   availability_domain = data.oci_identity_availability_domains.default.availability_domains[0].name
   compartment_id      = var.oci_compartment_id
   shape              = "{oci_shape}"
   
   create_vnic_details {{
-    subnet_id        = oci_core_subnet.main_subnet_{oci_region.replace("-", "_").replace(".", "_")}_{self.converter.get_validated_guid(yaml_data)}.id
+    subnet_id        = oci_core_subnet.main_subnet_{oci_region.replace("-", "_").replace(".", "_")}_{guid}.id
     display_name     = "{instance_name}-vnic"
     assign_public_ip = true
     nsg_ids          = {oci_nsg_refs_str}
@@ -255,7 +261,7 @@ resource "oci_core_instance" "{clean_name}_{self.converter.get_validated_guid(ya
   # Boot volume
   source_details {{
     source_type = "image"
-    source_id   = data.oci_core_images.{clean_name}_image.images[0].id
+    source_id   = data.oci_core_images.{resource_name}_image.images[0].id
     boot_volume_size_in_gbs = 50
   }}'''
 
@@ -293,7 +299,7 @@ USERDATA
 
         # Add image data source
         vm_config += f'''# OCI Image Data Source for {instance_name}
-data "oci_core_images" "{clean_name}_image" {{
+data "oci_core_images" "{resource_name}_image" {{
   compartment_id           = var.oci_compartment_id
   display_name             = "{oci_image}"
   operating_system         = "{oci_operating_system}"

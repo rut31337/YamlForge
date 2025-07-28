@@ -8,6 +8,8 @@ yamlforge:
   
   ibm_vpc:
     use_existing_resource_group: false
+    create_cloud_user: true  # Set to false to use root account instead
+    auto_create_outbound_sg: true  # Automatically create outbound security group for internet access
   
   security_groups:
     - name: "web-sg-{guid}"
@@ -36,6 +38,35 @@ yamlforge:
       tags:
         environment: "production"
         tier: "web"
+      user_data: |
+        #!/bin/bash
+        # This script creates the cloud-user user and configures SSH access
+        set -e
+        # Create cloud-user user if it doesn't exist
+        if ! id "cloud-user" &>/dev/null; then
+            useradd -m -s /bin/bash cloud-user
+            echo "Created cloud-user user"
+        fi
+        # Create .ssh directory and set permissions
+        mkdir -p /home/cloud-user/.ssh
+        chmod 700 /home/cloud-user/.ssh
+        # Add SSH public key to authorized_keys
+        if [ -n "$SSH_PUBLIC_KEY" ]; then
+            echo "$SSH_PUBLIC_KEY" >> /home/cloud-user/.ssh/authorized_keys
+            chmod 600 /home/cloud-user/.ssh/authorized_keys
+            echo "Added SSH key for cloud-user"
+        fi
+        # Set ownership
+        chown -R cloud-user:cloud-user /home/cloud-user/.ssh
+        # Configure sudo access for cloud-user
+        echo "cloud-user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/cloud-user
+        chmod 440 /etc/sudoers.d/cloud-user
+        # Disable root SSH access for security
+        sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+        sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+        # Restart SSH service
+        systemctl restart sshd
+        echo "User data script completed successfully"
   
   tags:
     project: "ibm-vpc-demo"
