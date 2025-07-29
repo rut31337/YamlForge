@@ -8,7 +8,7 @@ us-east-1:
   azure: "East US"
   gcp: "us-east1"
   ibm_vpc: "us-east"
-  ibm_classic: "WDC04"
+  ibm_classic: "wdc04"
   oci: "us-ashburn-1"          # Oracle Ashburn
   alibaba: "us-east-1"             # Alibaba US East
   vmware: "datacenter-east"       # VMware East Coast DC
@@ -18,7 +18,7 @@ us-east-2:
   azure: "East US 2"
   gcp: "us-east4"
   ibm_vpc: "us-east"
-  ibm_classic: "WDC06"
+  ibm_classic: "wdc06"
   oci: "us-ashburn-1"          # Oracle Ashburn
   alibaba: "us-east-1"             # Alibaba US East
   vmware: "datacenter-east"       # VMware East Coast DC
@@ -28,7 +28,7 @@ us-south-1:
   azure: "Central US"
   gcp: "us-central1"
   ibm_vpc: "us-south"
-  ibm_classic: "DAL10"
+  ibm_classic: "dal10"
   oci: "us-phoenix-1"          # Oracle Phoenix
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -38,7 +38,7 @@ us-south-2:
   azure: "Central US"
   gcp: "us-central1"
   ibm_vpc: "us-south"
-  ibm_classic: "DAL12"
+  ibm_classic: "dal12"
   oci: "us-phoenix-1"          # Oracle Phoenix
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -48,7 +48,7 @@ us-south-3:
   azure: "Central US"
   gcp: "us-central1"
   ibm_vpc: "us-south"
-  ibm_classic: "DAL13"
+  ibm_classic: "dal13"
   oci: "us-phoenix-1"          # Oracle Phoenix
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -58,7 +58,7 @@ us-west-1:
   azure: "West US"
   gcp: "us-west1"
   ibm_vpc: "us-south"
-  ibm_classic: "SJC03"
+  ibm_classic: "sjc03"
   oci: "us-phoenix-1"          # Oracle Phoenix
   alibaba: "us-west-1"             # Alibaba US West
   vmware: "datacenter-west"       # VMware West Coast DC
@@ -68,7 +68,7 @@ us-west-2:
   azure: "West US 2"
   gcp: "us-west2"
   ibm_vpc: "us-south"
-  ibm_classic: "SJC04"
+  ibm_classic: "sjc04"
   oci: "us-phoenix-1"          # Oracle Phoenix
   alibaba: "us-west-1"             # Alibaba US West
   vmware: "datacenter-west"       # VMware West Coast DC
@@ -78,7 +78,7 @@ us-central:
   azure: "Central US"
   gcp: "us-central1"
   ibm_vpc: "us-south"
-  ibm_classic: "DAL10"
+  ibm_classic: "dal10"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter-central"    # VMware Central DC
@@ -89,7 +89,7 @@ us-central-1:
   azure: "Central US"
   gcp: "us-central1"
   ibm_vpc: "us-south"
-  ibm_classic: "DAL10"
+  ibm_classic: "dal10"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -99,7 +99,7 @@ ca-central-1:
   azure: "Canada Central"
   gcp: "northamerica-northeast1"
   ibm_vpc: "ca-tor"
-  ibm_classic: "TOR01"
+  ibm_classic: "tor01"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -109,7 +109,7 @@ ca-toronto-1:
   azure: "Canada Central"
   gcp: "northamerica-northeast1"
   ibm_vpc: "ca-tor"
-  ibm_classic: "TOR04"
+  ibm_classic: "tor04"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -119,7 +119,7 @@ ca-montreal-1:
   azure: "Canada East"
   gcp: "northamerica-northeast1"
   ibm_vpc: "ca-mon"
-  ibm_classic: "MON01"
+  ibm_classic: "mon01"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -129,7 +129,7 @@ eu-west-1:
   azure: "West Europe"
   gcp: "europe-west1"
   ibm_vpc: "eu-gb"
-  ibm_classic: "LON04"
+  ibm_classic: "lon04"
   oci: "eu-frankfurt-1"        # Oracle Frankfurt
   alibaba: "eu-central-1"          # Alibaba Europe
   vmware: "datacenter-eu"         # VMware Europe DC
@@ -139,7 +139,7 @@ eu-west-2:
   azure: "UK South"
   gcp: "europe-west2"
   ibm_vpc: "eu-gb"
-  ibm_classic: "LON05"
+  ibm_classic: "lon05"
   oci: "eu-frankfurt-1"        # Oracle Frankfurt
   alibaba: "eu-central-1"          # Alibaba Europe
   vmware: "datacenter-eu"         # VMware Europe DC
@@ -149,7 +149,7 @@ eu-west-3:
   azure: "France Central"
   gcp: "europe-west9"
   ibm_vpc: "eu-gb"
-  ibm_classic: "PAR01"
+  ibm_classic: "par01"
   oci: "eu-frankfurt-1"        # Oracle Frankfurt
   alibaba: "eu-central-1"          # Alibaba Europe
   vmware: "datacenter-eu"         # VMware Europe DC
@@ -159,7 +159,7 @@ eu-central-1:
   azure: "Germany West Central"
   gcp: "europe-west3"
   ibm_vpc: "eu-de"
-  ibm_classic: "FRA02"
+  ibm_classic: "fra02"
   oci: "eu-frankfurt-1"        # Oracle Frankfurt
   alibaba: "eu-central-1"          # Alibaba Europe
   vmware: "datacenter-eu"         # VMware Europe DC
@@ -169,7 +169,7 @@ eu-central-2:
   azure: "Germany West Central"
   gcp: "europe-west3"
   ibm_vpc: "eu-de"
-  ibm_classic: "FRA04"
+  ibm_classic: "fra04"
   oci: "eu-frankfurt-1"        # Oracle Frankfurt
   alibaba: "eu-central-1"          # Alibaba Europe
   vmware: "datacenter-eu"         # VMware Europe DC
@@ -179,7 +179,7 @@ eu-north-1:
   azure: "North Europe"
   gcp: "europe-north1"
   ibm_vpc: "eu-gb"
-  ibm_classic: "LON06"
+  ibm_classic: "lon06"
   oci: "eu-frankfurt-1"        # Oracle Frankfurt
   alibaba: "eu-central-1"          # Alibaba Europe
   vmware: "datacenter-eu"         # VMware Europe DC
@@ -189,7 +189,7 @@ eu-south-1:
   azure: "West Europe"
   gcp: "europe-west1"
   ibm_vpc: "eu-de"
-  ibm_classic: "MIL01"
+  ibm_classic: "mil01"
   oci: "eu-frankfurt-1"        # Oracle Frankfurt
   alibaba: "eu-central-1"          # Alibaba Europe
   vmware: "datacenter-eu"         # VMware Europe DC
@@ -199,7 +199,7 @@ eu-spain-1:
   azure: "France Central"
   gcp: "europe-west1"
   ibm_vpc: "eu-es"
-  ibm_classic: "MAD02"
+  ibm_classic: "mad02"
   oci: "eu-frankfurt-1"        # Oracle Frankfurt
   alibaba: "eu-central-1"          # Alibaba Europe
   vmware: "datacenter-eu"         # VMware Europe DC
@@ -209,7 +209,7 @@ ap-east-1:
   azure: "East Asia"
   gcp: "asia-east1"
   ibm_vpc: "jp-tok"
-  ibm_classic: "SNG01"
+  ibm_classic: "sng01"
   oci: "ap-tokyo-1"            # Oracle Tokyo
   alibaba: "ap-southeast-1"        # Alibaba Asia Pacific
   vmware: "datacenter-apac"       # VMware APAC DC
@@ -219,7 +219,7 @@ ap-southeast-1:
   azure: "Southeast Asia"
   gcp: "asia-southeast1"
   ibm_vpc: "jp-tok"
-  ibm_classic: "SNG01"
+  ibm_classic: "sng01"
   oci: "ap-tokyo-1"            # Oracle Tokyo
   alibaba: "ap-southeast-1"        # Alibaba Asia Pacific
   vmware: "datacenter-apac"       # VMware APAC DC
@@ -229,7 +229,7 @@ ap-southeast-2:
   azure: "Australia East"
   gcp: "australia-southeast1"
   ibm_vpc: "au-syd"
-  ibm_classic: "SYD01"
+  ibm_classic: "syd01"
   oci: "ap-tokyo-1"            # Oracle Tokyo
   alibaba: "ap-southeast-1"        # Alibaba Asia Pacific
   vmware: "datacenter-apac"       # VMware APAC DC
@@ -239,7 +239,7 @@ ap-northeast-1:
   azure: "Japan East"
   gcp: "asia-northeast1"
   ibm_vpc: "jp-tok"
-  ibm_classic: "TOK02"
+  ibm_classic: "tok02"
   oci: "ap-tokyo-1"            # Oracle Tokyo
   alibaba: "ap-southeast-1"        # Alibaba Asia Pacific
   vmware: "datacenter-apac"       # VMware APAC DC
@@ -249,7 +249,7 @@ ap-northeast-2:
   azure: "Korea Central"
   gcp: "asia-northeast3"
   ibm_vpc: "jp-tok"
-  ibm_classic: "TOK04"
+  ibm_classic: "tok04"
   oci: "ap-tokyo-1"            # Oracle Tokyo
   alibaba: "ap-southeast-1"        # Alibaba Asia Pacific
   vmware: "datacenter-apac"       # VMware APAC DC
@@ -259,7 +259,7 @@ ap-northeast-3:
   azure: "Japan West"
   gcp: "asia-northeast2"
   ibm_vpc: "jp-osa"
-  ibm_classic: "OSA21"
+  ibm_classic: "osa21"
   oci: "ap-tokyo-1"            # Oracle Tokyo
   alibaba: "ap-southeast-1"        # Alibaba Asia Pacific
   vmware: "datacenter-apac"       # VMware APAC DC
@@ -270,7 +270,7 @@ ap-south-1:
   azure: "Central India"
   gcp: "asia-south1"
   ibm_vpc: "jp-tok"
-  ibm_classic: "CHE01"
+  ibm_classic: "che01"
   oci: "ap-tokyo-1"            # Oracle Tokyo
   alibaba: "ap-southeast-1"        # Alibaba Asia Pacific
   vmware: "datacenter-apac"       # VMware APAC DC
@@ -281,7 +281,7 @@ sa-east-1:
   azure: "Brazil South"
   gcp: "southamerica-east1"
   ibm_vpc: "br-sao"
-  ibm_classic: "SAO01"
+  ibm_classic: "sao01"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -292,7 +292,7 @@ af-south-1:
   azure: "South Africa North"
   gcp: "africa-south1"
   ibm_vpc: "eu-gb"
-  ibm_classic: "LON06"
+  ibm_classic: "lon06"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -302,7 +302,7 @@ me-south-1:
   azure: "UAE North"
   gcp: "me-west1"
   ibm_vpc: "eu-gb"
-  ibm_classic: "LON06"
+  ibm_classic: "lon06"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -378,7 +378,7 @@ dal10:
   azure: "Central US"
   gcp: "us-central1"
   ibm_vpc: "us-south"
-  ibm_classic: "DAL10"
+  ibm_classic: "dal10"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -388,7 +388,7 @@ dal12:
   azure: "Central US"
   gcp: "us-central1"
   ibm_vpc: "us-south"
-  ibm_classic: "DAL12"
+  ibm_classic: "dal12"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -398,7 +398,7 @@ dal13:
   azure: "Central US"
   gcp: "us-central1"
   ibm_vpc: "us-south"
-  ibm_classic: "DAL13"
+  ibm_classic: "dal13"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -408,7 +408,7 @@ wdc04:
   azure: "East US"
   gcp: "us-east1"
   ibm_vpc: "us-east"
-  ibm_classic: "WDC04"
+  ibm_classic: "wdc04"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -418,7 +418,7 @@ wdc06:
   azure: "East US"
   gcp: "us-east1"
   ibm_vpc: "us-east"
-  ibm_classic: "WDC06"
+  ibm_classic: "wdc06"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -428,7 +428,7 @@ wdc07:
   azure: "East US"
   gcp: "us-east1"
   ibm_vpc: "us-east"
-  ibm_classic: "WDC07"
+  ibm_classic: "wdc07"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -438,7 +438,7 @@ tor01:
   azure: "Canada Central"
   gcp: "northamerica-northeast1"
   ibm_vpc: "ca-tor"
-  ibm_classic: "TOR01"
+  ibm_classic: "tor01"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -448,7 +448,7 @@ tor04:
   azure: "Canada Central"
   gcp: "northamerica-northeast1"
   ibm_vpc: "ca-tor"
-  ibm_classic: "TOR04"
+  ibm_classic: "tor04"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -458,7 +458,7 @@ tor05:
   azure: "Canada Central"
   gcp: "northamerica-northeast1"
   ibm_vpc: "ca-tor"
-  ibm_classic: "TOR05"
+  ibm_classic: "tor05"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -468,7 +468,7 @@ mon01:
   azure: "Canada East"
   gcp: "northamerica-northeast1"
   ibm_vpc: "ca-mon"
-  ibm_classic: "MON01"
+  ibm_classic: "mon01"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -478,7 +478,7 @@ sjc03:
   azure: "West US"
   gcp: "us-west1"
   ibm_vpc: "us-south"
-  ibm_classic: "SJC03"
+  ibm_classic: "sjc03"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -488,7 +488,7 @@ sjc04:
   azure: "West US 2"
   gcp: "us-west2"
   ibm_vpc: "us-south"
-  ibm_classic: "SJC04"
+  ibm_classic: "sjc04"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -498,7 +498,7 @@ sao01:
   azure: "Brazil South"
   gcp: "southamerica-east1"
   ibm_vpc: "br-sao"
-  ibm_classic: "SAO01"
+  ibm_classic: "sao01"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -508,7 +508,7 @@ sao04:
   azure: "Brazil South"
   gcp: "southamerica-east1"
   ibm_vpc: "br-sao"
-  ibm_classic: "SAO04"
+  ibm_classic: "sao04"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -518,7 +518,7 @@ sao05:
   azure: "Brazil South"
   gcp: "southamerica-east1"
   ibm_vpc: "br-sao"
-  ibm_classic: "SAO05"
+  ibm_classic: "sao05"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -528,7 +528,7 @@ lon02:
   azure: "UK South"
   gcp: "europe-west2"
   ibm_vpc: "eu-gb"
-  ibm_classic: "LON02"
+  ibm_classic: "lon02"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -538,7 +538,7 @@ lon04:
   azure: "UK South"
   gcp: "europe-west2"
   ibm_vpc: "eu-gb"
-  ibm_classic: "LON04"
+  ibm_classic: "lon04"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -548,7 +548,7 @@ lon05:
   azure: "UK South"
   gcp: "europe-west2"
   ibm_vpc: "eu-gb"
-  ibm_classic: "LON05"
+  ibm_classic: "lon05"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -558,7 +558,7 @@ lon06:
   azure: "UK South"
   gcp: "europe-west2"
   ibm_vpc: "eu-gb"
-  ibm_classic: "LON06"
+  ibm_classic: "lon06"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -568,7 +568,7 @@ fra02:
   azure: "Germany West Central"
   gcp: "europe-west3"
   ibm_vpc: "eu-de"
-  ibm_classic: "FRA02"
+  ibm_classic: "fra02"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -578,7 +578,7 @@ fra04:
   azure: "Germany West Central"
   gcp: "europe-west3"
   ibm_vpc: "eu-de"
-  ibm_classic: "FRA04"
+  ibm_classic: "fra04"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -588,7 +588,7 @@ fra05:
   azure: "Germany West Central"
   gcp: "europe-west3"
   ibm_vpc: "eu-de"
-  ibm_classic: "FRA05"
+  ibm_classic: "fra05"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -598,7 +598,7 @@ mad02:
   azure: "France Central"
   gcp: "europe-west1"
   ibm_vpc: "eu-es"
-  ibm_classic: "MAD02"
+  ibm_classic: "mad02"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -608,7 +608,7 @@ mad04:
   azure: "France Central"
   gcp: "europe-west1"
   ibm_vpc: "eu-es"
-  ibm_classic: "MAD04"
+  ibm_classic: "mad04"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -618,7 +618,7 @@ mad05:
   azure: "France Central"
   gcp: "europe-west1"
   ibm_vpc: "eu-es"
-  ibm_classic: "MAD05"
+  ibm_classic: "mad05"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -628,7 +628,7 @@ ams03:
   azure: "West Europe"
   gcp: "europe-west1"
   ibm_vpc: "eu-gb"
-  ibm_classic: "AMS03"
+  ibm_classic: "ams03"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -638,7 +638,7 @@ par01:
   azure: "France Central"
   gcp: "europe-west9"
   ibm_vpc: "eu-gb"
-  ibm_classic: "PAR01"
+  ibm_classic: "par01"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -648,7 +648,7 @@ mil01:
   azure: "West Europe"
   gcp: "europe-west1"
   ibm_vpc: "eu-de"
-  ibm_classic: "MIL01"
+  ibm_classic: "mil01"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -658,7 +658,7 @@ tok02:
   azure: "Japan East"
   gcp: "asia-northeast1"
   ibm_vpc: "jp-tok"
-  ibm_classic: "TOK02"
+  ibm_classic: "tok02"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -668,7 +668,7 @@ tok04:
   azure: "Japan East"
   gcp: "asia-northeast1"
   ibm_vpc: "jp-tok"
-  ibm_classic: "TOK04"
+  ibm_classic: "tok04"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -678,7 +678,7 @@ tok05:
   azure: "Japan East"
   gcp: "asia-northeast1"
   ibm_vpc: "jp-tok"
-  ibm_classic: "TOK05"
+  ibm_classic: "tok05"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -688,7 +688,7 @@ osa21:
   azure: "Japan West"
   gcp: "asia-northeast2"
   ibm_vpc: "jp-osa"
-  ibm_classic: "OSA21"
+  ibm_classic: "osa21"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -698,7 +698,7 @@ osa22:
   azure: "Japan West"
   gcp: "asia-northeast2"
   ibm_vpc: "jp-osa"
-  ibm_classic: "OSA22"
+  ibm_classic: "osa22"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -708,7 +708,7 @@ osa23:
   azure: "Japan West"
   gcp: "asia-northeast2"
   ibm_vpc: "jp-osa"
-  ibm_classic: "OSA23"
+  ibm_classic: "osa23"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -718,7 +718,7 @@ syd01:
   azure: "Australia East"
   gcp: "australia-southeast1"
   ibm_vpc: "au-syd"
-  ibm_classic: "SYD01"
+  ibm_classic: "syd01"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -728,7 +728,7 @@ syd04:
   azure: "Australia East"
   gcp: "australia-southeast1"
   ibm_vpc: "au-syd"
-  ibm_classic: "SYD04"
+  ibm_classic: "syd04"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -738,7 +738,7 @@ syd05:
   azure: "Australia East"
   gcp: "australia-southeast1"
   ibm_vpc: "au-syd"
-  ibm_classic: "SYD05"
+  ibm_classic: "syd05"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -748,7 +748,7 @@ sng01:
   azure: "Southeast Asia"
   gcp: "asia-southeast1"
   ibm_vpc: "jp-tok"
-  ibm_classic: "SNG01"
+  ibm_classic: "sng01"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter
@@ -758,7 +758,7 @@ che01:
   azure: "Central India"
   gcp: "asia-south1"
   ibm_vpc: "jp-tok"
-  ibm_classic: "CHE01"
+  ibm_classic: "che01"
   oci: "us-ashburn-1"          # Oracle Cloud
   alibaba: "us-east-1"             # Alibaba Cloud
   vmware: "datacenter1"           # VMware datacenter

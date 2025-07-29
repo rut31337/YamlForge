@@ -175,7 +175,7 @@ class AlibabaProvider:
         alibaba_image = self.get_alibaba_image_reference(image)
 
         # Get user data script
-        user_data_script = instance.get('user_data_script') or instance.get('user_data')
+        user_data_script = instance.get('user_data_script')
 
         # Get SSH key configuration for this instance
         ssh_key_config = self.converter.get_instance_ssh_key(instance, yaml_data or {})

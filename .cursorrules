@@ -1,7 +1,7 @@
 # YamlForge Repository Rules for Cursor
 
 ## Workspace Management
-- **Always automatically cd into the YamlForge directory** when starting any development task
+- Cursor automatically starts terminals in the correct workspace directory
 - Ensure you're in the correct workspace root before beginning any development tasks
 - Verify current directory is YamlForge before running any commands
 - **Use LF line endings** - all files should use Unix line endings (LF, not CRLF)

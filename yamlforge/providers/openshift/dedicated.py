@@ -30,7 +30,7 @@ class OpenShiftDedicatedProvider(BaseOpenShiftProvider):
         version = cluster_config.get('version')
         if not version:
             raise ValueError(f"OpenShift Dedicated cluster '{cluster_name}' must specify 'version'")
-        version = self.validate_openshift_version(version)
+        version = self.validate_openshift_version(version, cluster_type="openshift-dedicated")
         
         size = cluster_config.get('size')
         if not size:

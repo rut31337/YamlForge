@@ -52,7 +52,7 @@ class HyperShiftProvider(BaseOpenShiftProvider):
         version = cluster_config.get('version')
         if not version:
             raise ValueError(f"HyperShift cluster '{cluster_name}' must specify 'version'")
-        version = self.validate_openshift_version(version)
+        version = self.validate_openshift_version(version, cluster_type="hypershift-hosted")
         
         # Determine if HyperShift deployment separation is needed
         needs_hypershift_separation = cluster_config.get('_needs_hypershift_separation', False)

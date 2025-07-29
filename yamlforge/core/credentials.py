@@ -107,10 +107,8 @@ class CredentialsManager:
             }
             
         except (ClientError, NoCredentialsError) as e:
-            print(f"Debug: AWS credential error: {e}")
             return {'available': False}
         except Exception as e:
-            print(f"Debug: AWS discovery error: {e}")
             return {'available': False}
 
     def get_azure_credentials(self):
@@ -346,4 +344,3 @@ class CredentialsManager:
             'source': 'No SSH key found',
             'available': False
         }
-

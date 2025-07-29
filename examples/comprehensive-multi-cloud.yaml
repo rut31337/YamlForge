@@ -1,0 +1,126 @@
+yamlforge:
+  guid: "comp1"
+
+  # Global configurations
+  aws:
+    region: "us-east-1"
+    ssh_key_name: "demo-key-{guid}"
+
+  azure:
+    location: "East US"
+    resource_group: "demo-rg-{guid}"
+
+  gcp:
+    project_id: "demo-project-{guid}"
+    region: "us-central1"
+
+  ibm_classic:
+    domain: "example.com"
+
+  ibm_vpc:
+    region: "us-east"
+
+  vmware:
+    datacenter: "demo-dc"
+    cluster: "demo-cluster"
+    datastore: "demo-datastore"
+
+  # Security groups
+  security_groups:
+    - name: "demo-sg-{guid}"
+      rules:
+        - protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+          description: "SSH access"
+
+  # OpenShift Clusters
+  rosa_classic_clusters:
+    - name: "rosa-classic-{guid}"
+      region: "us-east-1"
+      version: "4.15"
+      worker_count: 3
+      worker_machine_type: "m5.xlarge"
+
+  aro_clusters:
+    - name: "aro-{guid}"
+      location: "us-east-1"
+      version: "4.15"
+      worker_count: 3
+      worker_machine_type: "Standard_D4s_v3"
+
+  rosa_hcp_clusters:
+    - name: "rosa-hcp-{guid}"
+      region: "us-east-1"
+      version: "4.15"
+      worker_count: 3
+      worker_machine_type: "m5.xlarge"
+
+  openshift_clusters:
+    - name: "openshift-{guid}"
+      type: "self-managed"
+      provider: "aws"
+      region: "us-east-1"
+      version: "4.15"
+      size: "large"
+      master_count: 3
+      master_machine_type: "m5.xlarge"
+      worker_count: 5
+      worker_machine_type: "m5.large"
+
+  # Instances
+  instances:
+    # Direct provider instances
+    - name: "aws-vm-{guid}"
+      provider: "aws"
+      region: "us-east-1"
+      size: "large"
+      image: "RHEL9-latest"
+      security_groups: ["demo-sg-{guid}"]
+
+    - name: "azure-vm-{guid}"
+      provider: "azure"
+      location: "us-east-1"
+      size: "large"
+      image: "RHEL9-latest"
+      security_groups: ["demo-sg-{guid}"]
+
+    - name: "gcp-vm-{guid}"
+      provider: "gcp"
+      region: "us-central1"
+      size: "large"
+      image: "RHEL9-latest"
+      security_groups: ["demo-sg-{guid}"]
+
+    - name: "ibm-classic-vm-{guid}"
+      provider: "ibm_classic"
+      region: "us-east"
+      size: "large"
+      image: "RHEL9-latest"
+      security_groups: ["demo-sg-{guid}"]
+
+    - name: "ibm-vpc-vm-{guid}"
+      provider: "ibm_vpc"
+      region: "us-east"
+      size: "large"
+      image: "RHEL9-latest"
+      security_groups: ["demo-sg-{guid}"]
+
+    # Meta provider instances
+    - name: "cheapest-vm-{guid}"
+      location: "us-east"
+      provider: "cheapest"
+      cores: 2
+      memory: 4096
+      image: "RHEL9-latest"
+      security_groups: ["demo-sg-{guid}"]
+
+    - name: "cheapest-gpu-vm-{guid}"
+      location: "us-east"
+      provider: "cheapest-gpu"
+      cores: 4
+      memory: 8192
+      gpus: 1
+      gpu_type: "t4"
+      image: "RHEL9-latest"
+      security_groups: ["demo-sg-{guid}"] 

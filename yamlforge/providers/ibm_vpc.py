@@ -158,7 +158,7 @@ resource "ibm_is_security_group_rule" "{resource_name}_rule_{i+1}" {{
 
         return security_group_config
 
-    def generate_ibm_vpc_vm(self, instance, index, clean_name, size, yaml_data=None, has_guid_placeholder=False):
+    def generate_ibm_vpc_vm(self, instance, index, clean_name, size, yaml_data=None, has_guid_placeholder=False, zone=None):
         """Generate IBM VPC virtual server instance."""
         instance_name = instance.get("name", f"instance_{index}")
         instance_name = self.converter.replace_guid_placeholders(instance_name)
@@ -167,22 +167,29 @@ resource "ibm_is_security_group_rule" "{resource_name}_rule_{i+1}" {{
         ibm_region = self.converter.resolve_instance_region(instance, "ibm_vpc")
         user_specified_zone = instance.get('zone')
         has_region = 'region' in instance
-        if user_specified_zone and has_region:
+        
+        # Use the zone passed from the converter if available, otherwise validate/select
+        if zone:
+            # Use the zone that was already determined by the converter
+            ibm_zone = zone
+            self.converter.print_instance_output(instance_name, 'ibm_vpc', f"Using pre-determined zone '{ibm_zone}'")
+        elif user_specified_zone and has_region:
+            # Validate that the zone belongs to the region
             expected_region = user_specified_zone.rsplit('-', 1)[0]
             if expected_region != ibm_region:
                 raise ValueError(f"Instance '{instance_name}': Specified zone '{user_specified_zone}' does not belong to region '{ibm_region}'. "
                                f"Zone region: '{expected_region}', Instance region: '{ibm_region}'")
-            print(f"Using user-specified zone '{user_specified_zone}' for instance '{instance_name}' in region '{ibm_region}'")
-            ibm_zone = user_specified_zone
+            ibm_zone = self.validate_and_select_zone(ibm_region, user_specified_zone, yaml_data)
         elif user_specified_zone and not has_region:
             raise ValueError(f"Instance '{instance_name}': Zone '{user_specified_zone}' can only be specified when using 'region' (not 'location'). "
                            f"Either remove 'zone' or change 'location' to 'region'.")
         else:
-            ibm_zone = f"{ibm_region}-1"
+            # Auto-select a zone from available zones
+            ibm_zone = self.validate_and_select_zone(ibm_region, None, yaml_data)
         # Dynamic image lookup, but skip if no-credentials
         if getattr(self.converter, 'no_credentials', False):
             image_id = "PLACEHOLDER-IBM-VPC-IMAGE-ID"
-            print(f"  NO-CREDENTIALS MODE: Skipping IBM VPC image lookup for {instance_name}, using placeholder image ID.")
+            self.converter.print_instance_output(instance_name, 'ibm_vpc', f"NO-CREDENTIALS MODE: Skipping image lookup, using placeholder image ID.")
         else:
             # Try to use image mapping first, then fall back to dynamic lookup
             try:
@@ -192,7 +199,7 @@ resource "ibm_is_security_group_rule" "{resource_name}_rule_{i+1}" {{
                 if ibm_vpc_config and 'name_pattern' in ibm_vpc_config:
                     # Use the name pattern from image mapping
                     name_pattern = ibm_vpc_config['name_pattern']
-                    print(f"Using image mapping pattern for {instance_name}: {name_pattern}")
+                    self.converter.print_instance_output(instance_name, 'ibm_vpc', f"Using image mapping pattern: {name_pattern}")
                     
                     # Extract OS info from the image name for filtering
                     os_name = "redhat" if "rhel" in image.lower() else image.split('-')[0]
@@ -217,22 +224,28 @@ resource "ibm_is_security_group_rule" "{resource_name}_rule_{i+1}" {{
                         architecture = "amd64"
                     image_id = self.find_latest_ibm_vpc_image(ibm_region, os_name, version, architecture)
                     
-                print(f"Dynamic IBM VPC image lookup for {instance_name}: {image} in {ibm_region} -> {image_id}")
+                self.converter.print_instance_output(instance_name, 'ibm_vpc', f"Dynamic image lookup: {image} in {ibm_region} -> {image_id}")
             except Exception as e:
-                print(f"Warning: Image lookup failed for {instance_name}: {e}")
+                self.converter.print_instance_output(instance_name, 'ibm_vpc', f"Warning: Image lookup failed: {e}")
                 # Fall back to placeholder
                 image_id = "PLACEHOLDER-IBM-VPC-IMAGE-ID"
         ibm_profile = self.get_ibm_instance_profile(size)
-        user_data_script = instance.get('user_data_script') or instance.get('user_data')
+        user_data_script = instance.get('user_data_script')
         
-        # Generate user_data script for RHEL 9 if not provided, using RHEL image, and cloud-user creation is enabled
-        if not user_data_script and "rhel" in image.lower():
-            # Check if cloud-user creation is enabled in IBM VPC config
-            ibm_vpc_config = yaml_data.get('yamlforge', {}).get('ibm_vpc', {})
-            create_cloud_user = ibm_vpc_config.get('create_cloud_user', True)  # Default to True
+        # Check if cloud-user creation is enabled in IBM VPC config
+        ibm_vpc_config = yaml_data.get('yamlforge', {}).get('ibm_vpc', {})
+        create_cloud_user = ibm_vpc_config.get('create_cloud_user', True)  # Default to True
+        
+        # Generate cloud-user creation script for RHEL images if enabled
+        if create_cloud_user and "rhel" in image.lower():
+            cloud_user_script = self.generate_rhel_user_data_script(instance, yaml_data)
             
-            if create_cloud_user:
-                user_data_script = self.generate_rhel_user_data_script(instance, yaml_data)
+            if user_data_script:
+                # Combine user-provided script with cloud-user creation
+                user_data_script = f"{user_data_script}\n\n{cloud_user_script}"
+            else:
+                # Use only cloud-user creation script
+                user_data_script = cloud_user_script
         
         # Get SSH key configuration for this instance
         ssh_key_config = self.converter.get_instance_ssh_key(instance, yaml_data or {})
@@ -316,7 +329,7 @@ resource "ibm_is_floating_ip" "{resource_name}_fip" {{
 '''
         return vm_config
 
-    def generate_ibm_vpc_networking(self, deployment_name, deployment_config, region, yaml_data=None):
+    def generate_ibm_vpc_networking(self, deployment_name, deployment_config, region, yaml_data=None, zone=None):
         """Generate IBM VPC networking resources for specific region."""
         network_config = deployment_config.get('network', {})
         network_name = network_config.get('name', f"{deployment_name}-vpc")
@@ -369,7 +382,13 @@ locals {{
 }}
 '''
 
-        networking_config += f'''
+        # Validate and select zone if not provided
+        if zone is None:
+            zone = self.validate_and_select_zone(region, None, yaml_data)
+        else:
+            self.converter.print_provider_output('ibm_vpc', f"Networking generation using provided zone: '{zone}' for region '{region}'")
+        
+        subnet_config = f'''
 # IBM Cloud VPC: {vpc_name} (Region: {region})
 resource "ibm_is_vpc" "main_vpc_{clean_region}_{guid}" {{
   name = "{vpc_name}"
@@ -384,7 +403,7 @@ resource "ibm_is_vpc" "main_vpc_{clean_region}_{guid}" {{
 resource "ibm_is_subnet" "main_subnet_{clean_region}_{guid}" {{
   name                     = "{subnet_name}"
   vpc                      = ibm_is_vpc.main_vpc_{clean_region}_{guid}.id
-  zone                     = "{region}-1"
+  zone                     = "{zone}"
   total_ipv4_address_count = 256
   
   tags = [
@@ -393,6 +412,7 @@ resource "ibm_is_subnet" "main_subnet_{clean_region}_{guid}" {{
   ]
 }}
 '''
+        networking_config += subnet_config
 
         # Generate main SSH key using the new method
         main_key_name = f"main_key_{clean_region}_{guid}"
@@ -410,10 +430,10 @@ resource "ibm_is_ssh_key" "{main_key_name}" {{
     "ManagedBy:yamlforge"
   ]
 }}
+# terraform import ibm_is_ssh_key.{main_key_name} <existing_key_id>
 '''
         else:
-            # In credentials mode, we need to get the actual key value to check for existing keys
-            # For now, we'll create the resource and let Terraform handle conflicts
+            # For the main key in credentials mode, we also use variable reference
             main_key_resource = f'''
 # IBM Cloud SSH Key (Global): {main_key_name}
 resource "ibm_is_ssh_key" "{main_key_name}" {{
@@ -426,8 +446,6 @@ resource "ibm_is_ssh_key" "{main_key_name}" {{
     "ManagedBy:yamlforge"
   ]
 }}
-
-# If this key already exists in IBM VPC, import it with:
 # terraform import ibm_is_ssh_key.{main_key_name} <existing_key_id>
 '''
         networking_config += main_key_resource
@@ -509,6 +527,41 @@ resource "ibm_is_ssh_key" "{main_key_name}" {{
         
         return filtered[0]["id"]
 
+    def get_available_zones(self, region, api_key=None):
+        """Get available zones for a given IBM VPC region using the IBM Cloud API."""
+        if getattr(self.converter, 'no_credentials', False):
+            self.converter.print_provider_output('ibm_vpc', f"WARNING: --no-credentials mode: using placeholder zone for region '{region}'. Generated Terraform will not be valid for apply.")
+            return ["PLACEHOLDER-ZONE"]
+        try:
+            from ibm_vpc import VpcV1
+            from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
+            api_key = api_key or os.getenv('IBMCLOUD_API_KEY') or os.getenv('IC_API_KEY')
+            if not api_key:
+                raise ValueError("IBM Cloud API key not found in environment variables (IBMCLOUD_API_KEY or IC_API_KEY)")
+            authenticator = IAMAuthenticator(api_key)
+            vpc = VpcV1('2023-09-12', authenticator=authenticator)
+            zones = vpc.list_region_zones(region_name=region)
+            return [z['name'] for z in zones.result['zones']]
+        except Exception as e:
+            self.converter.print_provider_output('ibm_vpc', f"Warning: Could not fetch zones for region {region}: {e}")
+            return []
+
+    def validate_and_select_zone(self, region, specified_zone=None, yaml_data=None):
+        """Validate a user-specified zone or auto-select one from available zones."""
+        if getattr(self.converter, 'no_credentials', False):
+            self.converter.print_provider_output('ibm_vpc', f"WARNING: --no-credentials mode: using placeholder zone for region '{region}'. Generated Terraform will not be valid for apply.")
+            return "PLACEHOLDER-ZONE"
+        available_zones = self.get_available_zones(region)
+        if not available_zones:
+            raise ValueError(f"No available zones found for region '{region}'.")
+        if specified_zone:
+            if specified_zone not in available_zones:
+                raise ValueError(f"Specified zone '{specified_zone}' is not valid for region '{region}'. Available: {available_zones}")
+            return specified_zone
+        # Auto-select the first available zone
+        self.converter.print_provider_output('ibm_vpc', f"Auto-selected zone '{available_zones[0]}' for region '{region}' (available: {available_zones})")
+        return available_zones[0]
+
     def find_existing_ssh_key_by_fingerprint(self, public_key, region):
         """Find existing SSH key by fingerprint to provide import commands."""
         if getattr(self.converter, 'no_credentials', False):
@@ -521,7 +574,6 @@ resource "ibm_is_ssh_key" "{main_key_name}" {{
             # Extract the key part (remove ssh-rsa prefix and comment)
             key_parts = public_key.split()
             if len(key_parts) < 2:
-                print(f"Debug: Invalid SSH key format: {public_key}")
                 return None
                 
             key_data = key_parts[1]
@@ -533,12 +585,9 @@ resource "ibm_is_ssh_key" "{main_key_name}" {{
             # Format as SHA256:base64digest (IBM VPC format)
             formatted_fingerprint = f"SHA256:{base64.b64encode(fingerprint).decode('utf-8').rstrip('=')}"
             
-            print(f"Debug: Calculated SHA256 fingerprint: {formatted_fingerprint}")
-            
             # Use IBM VPC API to find existing key
             api_key = os.getenv('IC_API_KEY') or os.getenv('IBM_CLOUD_API_KEY')
             if not api_key:
-                print("Debug: No IBM Cloud API key found")
                 return None
                 
             from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
@@ -549,24 +598,18 @@ resource "ibm_is_ssh_key" "{main_key_name}" {{
             vpc.set_service_url(f"https://{region}.iaas.cloud.ibm.com/v1")
             
             keys = vpc.list_keys().get_result()["keys"]
-            print(f"Debug: Found {len(keys)} existing SSH keys in region {region}")
             
             for key in keys:
                 existing_fingerprint = key.get("fingerprint")
-                key_name = key.get('name', 'unnamed')
-                key_id = key.get('id', 'unknown')
-                print(f"Debug: Key '{key_name}' (ID: {key_id}) has fingerprint: '{existing_fingerprint}'")
                 
                 # Compare SHA256 fingerprints
                 if existing_fingerprint == formatted_fingerprint:
-                    print(f"Debug: SHA256 match found!")
                     return key["id"]
                     
-            print("Debug: No matching SSH key found")
             return None
             
         except Exception as e:
-            print(f"Warning: Could not check for existing SSH key: {e}")
+            self.converter.print_provider_output('ibm_vpc', f"Warning: Could not check for existing SSH key: {e}")
             import traceback
             traceback.print_exc()
             return None
@@ -592,7 +635,7 @@ resource "ibm_is_ssh_key" "{key_name}" {{
         
         if existing_key_id:
             # Use data source to reference existing key (read-only, won't be destroyed)
-            print(f"INFO: Found existing SSH key with ID {existing_key_id}, using data source")
+            self.converter.print_provider_output('ibm_vpc', f"Found existing SSH key with ID {existing_key_id}, using data source")
             return f'''
 # Import existing IBM Cloud SSH Key: {key_name}
 data "ibm_is_ssh_key" "{key_name}" {{
@@ -601,7 +644,7 @@ data "ibm_is_ssh_key" "{key_name}" {{
 ''', f"data.ibm_is_ssh_key.{key_name}.id"
         else:
             # Create new key resource
-            print(f"INFO: No existing SSH key found, will create new key: {key_name}")
+            self.converter.print_provider_output('ibm_vpc', f"No existing SSH key found, will create new key: {key_name}")
             return f'''
 # IBM Cloud SSH Key: {key_name}
 resource "ibm_is_ssh_key" "{key_name}" {{

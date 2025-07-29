@@ -230,11 +230,12 @@ class GCPProvider:
         raise ValueError(f"No GCP machine type mapping found for size '{size_or_instance_type}'. "
                        f"Available sizes: {list(gcp_flavors.keys())}")
 
-    def check_machine_type_availability(self, machine_type, region, zone=None):
+    def check_machine_type_availability(self, machine_type, region, zone=None, silent=False):
         """Check if a GCP machine type is available in the specified region/zone."""
         # Skip availability checking in no-credentials mode
         if self.converter.no_credentials:
-            print(f"  NO-CREDENTIALS MODE: Skipping machine type availability check for '{machine_type}' in region '{region}'")
+            if not silent:
+                print(f"  NO-CREDENTIALS MODE: Skipping machine type availability check for '{machine_type}' in region '{region}'")
             return True
         
         if not GOOGLE_CLOUD_AVAILABLE:
@@ -483,7 +484,7 @@ class GCPProvider:
         gcp_image = self.get_gcp_image_reference(image)
 
         # Get user data script
-        user_data_script = instance.get('user_data_script') or instance.get('user_data')
+        user_data_script = instance.get('user_data_script')
 
         # Get firewall tags
         firewall_refs = self.converter.get_instance_gcp_firewall_refs(instance)
@@ -1194,7 +1195,6 @@ output "project_info" {{
         """Get available zones for a specific region with intelligent fallback."""
         # Skip zone discovery in no-credentials mode
         if self.converter.no_credentials:
-            print(f"  NO-CREDENTIALS MODE: Using placeholder zone for region '{region}'")
             return [f"{region}-a"]  # Return a placeholder zone
         
         if not GOOGLE_CLOUD_AVAILABLE:
@@ -1257,18 +1257,26 @@ output "project_info" {{
 
     def get_best_zone_for_region(self, region, machine_type=None, instance_name=None):
         """Get the best available zone for a region, optionally checking machine type availability."""
-        instance_info = f" for '{instance_name}'" if instance_name else ""
-        print(f"Finding best zone{instance_info} in region '{region}'...")
+        if instance_name:
+            self.converter.print_instance_output(instance_name, 'gcp', f"Finding best zone in region '{region}'...")
         
         available_zones = self.get_available_zones_for_region(region)
         
         if not available_zones:
             raise ValueError(f"No zones found for region '{region}'. Please check region availability.")
         
+        # Skip machine type availability checking in no-credentials mode
+        if self.converter.no_credentials:
+            best_zone = available_zones[0]
+            if instance_name:
+                self.converter.print_instance_output(instance_name, 'gcp', f"NO-CREDENTIALS MODE: Using zone '{best_zone}' for region '{region}'")
+            return best_zone
+        
         # If no machine type specified, return first available zone
         if not machine_type:
             best_zone = available_zones[0]
-            print(f"Selected zone '{best_zone}' for region '{region}'")
+            if instance_name:
+                self.converter.print_instance_output(instance_name, 'gcp', f"Selected zone '{best_zone}' for region '{region}'")
             return best_zone
         
         # Check machine type availability in zones
@@ -1284,22 +1292,24 @@ output "project_info" {{
                             machine_type=machine_type
                         )
                         client.get(request=mt_request)
-                        print(f"Selected zone '{zone}' for machine type '{machine_type}' in region '{region}'")
+                        if instance_name:
+                            self.converter.print_instance_output(instance_name, 'gcp', f"Selected zone '{zone}' for machine type '{machine_type}' in region '{region}'")
                         return zone
                     except google_exceptions.NotFound:
                         continue
                         
                 # If no zone supports the machine type, return first zone with warning
-                instance_info = f" for '{instance_name}'" if instance_name else ""
-                print(f"WARNING: Machine type '{machine_type}' may not be available{instance_info} in region '{region}'. Using zone '{available_zones[0]}'")
+                if instance_name:
+                    self.converter.print_instance_output(instance_name, 'gcp', f"WARNING: Machine type '{machine_type}' may not be available in region '{region}'. Using zone '{available_zones[0]}'")
                 return available_zones[0]
                 
             except Exception:
                 # Fall back to first zone if API calls fail
-                instance_info = f" for '{instance_name}'" if instance_name else ""
-                print(f"WARNING: Could not verify machine type availability{instance_info}. Using zone '{available_zones[0]}'")
+                if instance_name:
+                    self.converter.print_instance_output(instance_name, 'gcp', f"WARNING: Could not verify machine type availability. Using zone '{available_zones[0]}'")
                 return available_zones[0]
         else:
             # No API available, return first zone
-            print(f"Selected zone '{available_zones[0]}' for region '{region}' (API unavailable)")
+            if instance_name:
+                self.converter.print_instance_output(instance_name, 'gcp', f"Selected zone '{available_zones[0]}' for region '{region}' (API unavailable)")
             return available_zones[0]

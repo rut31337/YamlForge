@@ -62,7 +62,9 @@ cluster_sizes:
   large:
     description: "Large production cluster"
     masters: 3
+    master_count: 3
     workers: 5
+    worker_count: 5
     master_size: "xlarge"
     worker_size: "xlarge"
     use_case: "Large production workloads"

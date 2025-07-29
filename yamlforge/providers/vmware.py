@@ -90,7 +90,14 @@ class VMwareProvider:
         vmware_template = self.get_vmware_template(image)
 
         # Get user data script
-        user_data_script = instance.get('user_data_script') or instance.get('user_data')
+        user_data_script = instance.get('user_data_script')
+
+        # Get domain from instance config first, then fall back to VMware config (defaults to "local")
+        instance_domain = instance.get('domain')
+        vmware_config = yaml_data.get('yamlforge', {}).get('vmware', {}) if yaml_data else {}
+        global_domain = vmware_config.get('domain', 'local') if vmware_config else 'local'
+        
+        domain = instance_domain or global_domain
 
         # Get SSH key configuration for this instance
         ssh_key_config = self.converter.get_instance_ssh_key(instance, yaml_data or {})
@@ -110,7 +117,7 @@ class VMwareProvider:
   customize {{
     linux_options {{
       host_name = "{instance_name}"
-      domain    = "local"
+      domain    = "{domain}"
     }}
 
     network_interface {{

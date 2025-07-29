@@ -97,12 +97,13 @@ class BaseOpenShiftProvider:
         """Get the cloud provider for an OpenShift cluster type"""
         return self.OPENSHIFT_PROVIDER_MAP.get(cluster_type)
         
-    def validate_openshift_version(self, version: str, auto_discover_version: bool = False) -> str:
+    def validate_openshift_version(self, version: str, cluster_type: str = "rosa", auto_discover_version: bool = False) -> str:
         """
-        Validate OpenShift version using dynamic ROSA version management
+        Validate OpenShift version using dynamic version management
         
         Args:
             version: OpenShift version to validate
+            cluster_type: Type of OpenShift cluster (rosa-classic, rosa-hcp, self-managed, etc.)
             auto_discover_version: If False (default), fail on unsupported versions; if True, auto-discover and upgrade to latest
             
         Returns:
@@ -116,28 +117,43 @@ class BaseOpenShiftProvider:
             print(f"  NO-CREDENTIALS MODE: Skipping OpenShift version validation for '{version}'")
             return version
         
+        # For self-managed clusters, skip ROSA API validation
+        # Self-managed clusters can use any OpenShift version without ROSA-specific restrictions
+        if cluster_type == "self-managed":
+            print(f"  SELF-MANAGED: Skipping ROSA version validation for '{version}' (any OpenShift version allowed)")
+            return version
+        
+        # Only validate against ROSA API for ROSA cluster types
+        if cluster_type not in ["rosa-classic", "rosa-hcp"]:
+            print(f"  NON-ROSA CLUSTER: Skipping ROSA version validation for '{version}' (cluster type: {cluster_type})")
+            return version
+            
         try:
-            # Import the dynamic version manager
+            # Import the dynamic version manager for ROSA clusters
             from .rosa_dynamic import DynamicROSAVersionProvider
             dynamic_provider = DynamicROSAVersionProvider()
             
             # Use get_recommended_version which handles all cases including the auto_discover_version flag
-            return dynamic_provider.get_recommended_version(version, auto_discover_version=auto_discover_version)
+            return dynamic_provider.get_recommended_version(version, cluster_type=cluster_type, auto_discover_version=auto_discover_version)
             
         except Exception as e:
-            # If dynamic provider fails, this is a critical error
+            # If dynamic provider fails, this is a critical error for ROSA clusters
             raise ValueError(f"Cannot validate OpenShift version '{version}': {e}. "
                            f"Ensure REDHAT_OPENSHIFT_TOKEN is set and API connectivity is available.")
         
-    def get_cluster_size_config(self, size: str, cluster_type: str) -> Dict[str, Any]:
+    def get_cluster_size_config(self, size: str, cluster_type: str, cloud_provider: str = None) -> Dict[str, Any]:
         """Get cluster sizing configuration based on yamlforge size"""
         
-        # Try to get cloud provider for this cluster type
-        cloud_provider = self.get_openshift_provider(cluster_type)
+        # For self-managed clusters, use the explicitly provided cloud_provider
+        if cluster_type == "self-managed" and cloud_provider:
+            target_cloud_provider = cloud_provider
+        else:
+            # Try to get cloud provider for this cluster type from the mapping
+            target_cloud_provider = self.get_openshift_provider(cluster_type)
         
         # Try OpenShift-specific flavor configurations first
-        if cloud_provider:
-            openshift_flavor_key = f"openshift_{cloud_provider}"
+        if target_cloud_provider:
+            openshift_flavor_key = f"openshift_{target_cloud_provider}"
             openshift_flavors = self.converter.flavors.get(openshift_flavor_key, {})
             
             if openshift_flavors:

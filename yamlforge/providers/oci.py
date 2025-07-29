@@ -203,7 +203,7 @@ class OCIProvider:
         oci_operating_system = self.get_oci_operating_system(image)
 
         # Get user data script
-        user_data_script = instance.get('user_data_script') or instance.get('user_data')
+        user_data_script = instance.get('user_data_script')
 
         # Get SSH key configuration for this instance
         ssh_key_config = self.converter.get_instance_ssh_key(instance, yaml_data or {})

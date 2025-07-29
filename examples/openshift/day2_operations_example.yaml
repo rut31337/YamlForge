@@ -381,47 +381,39 @@ openshift_storage:
     volume_snapshot_location: primary-snapshot-location
 yamlforge:
   openshift_clusters:
-  - name: production-cluster
-    type: rosa
+  - name: rosa-production
+    type: rosa-classic
     region: us-east-1
-    version: 4.14.8
-    compute_machine_type: m5.xlarge
-    replica_count: 3
-    enable_autoscaling: true
+    version: 4.14.15
+    worker_count: 6
+    worker_machine_type: m5.xlarge
     min_replicas: 3
-    max_replicas: 10
-    enable_fips: true
-    multi_az: true
-    tags:
-      environment: production
-      team: platform
-      lifecycle: managed
-  - name: staging-cluster
+    max_replicas: 12
+    billing_account: "123456789012"  # AWS billing account for cost tracking
+    
+    networking:
+      machine_cidr: 10.0.0.0/16
+      service_cidr: 172.30.0.0/16
+      pod_cidr: 10.128.0.0/14
+      host_prefix: 23
+    
+    auto_scaling:
+      enabled: true
+      min_replicas: 3
+      max_replicas: 12
+  - name: aro-secondary
     type: aro
-    region: eastus
-    version: 4.14.8
-    compute_machine_type: Standard_D4s_v3
-    replica_count: 2
-    enable_autoscaling: true
+    location: eastus
+    version: 4.14.15
+    worker_count: 4
+    worker_machine_type: Standard_D4s_v3
     min_replicas: 2
-    max_replicas: 6
-    tags:
-      environment: staging
-      team: development
-      lifecycle: managed
-  - name: development-cluster
-    type: self-managed
-    provider: gcp
-    region: us-central1
-    version: 4.14.8
-    master_count: 3
-    worker_count: 3
-    master_size: xlarge
-    worker_size: large
-    tags:
-      environment: development
-      team: development
-      lifecycle: managed
+    max_replicas: 8
+    
+    networking:
+      machine_cidr: 10.1.0.0/16
+      service_cidr: 172.31.0.0/16
+      pod_cidr: 10.129.0.0/14
   openshift_operators:
   - name: cluster-monitoring
     type: monitoring

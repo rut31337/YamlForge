@@ -1,4 +1,4 @@
-guid: "multi1"
+guid: "mult1"
 
 yamlforge:
   cloud_workspace:
@@ -52,9 +52,10 @@ yamlforge:
         tier: "demo"
     
     - name: "cheapest-vm-{guid}"
-      region: "us-east-2"
+      location: "us-east"
       provider: "cheapest"
-      size: "large"
+      cores: 2
+      memory: 4096
       image: "RHEL9-latest"
       security_groups: ["demo-sg-{guid}"]
       tags:
