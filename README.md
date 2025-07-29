@@ -116,6 +116,33 @@ source envvars.sh
 # See Command Line Options section for deployment commands
 ```
 
+### Configurable Default Username
+
+YamlForge provides a configurable default username across all cloud providers for consistent SSH access:
+
+**Default Behavior**: All instances use `cloud-user` as the default SSH username
+**Customization**: Override in `defaults/core.yaml` or per-instance
+
+```yaml
+# defaults/core.yaml - Organization-wide setting
+security:
+  default_username: "cloud-user"  # Change to your preferred username
+
+# Or override per instance
+yamlforge:
+  instances:
+    - name: "my-vm"
+      provider: "aws"
+      username: "my-custom-user"  # Instance-specific override
+```
+
+**Provider Support**:
+- **AWS/Azure**: Automatically creates the user via user data scripts
+- **GCP/OCI/IBM**: Native support, no additional scripts needed
+- **All Providers**: Consistent SSH commands and outputs
+
+See [Core Configuration Documentation](docs/configuration/core-configuration.md) for complete details.
+
 ## Command Line Options
 
 ```bash

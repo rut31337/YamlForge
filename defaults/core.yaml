@@ -66,6 +66,11 @@ default_tags:
 
 # Security and Compliance Settings
 security:
+  # Default username for instances across all cloud providers
+  # This username will be used as the default for SSH access and VM creation
+  # Can be overridden per instance with the 'username' field
+  default_username: "cloud-user"
+  
   # Default SSH public key for instances (can be overridden per provider)
   # This will be used if no ssh_public_key is specified in the YAML
   # Can also be set via SSH_PUBLIC_KEY or YAMLFORGE_SSH_PUBLIC_KEY environment variables

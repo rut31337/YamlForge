@@ -219,7 +219,6 @@ class AWSImageResolver:
                         suggestions = scored_amis[:5]
                         
                     except Exception as e:
-                        print(f"Debug: Error in improved search: {e}")
                         # Fallback to original broader search
                         base_version = str(requested_major)
                         broader_patterns = [
@@ -284,7 +283,7 @@ class AWSImageResolver:
                     pass
                     
         except Exception as e:
-            print(f"Debug: Error finding similar AMIs: {e}")
+            pass
         
         # If we still have suggestions, ensure they're sorted by creation date for final ordering
         if suggestions and not any('proximity_score' in s for s in suggestions):
@@ -313,9 +312,9 @@ class AWSImageResolver:
             
             # Display cached AMI with same format as fresh lookup
             if instance_name and image_key:
-                print(f"Dynamic image search for {instance_name} on aws for {image_key} in {region} results in {ami_id} (cached)")
+                self.converter.print_instance_output(instance_name, 'aws', f"Dynamic image search for {instance_name} on aws for {image_key} in {region} results in {ami_id} (cached)")
                 if self.converter and hasattr(self.converter, 'verbose') and self.converter.verbose:
-                    print(f"  Verbose: {ami_name}")
+                    self.converter.print_instance_output(instance_name, 'aws', f"Verbose: {ami_name}")
             else:
                 # Fallback to old format if context is not available
                 print(f"Using cached AMI: {ami_id} ({ami_name}) for pattern '{name_pattern}' in {region}")
@@ -449,7 +448,7 @@ class AWSProvider:
 
         # Skip credential validation in no-credentials mode
         if self.converter.no_credentials:
-            print("  NO-CREDENTIALS MODE: Skipping AWS credential validation")
+            self.converter.print_global_output("NO-CREDENTIALS MODE: Skipping AWS credential validation")
             return
 
         # Check if credentials are available when AWS instances are being processed
@@ -651,9 +650,9 @@ class AWSProvider:
                     self._recent_results = set()
                 
                 if result_key not in self._recent_results:
-                    print(f"Dynamic image search for {instance_name} on aws for {image_key} in {region} results in {ami_id}")
+                    self.converter.print_instance_output(instance_name, 'aws', f"Dynamic image search for {instance_name} on aws for {image_key} in {region} results in {ami_id}")
                     if self.converter and hasattr(self.converter, 'verbose') and self.converter.verbose:
-                        print(f"  Verbose: {ami_name}")
+                        self.converter.print_instance_output(instance_name, 'aws', f"Verbose: {ami_name}")
                     self._recent_results.add(result_key)
                 
                 return f'"{ami_id}"', "dynamic"
@@ -829,11 +828,112 @@ resource "aws_security_group" "{regional_sg_name}_{guid}" {{{self.get_aws_provid
 
 
         # Get user data script
-        user_data_script = instance.get('user_data_script') or instance.get('user_data')
+        user_data_script = instance.get('user_data_script')
 
         # Get SSH key configuration for this instance
         ssh_key_config = self.converter.get_instance_ssh_key(instance, yaml_data or {})
         
+        # Get the SSH username for this instance
+        ssh_username = self.converter.get_instance_ssh_username(instance, 'aws', yaml_data or {})
+        
+        # Get the default username from core configuration
+        default_username = self.converter.core_config.get('security', {}).get('default_username', 'cloud-user')
+        
+        # Generate user data script to create custom username (AWS doesn't have native cloud-user)
+        custom_username_script = ""
+        if ssh_username == default_username:
+            # Create user data script to set up the configurable default account
+            public_key = ssh_key_config.get('public_key', '') if ssh_key_config else ''
+            custom_username_script = f'''#!/bin/bash
+# User data script for AWS instance
+# This script creates the {ssh_username} user and configures SSH access
+
+set -e
+
+# Create {ssh_username} user if it doesn't exist
+if ! id "{ssh_username}" &>/dev/null; then
+    useradd -m -s /bin/bash {ssh_username}
+    echo "Created {ssh_username} user"
+fi
+
+# Create .ssh directory and set permissions
+mkdir -p /home/{ssh_username}/.ssh
+chmod 700 /home/{ssh_username}/.ssh
+
+# Add SSH public key to authorized_keys
+if [ -n "{public_key}" ]; then
+    echo "{public_key}" >> /home/{ssh_username}/.ssh/authorized_keys
+    chmod 600 /home/{ssh_username}/.ssh/authorized_keys
+    echo "Added SSH key for {ssh_username}"
+fi
+
+# Set ownership
+chown -R {ssh_username}:{ssh_username} /home/{ssh_username}/.ssh
+
+# Configure sudo access for {ssh_username}
+echo "{ssh_username} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/{ssh_username}
+chmod 440 /etc/sudoers.d/{ssh_username}
+
+# Disable root SSH access for security
+sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+
+# Restart SSH service
+systemctl restart sshd
+
+echo "User data script completed successfully"
+'''
+        elif ssh_username != 'ec2-user' and ssh_username != 'ubuntu':
+            # Create user data script to set up other custom usernames
+            public_key = ssh_key_config.get('public_key', '') if ssh_key_config else ''
+            custom_username_script = f'''#!/bin/bash
+# User data script for AWS instance
+# This script creates the {ssh_username} user and configures SSH access
+
+set -e
+
+# Create {ssh_username} user if it doesn't exist
+if ! id "{ssh_username}" &>/dev/null; then
+    useradd -m -s /bin/bash {ssh_username}
+    echo "Created {ssh_username} user"
+fi
+
+# Create .ssh directory and set permissions
+mkdir -p /home/{ssh_username}/.ssh
+chmod 700 /home/{ssh_username}/.ssh
+
+# Add SSH public key to authorized_keys
+if [ -n "{public_key}" ]; then
+    echo "{public_key}" >> /home/{ssh_username}/.ssh/authorized_keys
+    chmod 600 /home/{ssh_username}/.ssh/authorized_keys
+    echo "Added SSH key for {ssh_username}"
+fi
+
+# Set ownership
+chown -R {ssh_username}:{ssh_username} /home/{ssh_username}/.ssh
+
+# Configure sudo access for {ssh_username}
+echo "{ssh_username} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/{ssh_username}
+chmod 440 /etc/sudoers.d/{ssh_username}
+
+# Disable root SSH access for security
+sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+
+# Restart SSH service
+systemctl restart sshd
+
+echo "User data script completed successfully"
+'''
+        
+        # Combine custom username script with user-provided script
+        if custom_username_script:
+            if user_data_script:
+                # Prepend custom username script to user-provided script
+                user_data_script = custom_username_script + "\n\n" + user_data_script
+            else:
+                user_data_script = custom_username_script
+
         # Generate AWS key pair resource if SSH key is provided
         ssh_key_resources = ""
         key_name_ref = "null"
@@ -868,7 +968,8 @@ resource "aws_instance" "{resource_name}" {{{self.get_aws_provider_reference(aws
   instance_type = "{aws_instance_type}"
   key_name      = {key_name_ref}
   
-  availability_zone = "{aws_availability_zone}" if aws_availability_zone else null
+  availability_zone = {f'"{aws_availability_zone}"' if aws_availability_zone else 'null'}
+  subnet_id         = local.vpc_subnet_id_{clean_region}_{guid}
   
   vpc_security_group_ids = [{", ".join(aws_sg_refs) if aws_sg_refs else ""}]
   
@@ -1048,6 +1149,14 @@ locals {{
   vpc_subnet_id_{clean_region}_{guid} = aws_subnet.public_subnet_{clean_region}_{guid}[0].id
 }}
 
+# Route table associations for public subnets
+resource "aws_route_table_association" "public_subnet_rta_{clean_region}_{guid}" {{
+  count = local.selected_az_count_{clean_region}_{guid}
+  
+  subnet_id      = aws_subnet.public_subnet_{clean_region}_{guid}[count.index].id
+  route_table_id = aws_route_table.main_rt_{clean_region}_{guid}.id
+}}
+
 # Outputs for ROSA script access
 output "public_subnet_ids_{clean_region}_{guid}" {{
   description = "Public subnet IDs for ROSA clusters in {region}"
@@ -1166,7 +1275,7 @@ output "private_subnet_ids_{clean_region}_{guid}" {{
             # Credentials are working, so the issue is likely image-specific
             error_msg += f"[CREDS] Credential Status: [OK] Valid (Account: {cred_status['account_id']})\n"
             if context == 'ami_resolution_failed':
-                error_msg += f"[DEBUG] Issue: No AMI found matching pattern for '{image_key}' in region '{region}'\n"
+                error_msg += f"Issue: No AMI found matching pattern for '{image_key}' in region '{region}'\n"
                 
                 # Try to provide more specific guidance based on the image type
                 if "GOLD" in image_key.upper() or "BYOS" in image_key.upper():

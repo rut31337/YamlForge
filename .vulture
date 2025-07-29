@@ -85,6 +85,9 @@ YamlForgeConverter
 convert
 get_instance_gcp_firewall_refs
 get_aws_provider
+start_provider_section
+display_openshift_cluster_cost
+display_total_hourly_cost
 
 # OpenShift provider methods that are dynamically called
 ROSAProvider

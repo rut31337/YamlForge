@@ -118,6 +118,10 @@
             "type": "string",
             "description": "Cloud region (e.g., us-east-1, eastus, us-central1)"
           },
+          "zone": {
+            "type": "string",
+            "description": "Cloud zone/availability zone (e.g., us-east-1a, eastus-1, us-central1-a)"
+          },
           "size": {
             "type": "string",
             "enum": [
@@ -208,6 +212,14 @@
               ]
             },
             "description": "Override global provider exclusions for this specific instance (only applies to 'cheapest' and 'cheapest-gpu' providers)"
+          },
+          "domain": {
+            "type": "string",
+            "description": "Domain name override for the instance (overrides global domain setting for IBM Classic and VMware)"
+          },
+          "user_data_script": {
+            "type": "string",
+            "description": "Cloud-init user data script for instance initialization"
           }
         }
       }
@@ -264,6 +276,19 @@
             "type": "integer",
             "minimum": 1,
             "description": "Number of worker nodes (must be multiple of 3 for ROSA HCP)"
+          },
+          "master_count": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Number of master/control plane nodes (for self-managed clusters)"
+          },
+          "master_machine_type": {
+            "type": "string",
+            "description": "Machine type for master/control plane nodes (e.g., 'm5.xlarge', 'Standard_D4s_v3')"
+          },
+          "worker_machine_type": {
+            "type": "string",
+            "description": "Machine type for worker nodes (e.g., 'm5.large', 'Standard_D2s_v3')"
           },
           "min_replicas": {
             "type": "integer",
@@ -568,16 +593,34 @@
     "ibm_classic_config": {
       "type": "object",
       "description": "IBM Classic-specific configuration options",
+      "required": [
+        "domain"
+      ],
       "properties": {
-        "default_datacenter": {
+        "domain": {
           "type": "string",
-          "description": "Default datacenter for IBM Classic instances (e.g., dal10, wdc07)",
-          "default": "dal10"
+          "description": "Domain name for IBM Classic instances (e.g., example.com, mycompany.com)"
         },
-        "default_domain": {
+        "auto_create_outbound_sg": {
+          "type": "boolean",
+          "description": "Automatically create outbound security group for internet access if none configured",
+          "default": true
+        },
+        "create_cloud_user": {
+          "type": "boolean",
+          "description": "Create cloud-user account with SSH access instead of using root account",
+          "default": true
+        }
+      }
+    },
+    "vmware_config": {
+      "type": "object",
+      "description": "VMware-specific configuration options",
+      "properties": {
+        "domain": {
           "type": "string",
-          "description": "Default domain for IBM Classic instances",
-          "default": "example.com"
+          "description": "Domain name for VMware instances (e.g., local, company.local)",
+          "default": "local"
         }
       }
     }

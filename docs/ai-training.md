@@ -392,3 +392,123 @@ yamlforge:
 ```
 
 This training guide enables AI systems to quickly understand YamlForge's structure and generate appropriate configurations from natural language inputs. 
+
+## Configuration Analysis with --analyze
+
+The `--analyze` flag is essential for AI assistants to explore configurations without generating Terraform files. This is perfect for:
+- Understanding what a configuration will do before deployment
+- Exploring cost implications
+- Verifying provider selections
+- Debugging configuration issues
+
+### Using --analyze
+
+```bash
+# Analyze any YamlForge configuration
+python yamlforge.py my-config.yaml --analyze
+```
+
+### Analysis Output
+
+The analyze command provides comprehensive information:
+
+```
+================================================================================
+  YAMLFORGE CLOUD ANALYSIS
+================================================================================
+Global provider exclusions: vmware, alibaba (excluded from cost comparison)
+Global unexcluded providers: aws, azure, gcp, ibm_vpc, ibm_classic, oci
+
+INSTANCES (2 found):
+----------------------------------------
+
+1. web-server-test1:
+   Provider: cheapest (gcp)
+   Region: us-east (us-east1)
+   Size: medium (e2-medium)
+   Image: RHEL9-latest (rhel-cloud/rhel-9)
+   Cost analysis for instance 'web-server-test1':
+     gcp: $0.0335/hour (e2-medium, 1 vCPU, 4GB) ← SELECTED
+     aws: $0.0416/hour (t3.medium, 2 vCPU, 4GB)
+     azure: $0.0752/hour (Standard_B4ms, 4 vCPU, 16GB)
+
+2. gpu-worker-test1:
+   Provider: cheapest-gpu (gcp)
+   Region: us-east (us-east1)
+   GPU Count: 1
+   GPU Type: NVIDIA T4
+   GPU Flavor: n1-standard-4-t4
+   Image: RHEL9-latest (rhel-cloud/rhel-9)
+   GPU-optimized cost analysis for instance 'gpu-worker-test1':
+     gcp: $0.3500/hour (n1-standard-4-t4, 4 vCPU, 15GB, 1x NVIDIA T4) ← SELECTED
+     aws: $0.5260/hour (g4dn.xlarge, 4 vCPU, 16GB, 1x NVIDIA T4)
+
+REQUIRED PROVIDERS:
+----------------------------------------
+  • aws
+  • gcp
+
+COST SUMMARY:
+----------------------------------------
+Instances:
+  • web-server-test1 (gcp): $0.0335/hour
+  • gpu-worker-test1 (gcp): $0.3500/hour
+  Instance Subtotal: $0.3835/hour
+
+  TOTAL HOURLY COST: $0.3835
+  ESTIMATED MONTHLY COST: $276.12
+```
+
+### AI Assistant Workflow
+
+1. **Generate Configuration**: Create YAML from natural language
+2. **Analyze First**: Use `--analyze` to understand the configuration
+3. **Refine**: Adjust based on analysis results
+4. **Deploy**: Generate Terraform when satisfied
+
+### Common Analysis Questions
+
+When users ask these questions, use `--analyze` to provide answers:
+
+- "What's the cheapest GPU instance?"
+- "What would a medium server cost on different clouds?"
+- "What providers do I need for this configuration?"
+- "Show me the mapped regions and flavors for this configuration"
+- "How much will this deployment cost?"
+- "Which provider is cheapest for my workload?"
+
+### Analysis Benefits for AI
+
+- **Cost Transparency**: Show exact costs before deployment
+- **Provider Selection**: Explain why specific providers were chosen
+- **Configuration Validation**: Verify that the YAML is correct
+- **Resource Mapping**: Show how generic terms map to specific resources
+- **Error Prevention**: Catch issues before generating Terraform
+
+### Example AI Interaction
+
+**User**: "Create a cost-optimized web server"
+
+**AI Response**:
+```yaml
+guid: "web01"
+yamlforge:
+  cloud_workspace:
+    name: "cost-optimized-web"
+    description: "Cost-optimized web server deployment"
+  
+  instances:
+    - name: "web-server"
+      provider: "cheapest"
+      size: "small"
+      image: "RHEL9-latest"
+```
+
+**AI**: "Let me analyze this configuration for you:"
+```bash
+python yamlforge.py web-config.yaml --analyze
+```
+
+**Analysis Output**: Shows GCP is cheapest at $0.0335/hour, with AWS and Azure alternatives listed.
+
+This approach helps AI assistants provide informed recommendations and build user confidence before deployment. 

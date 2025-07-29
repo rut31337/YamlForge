@@ -120,14 +120,14 @@ class AzureProvider:
         # Replace {guid} placeholder in security group name
         sg_name = self.converter.replace_guid_placeholders(sg_name)
         clean_name = sg_name.replace("-", "_").replace(".", "_")
-        clean_region = region.replace("-", "_").replace(".", "_")
+        clean_region = region.lower().replace(" ", "_").replace("-", "_").replace(".", "_")
         regional_sg_name = f"{clean_name}_{clean_region}"
 
 
         security_group_config = f'''
 # Azure Network Security Group: {sg_name} (Region: {region})
 resource "azurerm_network_security_group" "{regional_sg_name}_{self.converter.get_validated_guid(yaml_data)}" {{
-  name                = "{sg_name}-{region}"
+  name                = "{sg_name}-{clean_region}"
   location            = local.resource_group_location_{clean_region}_{self.converter.get_validated_guid(yaml_data)}
   resource_group_name = local.resource_group_name_{clean_region}_{self.converter.get_validated_guid(yaml_data)}
 
@@ -137,7 +137,7 @@ resource "azurerm_network_security_group" "{regional_sg_name}_{self.converter.ge
         rule_priority = 100
         for i, rule in enumerate(rules):
             rule_data = self.converter.generate_native_security_group_rule(rule, 'azure')
-            direction = "Inbound" if rule_data['direction'] == 'ingress' else "Outbound"
+            direction = rule_data['direction']  # Already converted by converter
             
             # Determine port range string
             from_port = rule_data['from_port']
@@ -220,12 +220,18 @@ resource "azurerm_network_security_group" "{regional_sg_name}_{self.converter.ge
         # Get Azure NSG references with regional awareness
         azure_nsg_refs = []
         sg_names = instance.get('security_groups', [])
+        clean_region = azure_region.lower().replace(" ", "_").replace("-", "_").replace(".", "_")
         for sg_name in sg_names:
-            clean_sg = sg_name.replace("-", "_").replace(".", "_")
-            azure_nsg_refs.append(f"azurerm_network_security_group.{clean_sg}_{azure_region.replace('-', '_').replace(' ', '_')}_{self.converter.get_validated_guid(yaml_data)}")
+            # Replace {guid} placeholder in security group name first
+            resolved_sg_name = self.converter.replace_guid_placeholders(sg_name)
+            clean_sg = resolved_sg_name.replace("-", "_").replace(".", "_")
+            azure_nsg_refs.append(f"azurerm_network_security_group.{clean_sg}_{clean_region}_{self.converter.get_validated_guid(yaml_data)}.id")
 
         # Get SSH key configuration for this instance
         ssh_key_config = self.converter.get_instance_ssh_key(instance, yaml_data or {})
+        
+        # Get the SSH username for this instance
+        ssh_username = self.converter.get_instance_ssh_username(instance, 'azure', yaml_data or {})
         
         # Get GUID for consistent naming
         guid = self.converter.get_validated_guid(yaml_data)
@@ -233,7 +239,7 @@ resource "azurerm_network_security_group" "{regional_sg_name}_{self.converter.ge
         # Use clean_name directly if GUID is already present, otherwise add GUID
         resource_name = clean_name if has_guid_placeholder else f"{clean_name}_{guid}"
         
-        # Generate SSH key resource if SSH key is provided
+        # Generate Azure SSH public key resource if SSH key is provided
         ssh_key_resources = ""
         ssh_key_reference = "null"
         
@@ -244,8 +250,8 @@ resource "azurerm_network_security_group" "{regional_sg_name}_{self.converter.ge
 # Azure SSH Public Key: {instance_name}
 resource "azurerm_ssh_public_key" "{ssh_key_name}" {{
   name                = "{instance_name}-ssh-key"
-  resource_group_name = local.resource_group_name_{azure_region.replace("-", "_").replace(" ", "_")}_{guid}
-  location            = local.resource_group_location_{azure_region.replace("-", "_").replace(" ", "_")}_{guid}
+  resource_group_name = local.resource_group_name_{clean_region}_{guid}
+  location            = local.resource_group_location_{clean_region}_{guid}
   public_key          = "{ssh_key_config['public_key']}"
 
   tags = {{
@@ -264,8 +270,8 @@ resource "azurerm_ssh_public_key" "{ssh_key_name}" {{
 # Azure Public IP: {instance_name}
 resource "azurerm_public_ip" "{resource_name}_ip" {{
   name                = "{instance_name}-ip"
-  location            = local.resource_group_location_{azure_region.replace("-", "_").replace(" ", "_")}_{guid}
-  resource_group_name = local.resource_group_name_{azure_region.replace("-", "_").replace(" ", "_")}_{guid}
+  location            = local.resource_group_location_{clean_region}_{guid}
+  resource_group_name = local.resource_group_name_{clean_region}_{guid}
   allocation_method   = "Static"
 
   tags = {{
@@ -277,12 +283,12 @@ resource "azurerm_public_ip" "{resource_name}_ip" {{
 # Azure Network Interface: {instance_name}
 resource "azurerm_network_interface" "{resource_name}_nic" {{
   name                = "{instance_name}-nic"
-  location            = local.resource_group_location_{azure_region.replace("-", "_").replace(" ", "_")}_{guid}
-  resource_group_name = local.resource_group_name_{azure_region.replace("-", "_").replace(" ", "_")}_{guid}
+  location            = local.resource_group_location_{clean_region}_{guid}
+  resource_group_name = local.resource_group_name_{clean_region}_{guid}
 
   ip_configuration {{
     name                          = "internal"
-    subnet_id                     = azurerm_subnet.main_subnet_{azure_region.replace("-", "_").replace(" ", "_")}_{guid}.id
+    subnet_id                     = azurerm_subnet.main_subnet_{clean_region}_{guid}.id
     private_ip_address_allocation = "Dynamic"
     public_ip_address_id          = azurerm_public_ip.{resource_name}_ip.id
   }}
@@ -308,10 +314,10 @@ resource "azurerm_network_interface_security_group_association" "{resource_name}
 # Azure Linux Virtual Machine: {instance_name}
 resource "azurerm_linux_virtual_machine" "{resource_name}" {{
   name                = "{instance_name}"
-  resource_group_name = local.resource_group_name_{azure_region.replace("-", "_").replace(" ", "_")}_{guid}
-  location            = local.resource_group_location_{azure_region.replace("-", "_").replace(" ", "_")}_{guid}
+  resource_group_name = local.resource_group_name_{clean_region}_{guid}
+  location            = local.resource_group_location_{clean_region}_{guid}
   size                = "{azure_vm_size}"
-  admin_username      = "azureuser"
+  admin_username      = "{ssh_username}"
   disable_password_authentication = {str(bool(ssh_key_config and ssh_key_config.get('public_key'))).lower()}'''
 
         # Add zone if user specified one
@@ -330,7 +336,7 @@ resource "azurerm_linux_virtual_machine" "{resource_name}" {{
             vm_config += f'''
 
   admin_ssh_key {{
-    username   = "azureuser"
+    username   = "{ssh_username}"
     public_key = {ssh_key_reference}
   }}'''
 
@@ -350,6 +356,107 @@ resource "azurerm_linux_virtual_machine" "{resource_name}" {{
 
         # Get user data script if provided
         user_data_script = instance.get('user_data_script', '')
+        
+        # Get the SSH username for this instance
+        ssh_username = self.converter.get_instance_ssh_username(instance, 'azure', yaml_data or {})
+        
+        # Get the default username from core configuration
+        default_username = self.converter.core_config.get('security', {}).get('default_username', 'cloud-user')
+        
+        # Generate cloud-user creation script if needed (Azure doesn't have native cloud-user)
+        custom_username_script = ""
+        if ssh_username == default_username:
+            # Create user data script to set up the configurable default account
+            public_key = ssh_key_config.get('public_key', '') if ssh_key_config else ''
+            custom_username_script = f'''#!/bin/bash
+# User data script for Azure instance
+# This script creates the {ssh_username} user and configures SSH access
+
+set -e
+
+# Create {ssh_username} user if it doesn't exist
+if ! id "{ssh_username}" &>/dev/null; then
+    useradd -m -s /bin/bash {ssh_username}
+    echo "Created {ssh_username} user"
+fi
+
+# Create .ssh directory and set permissions
+mkdir -p /home/{ssh_username}/.ssh
+chmod 700 /home/{ssh_username}/.ssh
+
+# Add SSH public key to authorized_keys
+if [ -n "{public_key}" ]; then
+    echo "{public_key}" >> /home/{ssh_username}/.ssh/authorized_keys
+    chmod 600 /home/{ssh_username}/.ssh/authorized_keys
+    echo "Added SSH key for {ssh_username}"
+fi
+
+# Set ownership
+chown -R {ssh_username}:{ssh_username} /home/{ssh_username}/.ssh
+
+# Configure sudo access for {ssh_username}
+echo "{ssh_username} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/{ssh_username}
+chmod 440 /etc/sudoers.d/{ssh_username}
+
+# Disable root SSH access for security
+sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+
+# Restart SSH service
+systemctl restart sshd
+
+echo "User data script completed successfully"
+'''
+        elif ssh_username != 'azureuser':
+            # Create user data script to set up other custom usernames
+            public_key = ssh_key_config.get('public_key', '') if ssh_key_config else ''
+            custom_username_script = f'''#!/bin/bash
+# User data script for Azure instance
+# This script creates the {ssh_username} user and configures SSH access
+
+set -e
+
+# Create {ssh_username} user if it doesn't exist
+if ! id "{ssh_username}" &>/dev/null; then
+    useradd -m -s /bin/bash {ssh_username}
+    echo "Created {ssh_username} user"
+fi
+
+# Create .ssh directory and set permissions
+mkdir -p /home/{ssh_username}/.ssh
+chmod 700 /home/{ssh_username}/.ssh
+
+# Add SSH public key to authorized_keys
+if [ -n "{public_key}" ]; then
+    echo "{public_key}" >> /home/{ssh_username}/.ssh/authorized_keys
+    chmod 600 /home/{ssh_username}/.ssh/authorized_keys
+    echo "Added SSH key for {ssh_username}"
+fi
+
+# Set ownership
+chown -R {ssh_username}:{ssh_username} /home/{ssh_username}/.ssh
+
+# Configure sudo access for {ssh_username}
+echo "{ssh_username} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/{ssh_username}
+chmod 440 /etc/sudoers.d/{ssh_username}
+
+# Disable root SSH access for security
+sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+
+# Restart SSH service
+systemctl restart sshd
+
+echo "User data script completed successfully"
+'''
+        
+        # Combine custom username script with user-provided script
+        if custom_username_script:
+            if user_data_script:
+                # Prepend custom username script to user-provided script
+                user_data_script = custom_username_script + "\n\n" + user_data_script
+            else:
+                user_data_script = custom_username_script
         
         # Add cloud-init if provided
         if user_data_script:
@@ -375,7 +482,7 @@ resource "azurerm_linux_virtual_machine" "{resource_name}" {{
         network_name = network_config.get('name', f"{deployment_name}-vnet")
         cidr_block = network_config.get('cidr_block', '10.0.0.0/16')
 
-        clean_region = region.replace("-", "_").replace(".", "_")
+        clean_region = region.lower().replace(" ", "_").replace("-", "_").replace(".", "_")
 
         # Get Azure configuration from YAML (override environment/defaults)
         yaml_azure_config = yaml_data.get('yamlforge', {}).get('azure', {}) if yaml_data else {}
@@ -404,10 +511,12 @@ locals {{
 '''
         else:
             # Create new resource group (default behavior)
+            # Sanitize region name for resource group name (no spaces)
+            sanitized_region = region.replace(" ", "-").replace("_", "-")
             networking_config = f'''
 # Azure Resource Group: {network_name} (Region: {region})
 resource "azurerm_resource_group" "main_{clean_region}_{guid}" {{
-  name     = "{network_name}-{region}"
+  name     = "{network_name}-{sanitized_region}"
   location = "{region}"
 
   tags = {{

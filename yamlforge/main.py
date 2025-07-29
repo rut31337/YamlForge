@@ -51,6 +51,10 @@ def analyze_configuration(converter, config, raw_yaml_data):
     print("  YAMLFORGE CLOUD ANALYSIS")
     print("="*80)
     
+    # Reset cost tracking lists for analysis
+    converter.instance_costs = []
+    converter.openshift_costs = []
+    
     # Get instances
     instances = config.get('instances', [])
     
@@ -84,7 +88,13 @@ def analyze_configuration(converter, config, raw_yaml_data):
             image = instance.get('image', 'unspecified')
             instance_exclusions = instance.get('exclude_providers', [])
             
-            print(f"\n{i}. {name}:")
+            # Resolve {guid} in instance name for display
+            resolved_name = name
+            if '{guid}' in name and raw_yaml_data:
+                guid = raw_yaml_data.get('guid', 'unknown')
+                resolved_name = name.replace('{guid}', guid)
+            
+            print(f"\n{i}. {resolved_name}:")
             
             # Show per-instance exclusions and included providers
             if instance_exclusions:
@@ -120,13 +130,73 @@ def analyze_configuration(converter, config, raw_yaml_data):
             mapped_region = converter.locations.get(region, {}).get(resolved_provider, region)
             print(f"   Region: {region} ({mapped_region})")
             
-            # Show resolved size/specs with mapped value
+            # Show resolved size/specs with mapped value and calculate cost
+            instance_type = None
             if size:
                 # Get mapped flavor for the resolved provider
-                mapped_flavor = converter.flavors.get(size, {}).get(resolved_provider, size)
-                print(f"   Size: {size} ({mapped_flavor})")
+                try:
+                    instance_type = converter.resolve_instance_type(resolved_provider, size, instance)
+                    mapped_flavor = converter.flavors.get(size, {}).get(resolved_provider, size)
+                    if verbose:
+                        print(f"   Size mapping: '{size}' -> '{mapped_flavor}'")
+                    print(f"   Size: {size} ({mapped_flavor})")
+                    
+                    # Get and display cost for this instance
+                    provider_flavors = converter.flavors.get(resolved_provider, {})
+                    cost_info = converter.get_instance_cost_info(resolved_provider, instance_type, size, provider_flavors)
+                    if cost_info and cost_info.get('cost') is not None:
+                        hourly_cost = cost_info['cost']
+                        print(f"   Hourly Cost: ${hourly_cost:.4f}")
+                        # Track the cost for total calculation
+                        converter.instance_costs.append({
+                            'instance_name': resolved_name,
+                            'provider': resolved_provider,
+                            'cost': hourly_cost
+                        })
+                    else:
+                        print(f"   Hourly Cost: Cost information not available")
+                except Exception as e:
+                    mapped_flavor = converter.flavors.get(size, {}).get(resolved_provider, size)
+                    if verbose:
+                        print(f"   Size mapping: '{size}' -> '{mapped_flavor}'")
+                    print(f"   Size: {size} ({mapped_flavor})")
+                    print(f"   Hourly Cost: Error calculating cost - {e}")
             elif cores and memory:
                 print(f"   Specs: {cores} cores, {memory}MB RAM")
+                # For spec-based instances, try to get cost from cheapest provider analysis
+                if provider in ['cheapest', 'cheapest-gpu']:
+                    try:
+                        if provider == 'cheapest':
+                            memory_value = memory
+                            if memory_value < 100:  # Assume GB if less than 100
+                                memory_mb = memory_value * 1024
+                            else:  # Assume MB if 100 or greater
+                                memory_mb = memory_value
+                            
+                            provider_costs = converter.find_cheapest_by_specs(
+                                cores, memory_mb, instance.get('gpus', 0), 
+                                instance.get('gpu_type'), instance_exclusions
+                            )
+                            if provider_costs and resolved_provider in provider_costs:
+                                hourly_cost = provider_costs[resolved_provider]['cost']
+                                print(f"   Hourly Cost: ${hourly_cost:.4f}")
+                                converter.instance_costs.append({
+                                    'instance_name': resolved_name,
+                                    'provider': resolved_provider,
+                                    'cost': hourly_cost
+                                })
+                        elif provider == 'cheapest-gpu':
+                            provider_costs = converter.find_cheapest_gpu_by_specs(gpu_type, instance_exclusions)
+                            if provider_costs and resolved_provider in provider_costs:
+                                hourly_cost = provider_costs[resolved_provider]['cost']
+                                print(f"   Hourly Cost: ${hourly_cost:.4f}")
+                                converter.instance_costs.append({
+                                    'instance_name': resolved_name,
+                                    'provider': resolved_provider,
+                                    'cost': hourly_cost
+                                })
+                    except Exception as e:
+                        print(f"   Hourly Cost: Error calculating cost - {e}")
             
             # Show resolved GPU info
             if gpu_type and gpu_count:
@@ -199,11 +269,87 @@ def analyze_configuration(converter, config, raw_yaml_data):
             version = cluster.get('version', 'unspecified')
             size = cluster.get('size', 'unspecified')
             
-            print(f"\n{i}. {name}:")
+            # Resolve {guid} in cluster name for display
+            resolved_name = name
+            if '{guid}' in name and raw_yaml_data:
+                guid = raw_yaml_data.get('guid', 'unknown')
+                resolved_name = name.replace('{guid}', guid)
+            
+            print(f"\n{i}. {resolved_name}:")
             print(f"   Type: {cluster_type}")
             print(f"   Region: {region}")
             print(f"   Version: {version}")
             print(f"   Size: {size}")
+            
+            # Calculate and display cluster cost
+            try:
+                cluster_cost = converter.calculate_openshift_cluster_cost(cluster, cluster_type)
+                if cluster_cost is not None and cluster_cost > 0:
+                    print(f"   Cluster Nodes:")
+                    
+                    # Get detailed node breakdown - simplified to only master/worker terminology
+                    master_count = cluster.get('master_count', 0)
+                    worker_count = cluster.get('worker_count', 0)
+                    master_machine_type = cluster.get('master_machine_type', '')
+                    worker_machine_type = cluster.get('worker_machine_type', '')
+                    
+                    # Determine provider based on cluster type
+                    provider = None
+                    if cluster_type == 'rosa-classic' or cluster_type == 'rosa-hcp':
+                        provider = 'aws'
+                    elif cluster_type == 'aro':
+                        provider = 'azure'
+                    elif cluster_type == 'self-managed':
+                        provider = cluster.get('provider', 'aws')
+                    
+                    if provider:
+                        provider_flavors = converter.flavors.get(provider, {})
+                        
+                        # Track all node types and their costs
+                        node_breakdown = []
+                        
+                        # Handle master/control plane nodes
+                        if master_count > 0 and master_machine_type:
+                            master_cost = None
+                            for size, instances in provider_flavors.get('flavor_mappings', {}).items():
+                                if master_machine_type in instances:
+                                    master_cost = instances[master_machine_type]
+                                    break
+                            
+                            if master_cost and master_cost.get('hourly_cost'):
+                                node_cost = master_cost['hourly_cost']
+                                total_cost = node_cost * master_count
+                                node_breakdown.append(f"     • {master_count} master nodes ({master_machine_type}): ${node_cost:.4f}/hour each = ${total_cost:.4f}/hour")
+                        
+                        # Handle worker nodes
+                        if worker_count > 0 and worker_machine_type:
+                            worker_cost = None
+                            for size, instances in provider_flavors.get('flavor_mappings', {}).items():
+                                if worker_machine_type in instances:
+                                    worker_cost = instances[worker_machine_type]
+                                    break
+                            
+                            if worker_cost and worker_cost.get('hourly_cost'):
+                                node_cost = worker_cost['hourly_cost']
+                                total_cost = node_cost * worker_count
+                                node_breakdown.append(f"     • {worker_count} worker nodes ({worker_machine_type}): ${node_cost:.4f}/hour each = ${total_cost:.4f}/hour")
+                        
+                        # Display all nodes
+                        for line in node_breakdown:
+                            print(line)
+                    
+                    print(f"   Total Cluster Cost: ${cluster_cost:.4f}/hour")
+                    converter.openshift_costs.append({
+                        'cluster_name': resolved_name,
+                        'cluster_type': cluster_type,
+                        'cost': cluster_cost
+                    })
+                elif cluster_cost is not None and cluster_cost == 0:
+                    print(f"   Hourly Cost: ${cluster_cost:.4f} (no detailed node specifications)")
+                else:
+                    print(f"   Hourly Cost: Cost information not available")
+            except Exception as e:
+                print(f"   Hourly Cost: Error calculating cost - {e}")
     
     # Show required providers
     try:
@@ -215,23 +361,72 @@ def analyze_configuration(converter, config, raw_yaml_data):
     except Exception as e:
         print(f"\nREQUIRED PROVIDERS: Error analyzing - {e}")
     
+    # Display total hourly cost summary
+    if converter.instance_costs or converter.openshift_costs:
+        print(f"\nCOST SUMMARY:")
+        print("-" * 40)
+        
+        # Show instance costs breakdown
+        if converter.instance_costs:
+            instance_total = 0.0
+            print("Instances:")
+            for cost_info in converter.instance_costs:
+                print(f"  • {cost_info['instance_name']} ({cost_info['provider']}): ${cost_info['cost']:.4f}/hour")
+                instance_total += cost_info['cost']
+            print(f"  Instance Subtotal: ${instance_total:.4f}/hour")
+        
+        # Show OpenShift cluster costs breakdown
+        if converter.openshift_costs:
+            cluster_total = 0.0
+            print("OpenShift Clusters:")
+            for cost_info in converter.openshift_costs:
+                print(f"  • {cost_info['cluster_name']} ({cost_info['cluster_type']}): ${cost_info['cost']:.4f}/hour")
+                cluster_total += cost_info['cost']
+            print(f"  Cluster Subtotal: ${cluster_total:.4f}/hour")
+        
+        # Show grand total
+        grand_total = sum(cost_info['cost'] for cost_info in converter.instance_costs) + sum(cost_info['cost'] for cost_info in converter.openshift_costs)
+        print(f"\n  TOTAL HOURLY COST: ${grand_total:.4f}")
+        
+        # Show estimated monthly cost (24 hours * 30 days = 720 hours)
+        monthly_estimate = grand_total * 720
+        print(f"  ESTIMATED MONTHLY COST: ${monthly_estimate:.2f}")
+    
     print("\n" + "="*80)
     print("  ANALYSIS COMPLETE")
     print("="*80)
     print("Use 'yamlforge <file> -d <output_dir>' to generate Terraform files")
     print("Use 'yamlforge <file> -d <output_dir> --auto-deploy' to deploy automatically")
 
-def generate_deployment_instructions(config, output_dir):
+def generate_deployment_instructions(config, output_dir, converter=None, raw_yaml_data=None):
     """Generate specific deployment instructions based on YAML configuration."""
     
     # Analyze OpenShift cluster types present in the YAML
     clusters = config.get('openshift_clusters', [])
     
-    # Detect cluster types
-    rosa_classic_clusters = [c for c in clusters if c.get('type') == 'rosa-classic' and not c.get('hypershift', {}).get('role')]
-    rosa_hcp_clusters = [c for c in clusters if c.get('type') == 'rosa-hcp']
-    hypershift_mgmt_clusters = [c for c in clusters if c.get('type') == 'rosa-classic' and c.get('hypershift', {}).get('role') == 'management']
-    hypershift_hosted_clusters = [c for c in clusters if c.get('type') == 'hypershift']
+    # Get all cluster types from config
+    rosa_classic_clusters = config.get('rosa_classic_clusters', [])
+    aro_clusters = config.get('aro_clusters', [])
+    rosa_hcp_clusters = config.get('rosa_hcp_clusters', [])
+    openshift_clusters = config.get('openshift_clusters', [])
+    
+    # Detect cluster types from openshift_clusters (legacy format)
+    if openshift_clusters:
+        for cluster in openshift_clusters:
+            cluster_type = cluster.get('type', '')
+            if cluster_type == 'rosa-classic' and not cluster.get('hypershift', {}).get('role'):
+                rosa_classic_clusters.append(cluster)
+            elif cluster_type == 'rosa-hcp':
+                rosa_hcp_clusters.append(cluster)
+            elif cluster_type == 'aro':
+                aro_clusters.append(cluster)
+    
+    # Detect hypershift clusters
+    hypershift_mgmt_clusters = [c for c in openshift_clusters if c.get('type') == 'rosa-classic' and c.get('hypershift', {}).get('role') == 'management']
+    hypershift_hosted_clusters = [c for c in openshift_clusters if c.get('type') == 'hypershift']
+    
+    # Combine all clusters for total count
+    all_clusters = rosa_classic_clusters + aro_clusters + rosa_hcp_clusters + openshift_clusters + hypershift_mgmt_clusters + hypershift_hosted_clusters
     
     # Check deployment method (CLI vs Terraform) - only relevant if ROSA clusters exist
     rosa_deployment = config.get('rosa_deployment', {})
@@ -247,89 +442,210 @@ def generate_deployment_instructions(config, output_dir):
     # Start building instructions - show deployment method and cluster types first
     instructions = ""
     
-    # Show deployment method first (if applicable)
-    if clusters:
-        instructions += f"ROSA Deployment Method: {deployment_method.upper()}\n"
-    
-    instructions += "Detected OpenShift Cluster Types:\n"
-    
-    # List each cluster individually with format: * CLUSTERNAME CLUSTER_TYPE
-    if rosa_classic_clusters:
-        for cluster in rosa_classic_clusters:
-            cluster_name = cluster.get('name', 'unnamed')
-            instructions += f" * {cluster_name} ROSA Classic\n"
-    
-    if rosa_hcp_clusters:
-        for cluster in rosa_hcp_clusters:
-            cluster_name = cluster.get('name', 'unnamed')
-            instructions += f" * {cluster_name} ROSA HCP\n"
-    
-    if hypershift_mgmt_clusters:
-        for cluster in hypershift_mgmt_clusters:
-            cluster_name = cluster.get('name', 'unnamed')
-            instructions += f" * {cluster_name} HyperShift Management\n"
-    
-    if hypershift_hosted_clusters:
-        for cluster in hypershift_hosted_clusters:
-            cluster_name = cluster.get('name', 'unnamed')
-            instructions += f" * {cluster_name} HyperShift Hosted\n"
-    
-    # List Day-2 operations with headers for different types
-    if has_day2_ops:
+    # Only show OpenShift cluster types if there are actual OpenShift clusters
+    if all_clusters:
+        instructions += "OpenShift Clusters:\n"
         
-        # Applications Section
-        if openshift_applications:
-            instructions += "Applications:\n"
-            for app in openshift_applications:
-                app_name = app.get('name', 'unnamed')
-                target_cluster = app.get('target_cluster', 'default')
-                namespace = app.get('namespace', 'default')
+        # List each cluster individually with details
+        if rosa_classic_clusters:
+            for cluster in rosa_classic_clusters:
+                cluster_name = cluster.get('name', 'unnamed')
                 
-                # Extract image from deployment.containers or fallback to simple image field
-                image = 'unknown'
-                if 'deployment' in app and 'containers' in app['deployment']:
-                    containers = app['deployment']['containers']
-                    if containers and len(containers) > 0:
-                        image = containers[0].get('image', 'unknown')
-                elif 'image' in app:
-                    image = app.get('image', 'unknown')
+                # Resolve {guid} in cluster name for display
+                resolved_cluster_name = cluster_name
+                if '{guid}' in cluster_name and raw_yaml_data:
+                    guid = raw_yaml_data.get('guid', 'unknown')
+                    resolved_cluster_name = cluster_name.replace('{guid}', guid)
+                
+                region = cluster.get('region', 'unspecified')
+                version = cluster.get('version', 'unspecified')
+                size = cluster.get('size', 'unspecified')
+                compute_nodes = cluster.get('compute_nodes', 'unspecified')
+                compute_machine_type = cluster.get('compute_machine_type', 'unspecified')
+                worker_nodes = cluster.get('worker_nodes', 'unspecified')
+                worker_machine_type = cluster.get('worker_machine_type', 'unspecified')
+                instructions += f" * {resolved_cluster_name} (ROSA Classic):\n"
+                instructions += f"     Region: {region}\n"
+                instructions += f"     Version: {version}\n"
+                instructions += f"     Size: {size}\n"
+                instructions += f"     Compute nodes: {compute_nodes} ({compute_machine_type})\n"
+                instructions += f"     Worker nodes: {worker_nodes} ({worker_machine_type})\n"
+                instructions += f"     Deployment Method: {deployment_method.upper()}\n"
+                
+                # Calculate and display cost if converter is available
+                if converter:
+                    hourly_cost = converter.calculate_openshift_cluster_cost(cluster, 'rosa-classic')
+                    cost_string = converter.get_openshift_cluster_cost_string(resolved_cluster_name, 'rosa-classic', hourly_cost)
+                    instructions += f"{cost_string}\n"
+        if rosa_hcp_clusters:
+            for cluster in rosa_hcp_clusters:
+                cluster_name = cluster.get('name', 'unnamed')
+                
+                # Resolve {guid} in cluster name for display
+                resolved_cluster_name = cluster_name
+                if '{guid}' in cluster_name and raw_yaml_data:
+                    guid = raw_yaml_data.get('guid', 'unknown')
+                    resolved_cluster_name = cluster_name.replace('{guid}', guid)
+                
+                region = cluster.get('region', 'unspecified')
+                version = cluster.get('version', 'unspecified')
+                size = cluster.get('size', 'unspecified')
+                compute_nodes = cluster.get('compute_nodes', 'unspecified')
+                compute_machine_type = cluster.get('compute_machine_type', 'unspecified')
+                instructions += f" * {resolved_cluster_name} (ROSA HCP):\n"
+                instructions += f"     Region: {region}\n"
+                instructions += f"     Version: {version}\n"
+                instructions += f"     Size: {size}\n"
+                instructions += f"     Compute nodes: {compute_nodes} ({compute_machine_type})\n"
+                instructions += f"     Deployment Method: {deployment_method.upper()}\n"
+                
+                # Calculate and display cost if converter is available
+                if converter:
+                    hourly_cost = converter.calculate_openshift_cluster_cost(cluster, 'rosa-hcp')
+                    cost_string = converter.get_openshift_cluster_cost_string(resolved_cluster_name, 'rosa-hcp', hourly_cost)
+                    instructions += f"{cost_string}\n"
+        if aro_clusters:
+            for cluster in aro_clusters:
+                cluster_name = cluster.get('name', 'unnamed')
+                
+                # Resolve {guid} in cluster name for display
+                resolved_cluster_name = cluster_name
+                if '{guid}' in cluster_name and raw_yaml_data:
+                    guid = raw_yaml_data.get('guid', 'unknown')
+                    resolved_cluster_name = cluster_name.replace('{guid}', guid)
+                
+                location = cluster.get('location', 'unspecified')
+                version = cluster.get('version', 'unspecified')
+                size = cluster.get('size', 'unspecified')
+                compute_nodes = cluster.get('compute_nodes', 'unspecified')
+                compute_machine_type = cluster.get('compute_machine_type', 'unspecified')
+                worker_nodes = cluster.get('worker_nodes', 'unspecified')
+                worker_machine_type = cluster.get('worker_machine_type', 'unspecified')
+                instructions += f" * {resolved_cluster_name} (ARO):\n"
+                instructions += f"     Location: {location}\n"
+                instructions += f"     Version: {version}\n"
+                instructions += f"     Size: {size}\n"
+                instructions += f"     Compute nodes: {compute_nodes} ({compute_machine_type})\n"
+                instructions += f"     Worker nodes: {worker_nodes} ({worker_machine_type})\n"
+                
+                # Calculate and display cost if converter is available
+                if converter:
+                    hourly_cost = converter.calculate_openshift_cluster_cost(cluster, 'aro')
+                    cost_string = converter.get_openshift_cluster_cost_string(resolved_cluster_name, 'aro', hourly_cost)
+                    instructions += f"{cost_string}\n"
+        if openshift_clusters:
+            for cluster in openshift_clusters:
+                cluster_name = cluster.get('name', 'unnamed')
+                
+                # Resolve {guid} in cluster name for display
+                resolved_cluster_name = cluster_name
+                if '{guid}' in cluster_name and raw_yaml_data:
+                    guid = raw_yaml_data.get('guid', 'unknown')
+                    resolved_cluster_name = cluster_name.replace('{guid}', guid)
+                
+                provider = cluster.get('provider', 'unspecified')
+                region = cluster.get('region', 'unspecified')
+                version = cluster.get('version', 'unspecified')
+                size = cluster.get('size', 'unspecified')
+                master_count = cluster.get('master_count', 'unspecified')
+                worker_count = cluster.get('worker_count', 'unspecified')
+                master_type = cluster.get('compute_machine_type', 'unspecified')
+                worker_type = cluster.get('worker_machine_type', 'unspecified')
+                instructions += f" * {resolved_cluster_name} (Self-Managed):\n"
+                instructions += f"     Provider: {provider}\n"
+                instructions += f"     Region: {region}\n"
+                instructions += f"     Version: {version}\n"
+                instructions += f"     Size: {size}\n"
+                instructions += f"     Master count: {master_count} ({master_type})\n"
+                instructions += f"     Worker count: {worker_count} ({worker_type})\n"
+                
+                # Calculate and display cost if converter is available
+                if converter:
+                    hourly_cost = converter.calculate_openshift_cluster_cost(cluster, 'self-managed')
+                    cost_string = converter.get_openshift_cluster_cost_string(resolved_cluster_name, 'self-managed', hourly_cost)
+                    instructions += f"{cost_string}\n"
+        if hypershift_mgmt_clusters:
+            for cluster in hypershift_mgmt_clusters:
+                cluster_name = cluster.get('name', 'unnamed')
+                
+                # Resolve {guid} in cluster name for display
+                resolved_cluster_name = cluster_name
+                if '{guid}' in cluster_name and raw_yaml_data:
+                    guid = raw_yaml_data.get('guid', 'unknown')
+                    resolved_cluster_name = cluster_name.replace('{guid}', guid)
+                
+                instructions += f" * {resolved_cluster_name} HyperShift Management\n"
+        if hypershift_hosted_clusters:
+            for cluster in hypershift_hosted_clusters:
+                cluster_name = cluster.get('name', 'unnamed')
+                
+                # Resolve {guid} in cluster name for display
+                resolved_cluster_name = cluster_name
+                if '{guid}' in cluster_name and raw_yaml_data:
+                    guid = raw_yaml_data.get('guid', 'unknown')
+                    resolved_cluster_name = cluster_name.replace('{guid}', guid)
+                
+                instructions += f" * {resolved_cluster_name} HyperShift Hosted\n"
+        
+        # List Day-2 operations with headers for different types
+        if has_day2_ops:
+            
+            # Applications Section
+            if openshift_applications:
+                instructions += "Applications:\n"
+                for app in openshift_applications:
+                    app_name = app.get('name', 'unnamed')
+                    target_cluster = app.get('target_cluster', 'default')
+                    namespace = app.get('namespace', 'default')
                     
-                instructions += f" * {app_name} {target_cluster} {namespace} {image}\n"
-        
-        # GitOps Applications Section  
-        if applications:
-            instructions += "GitOps Applications:\n"
-            for app in applications:
-                app_name = app.get('name', 'unnamed')
-                target_cluster = app.get('target_cluster', 'default')
-                namespace = app.get('namespace', 'default') 
-                image = app.get('image', 'unknown')
-                instructions += f" * {app_name} {target_cluster} {namespace} {image}\n"
-        
-        # Operators Section
-        if openshift_operators:
-            instructions += "Operators:\n"
-            for operator in openshift_operators:
-                op_name = operator.get('name', 'unnamed')
-                target_cluster = operator.get('target_cluster', 'default')
-                namespace = operator.get('namespace', 'default')
-                operator_type = operator.get('type', 'unknown')
-                instructions += f" * {op_name} {target_cluster} {namespace} {operator_type}\n"
+                    # Extract image from deployment.containers or fallback to simple image field
+                    image = 'unknown'
+                    if 'deployment' in app and 'containers' in app['deployment']:
+                        containers = app['deployment']['containers']
+                        if containers and len(containers) > 0:
+                            image = containers[0].get('image', 'unknown')
+                    elif 'image' in app:
+                        image = app.get('image', 'unknown')
+                        
+                    instructions += f" * {app_name} {target_cluster} {namespace} {image}\n"
+            
+            # GitOps Applications Section  
+            if applications:
+                instructions += "GitOps Applications:\n"
+                for app in applications:
+                    app_name = app.get('name', 'unnamed')
+                    target_cluster = app.get('target_cluster', 'default')
+                    namespace = app.get('namespace', 'default') 
+                    image = app.get('image', 'unknown')
+                    instructions += f" * {app_name} {target_cluster} {namespace} {image}\n"
+            
+            # Operators Section
+            if openshift_operators:
+                instructions += "Operators:\n"
+                for operator in openshift_operators:
+                    op_name = operator.get('name', 'unnamed')
+                    target_cluster = operator.get('target_cluster', 'default')
+                    namespace = operator.get('namespace', 'default')
+                    operator_type = operator.get('type', 'unknown')
+                    instructions += f" * {op_name} {target_cluster} {namespace} {operator_type}\n"
     
-    if not clusters:
-        # Check for regular instances
-        instances = config.get('instances', [])
-        if instances:
-            instance_names = [i.get('name', 'unnamed') for i in instances]
-            instructions += f" * VM Instances: {', '.join(instance_names)}\n"
-        else:
-            instructions += " * No clusters or instances detected\n"
+    # Check for regular instances
+    instances = config.get('instances', [])
+    if not instances:
+        instructions += " * No clusters or instances detected\n"
     
-    instructions += "\n"
+    # Add total cost right after all OpenShift clusters are listed
+    if converter:
+        instructions += converter.get_total_hourly_cost_string()
+        instructions += "\n"
     
     # Add deployment instructions header
+    instructions += "\n"
     instructions += "Deployment Instructions:\n"
     instructions += "=" * 60 + "\n\n"
+    
+    # Add Terraform success message after deployment instructions header
+    instructions += f"Terraform configuration generated successfully in '{output_dir}'\n\n"
     
     # Handle case with no OpenShift clusters (just regular infrastructure)
     if not clusters:
@@ -609,18 +925,18 @@ def main():
     # Import and run the converter
     try:
         if args.analyze:
+            # Set analysis mode flag to suppress duplicate output
+            converter.analysis_mode = True
             # Run analysis mode
             analyze_configuration(converter, config, raw_yaml_data)
         else:
             # Pass the full YAML data so GUID can be extracted from root level
             converter.convert(config, args.output_dir, verbose=args.verbose, full_yaml_data=raw_yaml_data)
-            print(f"Terraform configuration generated successfully in '{args.output_dir}'")
-            print()
             
             if args.auto_deploy:
                 auto_deploy_infrastructure(args.output_dir, raw_yaml_data)
             else:
-                deployment_instructions = generate_deployment_instructions(config, args.output_dir)
+                deployment_instructions = generate_deployment_instructions(config, args.output_dir, converter, raw_yaml_data)
                 print(deployment_instructions)
 
     except ValueError as e:

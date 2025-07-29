@@ -4,6 +4,16 @@ This directory contains default configuration files for each cloud provider. The
 
 ## Structure
 
+### **`core.yaml`**
+**Core YamlForge Configuration**
+- **Default Username**: Configurable default SSH username across all cloud providers (`cloud-user`)
+- **Security Settings**: SSH key configuration, auto-detection settings
+- **Provider Selection**: Provider exclusions and priority order for cost optimization
+- **Cost Analysis**: Currency, regional factors, and provider-specific cost adjustments
+- **Resource Tagging**: Global and organization-specific tags
+- **Feature Flags**: Experimental features, cost optimization, auto-tagging
+- **Usage**: Always loaded for global YamlForge behavior and cross-provider settings
+
 ### **`aws.yaml`**
 **AWS Default Configuration**
 - **AMI Owners**: Predefined owner IDs for different image types (Red Hat, Fedora, Amazon, Canonical, Microsoft)
@@ -36,13 +46,16 @@ This directory contains default configuration files for each cloud provider. The
 
 Each cloud provider's resolver has different configuration needs:
 
-1. **AWS**: Always loads `defaults/aws.yaml` for AMI owner mappings, then uses environment variables for dynamic API calls
-2. **GCP**: Uses environment variables for authentication, uses built-in image discovery settings when credentials unavailable
-3. **Azure/IBM**: Uses environment variables for authentication (defaults reserved for future use)
+1. **Core**: Always loads `defaults/core.yaml` for global settings (default username, provider selection, cost analysis)
+2. **AWS**: Always loads `defaults/aws.yaml` for AMI owner mappings, then uses environment variables for dynamic API calls
+3. **GCP**: Uses environment variables for authentication, uses built-in image discovery settings when credentials unavailable
+4. **Azure/IBM**: Uses environment variables for authentication (defaults reserved for future use)
+5. **OpenShift**: Always loads `defaults/openshift.yaml` for networking and cluster configuration defaults
 
 ## Example: Configuration Sources
 
 ```yaml
+# Core: defaults/core.yaml (global settings) → Always loaded
 # AWS: defaults/aws.yaml (AMI owners) + environment variables (API access)
 # GCP: environment variables (API access) → built-in settings (image discovery)
 # Azure/IBM: environment variables (API access) only
