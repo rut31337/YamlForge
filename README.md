@@ -222,13 +222,13 @@ INSTANCES (2 found):
 ----------------------------------------
 
 1. web-server-test1:
-   Provider: cheapest (gcp)
+   Provider: cheapest (aws)
    Region: us-east (us-east1)
-   Size: medium (e2-medium)
-   Image: RHEL9-latest (rhel-cloud/rhel-9)
+   Size: medium (t3.medium)
+   Image: RHEL9-latest (RHEL-9.*)
    Cost analysis for instance 'web-server-test1':
-     gcp: $0.0335/hour (e2-medium, 1 vCPU, 4GB) ← SELECTED
-     aws: $0.0416/hour (t3.medium, 2 vCPU, 4GB)
+     aws: $0.0416/hour → $0.0312/hour (25.0% discount) (t3.medium, 2 vCPU, 4GB) ← SELECTED
+     gcp: $0.0335/hour (e2-medium, 1 vCPU, 4GB)
      azure: $0.0752/hour (Standard_B4ms, 4 vCPU, 16GB)
 
 2. gpu-worker-test1:
@@ -240,7 +240,7 @@ INSTANCES (2 found):
    Image: RHEL9-latest (rhel-cloud/rhel-9)
    GPU-optimized cost analysis for instance 'gpu-worker-test1':
      gcp: $0.3500/hour (n1-standard-4-t4, 4 vCPU, 15GB, 1x NVIDIA T4) ← SELECTED
-     aws: $0.5260/hour (g4dn.xlarge, 4 vCPU, 16GB, 1x NVIDIA T4)
+     aws: $0.5260/hour → $0.3945/hour (25.0% discount) (g4dn.xlarge, 4 vCPU, 16GB, 1x NVIDIA T4)
 
 REQUIRED PROVIDERS:
 ----------------------------------------
@@ -421,6 +421,41 @@ yamlforge:
 **Cost Analysis**: YamlForge automatically calculates total costs:
 - Shows per-instance cost and total cost across all instances
 - Includes count multipliers in cost summaries and analysis
+
+### Provider Discounts
+
+YamlForge supports configurable provider-specific discounts for accurate cost analysis in enterprise environments:
+
+**Configuration Options:**
+```yaml
+# defaults/core.yaml - Organization-wide discounts
+cost_analysis:
+  provider_discounts:
+    "aws": 10             # 10% enterprise agreement discount
+    "azure": 20           # 20% EA discount  
+    "gcp": 10             # 10% committed use discount
+    "oci": 25             # 25% promotional discount
+```
+
+**Environment Variable Overrides:**
+```bash
+# Environment variables take precedence over core configuration
+export YAMLFORGE_DISCOUNT_AWS=15        # 15% AWS discount
+export YAMLFORGE_DISCOUNT_AZURE=20      # 20% Azure discount
+export YAMLFORGE_DISCOUNT_GCP=10        # 10% GCP discount
+export YAMLFORGE_DISCOUNT_OCI=25        # 25% OCI discount
+export YAMLFORGE_DISCOUNT_IBM_VPC=18    # 18% IBM VPC discount
+export YAMLFORGE_DISCOUNT_IBM_CLASSIC=12 # 12% IBM Classic discount
+export YAMLFORGE_DISCOUNT_ALIBABA=30    # 30% Alibaba discount
+export YAMLFORGE_DISCOUNT_VMWARE=5      # 5% VMware discount
+```
+
+**Features:**
+- **Percentage-based**: Discounts specified as 0-100% 
+- **Environment precedence**: Environment variables override core configuration
+- **Cost analysis integration**: Applied to all cost displays and cheapest provider selection
+- **Input validation**: Invalid values show warnings and default to 0%
+- **Clear display**: Shows both original and discounted prices: `$0.0416/hour → $0.0312/hour (25.0% discount)`
 
 ### Cost Optimization
 YamlForge offers two intelligent cost optimization providers:

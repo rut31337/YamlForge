@@ -383,7 +383,8 @@ class YamlForgeConverter:
             'cost_analysis': {
                 'default_currency': 'USD',
                 'regional_cost_factors': {},
-                'provider_cost_factors': {}
+                'provider_cost_factors': {},
+                'provider_discounts': {}
             },
             'security': {
                 'default_username': 'cloud-user',
@@ -391,6 +392,83 @@ class YamlForgeConverter:
                 'auto_detect_ssh_keys': False
             }
         }
+    
+    def apply_discount(self, cost, provider):
+        """Apply provider-specific discount to cost if configured."""
+        if cost is None:
+            return None
+        
+        # Check for environment variable first (highest priority)
+        env_var_name = f"YAMLFORGE_DISCOUNT_{provider.upper()}"
+        env_discount = os.environ.get(env_var_name)
+        
+        discount_percentage = 0
+        if env_discount:
+            try:
+                discount_percentage = float(env_discount)
+                # Validate range
+                if discount_percentage < 0 or discount_percentage > 100:
+                    print(f"Warning: Invalid discount percentage in {env_var_name}={env_discount}. Must be 0-100. Using 0.")
+                    discount_percentage = 0
+            except ValueError:
+                print(f"Warning: Invalid discount percentage in {env_var_name}={env_discount}. Must be a number. Using 0.")
+                discount_percentage = 0
+        else:
+            # Fall back to core config
+            provider_discounts = self.core_config.get('cost_analysis', {}).get('provider_discounts', {})
+            discount_percentage = provider_discounts.get(provider, 0)
+        
+        if discount_percentage > 0:
+            # Apply discount as percentage (e.g., 15% discount means multiply by 0.85)
+            discount_multiplier = (100 - discount_percentage) / 100
+            return cost * discount_multiplier
+        
+        return cost
+    
+    def get_discount_info(self, provider):
+        """Get discount information for a provider."""
+        # Check for environment variable first (highest priority)
+        env_var_name = f"YAMLFORGE_DISCOUNT_{provider.upper()}"
+        env_discount = os.environ.get(env_var_name)
+        
+        discount_percentage = 0
+        discount_source = "core_config"
+        
+        if env_discount:
+            try:
+                discount_percentage = float(env_discount)
+                # Validate range
+                if discount_percentage < 0 or discount_percentage > 100:
+                    discount_percentage = 0
+                else:
+                    discount_source = "environment"
+            except ValueError:
+                discount_percentage = 0
+        else:
+            # Fall back to core config
+            provider_discounts = self.core_config.get('cost_analysis', {}).get('provider_discounts', {})
+            discount_percentage = provider_discounts.get(provider, 0)
+        
+        return {
+            'has_discount': discount_percentage > 0,
+            'discount_percentage': discount_percentage,
+            'source': discount_source
+        }
+    
+    def _format_cost_with_discount(self, provider, original_cost, discounted_cost):
+        """Format cost display showing original and discounted prices if applicable."""
+        if original_cost is None or discounted_cost is None:
+            return "Cost N/A"
+        
+        discount_info = self.get_discount_info(provider)
+        
+        if discount_info['has_discount'] and original_cost != discounted_cost:
+            # Show both original and discounted price
+            discount_pct = discount_info['discount_percentage']
+            return f"${original_cost:.4f}/hour → ${discounted_cost:.4f}/hour ({discount_pct}% discount)"
+        else:
+            # No discount, show regular price
+            return f"${discounted_cost:.4f}/hour"
 
     def get_ssh_keys(self, yaml_data):
         """Extract SSH keys from YAML configuration."""
@@ -1815,6 +1893,12 @@ output "external_ips" {
         )
         
         if provider_costs:
+            # Apply discounts to provider costs for display
+            for provider in provider_costs:
+                original_cost = provider_costs[provider]['cost']
+                provider_costs[provider]['original_cost'] = original_cost
+                provider_costs[provider]['cost'] = self.apply_discount(original_cost, provider)
+            
             cost_header = f"Cost analysis (x{instance_count} instances):" if instance_count > 1 else "Cost analysis:"
             self.print_instance_output(instance_name, selected_provider, cost_header)
             for provider, info in sorted(provider_costs.items(), key=lambda x: x[1]['cost']):
@@ -1824,25 +1908,28 @@ output "external_ips" {
                 gpu_count = info.get('gpu_count', 0)
                 detected_gpu_type = info.get('gpu_type', '')
                 
-                # Calculate total cost for all instances
+                # Calculate total cost for all instances (using discounted cost)
                 per_hour_cost = info['cost']
                 total_hourly_cost = per_hour_cost * instance_count
+                
+                # Format cost with discount info
+                cost_display = self._format_cost_with_discount(provider, info.get('original_cost'), per_hour_cost)
                 
                 if gpu_count > 0:
                     gpu_info = f", {gpu_count}x {detected_gpu_type}" if detected_gpu_type else f", {gpu_count} GPU(s)"
                     if instance_count > 1:
                         self.print_instance_output(instance_name, selected_provider, 
-                            f"  {provider}: ${per_hour_cost:.4f}/hour each, ${total_hourly_cost:.4f}/hour total ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}", 2)
+                            f"  {provider}: {cost_display} each, ${total_hourly_cost:.4f}/hour total ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}", 2)
                     else:
                         self.print_instance_output(instance_name, selected_provider, 
-                            f"  {provider}: ${per_hour_cost:.4f}/hour ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}", 2)
+                            f"  {provider}: {cost_display} ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}", 2)
                 else:
                     if instance_count > 1:
                         self.print_instance_output(instance_name, selected_provider, 
-                            f"  {provider}: ${per_hour_cost:.4f}/hour each, ${total_hourly_cost:.4f}/hour total ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB){marker}", 2)
+                            f"  {provider}: {cost_display} each, ${total_hourly_cost:.4f}/hour total ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB){marker}", 2)
                     else:
                         self.print_instance_output(instance_name, selected_provider, 
-                            f"  {provider}: ${per_hour_cost:.4f}/hour ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB){marker}", 2)
+                            f"  {provider}: {cost_display} ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB){marker}", 2)
 
     def _print_gpu_cost_analysis_for_instance(self, instance, selected_provider):
         """Print GPU cost analysis for cheapest GPU provider selection under instance section."""
@@ -1857,6 +1944,12 @@ output "external_ips" {
         provider_costs = self.find_cheapest_gpu_by_specs(gpu_type, instance_exclusions)
         
         if provider_costs:
+            # Apply discounts to provider costs for display
+            for provider in provider_costs:
+                original_cost = provider_costs[provider]['cost']
+                provider_costs[provider]['original_cost'] = original_cost
+                provider_costs[provider]['cost'] = self.apply_discount(original_cost, provider)
+            
             analysis_type = f"cheapest {gpu_type} GPU" if gpu_type else "cheapest GPU (any type)"
             cost_header = f"GPU-optimized cost analysis ({analysis_type}, x{instance_count} instances):" if instance_count > 1 else f"GPU-optimized cost analysis ({analysis_type}):"
             self.print_instance_output(instance_name, selected_provider, cost_header)
@@ -1867,17 +1960,20 @@ output "external_ips" {
                 gpu_count = info.get('gpu_count', 0)
                 detected_gpu_type = info.get('gpu_type', '')
                 
-                # Calculate total cost for all instances
+                # Calculate total cost for all instances (using discounted cost)
                 per_hour_cost = info['cost']
                 total_hourly_cost = per_hour_cost * instance_count
+                
+                # Format cost with discount info
+                cost_display = self._format_cost_with_discount(provider, info.get('original_cost'), per_hour_cost)
                 
                 gpu_info = f", {gpu_count}x {detected_gpu_type}" if detected_gpu_type else f", {gpu_count} GPU(s)"
                 if instance_count > 1:
                     self.print_instance_output(instance_name, selected_provider, 
-                        f"  {provider}: ${per_hour_cost:.4f}/hour each, ${total_hourly_cost:.4f}/hour total ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}", 2)
+                        f"  {provider}: {cost_display} each, ${total_hourly_cost:.4f}/hour total ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}", 2)
                 else:
                     self.print_instance_output(instance_name, selected_provider, 
-                        f"  {provider}: ${per_hour_cost:.4f}/hour ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}", 2)
+                        f"  {provider}: {cost_display} ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}", 2)
 
     def get_instance_ssh_username(self, instance, provider, yaml_data=None):
         """Get the SSH username for an instance based on provider and operating system."""
@@ -3161,6 +3257,12 @@ no_credentials_mode = {str(self.no_credentials).lower()}
                 print(f"Warning: No cost information found for {analysis_type}, defaulting to AWS")
             return 'aws'
         
+        # Apply discounts to all provider costs before finding cheapest
+        for provider in provider_costs:
+            original_cost = provider_costs[provider]['cost']
+            provider_costs[provider]['original_cost'] = original_cost
+            provider_costs[provider]['cost'] = self.apply_discount(original_cost, provider)
+        
         # Find the cheapest provider
         cheapest_provider = min(provider_costs.keys(), key=lambda p: provider_costs[p]['cost'])
         
@@ -3181,11 +3283,14 @@ no_credentials_mode = {str(self.no_credentials).lower()}
                 gpu_count = info.get('gpu_count', 0)
                 detected_gpu_type = info.get('gpu_type', '')
                 
+                # Format cost display with discount info
+                cost_display = self._format_cost_with_discount(provider, info.get('original_cost'), info['cost'])
+                
                 if gpu_count > 0:
                     gpu_info = f", {gpu_count}x {detected_gpu_type}" if detected_gpu_type else f", {gpu_count} GPU(s)"
-                    print(f"     {provider}: ${info['cost']:.4f}/hour ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}")
+                    print(f"     {provider}: {cost_display} ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}")
                 else:
-                    print(f"     {provider}: ${info['cost']:.4f}/hour ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB){marker}")
+                    print(f"     {provider}: {cost_display} ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB){marker}")
         
         return cheapest_provider
     
@@ -3214,6 +3319,12 @@ no_credentials_mode = {str(self.no_credentials).lower()}
                 print(f"Warning: No GPU cost information found for {analysis_type}, defaulting to AWS")
             return 'aws'
         
+        # Apply discounts to all provider costs before finding cheapest
+        for provider in provider_costs:
+            original_cost = provider_costs[provider]['cost']
+            provider_costs[provider]['original_cost'] = original_cost
+            provider_costs[provider]['cost'] = self.apply_discount(original_cost, provider)
+        
         # Find the cheapest provider
         cheapest_provider = min(provider_costs.keys(), key=lambda p: provider_costs[p]['cost'])
         
@@ -3230,8 +3341,11 @@ no_credentials_mode = {str(self.no_credentials).lower()}
                 gpu_count = info.get('gpu_count', 0)
                 detected_gpu_type = info.get('gpu_type', '')
                 
+                # Format cost display with discount info
+                cost_display = self._format_cost_with_discount(provider, info.get('original_cost'), info['cost'])
+                
                 gpu_info = f", {gpu_count}x {detected_gpu_type}" if detected_gpu_type else f", {gpu_count} GPU(s)"
-                print(f"     {provider}: ${info['cost']:.4f}/hour ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}")
+                print(f"     {provider}: {cost_display} ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}")
         
         return cheapest_provider
     
@@ -3749,12 +3863,16 @@ no_credentials_mode = {str(self.no_credentials).lower()}
                         self.print_instance_output(instance_name, provider, f"Flavor: {flavor} ({instance_type})")
                     else:
                         self.print_instance_output(instance_name, provider, f"Flavor: {instance_type}")
-                    self.print_instance_output(instance_name, provider, f"Hourly Cost: ${hourly_cost:.4f}")
-                    # Track the cost for total calculation
+                    # Apply discount and format display
+                    original_cost = hourly_cost
+                    discounted_cost = self.apply_discount(hourly_cost, provider)
+                    cost_display = self._format_cost_with_discount(provider, original_cost, discounted_cost)
+                    self.print_instance_output(instance_name, provider, f"Hourly Cost: {cost_display}")
+                    # Track the discounted cost for total calculation
                     self.instance_costs.append({
                         'instance_name': instance_name,
                         'provider': provider,
-                        'cost': hourly_cost
+                        'cost': discounted_cost
                     })
                     return
             except Exception:
@@ -3838,12 +3956,16 @@ no_credentials_mode = {str(self.no_credentials).lower()}
                 self.print_instance_output(instance_name, provider, f"Flavor: {flavor} ({instance_type})")
             else:
                 self.print_instance_output(instance_name, provider, f"Flavor: {instance_type}")
-            self.print_instance_output(instance_name, provider, f"Hourly Cost: ${hourly_cost:.4f}")
-            # Track the cost for total calculation
+            # Apply discount and format display
+            original_cost = hourly_cost
+            discounted_cost = self.apply_discount(hourly_cost, provider)
+            cost_display = self._format_cost_with_discount(provider, original_cost, discounted_cost)
+            self.print_instance_output(instance_name, provider, f"Hourly Cost: {cost_display}")
+            # Track the discounted cost for total calculation
             self.instance_costs.append({
                 'instance_name': instance_name,
                 'provider': provider,
-                'cost': hourly_cost
+                'cost': discounted_cost
             })
         else:
             # Get and display region information even when cost is not available

@@ -34,6 +34,76 @@ yamlforge:
       gpu_count: 1
 ```
 
+## Provider Discounts
+
+YamlForge supports configurable provider-specific discounts for accurate cost analysis in enterprise environments with existing cloud contracts and volume pricing.
+
+### Configuration
+
+**Core Configuration (`defaults/core.yaml`):**
+```yaml
+cost_analysis:
+  provider_discounts:
+    "aws": 10             # 10% enterprise agreement discount
+    "azure": 20           # 20% EA discount  
+    "gcp": 10             # 10% committed use discount
+    "oci": 25             # 25% promotional discount
+    "ibm_vpc": 18         # 18% corporate agreement
+    "ibm_classic": 12     # 12% legacy infrastructure discount
+    "alibaba": 30         # 30% APAC regional discount
+    "vmware": 5           # 5% support contract discount
+```
+
+**Environment Variable Overrides:**
+```bash
+# Environment variables take precedence over core configuration
+export YAMLFORGE_DISCOUNT_AWS=15        # 15% AWS discount
+export YAMLFORGE_DISCOUNT_AZURE=20      # 20% Azure discount
+export YAMLFORGE_DISCOUNT_GCP=10        # 10% GCP discount
+export YAMLFORGE_DISCOUNT_OCI=25        # 25% OCI discount
+export YAMLFORGE_DISCOUNT_IBM_VPC=18    # 18% IBM VPC discount
+export YAMLFORGE_DISCOUNT_IBM_CLASSIC=12 # 12% IBM Classic discount
+export YAMLFORGE_DISCOUNT_ALIBABA=30    # 30% Alibaba discount
+export YAMLFORGE_DISCOUNT_VMWARE=5      # 5% VMware discount
+```
+
+### Features
+
+- **Percentage-based**: Discounts specified as 0-100%
+- **Environment precedence**: Environment variables override core configuration
+- **Cost analysis integration**: Applied to all cost displays and cheapest provider selection
+- **Input validation**: Invalid values show warnings and default to 0%
+- **Clear display**: Shows both original and discounted prices
+
+### Cost Display with Discounts
+
+```bash
+# Example analysis output with discounts applied
+Cost analysis for instance 'web-server-test1':
+  aws: $0.0416/hour → $0.0312/hour (25.0% discount) (t3.medium, 2 vCPU, 4GB) ← SELECTED
+  gcp: $0.0335/hour (e2-medium, 1 vCPU, 4GB)
+  azure: $0.0752/hour (Standard_B4ms, 4 vCPU, 16GB)
+```
+
+### Impact on Provider Selection
+
+Discounts are applied **before** cheapest provider selection, ensuring accurate cost comparisons:
+
+```yaml
+# AWS becomes cheapest with 25% discount
+# Without discount: GCP ($0.0335) < AWS ($0.0416)
+# With 25% AWS discount: AWS ($0.0312) < GCP ($0.0335)
+guid: "disc1"
+
+yamlforge:
+  instances:
+    - name: "cost-optimized-{guid}"
+      provider: "cheapest"  # Will select AWS with discount applied
+      flavor: "medium"
+      image: "RHEL9-latest"
+      region: "us-east"
+```
+
 ## Cost Analysis
 
 ### Using the Analyze Command

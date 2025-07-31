@@ -221,16 +221,18 @@ def analyze_configuration(converter, config, raw_yaml_data):
                     provider_flavors = converter.flavors.get(resolved_provider, {})
                     cost_info = converter.get_instance_cost_info(resolved_provider, instance_type, flavor, provider_flavors)
                     if cost_info and cost_info.get('cost') is not None:
-                        hourly_cost = cost_info['cost']
-                        print(f"   Hourly Cost: ${hourly_cost:.4f}")
+                        original_cost = cost_info['cost']
+                        discounted_cost = converter.apply_discount(original_cost, resolved_provider)
+                        cost_display = converter._format_cost_with_discount(resolved_provider, original_cost, discounted_cost)
+                        print(f"   Hourly Cost: {cost_display}")
                         
-                        # Track the cost for each individual instance
+                        # Track the discounted cost for each individual instance
                         converter.instance_costs.append({
                             'instance_name': resolved_name,
                             'provider': resolved_provider,
-                            'cost': hourly_cost,
+                            'cost': discounted_cost,
                             'count': 1,
-                            'per_instance_cost': hourly_cost
+                            'per_instance_cost': discounted_cost
                         })
                     else:
                         print(f"   Hourly Cost: Cost information not available")
@@ -265,33 +267,37 @@ def analyze_configuration(converter, config, raw_yaml_data):
                             )
                             if provider_costs and resolved_provider in provider_costs:
                                 selected_option = provider_costs[resolved_provider]
-                                hourly_cost = selected_option['cost']
+                                original_cost = selected_option.get('original_cost', selected_option['cost'])
+                                discounted_cost = selected_option['cost']
                                 instance_type = selected_option['instance_type']
                                 print(f"   Flavor: {instance_type}")
-                                print(f"   Hourly Cost: ${hourly_cost:.4f}")
+                                cost_display = converter._format_cost_with_discount(resolved_provider, original_cost, discounted_cost)
+                                print(f"   Hourly Cost: {cost_display}")
                                 
                                 converter.instance_costs.append({
                                     'instance_name': resolved_name,
                                     'provider': resolved_provider,
-                                    'cost': hourly_cost,
+                                    'cost': discounted_cost,
                                     'count': 1,
-                                    'per_instance_cost': hourly_cost
+                                    'per_instance_cost': discounted_cost
                                 })
                         elif provider == 'cheapest-gpu':
                             provider_costs = converter.find_cheapest_gpu_by_specs(gpu_type, instance_exclusions)
                             if provider_costs and resolved_provider in provider_costs:
                                 selected_option = provider_costs[resolved_provider]
-                                hourly_cost = selected_option['cost']
+                                original_cost = selected_option.get('original_cost', selected_option['cost'])
+                                discounted_cost = selected_option['cost']
                                 instance_type = selected_option['instance_type']
                                 print(f"   Flavor: {instance_type}")
-                                print(f"   Hourly Cost: ${hourly_cost:.4f}")
+                                cost_display = converter._format_cost_with_discount(resolved_provider, original_cost, discounted_cost)
+                                print(f"   Hourly Cost: {cost_display}")
                                 
                                 converter.instance_costs.append({
                                     'instance_name': resolved_name,
                                     'provider': resolved_provider,
-                                    'cost': hourly_cost,
+                                    'cost': discounted_cost,
                                     'count': 1,
-                                    'per_instance_cost': hourly_cost
+                                    'per_instance_cost': discounted_cost
                                 })
                     except Exception as e:
                         print(f"   Hourly Cost: Error calculating cost - {e}")

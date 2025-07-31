@@ -48,6 +48,31 @@ cost_analysis:
     # Add organization-specific volume discounts here
     # "aws": 0.9            # 10% volume discount
     # "azure": 0.85         # 15% enterprise agreement discount
+  
+  # Provider-specific discount percentages (0-100)
+  # These discounts are applied to displayed costs and analysis
+  # Can be overridden by environment variables: YAMLFORGE_DISCOUNT_<PROVIDER>
+  # Environment variables take precedence over this configuration
+  provider_discounts:
+    # Enterprise agreement discounts, volume pricing, special contracts
+    "aws": 10             # 10% core config discount (can be overridden)
+    # "azure": 20           # 20% EA discount  
+    # "gcp": 10             # 10% committed use discount
+    # "oci": 25             # 25% promotional discount
+    # "ibm_vpc": 18         # 18% corporate agreement
+    # "ibm_classic": 12     # 12% legacy infrastructure discount
+    # "alibaba": 30         # 30% APAC regional discount
+    # "vmware": 5           # 5% support contract discount
+    #
+    # Environment variable examples (take precedence over core config):
+    #   export YAMLFORGE_DISCOUNT_AWS=15
+    #   export YAMLFORGE_DISCOUNT_AZURE=20
+    #   export YAMLFORGE_DISCOUNT_GCP=10
+    #   export YAMLFORGE_DISCOUNT_OCI=25
+    #   export YAMLFORGE_DISCOUNT_IBM_VPC=18
+    #   export YAMLFORGE_DISCOUNT_IBM_CLASSIC=12
+    #   export YAMLFORGE_DISCOUNT_ALIBABA=30
+    #   export YAMLFORGE_DISCOUNT_VMWARE=5
 
 # Resource Tagging Defaults
 default_tags:
