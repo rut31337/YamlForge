@@ -105,3 +105,32 @@ generate_app_deployer_service_account
 needs_rosa_separation
 needs_hypershift_separation
 deployment_group
+
+# CNV provider methods and attributes (detected unused but are part of API)
+vm_provider
+datavolume_provider
+network_provider
+host
+verify_ssl
+ssl_ca_cert
+discover_cnv_images
+generate_cnv_network_attachment
+validate_cnv_instance
+
+# CNV feature methods (future functionality)
+generate_data_volume
+generate_blank_data_volume
+generate_registry_data_volume
+generate_vm_with_datavolume
+generate_multus_network
+generate_vm_with_multus_network
+generate_service_network
+generate_ssh_service_for_vm
+generate_storage_class
+generate_persistent_volume
+generate_vm_with_persistent_storage
+generate_persistent_vm
+generate_multi_disk_vm
+
+# Variables that appear unused but are part of cost analysis
+size_category

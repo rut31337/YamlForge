@@ -30,7 +30,7 @@ from datetime import datetime
 from .core.converter import YamlForgeConverter
 
 # Version information
-__version__ = "0.99.0a1"
+__version__ = "0.99.0b1"
 
 def run_command(command, cwd=None, description=""):
     """Run a shell command and return success status."""
@@ -51,11 +51,35 @@ def analyze_configuration(converter, config, raw_yaml_data):
     print("  YAMLFORGE CLOUD ANALYSIS")
     print("="*80)
     
+    # Check for GUID early in analyze mode and provide placeholder if missing
+    try:
+        # Try to get GUID, but don't fail if missing in analyze mode
+        guid = converter.get_validated_guid(raw_yaml_data)
+    except ValueError as e:
+        if "GUID is required" in str(e):
+            # Provide placeholder GUID for analyze mode and show warning
+            print("WARNING: No GUID found. Using placeholder 'test1' for analysis.")
+            print("         Set GUID=yourcode or add 'guid: yourcode' to YAML for real deployment.")
+            print()
+            # Set a temporary placeholder GUID for analyze mode
+            converter._validated_guid = "test1"
+        else:
+            # Re-raise other GUID validation errors (like invalid format)
+            print(f"ERROR: {e}")
+            return
+    
+    # Validate configuration early to catch issues
+    try:
+        converter.validate_provider_setup(raw_yaml_data)
+    except ValueError as e:
+        print(f"ERROR: {e}")
+        return
+    
     # Reset cost tracking lists for analysis
     converter.instance_costs = []
     converter.openshift_costs = []
     
-    # Get instances
+    # Get instances from yamlforge section
     instances = config.get('instances', [])
     
     # Show global provider exclusions before INSTANCES section
@@ -70,17 +94,62 @@ def analyze_configuration(converter, config, raw_yaml_data):
     
     # Analyze instances
     if instances:
-        print(f"INSTANCES ({len(instances)} found):")
+        # Calculate total instance count including count multipliers
+        total_instance_count = sum(instance.get('count', 1) for instance in instances)
+        instance_def_count = len(instances)
+        
+        if total_instance_count == instance_def_count:
+            print(f"INSTANCES ({total_instance_count} found):")
+        else:
+            print(f"INSTANCES ({total_instance_count} found, {instance_def_count} definitions):")
         print("-" * 40)
         
         # Track which exclusions have been shown to avoid repetition
         shown_exclusions = set()
         
-        for i, instance in enumerate(instances, 1):
+        # Expand instances with count > 1 into separate entries
+        expanded_instances = []
+        for instance in instances:
+            instance_count = instance.get('count', 1)
+            if instance_count > 1:
+                # Create separate entries for each instance in the count
+                for instance_index in range(instance_count):
+                    instance_copy = instance.copy()
+                    original_name = instance_copy['name']
+                    # Resolve GUID first before applying count naming logic
+                    if '{guid}' in original_name:
+                        guid = converter.get_validated_guid(raw_yaml_data)
+                        original_name = original_name.replace('{guid}', guid)
+                    
+                    # Check if name ends with a number and increment from there
+                    import re
+                    match = re.search(r'(.+?)(\d+)$', original_name)
+                    if match:
+                        # Name ends with number, increment from that base
+                        base_name = match.group(1)
+                        base_number_str = match.group(2)
+                        base_number = int(base_number_str)
+                        # Preserve padding (e.g., 01, 02, 003) by using the same width
+                        padding_width = len(base_number_str)
+                        new_number = base_number + instance_index
+                        instance_copy['name'] = f"{base_name}{new_number:0{padding_width}d}"
+                    else:
+                        # Name doesn't end with number, append -X
+                        instance_copy['name'] = f"{original_name}-{instance_index + 1}"
+                    instance_copy['_is_counted'] = True
+                    instance_copy['_original_name'] = original_name
+                    expanded_instances.append(instance_copy)
+            else:
+                # Single instance, add as-is
+                instance_copy = instance.copy()
+                instance_copy['_is_counted'] = False
+                expanded_instances.append(instance_copy)
+        
+        for i, instance in enumerate(expanded_instances, 1):
             name = instance.get('name', 'unnamed')
             provider = instance.get('provider', 'unspecified')
             region = instance.get('region', 'unspecified')
-            size = instance.get('size')
+            flavor = instance.get('flavor')
             cores = instance.get('cores')
             memory = instance.get('memory')
             gpu_type = instance.get('gpu_type')
@@ -90,8 +159,8 @@ def analyze_configuration(converter, config, raw_yaml_data):
             
             # Resolve {guid} in instance name for display
             resolved_name = name
-            if '{guid}' in name and raw_yaml_data:
-                guid = raw_yaml_data.get('guid', 'unknown')
+            if '{guid}' in name:
+                guid = converter.get_validated_guid(raw_yaml_data)
                 resolved_name = name.replace('{guid}', guid)
             
             print(f"\n{i}. {resolved_name}:")
@@ -126,43 +195,60 @@ def analyze_configuration(converter, config, raw_yaml_data):
             else:
                 print(f"   Provider: {provider}")
             
-            # Show resolved region with mapped value
-            mapped_region = converter.locations.get(region, {}).get(resolved_provider, region)
-            print(f"   Region: {region} ({mapped_region})")
+            # Show resolved region with mapped value (skip for CNV provider)
+            if resolved_provider != 'cnv':
+                mapped_region = converter.locations.get(region, {}).get(resolved_provider, region)
+                if region == mapped_region:
+                    print(f"   Region: {region}")
+                else:
+                    print(f"   Region: {region} ({mapped_region})")
             
-            # Show resolved size/specs with mapped value and calculate cost
+            # Show resolved flavor/specs with mapped value and calculate cost
             instance_type = None
-            if size:
+            if flavor:
                 # Get mapped flavor for the resolved provider
                 try:
-                    instance_type = converter.resolve_instance_type(resolved_provider, size, instance)
-                    mapped_flavor = converter.flavors.get(size, {}).get(resolved_provider, size)
-                    if verbose:
-                        print(f"   Size mapping: '{size}' -> '{mapped_flavor}'")
-                    print(f"   Size: {size} ({mapped_flavor})")
+                    instance_type = converter.resolve_instance_type(resolved_provider, flavor, instance)
+                    mapped_flavor = converter.flavors.get(flavor, {}).get(resolved_provider, flavor)
+                    if hasattr(converter, 'verbose') and converter.verbose:
+                        print(f"   Flavor mapping: '{flavor}' -> '{mapped_flavor}'")
+                    if flavor == mapped_flavor:
+                        print(f"   Flavor: {flavor}")
+                    else:
+                        print(f"   Flavor: {flavor} ({mapped_flavor})")
                     
                     # Get and display cost for this instance
                     provider_flavors = converter.flavors.get(resolved_provider, {})
-                    cost_info = converter.get_instance_cost_info(resolved_provider, instance_type, size, provider_flavors)
+                    cost_info = converter.get_instance_cost_info(resolved_provider, instance_type, flavor, provider_flavors)
                     if cost_info and cost_info.get('cost') is not None:
                         hourly_cost = cost_info['cost']
                         print(f"   Hourly Cost: ${hourly_cost:.4f}")
-                        # Track the cost for total calculation
+                        
+                        # Track the cost for each individual instance
                         converter.instance_costs.append({
                             'instance_name': resolved_name,
                             'provider': resolved_provider,
-                            'cost': hourly_cost
+                            'cost': hourly_cost,
+                            'count': 1,
+                            'per_instance_cost': hourly_cost
                         })
                     else:
                         print(f"   Hourly Cost: Cost information not available")
                 except Exception as e:
-                    mapped_flavor = converter.flavors.get(size, {}).get(resolved_provider, size)
-                    if verbose:
-                        print(f"   Size mapping: '{size}' -> '{mapped_flavor}'")
-                    print(f"   Size: {size} ({mapped_flavor})")
+                    mapped_flavor = converter.flavors.get(flavor, {}).get(resolved_provider, flavor)
+                    if hasattr(converter, 'verbose') and converter.verbose:
+                        print(f"   Flavor mapping: '{flavor}' -> '{mapped_flavor}'")
+                    if flavor == mapped_flavor:
+                        print(f"   Flavor: {flavor}")
+                    else:
+                        print(f"   Flavor: {flavor} ({mapped_flavor})")
                     print(f"   Hourly Cost: Error calculating cost - {e}")
             elif cores and memory:
-                print(f"   Specs: {cores} cores, {memory}MB RAM")
+                # For CNV provider, memory is in GB, for others it might be in MB
+                if provider == 'cnv':
+                    print(f"   Specs: {cores} cores, {memory}GB RAM")
+                else:
+                    print(f"   Specs: {cores} cores, {memory}MB RAM")
                 # For spec-based instances, try to get cost from cheapest provider analysis
                 if provider in ['cheapest', 'cheapest-gpu']:
                     try:
@@ -174,26 +260,38 @@ def analyze_configuration(converter, config, raw_yaml_data):
                                 memory_mb = memory_value
                             
                             provider_costs = converter.find_cheapest_by_specs(
-                                cores, memory_mb, instance.get('gpus', 0), 
+                                cores, memory_mb, instance.get('gpu_count', 0), 
                                 instance.get('gpu_type'), instance_exclusions
                             )
                             if provider_costs and resolved_provider in provider_costs:
-                                hourly_cost = provider_costs[resolved_provider]['cost']
+                                selected_option = provider_costs[resolved_provider]
+                                hourly_cost = selected_option['cost']
+                                instance_type = selected_option['instance_type']
+                                print(f"   Flavor: {instance_type}")
                                 print(f"   Hourly Cost: ${hourly_cost:.4f}")
+                                
                                 converter.instance_costs.append({
                                     'instance_name': resolved_name,
                                     'provider': resolved_provider,
-                                    'cost': hourly_cost
+                                    'cost': hourly_cost,
+                                    'count': 1,
+                                    'per_instance_cost': hourly_cost
                                 })
                         elif provider == 'cheapest-gpu':
                             provider_costs = converter.find_cheapest_gpu_by_specs(gpu_type, instance_exclusions)
                             if provider_costs and resolved_provider in provider_costs:
-                                hourly_cost = provider_costs[resolved_provider]['cost']
+                                selected_option = provider_costs[resolved_provider]
+                                hourly_cost = selected_option['cost']
+                                instance_type = selected_option['instance_type']
+                                print(f"   Flavor: {instance_type}")
                                 print(f"   Hourly Cost: ${hourly_cost:.4f}")
+                                
                                 converter.instance_costs.append({
                                     'instance_name': resolved_name,
                                     'provider': resolved_provider,
-                                    'cost': hourly_cost
+                                    'cost': hourly_cost,
+                                    'count': 1,
+                                    'per_instance_cost': hourly_cost
                                 })
                     except Exception as e:
                         print(f"   Hourly Cost: Error calculating cost - {e}")
@@ -213,19 +311,40 @@ def analyze_configuration(converter, config, raw_yaml_data):
                 print(f"   GPU Count: {gpu_count}")
             
             # Show resolved image with mapped value
-            image_config = converter.images.get(image, {}).get(resolved_provider, {})
-            if isinstance(image_config, dict):
-                # Extract a simple identifier from the image config
-                if resolved_provider == 'aws':
-                    mapped_image = image_config.get('name_pattern', image)
-                elif resolved_provider == 'azure':
-                    mapped_image = f"{image_config.get('publisher', '')}/{image_config.get('offer', '')}/{image_config.get('sku', '')}"
-                elif resolved_provider == 'gcp':
-                    mapped_image = f"{image_config.get('project', '')}/{image_config.get('family', '')}"
+            if resolved_provider == 'cnv':
+                # Special handling for CNV images
+                if hasattr(converter, 'no_credentials') and converter.no_credentials:
+                    # In no-credentials mode, show placeholder for CNV images
+                    mapped_image = "placeholder - no cluster access"
+                else:
+                    # Normal CNV image resolution
+                    try:
+                        # Get CNV provider to resolve image
+                        cnv_provider = converter.get_cnv_provider()
+                        if cnv_provider:
+                            cnv_config = config.get('cnv', {})
+                            datavolume_namespace = cnv_config.get('datavolume_namespace', 'cnv-images')
+                            image_config = cnv_provider.get_cnv_image_config(image, datavolume_namespace)
+                            mapped_image = f"PVC: {image_config.get('pvc_name', image)}"
+                        else:
+                            mapped_image = f"DataVolume: {image}"
+                    except Exception as e:
+                        mapped_image = f"DataVolume: {image} (error: {str(e)})"
+            else:
+                # Standard image resolution for other providers
+                image_config = converter.images.get(image, {}).get(resolved_provider, {})
+                if isinstance(image_config, dict):
+                    # Extract a simple identifier from the image config
+                    if resolved_provider == 'aws':
+                        mapped_image = image_config.get('name_pattern', image)
+                    elif resolved_provider == 'azure':
+                        mapped_image = f"{image_config.get('publisher', '')}/{image_config.get('offer', '')}/{image_config.get('sku', '')}"
+                    elif resolved_provider == 'gcp':
+                        mapped_image = f"{image_config.get('project', '')}/{image_config.get('family', '')}"
+                    else:
+                        mapped_image = str(image_config)
                 else:
                     mapped_image = str(image_config)
-            else:
-                mapped_image = str(image_config)
             print(f"   Image: {image} ({mapped_image})")
             
             # Show cost analysis for meta-providers
@@ -271,8 +390,8 @@ def analyze_configuration(converter, config, raw_yaml_data):
             
             # Resolve {guid} in cluster name for display
             resolved_name = name
-            if '{guid}' in name and raw_yaml_data:
-                guid = raw_yaml_data.get('guid', 'unknown')
+            if '{guid}' in name:
+                guid = converter.get_validated_guid(raw_yaml_data)
                 resolved_name = name.replace('{guid}', guid)
             
             print(f"\n{i}. {resolved_name}:")
@@ -758,18 +877,13 @@ def auto_deploy_infrastructure(output_dir, yaml_data):
     print(f" * ROSA clusters: {'YES' if has_rosa_clusters else 'NO'}")
     print(f" * ROSA script: {'YES' if has_rosa_script else 'NO'}")
     
-    # Check for ROSA authentication if ROSA clusters are present
-    if has_rosa_clusters:
-        rosa_token = (os.getenv('ROSA_TOKEN') or 
-                     os.getenv('OCM_TOKEN') or 
-                     os.getenv('REDHAT_OPENSHIFT_TOKEN'))
-        print(f" * ROSA authentication: {'YES' if rosa_token else 'WARNING: token needed for full automation'}")
-        
-        if not rosa_token:
-            print(f"")
-            print(f"NOTE: For complete automation, set a ROSA token:")
-            print(f" export ROSA_TOKEN='your_token_here'")
-            print(f" Get token from: https://console.redhat.com/openshift/token/rosa")
+    # Check for ROSA authentication
+    rosa_token = os.getenv('REDHAT_OPENSHIFT_TOKEN')
+    print(f" * ROSA authentication: {'YES' if rosa_token else 'WARNING: token needed for full automation'}")
+    
+    if not rosa_token:
+        print(f"   Get token from: https://console.redhat.com/openshift/token/rosa")
+        print(f"   export REDHAT_OPENSHIFT_TOKEN='your_token_here'")
     
     print(f"")
     
@@ -884,6 +998,18 @@ def main():
         print(f"ERROR: Invalid YAML syntax in '{args.input_file}': {e}")
         sys.exit(1)
     
+    # Check for root-level instances (old format) and warn
+    root_instances = raw_yaml_data.get('instances', [])
+    if root_instances:
+        print("WARNING: Found 'instances' at root level. This is deprecated and will be ignored.")
+        print("Move 'instances' under 'yamlforge' section:")
+        print("yamlforge:")
+        print("  cloud_workspace:")
+        print("    name: \"your-workspace-name\"")
+        print("  instances:")
+        print("    # ... your instances here")
+        print()
+    
     # Extract yamlforge configuration from root and merge defaults
     if 'yamlforge' not in raw_yaml_data:
         print("ERROR: YAML file must have a 'yamlforge' root element")
@@ -926,7 +1052,6 @@ def main():
     try:
         if args.analyze:
             # Set analysis mode flag to suppress duplicate output
-            converter.analysis_mode = True
             # Run analysis mode
             analyze_configuration(converter, config, raw_yaml_data)
         else:

@@ -1,287 +1,312 @@
 # Troubleshooting Guide
 
-Common issues and solutions for YamlForge.
+## Common Issues and Solutions
 
-## Installation Issues
+### 1. Invalid GUID Format
 
-### Missing GUID Error
+**Error**: `Invalid GUID format. Must be exactly 5 characters (lowercase alphanumeric)`
+
+**Solution**: Use a 5-character lowercase alphanumeric identifier:
+
+```yaml
+# ✅ Correct
+guid: "web01"
+guid: "app42"
+guid: "test1"
+
+# ❌ Incorrect
+guid: "web001"    # Too long
+guid: "WEB01"     # Uppercase
+guid: "web-01"    # Special characters
 ```
-Error: GUID is required but not found
+
+### 2. Missing Required Fields
+
+**Error**: `Missing required field: provider`
+
+**Solution**: Ensure all required fields are present:
+
+```yaml
+yamlforge:
+  instances:
+    - name: "web-server-{guid}"
+      provider: "aws"        # ✅ Required
+      flavor: "medium"       # ✅ Required (or cores/memory)
+      image: "RHEL9-latest"  # ✅ Required
+      region: "us-east-1"    # ✅ Required (except for CNV)
 ```
 
-**Solution:**
+### 3. Invalid Provider
+
+**Error**: `Invalid provider: 'invalid-provider'`
+
+**Solution**: Use only supported providers:
+
+```yaml
+# ✅ Supported providers
+provider: "aws"
+provider: "azure"
+provider: "gcp"
+provider: "oci"
+provider: "ibm_vpc"
+provider: "ibm_classic"
+provider: "vmware"
+provider: "alibaba"
+provider: "cheapest"
+provider: "cheapest-gpu"
+provider: "cnv"
+```
+
+### 4. Invalid Flavor
+
+**Error**: `No mapping found for flavor 'invalid-flavor' on provider 'aws'`
+
+**Solution**: Use valid flavors or custom specifications:
+
+```yaml
+# ✅ Valid flavors
+flavor: "small"
+flavor: "medium"
+flavor: "large"
+flavor: "xlarge"
+
+# ✅ Custom specifications
+cores: 4
+memory: 8192  # 8GB in MB
+
+# ✅ Provider-specific flavors
+flavor: "t3.medium"      # AWS
+flavor: "Standard_D4s_v3" # Azure
+flavor: "n1-standard-4"   # GCP
+```
+
+### 5. Missing Cloud Credentials
+
+**Error**: `No AWS credentials found`
+
+**Solution**: Set up environment variables:
+
 ```bash
-# Option 1: Environment variable (recommended)
-export GUID=web01
+# Create envvars.sh
+cp envvars.example.sh envvars.sh
 
-# Option 2: Add to YAML file
-echo 'guid: "web01"' >> my-config.yaml
+# Edit with your credentials
+nano envvars.sh
+
+# Load environment variables
+source envvars.sh
 ```
 
-### Python Version Error
-```
-SyntaxError: invalid syntax
-```
+### 6. Invalid Region
 
-**Solution:** Ensure Python 3.8+
-```bash
-python --version  # Check version
-python3 --version # Try python3 if python is older
-```
+**Error**: `Invalid region: 'invalid-region'`
 
-### Missing Dependencies
-```
-ModuleNotFoundError: No module named 'yaml'
-```
+**Solution**: Use valid regions or universal locations:
 
-**Solution:**
-```bash
-pip install -r requirements.txt
+```yaml
+# ✅ Universal locations (recommended)
+region: "us-east"    # Maps to us-east-1, eastus, us-east1, etc.
+region: "eu-west"    # Maps to eu-west-1, westeurope, europe-west1, etc.
+
+# ✅ Provider-specific regions
+region: "us-east-1"  # AWS
+region: "eastus"     # Azure
+region: "us-east1"   # GCP
 ```
 
-## GUID Issues
+### 7. GPU Configuration Issues
 
-### Invalid GUID Format
-```
-ValueError: GUID must be exactly 5 characters, lowercase alphanumeric
-```
+**Error**: `GPU type 'NVIDIA T4' not available in region 'us-west-2'`
 
-**Valid GUID Examples:**
-- `web01` 
-- `app42`   
-- `test1` 
+**Solution**: Use available GPU types and regions:
 
-**Invalid GUID Examples:**
-- `WEB01`  (uppercase)
-- `web-01`  (special characters)
-- `web001`  (too long)
+```yaml
+# ✅ Available GPU types
+gpu_type: "NVIDIA T4"
+gpu_type: "NVIDIA V100"
+gpu_type: "NVIDIA A100"
+gpu_type: "NVIDIA L4"
+gpu_type: "NVIDIA L40S"
+gpu_type: "NVIDIA K80"
+gpu_type: "AMD RADEON PRO V520"
 
-## Cloud Provider Issues
-
-### GCP Image Discovery
-```
-Warning: GCP credentials not configured. Using static image names.
+# ✅ Use cheapest-gpu for automatic selection
+provider: "cheapest-gpu"
+gpu_type: "NVIDIA T4"
 ```
 
-**Solution:**
-```bash
-# Install GCP library
-pip install google-cloud-compute>=1.14.0
+### 8. OpenShift Cluster Issues
 
-# Authenticate
-gcloud auth application-default login
-```
+**Error**: `Worker count must be multiple of 3 for ROSA HCP`
 
-### Missing Image Mappings
-```
-Warning: No image mapping found for 'CustomImage'
-```
+**Solution**: Use correct worker counts:
 
-**Solution:** Add mapping to `mappings/images.yaml`
-
-### Provider Not Found
-```
-ValueError: Unsupported provider 'invalid-provider'
-```
-
-**Supported Providers:**
-- aws, azure, gcp
-- ibm_vpc, ibm_classic
-- oci, alibaba, vmware
-- cheapest, cheapest-gpu
-
-## OpenShift Issues
-
-### Missing Cluster Type
-```
-ValueError: Cluster type must be specified
-```
-
-**Solution:** Add type to cluster config:
 ```yaml
 openshift_clusters:
   - name: "my-cluster"
-    type: "rosa-classic"  # Required!
-    region: "us-east-1"
+    type: "rosa-hcp"
+    worker_count: 3    # ✅ Multiple of 3
+    worker_count: 6    # ✅ Multiple of 3
+    worker_count: 9    # ✅ Multiple of 3
 ```
 
-### Service Account Token Expired
-```
-Error: Unauthorized (401)
-```
+### 9. Cost Analysis Issues
 
-**Check Token Expiration:**
-```bash
-# Get token from Terraform output
-ADMIN_TOKEN=$(terraform output -raw my_cluster_admin_token)
+**Error**: `No cost data available for provider 'vmware'`
 
-# Test token validity
-kubectl auth whoami --token=$ADMIN_TOKEN
-```
+**Solution**: Use providers with cost data or exclude from analysis:
 
-**Rotate Tokens:**
-```bash
-# Regenerate via Terraform
-terraform taint kubernetes_secret.my_cluster_admin_token
-terraform apply
-```
-
-## GPU Issues
-
-### Invalid GPU Type
-```
-GPU type 'NVIDIA H100' is not available in any cloud provider
-```
-
-**Available GPU Types:**
-- NVIDIA: A100, V100, T4, L4, L40S
-- AMD: Radeon Pro V520
-
-### GPU Provider Incompatibility
-```
-AMD GPU flavor 'gpu_amd_small' is only available on AWS
-```
-
-**Solution:** Use compatible provider:
 ```yaml
-instances:
-  - name: "amd-gpu"
-    provider: "aws"  # AMD only on AWS
-    size: "gpu_amd_small"
+# Global provider exclusions
+yamlforge:
+  exclude_providers: ["vmware", "alibaba"]  # Exclude from cost analysis
+  
+  instances:
+    - name: "web-server-{guid}"
+      provider: "cheapest"  # Only considers providers with cost data
+      flavor: "medium"
 ```
 
-## Terraform Issues
+### 10. Terraform Generation Issues
 
-### Output Directory Not Found
-```
-Error: Output directory 'terraform/' does not exist
-```
+**Error**: `Failed to generate Terraform: Invalid configuration`
 
-**Solution:**
+**Solution**: Validate your configuration:
+
 ```bash
-mkdir terraform-output
-python yamlforge.py config.yaml -d terraform-output/
+# Analyze configuration first
+python yamlforge.py my-config.yaml --analyze
+
+# Check for specific errors
+python yamlforge.py my-config.yaml --verbose
 ```
 
-### Terraform Init Fails
-```
-Error: Failed to initialize Terraform
-```
+## Debugging Commands
 
-**Solution:**
+### 1. Configuration Analysis
+
 ```bash
-cd terraform-output/
-terraform version  # Check Terraform is installed (v1.12.0+ required)
-terraform init      # Initialize
+# Analyze without generating Terraform
+python yamlforge.py my-config.yaml --analyze
+
+# Verbose analysis with detailed output
+python yamlforge.py my-config.yaml --analyze --verbose
 ```
 
-### Terraform Version Too Old
-```
-Error: Terraform Version Error: Version 1.5.7 is too old
-```
+### 2. Schema Validation
 
-**Solution:** Upgrade to Terraform v1.12.0+
 ```bash
-# Check current version
-terraform version
-
-# Upgrade via package managers
-brew upgrade terraform  # macOS
-sudo apt upgrade terraform  # Linux
-
-# Or download latest from https://developer.hashicorp.com/terraform/downloads
+# Validate YAML against schema
+python yamlforge.py my-config.yaml --validate
 ```
 
-### Provider Dependency Conflicts
-```
-Error: Failed to query available provider packages
-Could not retrieve the list of available versions for provider hashicorp/aws
-```
+### 3. Dry Run
 
-**Cause:** Older Terraform versions have known issues with ROSA provider dependencies  
-**Solution:** Upgrade to Terraform v1.12.0+ (see above)
+```bash
+# Generate Terraform without deploying
+python yamlforge.py my-config.yaml -d output/ --no-credentials
 
-## Common Validation Errors
-
-### Duplicate Cluster Names
-```
-ValueError: Duplicate OpenShift cluster name 'prod-cluster'
+# Review generated files
+ls -la output/
+cat output/main.tf
 ```
 
-**Solution:** Use unique cluster names:
+### 4. Provider Testing
+
+```bash
+# Test specific provider
+python yamlforge.py my-config.yaml --analyze --provider aws
+
+# Test with credentials
+source envvars.sh
+python yamlforge.py my-config.yaml --analyze
+```
+
+## Common Configuration Patterns
+
+### 1. Development Environment
+
 ```yaml
-openshift_clusters:
-  - name: "prod-rosa"     # Unique
-    type: "rosa-classic"
-  - name: "prod-aro"      # Unique  
-    type: "aro"
+guid: "dev01"
+
+yamlforge:
+  instances:
+    - name: "dev-server-{guid}"
+      provider: "cheapest"
+      flavor: "small"
+      image: "RHEL9-latest"
+      region: "us-east-1"
 ```
 
-### Missing Required Fields
-```
-ValueError: ROSA cluster 'my-cluster' must specify 'region'
-```
+### 2. Production Environment
 
-**Solution:** Add all required fields:
 ```yaml
-openshift_clusters:
-  - name: "my-cluster"
-    type: "rosa-classic"
-    region: "us-east-1"    # Required
-    version: "4.14.15"     # Required
-    size: "medium"         # Required
+guid: "prod1"
+
+yamlforge:
+  instances:
+    - name: "web-server-{guid}"
+      provider: "aws"
+      flavor: "large"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      security_groups: ["web-access-{guid}"]
 ```
 
-## Performance Issues
+### 3. GPU Workload
 
-### Slow Provider Detection
-- **Cause:** Checking many providers
-- **Solution:** Use provider exclusions in `defaults/core.yaml`
+```yaml
+guid: "gpu01"
 
-### Large Terraform Files
-- **Cause:** Many instances/clusters
-- **Solution:** Split into multiple YAML files
+yamlforge:
+  instances:
+    - name: "gpu-training-{guid}"
+      provider: "cheapest-gpu"
+      flavor: "medium"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      gpu_type: "NVIDIA T4"
+      gpu_count: 1
+```
+
+## Environment Variable Checklist
+
+Ensure these environment variables are set for your providers:
+
+### AWS
+```bash
+export AWS_ACCESS_KEY_ID=your_access_key
+export AWS_SECRET_ACCESS_KEY=your_secret_key
+```
+
+### Azure
+```bash
+export ARM_CLIENT_ID=your_client_id
+export ARM_CLIENT_SECRET=your_client_secret
+export ARM_SUBSCRIPTION_ID=your_subscription_id
+export ARM_TENANT_ID=your_tenant_id
+```
+
+### OpenShift
+```bash
+export REDHAT_OPENSHIFT_TOKEN=your_token
+export OCP_PULL_SECRET='{"auths":{"fake":{"auth":"fake"}}}'  # Optional but recommended
+```
 
 ## Getting Help
 
-### Debug Information
-```bash
-# Check Python version
-python --version
+1. **Check the logs**: Use `--verbose` flag for detailed output
+2. **Validate configuration**: Use `--analyze` to check before deployment
+3. **Review examples**: Check the `examples/` directory for working configurations
+4. **Check documentation**: Review provider-specific guides in `docs/`
+5. **Test incrementally**: Start with simple configurations and add complexity
 
-# Check installed packages
-pip list | grep -E "(yaml|google-cloud)"
+## Error Reporting
 
-# Test basic functionality (analysis mode)
-python yamlforge.py examples/simple_test.yaml --analyze
+When reporting issues, include:
 
-# Test basic functionality (generate Terraform)
-python yamlforge.py examples/simple_test.yaml -d test-output/
-```
-
-### Log Output
-```bash
-# Enable verbose output (if available)
-python yamlforge.py config.yaml -d output/ --verbose
-
-# Check Terraform logs
-cd terraform-output/
-export TF_LOG=DEBUG
-terraform plan
-```
-
-### File Locations
-- **Examples:** `examples/`
-- **Mappings:** `mappings/`
-- **Environment Variables:** Use `envvars.example.sh` as a template
-- **Defaults:** `defaults/`
-
-### Getting Support
-1. Check this troubleshooting guide
-2. Review [Examples Directory](../examples/)
-3. Check [Configuration Guides](configuration/)
-4. Create GitHub issue with:
-   - YamlForge version
-   - Python version
-   - Complete error message
-   - Minimal YAML that reproduces issue 
+1. **YAML configuration** (with sensitive data removed)
+2. **Error message** (full output)
+3. **Environment**: OS, Python version, YamlForge version
+4. **Steps to reproduce**
+5. **Expected vs actual behavior** 

@@ -1,44 +1,80 @@
 ---
-guid: "ibm02"
+guid: "ibmc1"
 
 yamlforge:
   cloud_workspace:
     name: "ibm-classic-demo-{guid}"
-    description: "IBM Classic deployment example"
+    description: "IBM Cloud Classic deployment example"
   
+  # IBM Classic Configuration (required)
   ibm_classic:
-    default_datacenter: "dal10"
-    default_domain: "example.com"
-  
-  security_groups:
-    - name: "web-sg-{guid}"
-      description: "Web server security group"
-      rules:
-        - direction: "ingress"
-          protocol: "tcp"
-          port_range: "80"
-          source: "0.0.0.0/0"
-        - direction: "ingress"
-          protocol: "tcp"
-          port_range: "443"
-          source: "0.0.0.0/0"
-        - direction: "ingress"
-          protocol: "tcp"
-          port_range: "22"
-          source: "0.0.0.0/0"
+    domain: "example.com"  # Required: Domain for all IBM Classic instances
+    create_cloud_user: true  # Optional: Create cloud-user account (default: true)
+    auto_create_outbound_sg: true  # Optional: Auto-create outbound security group (default: true)
   
   instances:
     - name: "web-server-{guid}"
       provider: "ibm_classic"
-      size: "medium"
-      region: "dal10"
+      region: "dal10"  # IBM Classic datacenter (e.g., dal10, wdc04, lon02)
+      flavor: "medium"
       image: "RHEL9-latest"
-      security_groups: ["web-sg-{guid}"]
-      tags:
-        environment: "production"
-        tier: "web"
-        yamlforge_workspace: "ibm-classic-demo-{guid}"
+      security_groups: ["web-access-{guid}"]
+    
+    - name: "app-server-{guid}"
+      provider: "ibm_classic"
+      region: "wdc04"  # Different datacenter
+      flavor: "large"
+      image: "RHEL9-latest"
+      security_groups: ["app-access-{guid}"]
+    
+    - name: "db-server-{guid}"
+      provider: "ibm_classic"
+      region: "dal10"
+      flavor: "xlarge"
+      image: "RHEL9-latest"
+      security_groups: ["db-access-{guid}"]
   
-  tags:
-    project: "ibm-classic-demo"
-    managed_by: "yamlforge"
+  security_groups:
+    - name: "web-access-{guid}"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+          description: "SSH access"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "80"
+          source: "0.0.0.0/0"
+          description: "HTTP access"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "443"
+          source: "0.0.0.0/0"
+          description: "HTTPS access"
+    
+    - name: "app-access-{guid}"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+          description: "SSH access"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "8080"
+          source: "0.0.0.0/0"
+          description: "Application port"
+    
+    - name: "db-access-{guid}"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+          description: "SSH access"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "3306"
+          source: "0.0.0.0/0"
+          description: "MySQL access"

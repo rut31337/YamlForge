@@ -206,29 +206,31 @@ class GCPProvider:
 
 
 
-    def get_gcp_machine_type(self, size_or_instance_type):
-        """Get GCP machine type from size mapping or return direct instance type."""
-        # If it looks like a direct GCP instance type, return it as-is
-        if any(prefix in size_or_instance_type for prefix in ['n1-', 'n2-', 'e2-', 'c2-', 'a2-', 'm1-', 'm2-']):
-            return size_or_instance_type
+    def get_gcp_machine_type(self, flavor_or_instance_type):
+        """Get GCP machine type from flavor or instance type."""
+        # Handle None input
+        if not flavor_or_instance_type:
+            raise ValueError("flavor_or_instance_type cannot be None or empty")
         
-        # Check for advanced flavor mappings
+        # If it's already a GCP machine type, return it directly
+        if any(prefix in flavor_or_instance_type for prefix in ['n1-', 'n2-', 'e2-', 'c2-', 'a2-', 'm1-', 'm2-']):
+            return flavor_or_instance_type
+        
+        # Load GCP flavors
         gcp_flavors = self.converter.flavors.get('gcp', {}).get('flavor_mappings', {})
-        size_mapping = gcp_flavors.get(size_or_instance_type, {})
-
+        size_mapping = gcp_flavors.get(flavor_or_instance_type, {})
+        
         if size_mapping:
-            # Return the first (preferred) machine type for this size
-            machine_type = list(size_mapping.keys())[0]
-            return machine_type
-
-        # Check direct machine types mapping
+            # Return the first (usually cheapest) option
+            return next(iter(size_mapping.keys()))
+        
+        # Check machine types
         machine_types = self.converter.flavors.get('gcp', {}).get('machine_types', {})
-        if size_or_instance_type in machine_types:
-            return size_or_instance_type
-
-        # No mapping found for this size
-        raise ValueError(f"No GCP machine type mapping found for size '{size_or_instance_type}'. "
-                       f"Available sizes: {list(gcp_flavors.keys())}")
+        if flavor_or_instance_type in machine_types:
+            return flavor_or_instance_type
+        
+        raise ValueError(f"No GCP machine type mapping found for flavor '{flavor_or_instance_type}'. "
+                        f"Available flavors: {list(gcp_flavors.keys())}")
 
     def check_machine_type_availability(self, machine_type, region, zone=None, silent=False):
         """Check if a GCP machine type is available in the specified region/zone."""
@@ -286,7 +288,7 @@ class GCPProvider:
         try:
             # Try to get from environment
             import os
-            project_id = os.environ.get('GOOGLE_PROJECT')
+            project_id = os.environ.get('GCP_PROJECT_ID') or os.environ.get('GOOGLE_PROJECT')
             if project_id:
                 return project_id
             
@@ -308,26 +310,32 @@ class GCPProvider:
 
     def _fallback_machine_type_check(self, machine_type, region):
         """Fallback method to check machine type availability using known patterns."""
-        # Known GPU machine type availability patterns
-        gpu_machine_types = {
-            'n1-standard-4-t4': ['us-east1', 'us-east4', 'us-west1', 'us-west2'],
-            'n1-standard-8-t4': ['us-east1', 'us-east4', 'us-west1', 'us-west2'],
-            'n1-standard-16-t4': ['us-east1', 'us-east4', 'us-west1', 'us-west2'],
-            'n1-standard-4-p4': ['us-central1', 'us-east4'],
-            'n1-standard-8-p4': ['us-central1', 'us-east4'],
-            'n1-standard-16-p4': ['us-central1', 'us-east4'],
-            'n1-standard-4-v100': ['us-west1'],
-            'n1-standard-8-v100': ['us-west1'],
-            'n1-standard-16-v100': ['us-west1'],
-        }
-        
-        # Check if this is a GPU machine type
-        if machine_type in gpu_machine_types:
-            return region in gpu_machine_types[machine_type]
-        
-        # For non-GPU machine types, assume they're available in most regions
-        # This is a conservative approach - in practice, most standard machine types are widely available
-        return True
+        # Load GPU machine type availability from YAML file
+        try:
+            import yaml
+            from pathlib import Path
+            
+            availability_path = Path("mappings/gcp/machine-type-availability.yaml")
+            if availability_path.exists():
+                with open(availability_path, 'r') as f:
+                    availability_data = yaml.safe_load(f)
+                    gpu_machine_types = availability_data.get('gpu_machine_types', {})
+                    
+                    # Check if this is a GPU machine type
+                    if machine_type in gpu_machine_types:
+                        available_regions = gpu_machine_types[machine_type].get('regions', [])
+                        return region in available_regions
+                    
+                    # For non-GPU machine types, assume they're available in most regions
+                    # This is a conservative approach - in practice, most standard machine types are widely available
+                    return True
+            else:
+                # Fallback if YAML file doesn't exist
+                return True
+        except Exception as e:
+            # Fallback if YAML loading fails
+            print(f"Warning: Could not load GCP machine type availability from YAML: {e}")
+            return True
 
     def find_available_regions_for_machine_type(self, machine_type):
         """Find all regions where a machine type is available."""
@@ -372,23 +380,30 @@ class GCPProvider:
 
     def _fallback_find_regions_for_machine_type(self, machine_type):
         """Fallback method to find regions for a machine type using known patterns."""
-        gpu_machine_types = {
-            'n1-standard-4-t4': ['us-east1', 'us-east4', 'us-west1', 'us-west2'],
-            'n1-standard-8-t4': ['us-east1', 'us-east4', 'us-west1', 'us-west2'],
-            'n1-standard-16-t4': ['us-east1', 'us-east4', 'us-west1', 'us-west2'],
-            'n1-standard-4-p4': ['us-central1', 'us-east4'],
-            'n1-standard-8-p4': ['us-central1', 'us-east4'],
-            'n1-standard-16-p4': ['us-central1', 'us-east4'],
-            'n1-standard-4-v100': ['us-west1'],
-            'n1-standard-8-v100': ['us-west1'],
-            'n1-standard-16-v100': ['us-west1'],
-        }
-        
-        if machine_type in gpu_machine_types:
-            return gpu_machine_types[machine_type]
-        
-        # For non-GPU types, return common regions
-        return ['us-central1', 'us-east1', 'us-west1', 'us-east4', 'us-west2']
+        # Load GPU machine type availability from YAML file
+        try:
+            import yaml
+            from pathlib import Path
+            
+            availability_path = Path("mappings/gcp/machine-type-availability.yaml")
+            if availability_path.exists():
+                with open(availability_path, 'r') as f:
+                    availability_data = yaml.safe_load(f)
+                    gpu_machine_types = availability_data.get('gpu_machine_types', {})
+                    common_regions = availability_data.get('common_regions', [])
+                    
+                    if machine_type in gpu_machine_types:
+                        return gpu_machine_types[machine_type].get('regions', [])
+                    
+                    # For non-GPU types, return common regions
+                    return common_regions
+            else:
+                # Fallback if YAML file doesn't exist
+                return ['us-central1', 'us-east1', 'us-west1', 'us-east4', 'us-west2']
+        except Exception as e:
+            # Fallback if YAML loading fails
+            print(f"Warning: Could not load GCP machine type availability from YAML: {e}")
+            return ['us-central1', 'us-east1', 'us-west1', 'us-east4', 'us-west2']
 
     def find_closest_available_region(self, requested_region, available_regions):
         """Find the closest available region to the requested region."""
@@ -399,23 +414,33 @@ class GCPProvider:
         if requested_region in available_regions:
             return requested_region
         
-        # Simple proximity mapping (can be enhanced with actual geographic data)
-        region_proximity = {
-            'us-central1': ['us-east1', 'us-west1', 'us-east4', 'us-west2'],
-            'us-east1': ['us-east4', 'us-central1', 'us-west1'],
-            'us-east4': ['us-east1', 'us-central1', 'us-west1'],
-            'us-west1': ['us-west2', 'us-central1', 'us-east1'],
-            'us-west2': ['us-west1', 'us-central1', 'us-east1'],
-        }
-        
-        # Find the closest available region
-        if requested_region in region_proximity:
-            for close_region in region_proximity[requested_region]:
-                if close_region in available_regions:
-                    return close_region
-        
-        # If no close match found, return the first available region
-        return available_regions[0]
+        # Load region proximity mapping from YAML file
+        try:
+            import yaml
+            from pathlib import Path
+            
+            availability_path = Path("mappings/gcp/machine-type-availability.yaml")
+            if availability_path.exists():
+                with open(availability_path, 'r') as f:
+                    availability_data = yaml.safe_load(f)
+                    region_proximity = availability_data.get('region_proximity', {})
+                    
+                    # Check nearby regions for the requested region
+                    if requested_region in region_proximity:
+                        nearby_regions = region_proximity[requested_region].get('nearby_regions', [])
+                        for nearby_region in nearby_regions:
+                            if nearby_region in available_regions:
+                                return nearby_region
+                    
+                    # If no nearby region found, return the first available region
+                    return available_regions[0] if available_regions else None
+            else:
+                # Fallback if YAML file doesn't exist
+                return available_regions[0] if available_regions else None
+        except Exception as e:
+            # Fallback if YAML loading fails
+            print(f"Warning: Could not load GCP region proximity from YAML: {e}")
+            return available_regions[0] if available_regions else None
 
     def get_gcp_image_reference(self, image_name):
         """Get GCP image reference for a given image name."""
@@ -441,7 +466,7 @@ class GCPProvider:
 
         return default_image
 
-    def generate_gcp_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None, has_guid_placeholder=False):
+    def generate_gcp_vm(self, instance, index, clean_name, flavor, available_subnets=None, yaml_data=None, has_guid_placeholder=False):
         """Generate native GCP Compute Engine instance."""
         instance_name = instance.get("name", f"instance_{index}")
         # Replace {guid} placeholder in instance name
@@ -471,14 +496,14 @@ class GCPProvider:
                            f"Either remove 'zone' or change 'location' to 'region'.")
         else:
             # Get machine type first for zone validation
-            gcp_machine_type = self.get_gcp_machine_type(size)
+            gcp_machine_type = self.get_gcp_machine_type(flavor)
             
             # Intelligently select best zone for the region and machine type
             gcp_zone = self.get_best_zone_for_region(gcp_region, gcp_machine_type, instance_name)
         
         # Get machine type (if not already retrieved for zone validation)
         if 'gcp_machine_type' not in locals():
-            gcp_machine_type = self.get_gcp_machine_type(size)
+            gcp_machine_type = self.get_gcp_machine_type(flavor)
 
         # Get image reference
         gcp_image = self.get_gcp_image_reference(image)

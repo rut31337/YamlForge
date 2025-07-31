@@ -29,8 +29,8 @@ yamlforge:
     # Development environment - cheapest small instance
     - name: "dev-server-{guid}"
       provider: "cheapest"
-      size: "small"
       region: "us-east-1"
+      flavor: "small"
       image: "RHEL9-latest"
       security_groups: ["app-sg-{guid}"]
       tags:
@@ -41,8 +41,8 @@ yamlforge:
     # Production environment - cheapest large instance
     - name: "prod-server-{guid}"
       provider: "cheapest"
-      size: "large"
       region: "us-east-1"
+      flavor: "large"
       image: "RHEL9-latest"
       security_groups: ["app-sg-{guid}"]
       tags:

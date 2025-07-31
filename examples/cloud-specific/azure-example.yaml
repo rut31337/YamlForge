@@ -28,7 +28,7 @@ yamlforge:
   instances:
     - name: "web-server-{guid}"
       provider: "azure"
-      size: "medium"
+      flavor: "medium"
       region: "eastus"
       image: "RHEL9-latest"
       security_groups: ["web-sg-{guid}"]

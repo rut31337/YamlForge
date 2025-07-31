@@ -25,7 +25,7 @@ yamlforge:
   instances:
     - name: "web-server-{guid}"
       provider: "aws"
-      size: "medium"
+      flavor: "medium"
       region: "us-east-1"
       image: "RHEL9-latest"
       security_groups: ["web-sg-{guid}"]

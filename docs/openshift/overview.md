@@ -1,326 +1,276 @@
-# OpenShift Documentation Overview
+# OpenShift Overview
 
-Comprehensive documentation for all OpenShift deployment options supported by YamlForge.
+YamlForge provides comprehensive support for deploying and managing OpenShift clusters across multiple cloud providers.
 
-## OpenShift Providers
+## Supported OpenShift Types
 
-YamlForge supports multiple OpenShift deployment methods across different cloud providers and deployment models:
+### Managed OpenShift Services
 
-### Cloud-Managed OpenShift Services
-
-#### **Azure Red Hat OpenShift (ARO)**
-- **Provider**: `aro`
-- **Documentation**: [ARO Guide](aro-guide.md)
-- **Cloud**: Microsoft Azure
-- **Management**: Fully managed by Microsoft and Red Hat
-- **Features**: Complete Terraform automation, automatic service principal creation, enhanced networking
-
-```yaml
-openshift_clusters:
-  - name: "prod-aro"
-    type: "aro"
-    region: "eastus"
-    version: "4.18.19"
-    size: "medium"
-```
-
-#### **Red Hat OpenShift Service on AWS (ROSA)**
-- **Provider**: `rosa-classic` | `rosa-hcp`
-- **Cloud**: Amazon Web Services
-- **Management**: Fully managed by Red Hat on AWS
-- **Features**: CLI and Terraform deployment methods, automatic IAM role management
-
-**ROSA Classic:**
-```yaml
-openshift_clusters:
-  - name: "prod-rosa"
-    type: "rosa-classic"
-    region: "us-east-1"
-    version: "4.18.19"
-    size: "medium"
-```
-
-**ROSA with Hosted Control Planes (HCP):**
-```yaml
-openshift_clusters:
-  - name: "prod-rosa-hcp"
-    type: "rosa-hcp"
-    region: "us-east-1"
-    version: "4.18.19"
-    size: "medium"
-```
-
-#### **Red Hat OpenShift Dedicated**
-- **Provider**: `openshift-dedicated`
-- **Cloud**: Multiple (AWS, GCP)
-- **Management**: Fully managed by Red Hat
-- **Features**: Enterprise-grade managed OpenShift
-
-```yaml
-openshift_clusters:
-  - name: "dedicated-cluster"
-    type: "openshift-dedicated"
-    region: "us-east-1"
-    version: "4.18.19"
-    size: "large"
-```
+- **ROSA (Red Hat OpenShift Service on AWS)**
+  - ROSA Classic: Traditional managed OpenShift
+  - ROSA HCP: Hosted Control Plane (preview)
+- **ARO (Azure Red Hat OpenShift)**
+- **OpenShift Dedicated**: Red Hat's managed service
 
 ### Self-Managed OpenShift
 
-#### **Self-Managed OpenShift**
-- **Provider**: `self-managed`
-- **Cloud**: Any supported cloud provider
-- **Management**: Customer managed
-- **Features**: Full control, custom configurations
+- **Self-Managed**: Full control over OpenShift deployment
+- **HyperShift**: Hosted control planes for multi-cluster management
+
+## Quick Start
+
+### Basic ROSA Cluster
 
 ```yaml
-openshift_clusters:
-  - name: "self-managed"
-    type: "self-managed"
-    region: "us-east-1"
-    version: "4.18.19"
-    size: "large"
+guid: "rosa1"
+
+yamlforge:
+  openshift_clusters:
+    - name: "my-rosa-cluster"
+      type: "rosa-classic"
+      region: "us-east-1"
+      version: "latest"
+      size: "medium"  # Cluster size (not instance size)
+      worker_count: 3
 ```
 
-### HyperShift Deployments
-
-#### **HyperShift Hosted Clusters**
-- **Provider**: `hypershift`
-- **Cloud**: AWS (primary), others supported
-- **Management**: Hosted control planes
-- **Features**: Cost-effective, rapid scaling
+### Basic ARO Cluster
 
 ```yaml
-openshift_clusters:
-  - name: "hypershift-cluster"
-    type: "hypershift"
-    region: "us-east-1"
-    version: "4.18.19"
-    size: "medium"
+guid: "aro1"
+
+yamlforge:
+  openshift_clusters:
+    - name: "my-aro-cluster"
+      type: "aro"
+      region: "eastus"
+      version: "latest"
+      size: "medium"  # Cluster size (not instance size)
+      worker_count: 3
 ```
 
-## Deployment Features
+## Cluster Sizing
 
-### Multi-Cloud Support
-Deploy OpenShift clusters across multiple cloud providers:
+### Available Cluster Sizes
 
 ```yaml
 openshift_clusters:
-  # ARO on Azure
-  - name: "azure-cluster"
-    type: "aro"
-    region: "eastus"
-    
-  # ROSA on AWS
-  - name: "aws-cluster"
+  - name: "small-cluster"
     type: "rosa-classic"
-    region: "us-east-1"
+    size: "small"    # 3 master + 3 worker nodes
+    worker_count: 3
     
-  # Self-managed on GCP
-  - name: "gcp-cluster"
-    type: "self-managed"
-    provider: "gcp"
-    region: "us-central1"
+  - name: "medium-cluster"
+    type: "rosa-classic"
+    size: "medium"   # 3 master + 6 worker nodes
+    worker_count: 6
+    
+  - name: "large-cluster"
+    type: "rosa-classic"
+    size: "large"    # 3 master + 12 worker nodes
+    worker_count: 12
+    
+  - name: "xlarge-cluster"
+    type: "rosa-classic"
+    size: "xlarge"   # 3 master + 24 worker nodes
+    worker_count: 24
 ```
 
-### Application Deployment
-Deploy applications across OpenShift clusters:
+## Integration with Instances
+
+### OpenShift with Supporting Infrastructure
 
 ```yaml
-openshift_applications:
-  - type: "multi-cluster"
-    name: "monitoring-stack"
-    clusters: ["azure-cluster", "aws-cluster"]
-    applications:
-      - name: "prometheus"
-        namespace: "monitoring"
-        source: "helm"
+guid: "full1"
+
+yamlforge:
+  openshift_clusters:
+    - name: "production-cluster"
+      type: "rosa-classic"
+      region: "us-east-1"
+      version: "latest"
+      size: "large"  # Cluster size (not instance size)
+      worker_count: 6
+      
+  instances:
+    - name: "monitoring-server-{guid}"
+      provider: "aws"
+      flavor: "medium"  # Instance flavor (not cluster size)
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      
+    - name: "backup-server-{guid}"
+      provider: "aws"
+      flavor: "large"  # Instance flavor (not cluster size)
+      image: "RHEL9-latest"
+      region: "us-east-1"
 ```
 
-### Operator Management
-Install and manage OpenShift operators:
+## Environment Variables
 
-```yaml
-openshift_operators:
-  - type: "single-cluster"
-    cluster: "azure-cluster"
-    operators:
-      - name: "openshift-gitops"
-        namespace: "openshift-gitops"
-        channel: "gitops-1.12"
-```
-
-## Provider-Specific Documentation
-
-### **Azure Red Hat OpenShift (ARO)**
-- **[Complete ARO Guide](aro-guide.md)** - Comprehensive documentation
-- **Example**: [ARO Complete Example](../../examples/openshift/aro_complete_example.yaml)
-- **Features**: Terraform automation, service principal management, networking
-
-### **Red Hat OpenShift Service on AWS (ROSA)**
-- **[ROSA Dynamic Versions](../ROSA_DYNAMIC_VERSIONS.md)** - Version management
-- **Examples**: 
-  - [ROSA Classic vs HCP](../../examples/openshift/rosa_classic_vs_hcp_example.yaml)
-  - [ROSA Automatic Phases](../../examples/openshift/rosa_automatic_phases_example.yaml)
-
-### **Multi-Cloud OpenShift**
-- **Examples**:
-  - [Multi-Cloud OpenShift](../../examples/openshift/multi_cloud_openshift_example.yaml)
-  - [Complete Enterprise Platform](../../examples/openshift/complete_enterprise_platform_example.yaml)
-
-## Getting Started
-
-### Quick Start
-1. **Choose your provider** based on your cloud and requirements
-2. **Set up credentials** for your chosen cloud provider
-3. **Create configuration** using the examples above
-4. **Deploy** using YamlForge
+### Required Credentials
 
 ```bash
-# Set environment variables
-export GUID=ocp01
+# AWS (for ROSA)
+export AWS_ACCESS_KEY_ID=your_aws_access_key
+export AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+export AWS_BILLING_ACCOUNT_ID=your_aws_billing_account_id
 
-# For ARO (Azure)
-export ARM_CLIENT_ID=your_client_id
-export ARM_CLIENT_SECRET=your_secret
-export ARM_SUBSCRIPTION_ID=your_subscription
-export ARM_TENANT_ID=your_tenant
+# Azure (for ARO)
+export ARM_CLIENT_ID=your_azure_client_id
+export ARM_CLIENT_SECRET=your_azure_client_secret
+export ARM_SUBSCRIPTION_ID=your_azure_subscription_id
+export ARM_TENANT_ID=your_azure_tenant_id
 
-# Analyze ARO configuration first
-python yamlforge.py aro-config.yaml --analyze
+# Red Hat OpenShift Token (required for all OpenShift deployments)
+export REDHAT_OPENSHIFT_TOKEN=your_redhat_token
 
-# Deploy ARO cluster
-python yamlforge.py aro-config.yaml -d aro-terraform/
-cd aro-terraform/
-terraform init && terraform apply
+# SSH Public Key
+export SSH_PUBLIC_KEY="ssh-rsa your_public_key_here"
 ```
 
-### Common Configuration Options
+## Advanced Configuration
 
-#### Cluster Sizes
-All OpenShift providers support standardized cluster sizes:
+### Multi-Cluster Deployment
 
-- **Small**: Development and testing (3 workers)
-- **Medium**: Small production workloads (4 workers)
-- **Large**: High-performance production (6+ workers)
-
-#### Security Options
 ```yaml
-openshift_clusters:
-  - name: "secure-cluster"
-    type: "aro"  # or rosa-classic, etc.
-    private: true           # Private API and ingress
-    fips_enabled: true      # FIPS compliance
+guid: "multi1"
+
+yamlforge:
+  openshift_clusters:
+    - name: "prod-cluster"
+      type: "rosa-classic"
+      region: "us-east-1"
+      version: "latest"
+      size: "large"  # Cluster size (not instance size)
+      worker_count: 6
+      
+    - name: "staging-cluster"
+      type: "aro"
+      region: "eastus"
+      version: "latest"
+      size: "medium"  # Cluster size (not instance size)
+      worker_count: 3
+      
+    - name: "dev-cluster"
+      type: "self-managed"
+      provider: "gcp"
+      region: "us-central1"
+      version: "latest"
+      size: "small"  # Cluster size (not instance size)
+      worker_count: 3
 ```
 
-#### Networking Customization
+### Custom Networking
+
 ```yaml
-openshift_clusters:
-  - name: "custom-network"
-    type: "aro"
-    networking:
-      vnet_cidr: "10.1.0.0/16"
-      pod_cidr: "10.128.0.0/14"
-      service_cidr: "172.30.0.0/16"
-```
+guid: "net1"
 
-## Best Practices
-
-### Production Deployments
-1. **Use managed services** (ARO, ROSA) for operational simplicity
-2. **Enable private clusters** for enhanced security
-3. **Implement FIPS validation** for compliance requirements
-4. **Use large cluster sizes** for production workloads
-5. **Deploy across multiple regions** for high availability
-
-### Development Environments
-1. **Use smaller cluster sizes** to reduce costs
-2. **Public clusters** for easier access during development
-3. **Regular cleanup** of unused clusters and resources
-
-### Multi-Cloud Strategy
-1. **Standardize on OpenShift** across all clouds
-2. **Use GitOps** for consistent application deployment
-3. **Implement monitoring** across all clusters
-4. **Plan for data sovereignty** requirements
-
-## Architecture Patterns
-
-### Hub and Spoke Model
-```yaml
-openshift_clusters:
-  # Hub cluster for management
-  - name: "hub-cluster"
-    type: "rosa-classic"
-    region: "us-east-1"
-    size: "large"
-    
-  # Spoke clusters for workloads
-  - name: "spoke-azure"
-    type: "aro"
-    region: "eastus"
-    size: "medium"
-    
-  - name: "spoke-gcp"
-    type: "self-managed"
-    provider: "gcp"
-    region: "us-central1"
-    size: "medium"
-```
-
-### Regional Distribution
-```yaml
-openshift_clusters:
-  # US East
-  - name: "us-east-cluster"
-    type: "aro"
-    region: "eastus"
-    
-  # US West
-  - name: "us-west-cluster"
-    type: "rosa-hcp"
-    region: "us-west-2"
-    
-  # Europe
-  - name: "eu-cluster"
-    type: "aro"
-    region: "northeurope"
+yamlforge:
+  openshift_clusters:
+    - name: "custom-network-cluster"
+      type: "rosa-classic"
+      region: "us-east-1"
+      version: "latest"
+      size: "medium"  # Cluster size (not instance size)
+      worker_count: 3
+      networking:
+        machine_cidr: "10.0.0.0/16"
+        service_cidr: "172.30.0.0/16"
+        pod_cidr: "10.128.0.0/14"
+        host_prefix: 23
 ```
 
 ## Cost Optimization
 
-### Provider Selection
-- **ARO**: Often cost-effective for Azure-centric environments
-- **ROSA**: Excellent for AWS-native workloads
-- **Self-Managed**: Maximum control but higher operational overhead
+### Using Cheapest Provider for Supporting Infrastructure
 
-### Resource Sizing
-- Start with **medium** clusters for most workloads
-- Scale to **large** for high-performance requirements
-- Use **small** only for development and testing
+```yaml
+guid: "cost1"
 
-### Regional Considerations
-- Choose regions close to users for performance
-- Consider data residency requirements
-- Factor in regional pricing differences
+yamlforge:
+  openshift_clusters:
+    - name: "cost-optimized-cluster"
+      type: "rosa-classic"
+      region: "us-east-1"
+      version: "latest"
+      size: "medium"  # Cluster size (not instance size)
+      worker_count: 3
+      
+  instances:
+    - name: "cheapest-monitoring-{guid}"
+      provider: "cheapest"  # Automatically finds cheapest provider
+      flavor: "medium"  # Instance flavor (not cluster size)
+      image: "RHEL9-latest"
+      region: "us-east-1"
+```
 
 ## Troubleshooting
 
 ### Common Issues
-1. **Authentication failures** - Verify cloud credentials
-2. **Version compatibility** - Use supported OpenShift versions
-3. **Network conflicts** - Ensure unique CIDR ranges
-4. **Resource limits** - Check cloud provider quotas
 
-### Support Resources
-- [Troubleshooting Guide](../troubleshooting.md)
-- [Installation Guide](../installation.md)
-- [Examples Gallery](../examples.md)
+1. **Red Hat Token Issues**
+   ```bash
+   # Verify Red Hat token is valid
+   curl -H "Authorization: Bearer $REDHAT_OPENSHIFT_TOKEN" \
+        https://api.openshift.com/api/accounts_mgmt/v1/current_account
+   ```
 
----
+2. **Cloud Provider Permissions**
+   ```bash
+   # AWS - Verify billing account access
+   aws sts get-caller-identity
+   
+   # Azure - Verify service principal permissions
+   az role assignment list --assignee $ARM_CLIENT_ID
+   ```
 
-**Implementation Locations:**
-- **ARO Provider**: `yamlforge/providers/openshift/aro.py`
-- **ROSA Provider**: `yamlforge/providers/openshift/rosa.py`
-- **Base Provider**: `yamlforge/providers/openshift/base.py`
-- **Configuration**: `mappings/flavors_openshift/` 
+3. **Region Availability**
+   ```bash
+   # Check OpenShift availability in regions
+   # ROSA: Check AWS regions
+   # ARO: Check Azure regions
+   ```
+
+### Best Practices
+
+1. **Use Latest Version**: Always use `version: "latest"` for production
+2. **Plan for Growth**: Start with medium size and use autoscaling
+3. **Network Planning**: Use custom networking for production deployments
+4. **Cost Management**: Monitor cluster usage and adjust worker count
+5. **Security**: Use private clusters for production workloads
+
+## Next Steps
+
+- [ROSA Guide](rosa-guide.md)
+- [ARO Guide](aro-guide.md)
+- [Multi-Cloud OpenShift](multi-cloud-openshift.md)
+- [Troubleshooting Guide](../troubleshooting.md) 
+
+# OpenShift Authentication
+
+## Red Hat OpenShift Token
+
+For ROSA and other Red Hat managed OpenShift clusters, you need a Red Hat OpenShift token:
+
+```bash
+export REDHAT_OPENSHIFT_TOKEN=your_redhat_token
+```
+
+Get your token from: https://console.redhat.com/openshift/token/rosa
+
+## Red Hat Pull Secret (Optional but Recommended)
+
+For enhanced content access to Red Hat container registries and additional content:
+
+```bash
+export OCP_PULL_SECRET='{"auths":{"fake":{"auth":"fake"}}}'
+```
+
+Get your pull secret from: https://console.redhat.com/openshift/install/pull-secret
+
+**Benefits of using a pull secret:**
+- Access to Red Hat container registries
+- Additional content and operators
+- Enhanced cluster functionality
+- Better integration with Red Hat ecosystem 

@@ -20,6 +20,13 @@ This directory contains examples for each supported cloud provider, demonstratin
   - Resource group management
 - **[ibm_classic_example.yaml](ibm_classic_example.yaml)** - IBM Classic Infrastructure deployment with tagging
 
+### Container Native Virtualization (CNV)
+- **[cnv-example.yaml](cnv-example.yaml)** - CNV/KubeVirt deployment for Kubernetes and OpenShift clusters
+  - Virtual machines using container disk images
+  - Support for both Kubernetes (KubeVirt) and OpenShift (CNV) clusters
+  - GPU-enabled instances (when available)
+  - Namespace-based organization
+
 ## Usage
 
 ### Analyze Examples (Recommended First Step)
@@ -30,6 +37,7 @@ python yamlforge.py examples/cloud-specific/azure-example.yaml --analyze
 python yamlforge.py examples/cloud-specific/gcp_example.yaml --analyze
 python yamlforge.py examples/cloud-specific/ibm_vpc_example.yaml --analyze
 python yamlforge.py examples/cloud-specific/ibm_classic_example.yaml --analyze
+python yamlforge.py examples/cloud-specific/cnv-example.yaml --analyze
 ```
 
 ### Deploy to Specific Cloud Providers
@@ -40,6 +48,7 @@ python yamlforge.py examples/cloud-specific/azure-example.yaml -d output/ --auto
 python yamlforge.py examples/cloud-specific/gcp_example.yaml -d output/ --auto-deploy
 python yamlforge.py examples/cloud-specific/ibm_vpc_example.yaml -d output/ --auto-deploy
 python yamlforge.py examples/cloud-specific/ibm_classic_example.yaml -d output/ --auto-deploy
+python yamlforge.py examples/cloud-specific/cnv-example.yaml -d output/ --auto-deploy
 ```
 
 ## Provider-Specific Features
@@ -67,6 +76,16 @@ python yamlforge.py examples/cloud-specific/ibm_classic_example.yaml -d output/ 
   - `create_cloud_user`: Boolean to control cloud-user account creation (default: true)
   - `use_existing_resource_group`: Use existing resource group instead of creating new ones
 - **IBM Classic**: Full account access, tagging, classic infrastructure
+
+### CNV (Container Native Virtualization)
+- **Kubernetes**: KubeVirt-based virtual machines
+  - Requires KubeVirt operator installation
+  - Uses `KUBECONFIG` environment variable for cluster access
+- **OpenShift**: CNV-based virtual machines
+  - Requires CNV operator installation
+  - Uses OpenShift cluster credentials
+- **Features**: Container disk images, GPU support, namespace isolation
+- **No cloud provider credentials required** - uses local cluster resources only
 
 ## Configuration Patterns
 

@@ -52,24 +52,27 @@ class AzureProvider:
             'has_credentials': has_credentials
         }
 
-    def get_azure_vm_size(self, size_or_instance_type):
-        """Get Azure VM size from size mapping or return direct instance type."""
-        # If it looks like a direct Azure VM size, return it as-is
-        if any(prefix in size_or_instance_type for prefix in ['Standard_', 'Basic_']):
-            return size_or_instance_type
+    def get_azure_vm_size(self, flavor_or_instance_type):
+        """Get Azure VM size from flavor or instance type."""
+        # If it's already an Azure VM size, return it directly
+        if any(prefix in flavor_or_instance_type for prefix in ['Standard_', 'Basic_']):
+            return flavor_or_instance_type
         
-        # Check for advanced flavor mappings
+        # Load Azure flavors
         azure_flavors = self.converter.flavors.get('azure', {}).get('flavor_mappings', {})
-        size_mapping = azure_flavors.get(size_or_instance_type, {})
-
+        size_mapping = azure_flavors.get(flavor_or_instance_type, {})
+        
         if size_mapping:
-            # Return the first (preferred) VM size for this size
-            vm_size = list(size_mapping.keys())[0]
-            return vm_size
-
-        # No mapping found for this size
-        raise ValueError(f"No Azure VM size mapping found for size '{size_or_instance_type}'. "
-                       f"Available sizes: {list(azure_flavors.keys())}")
+            # Return the first (usually cheapest) option
+            return next(iter(size_mapping.keys()))
+        
+        # Check machine types
+        machine_types = self.converter.flavors.get('azure', {}).get('machine_types', {})
+        if flavor_or_instance_type in machine_types:
+            return flavor_or_instance_type
+        
+        raise ValueError(f"No Azure VM size mapping found for flavor '{flavor_or_instance_type}'. "
+                        f"Available flavors: {list(azure_flavors.keys())}")
 
     def get_azure_image_reference(self, image_name):
         """Get Azure image reference for a given image name."""
@@ -186,7 +189,7 @@ resource "azurerm_network_security_group" "{regional_sg_name}_{self.converter.ge
 '''
         return security_group_config
 
-    def generate_azure_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None, has_guid_placeholder=False):  # noqa: vulture
+    def generate_azure_vm(self, instance, index, clean_name, flavor, available_subnets=None, yaml_data=None, has_guid_placeholder=False):  # noqa: vulture
         """Generate native Azure virtual machine."""
         instance_name = instance.get("name", f"instance_{index}")
         # Replace {guid} placeholder in instance name
@@ -215,7 +218,7 @@ resource "azurerm_network_security_group" "{regional_sg_name}_{self.converter.ge
             # Let Terraform automatically select the best available zone
             azure_zone = None
         
-        azure_vm_size = self.get_azure_vm_size(size)
+        azure_vm_size = self.get_azure_vm_size(flavor)
 
         # Get Azure NSG references with regional awareness
         azure_nsg_refs = []

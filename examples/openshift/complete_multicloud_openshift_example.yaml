@@ -8,46 +8,134 @@ security:
   ssh_keys:
   - name: admin-key
     public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... admin@example.com
+guid: "ocp01"
+
 yamlforge:
+  cloud_workspace:
+    name: "multicloud-openshift-{guid}"
+    description: "Complete multi-cloud OpenShift deployment with supporting infrastructure"
+  
+  # Supporting infrastructure instances
   instances:
-  - name: jumphost-aws
-    provider: aws
-    size: small
-    image: RHEL9-latest
-    region: us-east-1
-    user_data_script: '#!/bin/bash
-
-      yum update -y
-
-      yum install -y curl wget git
-
-      # Install OpenShift CLI
-
-      curl -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz
-      | tar -xz -C /usr/local/bin/
-
-      chmod +x /usr/local/bin/oc
-
-      '
-  - name: database-gcp
-    provider: gcp
-    size: memory_large
-    image: RHEL9-latest
-    region: us-central1
-    zone: us-central1-a
-    user_data_script: '#!/bin/bash
-
-      yum update -y
-
-      yum install -y postgresql-server postgresql-contrib
-
-      postgresql-setup --initdb
-
-      systemctl enable postgresql
-
-      systemctl start postgresql
-
-      '
+    - name: "monitoring-server-{guid}"
+      provider: "aws"
+      flavor: "small"  # Instance flavor (not cluster size)
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      security_groups: ["monitoring-access-{guid}"]
+      tags:
+        role: "monitoring"
+        environment: "production"
+        
+    - name: "backup-server-{guid}"
+      provider: "azure"
+      flavor: "memory_large"  # Instance flavor (not cluster size)
+      image: "RHEL9-latest"
+      region: "eastus"
+      security_groups: ["backup-access-{guid}"]
+      tags:
+        role: "backup"
+        environment: "production"
+        
+    - name: "logging-server-{guid}"
+      provider: "gcp"
+      flavor: "medium"  # Instance flavor (not cluster size)
+      image: "RHEL9-latest"
+      region: "us-central1"
+      security_groups: ["logging-access-{guid}"]
+      tags:
+        role: "logging"
+        environment: "production"
+        
+    - name: "bastion-host-{guid}"
+      provider: "aws"
+      flavor: "small"  # Instance flavor (not cluster size)
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      security_groups: ["bastion-access-{guid}"]
+      tags:
+        role: "bastion"
+        environment: "production"
+        
+    - name: "dns-server-{guid}"
+      provider: "aws"
+      flavor: "small"  # Instance flavor (not cluster size)
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      security_groups: ["dns-access-{guid}"]
+      tags:
+        role: "dns"
+        environment: "production"
+        
+    - name: "load-balancer-{guid}"
+      provider: "aws"
+      flavor: "large"  # Instance flavor (not cluster size)
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      security_groups: ["lb-access-{guid}"]
+      tags:
+        role: "load-balancer"
+        environment: "production"
+        
+    - name: "database-server-{guid}"
+      provider: "aws"
+      flavor: "large"  # Instance flavor (not cluster size)
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      security_groups: ["db-access-{guid}"]
+      tags:
+        role: "database"
+        environment: "production"
+        
+    - name: "cache-server-{guid}"
+      provider: "aws"
+      flavor: "medium"  # Instance flavor (not cluster size)
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      security_groups: ["cache-access-{guid}"]
+      tags:
+        role: "cache"
+        environment: "production"
+        
+    - name: "storage-server-{guid}"
+      provider: "aws"
+      flavor: "large"  # Instance flavor (not cluster size)
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      security_groups: ["storage-access-{guid}"]
+      tags:
+        role: "storage"
+        environment: "production"
+        
+    - name: "analytics-server-{guid}"
+      provider: "aws"
+      flavor: "large"  # Instance flavor (not cluster size)
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      security_groups: ["analytics-access-{guid}"]
+      tags:
+        role: "analytics"
+        environment: "production"
+        
+    - name: "security-server-{guid}"
+      provider: "aws"
+      flavor: "medium"  # Instance flavor (not cluster size)
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      security_groups: ["security-access-{guid}"]
+      tags:
+        role: "security"
+        environment: "production"
+        
+    - name: "compliance-server-{guid}"
+      provider: "aws"
+      flavor: "large"  # Instance flavor (not cluster size)
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      security_groups: ["compliance-access-{guid}"]
+      tags:
+        role: "compliance"
+        environment: "production"
   openshift_clusters:
   - name: prod-us-east
     type: rosa-classic
@@ -136,6 +224,3 @@ yamlforge:
     Owner: platform-team
     CostCenter: engineering
     Deployment: multi-cloud
-  cloud_workspace:
-    name: default-workspace
-    description: Default workspace for this deployment

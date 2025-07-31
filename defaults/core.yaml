@@ -24,6 +24,7 @@ provider_selection:
     - "vmware"        # VMware vSphere (on-premises)
     - "oci"           # Oracle Cloud (often cheapest)
     - "alibaba"       # Alibaba Cloud (competitive in APAC)
+    - "cnv"           # Container Native Virtualization (KubeVirt)
 
 # Cost Analysis Configuration
 cost_analysis:

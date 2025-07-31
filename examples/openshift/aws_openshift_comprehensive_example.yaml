@@ -13,7 +13,7 @@ yamlforge:
   instances:
   - name: openshift-jumphost
     provider: aws
-    size: medium
+    flavor: medium
     image: RHEL9-latest
     region: us-east-1
     availability_zone: us-east-1a
@@ -79,7 +79,7 @@ yamlforge:
       '
   - name: cicd-worker
     provider: aws
-    size: large
+    flavor: large
     image: RHEL9-latest
     region: us-east-1
     availability_zone: us-east-1b

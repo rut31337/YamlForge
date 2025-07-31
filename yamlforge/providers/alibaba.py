@@ -89,29 +89,28 @@ class AlibabaProvider:
 
 
 
-    def get_alibaba_instance_type(self, size_or_instance_type):
-        """Get Alibaba Cloud instance type from size mapping or return direct instance type."""
-        # If it looks like a direct Alibaba instance type, return it as-is
-        if any(prefix in size_or_instance_type for prefix in ['ecs.', 'r6.', 'c6.', 'g6.']):
-            return size_or_instance_type
+    def get_alibaba_instance_type(self, flavor_or_instance_type):
+        """Get Alibaba Cloud instance type from flavor or instance type."""
+        # If it's already an Alibaba instance type, return it directly
+        if any(prefix in flavor_or_instance_type for prefix in ['ecs.', 'r6.', 'c6.', 'g6.']):
+            return flavor_or_instance_type
         
-        # Check for advanced flavor mappings
+        # Load Alibaba flavors
         alibaba_flavors = self.converter.flavors.get('alibaba', {}).get('flavor_mappings', {})
-        size_mapping = alibaba_flavors.get(size_or_instance_type, {})
-
+        size_mapping = alibaba_flavors.get(flavor_or_instance_type, {})
+        
         if size_mapping:
-            # Return the first (preferred) instance type for this size
+            # Return the first (usually cheapest) option
             instance_type = list(size_mapping.keys())[0]
             return instance_type
-
-        # Check direct machine type mapping
+        
+        # Check machine types
         machine_types = self.converter.flavors.get('alibaba', {}).get('machine_types', {})
-        if size_or_instance_type in machine_types:
-            return size_or_instance_type
-
-        # No mapping found for this size
-        raise ValueError(f"No Alibaba Cloud instance type mapping found for size '{size_or_instance_type}'. "
-                       f"Available sizes: {list(alibaba_flavors.keys())}")
+        if flavor_or_instance_type in machine_types:
+            return flavor_or_instance_type
+        
+        raise ValueError(f"No Alibaba Cloud instance type mapping found for flavor '{flavor_or_instance_type}'. "
+                        f"Available flavors: {list(alibaba_flavors.keys())}")
 
     def get_alibaba_image_reference(self, image_name):
         """Get Alibaba Cloud image reference from image mapping or direct reference."""
@@ -136,7 +135,7 @@ class AlibabaProvider:
         # Default fallback
         return "aliyun_3_x64_20G_alibase_20230727.vhd"
 
-    def generate_alibaba_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None, has_guid_placeholder=False):  # noqa: vulture
+    def generate_alibaba_vm(self, instance, index, clean_name, flavor, available_subnets=None, yaml_data=None, has_guid_placeholder=False):  # noqa: vulture
         """Generate native Alibaba Cloud ECS instance."""
         instance_name = instance.get("name", f"instance_{index}")
         # Replace {guid} placeholder in instance name
@@ -169,7 +168,7 @@ class AlibabaProvider:
             availability_zone = f"{alibaba_region}a"  # Alibaba requires explicit zone, use first available
 
         # Get instance type
-        alibaba_instance_type = self.get_alibaba_instance_type(size)
+        alibaba_instance_type = self.get_alibaba_instance_type(flavor)
 
         # Get image reference
         alibaba_image = self.get_alibaba_image_reference(image)

@@ -105,8 +105,8 @@ yamlforge:
     # Web server with basic security group
     - name: "web-server-{guid}"
       provider: "aws"
-      size: "small"
       region: "us-east-1"
+      flavor: "small"
       image: "RHEL9-latest"
       security_groups: ["web-sg-{guid}"]
       tags:
@@ -115,9 +115,9 @@ yamlforge:
     
     # Application server with port ranges
     - name: "app-server-{guid}"
-      provider: "azure"
-      size: "medium"
-      region: "eastus"
+      provider: "aws"
+      region: "us-east-1"
+      flavor: "medium"
       image: "RHEL9-latest"
       security_groups: ["app-sg-{guid}"]
       tags:
@@ -126,9 +126,9 @@ yamlforge:
     
     # Database server with restricted access
     - name: "db-server-{guid}"
-      provider: "gcp"
-      size: "medium"
-      region: "us-central1"
+      provider: "aws"
+      region: "us-east-1"
+      flavor: "medium"
       image: "RHEL9-latest"
       security_groups: ["db-sg-{guid}"]
       tags:
@@ -136,10 +136,10 @@ yamlforge:
         environment: "production"
     
     # Monitoring server with ICMP
-    - name: "monitoring-server-{guid}"
-      provider: "ibm_vpc"
-      size: "small"
-      region: "us-south"
+    - name: "monitoring-{guid}"
+      provider: "aws"
+      region: "us-east-1"
+      flavor: "small"
       image: "RHEL9-latest"
       security_groups: ["monitoring-sg-{guid}"]
       tags:

@@ -12,7 +12,7 @@ yamlforge:
   instances:
   - name: jumphost
     provider: gcp
-    size: small
+    flavor: small
     image: RHEL9-latest
     region: us-central1
     zone: us-central1-a
@@ -24,7 +24,7 @@ yamlforge:
       \ gcloud CLI\ncurl https://sdk.cloud.google.com | bash\nexec -l $SHELL\n"
   - name: database
     provider: gcp
-    size: memory_large
+    flavor: memory_large
     image: RHEL9-latest
     region: us-central1
     zone: us-central1-b
@@ -85,5 +85,5 @@ yamlforge:
     CostCenter: engineering
     Cloud: gcp
   cloud_workspace:
-    name: default-workspace
+    name: "gcp-openshift-{guid}"
     description: Default workspace for this deployment

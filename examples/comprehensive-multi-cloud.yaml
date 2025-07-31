@@ -1,5 +1,9 @@
+guid: "comp1"
+
 yamlforge:
-  guid: "comp1"
+  cloud_workspace:
+    name: "comprehensive-demo-{guid}"
+    description: "Comprehensive multi-cloud deployment demonstration"
 
   # Global configurations
   aws:
@@ -28,11 +32,95 @@ yamlforge:
   # Security groups
   security_groups:
     - name: "demo-sg-{guid}"
+      description: "Demo security group for SSH access"
       rules:
-        - protocol: "tcp"
+        - direction: "ingress"
+          protocol: "tcp"
           port_range: "22"
           source: "0.0.0.0/0"
           description: "SSH access"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "80"
+          source: "0.0.0.0/0"
+          description: "HTTP access"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "443"
+          source: "0.0.0.0/0"
+          description: "HTTPS access"
+
+    - name: "web-access-{guid}"
+      description: "Web tier security group"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "80"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "443"
+          source: "0.0.0.0/0"
+
+    - name: "app-access-{guid}"
+      description: "Application tier security group"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "8080"
+          source: "0.0.0.0/0"
+
+    - name: "db-access-{guid}"
+      description: "Database tier security group"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "3306"
+          source: "10.0.0.0/8"
+
+    - name: "monitoring-access-{guid}"
+      description: "Monitoring tier security group"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "9090"
+          source: "0.0.0.0/0"
+
+    - name: "backup-access-{guid}"
+      description: "Backup tier security group"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+
+    - name: "legacy-access-{guid}"
+      description: "Legacy systems security group"
+      rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "22"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "8080"
+          source: "0.0.0.0/0"
 
   # OpenShift Clusters
   rosa_classic_clusters:
@@ -44,7 +132,7 @@ yamlforge:
 
   aro_clusters:
     - name: "aro-{guid}"
-      location: "us-east-1"
+      location: "eastus"
       version: "4.15"
       worker_count: 3
       worker_machine_type: "Standard_D4s_v3"
@@ -71,40 +159,47 @@ yamlforge:
   # Instances
   instances:
     # Direct provider instances
-    - name: "aws-vm-{guid}"
+    - name: "web-aws-{guid}"
       provider: "aws"
       region: "us-east-1"
-      size: "large"
+      flavor: "large"
       image: "RHEL9-latest"
-      security_groups: ["demo-sg-{guid}"]
+      security_groups: ["web-access-{guid}"]
 
-    - name: "azure-vm-{guid}"
+    - name: "app-azure-{guid}"
       provider: "azure"
-      location: "us-east-1"
-      size: "large"
+      region: "eastus"
+      flavor: "large"
       image: "RHEL9-latest"
-      security_groups: ["demo-sg-{guid}"]
+      security_groups: ["app-access-{guid}"]
 
-    - name: "gcp-vm-{guid}"
+    - name: "db-gcp-{guid}"
       provider: "gcp"
       region: "us-central1"
-      size: "large"
+      flavor: "large"
       image: "RHEL9-latest"
-      security_groups: ["demo-sg-{guid}"]
+      security_groups: ["db-access-{guid}"]
 
-    - name: "ibm-classic-vm-{guid}"
-      provider: "ibm_classic"
-      region: "us-east"
-      size: "large"
+    - name: "monitoring-oci-{guid}"
+      provider: "oci"
+      region: "us-ashburn-1"
+      flavor: "large"
       image: "RHEL9-latest"
-      security_groups: ["demo-sg-{guid}"]
+      security_groups: ["monitoring-access-{guid}"]
 
-    - name: "ibm-vpc-vm-{guid}"
+    - name: "backup-ibm-{guid}"
       provider: "ibm_vpc"
-      region: "us-east"
-      size: "large"
+      region: "us-south"
+      flavor: "large"
       image: "RHEL9-latest"
-      security_groups: ["demo-sg-{guid}"]
+      security_groups: ["backup-access-{guid}"]
+
+    - name: "legacy-vmware-{guid}"
+      provider: "vmware"
+      region: "us-east"
+      flavor: "large"
+      image: "RHEL9-latest"
+      security_groups: ["legacy-access-{guid}"]
 
     # Meta provider instances
     - name: "cheapest-vm-{guid}"
@@ -120,7 +215,13 @@ yamlforge:
       provider: "cheapest-gpu"
       cores: 4
       memory: 8192
-      gpus: 1
+      gpu_count: 1
       gpu_type: "t4"
       image: "RHEL9-latest"
-      security_groups: ["demo-sg-{guid}"] 
+      security_groups: ["demo-sg-{guid}"]
+
+  tags:
+    project: "comprehensive-demo"
+    managed_by: "yamlforge"
+    environment: "development"
+    cost_center: "engineering"

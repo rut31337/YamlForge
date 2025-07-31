@@ -177,16 +177,44 @@ class AROProvider(BaseOpenShiftProvider):
         master_vm_size = size_config['master_size']
         worker_vm_size = size_config['worker_size']
         
-        # Map our size names to Azure VM sizes
-        vm_size_mapping = {
-            'small': 'Standard_D4s_v3',
-            'medium': 'Standard_D8s_v3', 
-            'large': 'Standard_D16s_v3',
-            'xlarge': 'Standard_D32s_v3'
-        }
-        
-        master_azure_size = vm_size_mapping.get(master_vm_size, 'Standard_D8s_v3')
-        worker_azure_size = vm_size_mapping.get(worker_vm_size, 'Standard_D4s_v3')
+        # Load ARO flavor mappings from YAML file
+        try:
+            import yaml
+            from pathlib import Path
+            
+            aro_flavors_path = Path("mappings/flavors/aro.yaml")
+            if aro_flavors_path.exists():
+                with open(aro_flavors_path, 'r') as f:
+                    aro_flavors = yaml.safe_load(f)
+                    flavor_mappings = aro_flavors.get('flavor_mappings', {})
+                    
+                    # Find the appropriate size configuration
+                    size_found = False
+                    for size_name, size_configs in flavor_mappings.items():
+                        if size_name in [master_vm_size, worker_vm_size]:
+                            # Get the first (and usually only) config for this size
+                            if size_configs:
+                                flavor_name = next(iter(size_configs.keys()))
+                                flavor_config = size_configs[flavor_name]
+                                
+                                if size_name == master_vm_size:
+                                    master_azure_size = flavor_config.get('master_size', 'Standard_D8s_v3')
+                                if size_name == worker_vm_size:
+                                    worker_azure_size = flavor_config.get('worker_size', 'Standard_D4s_v3')
+                                size_found = True
+                    
+                    if not size_found:
+                        # Fallback to default sizes if not found in mappings
+                        master_azure_size = 'Standard_D8s_v3'
+                        worker_azure_size = 'Standard_D4s_v3'
+                        print(f"Warning: ARO size configuration not found in mappings, using defaults")
+            else:
+                raise ValueError("ARO flavors file not found: mappings/flavors/aro.yaml")
+        except Exception as e:
+            # Fallback to default sizes if YAML loading fails
+            master_azure_size = 'Standard_D8s_v3'
+            worker_azure_size = 'Standard_D4s_v3'
+            print(f"Warning: Could not load ARO flavors from YAML: {e}, using defaults")
         
         # Security and networking configuration
         private_cluster = cluster_config.get('private', False)

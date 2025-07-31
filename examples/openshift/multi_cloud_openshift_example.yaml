@@ -12,7 +12,7 @@ yamlforge:
   instances:
   - name: jumphost
     provider: aws
-    size: small
+    flavor: small
     image: RHEL9-latest
     region: us-east-1
     user_data_script: '#!/bin/bash
@@ -37,7 +37,7 @@ yamlforge:
       '
   - name: database
     provider: cheapest
-    size: memory_large
+    flavor: memory_large
     image: RHEL9-latest
     region: us-east-1
     user_data_script: '#!/bin/bash
@@ -97,5 +97,5 @@ yamlforge:
     Owner: platform-team
     CostCenter: engineering
   cloud_workspace:
-    name: default-workspace
+    name: "multi-cloud-openshift-{guid}"
     description: Default workspace for this deployment

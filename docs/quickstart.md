@@ -46,8 +46,9 @@ export ARM_TENANT_ID=YOUR_AZURE_TENANT_ID
 # SSH Public Key (for instance access)
 export SSH_PUBLIC_KEY="ssh-rsa YOUR_PUBLIC_KEY_HERE your-email@example.com"
 
-# Red Hat OpenShift Token (required for ROSA/OpenShift deployments)
+# Red Hat OpenShift Token (for ROSA/ARO)
 export REDHAT_OPENSHIFT_TOKEN=YOUR_REDHAT_TOKEN
+export OCP_PULL_SECRET='{"auths":{"fake":{"auth":"fake"}}}'  # Optional but recommended
 
 # Add other cloud credentials as needed...
 EOF
@@ -150,13 +151,13 @@ yamlforge:
   instances:
     - name: "web-aws"
       provider: "aws"
-      size: "medium"
+      flavor: "medium"
       image: "RHEL9-latest"
       region: "us-east-1"
       
     - name: "web-azure"
       provider: "azure"
-      size: "medium"
+      flavor: "medium"
       image: "RHEL9-latest"
       region: "eastus"
 ```
@@ -174,12 +175,12 @@ yamlforge:
   instances:
     - name: "api-server"
       provider: "cheapest"    # Automatically finds lowest cost
-      size: "large"
+      flavor: "large"
       image: "RHEL9-latest"
       
     - name: "worker-nodes"
       provider: "cheapest"
-      size: "medium"
+      flavor: "medium"
       image: "RHEL9-latest"
 ```
 
@@ -201,7 +202,7 @@ yamlforge:
   instances:
     - name: "gcp-server"
       provider: "gcp"
-      size: "medium"
+      flavor: "medium"
       image: "RHEL9-latest"
       region: "us-central1"
 ```
@@ -219,132 +220,13 @@ yamlforge:
   instances:
     - name: "web-eastus"
       provider: "azure"
-      size: "medium"
+      flavor: "medium"
       image: "RHEL9-latest"
       region: "eastus"
     
     - name: "web-westus"
       provider: "azure"
-      size: "medium"
+      flavor: "medium"
       image: "RHEL9-latest"
       region: "westus2"  # Creates separate resource group automatically
 ```
-
-### Azure Shared Subscription Setup
-
-**Note:** This model is for Azure VMs only. ARO clusters require full subscription access.
-
-```yaml
-guid: "azu01"
-
-yamlforge:
-  cloud_workspace:
-    name: "shared-subscription-deployment"
-    description: "Deployment using existing Azure resource group (VMs only, not ARO)"
-  
-  # Use existing Azure resource group in shared subscription
-  azure:
-    use_existing_resource_group: true
-    existing_resource_group_name: "rg-shared-dev-001"
-    existing_resource_group_location: "eastus"
-
-  instances:
-    - name: "azure-server"
-      provider: "azure"
-      size: "medium"
-      image: "RHEL9-latest"
-      region: "eastus"
-  
-  # NOTE: ARO clusters not supported with shared resource groups
-  # For ARO, use the "Azure Full Subscription Setup" instead
-```
-
-### OpenShift Setup
-
-```yaml
-guid: "ocp01"
-
-yamlforge:
-  cloud_workspace:
-    name: "production-openshift"
-    description: "Production OpenShift cluster deployment"
-
-  openshift_clusters:
-    - name: "prod-cluster"
-      type: "rosa-classic"
-      region: "us-east-1"
-      version: "latest"
-      size: "medium"
-      worker_count: 3
-
-  openshift_applications:
-    - name: "web-app"
-      target_cluster: "prod-cluster"
-      namespace: "production"
-      deployment:
-        replicas: 2
-        containers:
-          - name: "web"
-            image: "nginx:1.21"
-            ports: [80]
-```
-
-## What Gets Generated
-
-YamlForge creates:
-
-- **`main.tf`** - Terraform resources (providers, networking, instances)
-- **`variables.tf`** - Variable definitions with descriptions
-- **`terraform.tfvars`** - Example variable values
-
-## Common Patterns
-
-### 1. Development Environment
-```yaml
-guid: "dev01"
-instances:
-  - name: "dev-server"
-    provider: "aws"
-    size: "small"
-    image: "RHEL9-latest"
-```
-
-### 2. Production Environment
-```yaml
-guid: "prod1"
-instances:
-  - name: "web-tier"
-    provider: "aws"
-    size: "large"
-    count: 3
-    image: "RHEL9-latest"
-    
-  - name: "db-tier"
-    provider: "aws"
-    size: "xlarge"
-    image: "RHEL9-latest"
-```
-
-### 3. GPU Workload
-```yaml
-guid: "gpu01"
-instances:
-  - name: "ml-training"
-    provider: "cheapest-gpu"
-    size: "gpu_large"
-    gpu_count: 1
-    gpu_type: "NVIDIA T4"
-```
-
-## Next Steps
-
-- [GUID Configuration](guid-configuration.md) - Understand GUID requirements
-- [Examples Gallery](examples.md) - Explore more examples
-- [Multi-Cloud Support](features/multi-cloud.md) - Deep dive into multi-cloud
-- [Cost Optimization](features/cost-optimization.md) - Save money with smart selection
-
-## Need Help?
-
-- Check [Troubleshooting](troubleshooting.md)
-- Explore the [Examples Directory](../examples/)
-- Review [Configuration Guides](configuration/) 

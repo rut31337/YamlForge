@@ -22,6 +22,32 @@
     "yamlforge": {
       "type": "object",
       "description": "Main configuration wrapper (required)",
+      "required": [
+        "cloud_workspace"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "instances"
+                  ]
+                },
+                {
+                  "required": [
+                    "openshift_clusters"
+                  ]
+                }
+              ]
+            }
+          },
+          "then": {
+            "errorMessage": "Either 'instances' or 'openshift_clusters' (or both) must be specified in yamlforge configuration"
+          }
+        }
+      ],
       "properties": {
         "cloud_workspace": {
           "$ref": "#/definitions/cloud_workspace"
@@ -37,6 +63,9 @@
         },
         "ibm_classic": {
           "$ref": "#/definitions/ibm_classic_config"
+        },
+        "cnv": {
+          "$ref": "#/definitions/cnv_config"
         },
         "instances": {
           "$ref": "#/definitions/instances"
@@ -66,10 +95,13 @@
     "cloud_workspace": {
       "type": "object",
       "description": "Workspace configuration for organization",
+      "required": [
+        "name"
+      ],
       "properties": {
         "name": {
           "type": "string",
-          "description": "Workspace name for organization"
+          "description": "Workspace name for organization (required for all YamlForge configurations)"
         },
         "description": {
           "type": "string",
@@ -88,140 +120,190 @@
       "type": "array",
       "description": "Array of cloud instances to deploy",
       "items": {
-        "type": "object",
-        "required": [
-          "name",
-          "provider"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "Unique name for the instance"
-          },
-          "provider": {
-            "type": "string",
-            "enum": [
-              "aws",
-              "azure",
-              "gcp",
-              "oci",
-              "ibm_vpc",
-              "ibm_classic",
-              "vmware",
-              "alibaba",
-              "cheapest",
-              "cheapest-gpu"
-            ],
-            "description": "Cloud provider, 'cheapest' for automatic cost optimization, or 'cheapest-gpu' for GPU workload optimization"
-          },
-          "region": {
-            "type": "string",
-            "description": "Cloud region (e.g., us-east-1, eastus, us-central1)"
-          },
-          "zone": {
-            "type": "string",
-            "description": "Cloud zone/availability zone (e.g., us-east-1a, eastus-1, us-central1-a)"
-          },
-          "size": {
-            "type": "string",
-            "enum": [
-              "nano",
-              "micro",
-              "small",
-              "medium",
-              "large",
-              "xlarge",
-              "2xlarge",
-              "gpu_small",
-              "gpu_medium",
-              "gpu_large",
-              "compute_large",
-              "memory_large"
-            ],
-            "description": "Instance size category"
-          },
-          "flavor": {
-            "type": "string",
-            "description": "Cloud-specific instance type (e.g., t3.medium, Standard_D4s_v3)"
-          },
-          "image": {
-            "type": "string",
-            "description": "Operating system image (e.g., RHEL9-latest, RHEL9-GOLD-latest, Ubuntu22-latest)",
-            "default": "RHEL9-latest"
-          },
-          "cores": {
-            "type": "integer",
-            "minimum": 1,
-            "description": "Number of CPU cores (alternative to size)"
-          },
-          "memory": {
-            "type": "integer",
-            "minimum": 512,
-            "description": "Memory in MB (alternative to size)"
-          },
-          "gpu_type": {
-            "type": "string",
-            "enum": [
-              "NVIDIA T4",
-              "NVIDIA V100",
-              "NVIDIA A100",
-              "NVIDIA L4",
-              "NVIDIA L40S",
-              "NVIDIA K80",
-              "AMD RADEON PRO V520"
-            ],
-            "description": "GPU type for AI/ML workloads"
-          },
-          "gpu_count": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 8,
-            "description": "Number of GPUs"
-          },
-          "ssh_key": {
-            "type": "string",
-            "description": "SSH public key for access"
-          },
-          "security_groups": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Security group names"
-          },
-          "tags": {
+        "allOf": [
+          {
             "type": "object",
-            "description": "Key-value tags for resource organization",
-            "additionalProperties": {
-              "type": "string"
+            "required": [
+              "name",
+              "provider"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Unique name for the instance"
+              },
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "aws",
+                  "azure",
+                  "gcp",
+                  "oci",
+                  "ibm_vpc",
+                  "ibm_classic",
+                  "vmware",
+                  "alibaba",
+                  "cheapest",
+                  "cheapest-gpu",
+                  "cnv"
+                ],
+                "description": "Cloud provider, 'cheapest' for automatic cost optimization, 'cheapest-gpu' for GPU workload optimization, or 'cnv' for Container Native Virtualization"
+              },
+              "region": {
+                "type": "string",
+                "description": "Cloud region (e.g., us-east-1, eastus, us-central1). Not required for CNV provider."
+              },
+              "location": {
+                "type": "string",
+                "description": "Universal location mapping (e.g., us-east, eu-west). Not required for CNV provider."
+              },
+              "zone": {
+                "type": "string",
+                "description": "Cloud zone/availability zone (e.g., us-east-1a, eastus-1, us-central1-a)"
+              },
+              "flavor": {
+                "type": "string",
+                "description": "Instance flavor/size. Can be generic (small, medium, large, xlarge) or provider-specific (t3.medium, Standard_D4s_v3, n1-standard-4). CNV supports: small, medium, large, xlarge, gpu-small, gpu-large, memory-optimized, storage-optimized, network-optimized"
+              },
+              "image": {
+                "type": "string",
+                "description": "Operating system image (e.g., RHEL9-latest, RHEL9-GOLD-latest, Ubuntu22-latest). For CNV, use container disk images (e.g., kubevirt/fedora-cloud-container-disk-demo:latest)",
+                "default": "RHEL9-latest"
+              },
+              "cores": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Number of CPU cores (alternative to flavor)"
+              },
+              "memory": {
+                "type": "integer",
+                "minimum": 512,
+                "description": "Memory in MB (alternative to flavor)"
+              },
+              "gpu_type": {
+                "type": "string",
+                "enum": [
+                  "NVIDIA T4",
+                  "NVIDIA V100",
+                  "NVIDIA A100",
+                  "NVIDIA L4",
+                  "NVIDIA L40S",
+                  "NVIDIA K80",
+                  "AMD RADEON PRO V520"
+                ],
+                "description": "GPU type for AI/ML workloads"
+              },
+              "gpu_count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8,
+                "description": "Number of GPUs"
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100,
+                "default": 1,
+                "description": "Number of identical instances to create (default: 1)"
+              },
+              "ssh_key": {
+                "type": "string",
+                "description": "SSH public key for access"
+              },
+              "security_groups": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Security group names"
+              },
+              "tags": {
+                "type": "object",
+                "description": "Key-value tags for resource organization",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "exclude_providers": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "aws",
+                    "azure",
+                    "gcp",
+                    "oci",
+                    "ibm_vpc",
+                    "ibm_classic",
+                    "vmware",
+                    "alibaba"
+                  ]
+                },
+                "description": "Override global provider exclusions for this specific instance (only applies to 'cheapest' and 'cheapest-gpu' providers)"
+              },
+              "domain": {
+                "type": "string",
+                "description": "Domain name override for the instance (overrides global domain setting for IBM Classic and VMware)"
+              },
+              "user_data_script": {
+                "type": "string",
+                "description": "Cloud-init user data script for instance initialization"
+              }
             }
           },
-          "exclude_providers": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "aws",
-                "azure",
-                "gcp",
-                "oci",
-                "ibm_vpc",
-                "ibm_classic",
-                "vmware",
-                "alibaba"
-              ]
+          {
+            "if": {
+              "properties": {
+                "provider": {
+                  "not": {
+                    "enum": [
+                      "cnv"
+                    ]
+                  }
+                }
+              }
             },
-            "description": "Override global provider exclusions for this specific instance (only applies to 'cheapest' and 'cheapest-gpu' providers)"
+            "then": {
+              "anyOf": [
+                {
+                  "required": [
+                    "region"
+                  ]
+                },
+                {
+                  "required": [
+                    "location"
+                  ]
+                }
+              ],
+              "errorMessage": "Either 'region' or 'location' is required for non-CNV providers"
+            }
           },
-          "domain": {
-            "type": "string",
-            "description": "Domain name override for the instance (overrides global domain setting for IBM Classic and VMware)"
-          },
-          "user_data_script": {
-            "type": "string",
-            "description": "Cloud-init user data script for instance initialization"
+          {
+            "oneOf": [
+              {
+                "required": [
+                  "flavor"
+                ]
+              },
+              {
+                "allOf": [
+                  {
+                    "required": [
+                      "cores"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "memory"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "errorMessage": "Specify either 'flavor' OR both 'cores' and 'memory', but not multiple options"
           }
-        }
+        ]
       }
     },
     "openshift_clusters": {
@@ -621,6 +703,27 @@
           "type": "string",
           "description": "Domain name for VMware instances (e.g., local, company.local)",
           "default": "local"
+        }
+      }
+    },
+    "cnv_config": {
+      "type": "object",
+      "description": "CNV (Container Native Virtualization) configuration options",
+      "properties": {
+        "datavolume_namespace": {
+          "type": "string",
+          "description": "Namespace containing DataVolumes for CNV images (defaults to 'cnv-images')",
+          "default": "cnv-images"
+        },
+        "validate_operator": {
+          "type": "boolean",
+          "description": "Validate that CNV/KubeVirt operator is installed and working",
+          "default": true
+        },
+        "discover_images": {
+          "type": "boolean",
+          "description": "Dynamically discover available images from DataVolumes in the cluster",
+          "default": true
         }
       }
     }

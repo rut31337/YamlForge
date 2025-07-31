@@ -29,7 +29,7 @@ yamlforge:
   instances:
     - name: "web-server-{guid}"
       provider: "gcp"
-      size: "medium"
+      flavor: "medium"
       region: "us-central1"
       image: "RHEL9-latest"
       security_groups: ["web-sg-{guid}"]

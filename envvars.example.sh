@@ -26,7 +26,6 @@ export SSH_PUBLIC_KEY="ssh-rsa YOUR_PUBLIC_KEY_HERE your-email@example.com"
 # AWS Credentials (required for AWS deployments and ROSA clusters)
 export AWS_ACCESS_KEY_ID=YOUR_AWS_ACCESS_KEY
 export AWS_SECRET_ACCESS_KEY=YOUR_AWS_SECRET_KEY
-export AWS_DEFAULT_REGION=us-east-1
 
 # AWS Billing Account (optional - for ROSA HCP clusters)
 # If not set, defaults to the current AWS account ID
@@ -93,24 +92,6 @@ export IBMCLOUD_API_KEY=YOUR_IBM_CLOUD_API_KEY
 # IBM Cloud Account ID (required for Classic, optional for VPC)
 export IBMCLOUD_ACCOUNT_ID=YOUR_IBM_CLOUD_ACCOUNT_ID
 
-# IBM Cloud VPC Configuration (following Azure pattern exactly)
-# These are fallbacks - YAML takes precedence
-export IBMCLOUD_VPC_USE_EXISTING_RESOURCE_GROUP=false
-export IBMCLOUD_VPC_RESOURCE_GROUP_NAME=""
-
-# IBM Cloud Classic Configuration (always full account access)
-export IBMCLOUD_CLASSIC_DATACENTER=dal10
-export IBMCLOUD_CLASSIC_DOMAIN=example.com
-
-# IBM Cloud API Key (required for IBM Cloud deployments)
-export IBM_CLOUD_REGION=us-south
-
-# Available IBM Cloud Regions:
-# - us-south (Dallas), us-east (Washington DC), ca-tor (Toronto)
-# - eu-gb (London), eu-de (Frankfurt)
-# - jp-tok (Tokyo), jp-osa (Osaka), au-syd (Sydney)
-# - br-sao (São Paulo)
-
 # For CLI compatability
 export IC_API_KEY=$IBMCLOUD_API_KEY
 
@@ -118,16 +99,19 @@ export IC_API_KEY=$IBMCLOUD_API_KEY
 # RED HAT OPENSHIFT CREDENTIALS
 # =============================================================================
 
-# Red Hat OpenShift Cluster Manager API (required for ROSA/Managed OpenShift)
-# Get from: https://console.redhat.com/openshift/token
+# RED HAT OPENSHIFT TOKEN (Required for ROSA, ARO, and OpenShift operations)
+# Get your token from: https://console.redhat.com/openshift/token/rosa
 export REDHAT_OPENSHIFT_TOKEN=YOUR_REDHAT_TOKEN
-export OCM_TOKEN="$REDHAT_OPENSHIFT_TOKEN"
-export ROSA_TOKEN="$REDHAT_OPENSHIFT_TOKEN"
-export REDHAT_OPENSHIFT_URL="https://api.openshift.com"
+export REDHAT_OPENSHIFT_API_URL="https://api.openshift.com"
+
+# RED HAT PULL SECRET (Optional but recommended for OpenShift clusters)
+# Get your pull secret from: https://console.redhat.com/openshift/install/pull-secret
+# This enables access to Red Hat container registries and additional content
+export OCP_PULL_SECRET='{"auths":{"fake":{"auth":"fake"}}}'
 
 # OpenShift Cluster Connection (for existing cluster management)
 # export OPENSHIFT_CLUSTER_URL="https://api.cluster.example.com:6443"
-# export OPENSHIFT_TOKEN="your_openshift_token"
+# export OPENSHIFT_CLUSTER_TOKEN="your_openshift_token"
 # export OPENSHIFT_USERNAME="your_username"
 # export OPENSHIFT_PASSWORD="your_password"
 # export OPENSHIFT_NAMESPACE="default"
@@ -152,11 +136,6 @@ export TF_VAR_user_ocid="$OCI_USER_OCID"
 export TF_VAR_fingerprint="$OCI_FINGERPRINT"
 export TF_VAR_private_key_path=~/.oci/oci_api_key.pem
 
-# Available OCI Regions:
-# - us-ashburn-1, us-phoenix-1, ca-toronto-1, ca-montreal-1
-# - eu-frankfurt-1, eu-zurich-1, uk-london-1
-# - ap-tokyo-1, ap-osaka-1, ap-sydney-1, ap-melbourne-1
-
 # =============================================================================
 # VMWARE VSPHERE CREDENTIALS
 # =============================================================================
@@ -180,10 +159,55 @@ export ALICLOUD_ACCESS_KEY=YOUR_ALIBABA_ACCESS_KEY
 export ALICLOUD_SECRET_KEY=YOUR_ALIBABA_SECRET_KEY
 export ALICLOUD_REGION=us-east-1
 
-# Available Alibaba Cloud Regions:
-# - us-east-1 (Virginia), us-west-1 (Silicon Valley)
-# - cn-hangzhou (Hangzhou), cn-shanghai (Shanghai), cn-beijing (Beijing)
-# - ap-southeast-1 (Singapore), eu-central-1 (Frankfurt)
+# =============================================================================
+# CONTAINER NATIVE VIRTUALIZATION (CNV) CREDENTIALS
+# =============================================================================
+
+# CNV Provider supports both Kubernetes (KubeVirt) and OpenShift (CNV) deployments
+# Choose the appropriate credentials based on your target cluster type
+
+# Option 1: Kubernetes Cluster Access (for KubeVirt deployment)
+# Standard kubeconfig file for Kubernetes cluster access
+export KUBECONFIG="~/.kube/config"
+# OR specify a specific kubeconfig file
+# export KUBECONFIG="~/.kube/my-cluster-config"
+
+# Alternative: Direct Kubernetes cluster credentials
+# export KUBERNETES_HOST="https://api.my-cluster.com:6443"
+# export KUBERNETES_TOKEN="your-kubernetes-token"
+# export KUBERNETES_CA_CERT="$(cat ~/.kube/ca.crt)"
+
+# Option 2: OpenShift Cluster Access (for CNV deployment)
+# OpenShift cluster connection credentials (REQUIRED for CNV deployments)
+export OPENSHIFT_CLUSTER_URL="https://api.cluster.example.com:6443"
+export OPENSHIFT_CLUSTER_TOKEN="your_openshift_token"
+
+# Optional: OpenShift cluster CA certificate (for production clusters)
+# export OPENSHIFT_CLUSTER_CA_CERT="$(cat ~/.kube/ca.crt | base64 -w 0)"
+
+# Legacy OpenShift credentials (not used by CNV provider)
+# export OPENSHIFT_USERNAME="your_username"
+# export OPENSHIFT_PASSWORD="your_password"
+# export OPENSHIFT_NAMESPACE="default"
+
+# Alternative: Kubeconfig for OpenShift cluster (legacy method)
+# export OPENSHIFT_KUBECONFIG="$(cat ~/.kube/config)"
+
+# Note: CNV provider now uses direct Kubernetes API access with environment variables
+# for validation and deployment, making it more reliable than kubeconfig files.
+
+# Option 3: Red Hat Managed OpenShift Clusters (for ROSA/OCP)
+# These are already defined in the OpenShift section above
+# export REDHAT_OPENSHIFT_TOKEN=YOUR_REDHAT_TOKEN
+
+# CNV Provider Notes:
+# - CNV requires KubeVirt operator to be installed on Kubernetes clusters
+# - CNV requires CNV operator to be installed on OpenShift clusters
+# - The provider automatically validates operator installation using Kubernetes API
+# - Uses OPENSHIFT_CLUSTER_URL and OPENSHIFT_CLUSTER_TOKEN for authentication
+# - No cloud provider credentials (AWS/Azure/GCP) are required for CNV
+# - CNV deployments use local cluster resources only
+# - For production clusters, set OPENSHIFT_CLUSTER_CA_CERT for SSL verification
 
 # =============================================================================
 # CERT-MANAGER / TLS CERTIFICATE CREDENTIALS
@@ -211,11 +235,14 @@ providers=()
 [[ -n "$AWS_ACCESS_KEY_ID" ]] && providers+=("AWS")
 [[ -n "$ARM_CLIENT_ID" ]] && providers+=("Azure") 
 [[ -n "$GCP_SERVICE_ACCOUNT_KEY" ]] && providers+=("GCP")
-[[ -n "$IBM_CLOUD_API_KEY" ]] && providers+=("IBM Cloud")
+[[ -n "$IBMCLOUD_API_KEY" ]] && providers+=("IBM Cloud")
 [[ -n "$OCI_USER_OCID" ]] && providers+=("OCI")
 [[ -n "$VSPHERE_USER" ]] && providers+=("VMware")
 [[ -n "$ALICLOUD_ACCESS_KEY" ]] && providers+=("Alibaba Cloud")
 [[ -n "$REDHAT_OPENSHIFT_TOKEN" ]] && providers+=("OpenShift")
+[[ -n "$OCP_PULL_SECRET" ]] && providers+=("OpenShift Pull Secret")
+[[ -n "$KUBECONFIG" ]] && providers+=("CNV (Kubernetes)")
+[[ -n "$OPENSHIFT_CLUSTER_URL" && -n "$OPENSHIFT_CLUSTER_TOKEN" ]] && providers+=("CNV (OpenShift)")
 
 if [ ${#providers[@]} -gt 0 ]; then
     echo " Configured providers: $(IFS=', '; echo "${providers[*]}")"

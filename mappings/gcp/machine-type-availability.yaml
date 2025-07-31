@@ -1,0 +1,109 @@
+# GCP Machine Type Availability Patterns
+# Regional availability for different machine types
+
+gpu_machine_types:
+  # T4 GPU machine types
+  n1-standard-4-t4:
+    regions:
+      - "us-east1"
+      - "us-east4"
+      - "us-west1"
+      - "us-west2"
+    description: "4 vCPU, T4 GPU machine type"
+  
+  n1-standard-8-t4:
+    regions:
+      - "us-east1"
+      - "us-east4"
+      - "us-west1"
+      - "us-west2"
+    description: "8 vCPU, T4 GPU machine type"
+  
+  n1-standard-16-t4:
+    regions:
+      - "us-east1"
+      - "us-east4"
+      - "us-west1"
+      - "us-west2"
+    description: "16 vCPU, T4 GPU machine type"
+  
+  # P4 GPU machine types
+  n1-standard-4-p4:
+    regions:
+      - "us-central1"
+      - "us-east4"
+    description: "4 vCPU, P4 GPU machine type"
+  
+  n1-standard-8-p4:
+    regions:
+      - "us-central1"
+      - "us-east4"
+    description: "8 vCPU, P4 GPU machine type"
+  
+  n1-standard-16-p4:
+    regions:
+      - "us-central1"
+      - "us-east4"
+    description: "16 vCPU, P4 GPU machine type"
+  
+  # V100 GPU machine types
+  n1-standard-4-v100:
+    regions:
+      - "us-west1"
+    description: "4 vCPU, V100 GPU machine type"
+  
+  n1-standard-8-v100:
+    regions:
+      - "us-west1"
+    description: "8 vCPU, V100 GPU machine type"
+  
+  n1-standard-16-v100:
+    regions:
+      - "us-west1"
+    description: "16 vCPU, V100 GPU machine type"
+
+# Region proximity mapping for fallback selection
+region_proximity:
+  us-central1:
+    nearby_regions:
+      - "us-east1"
+      - "us-west1"
+      - "us-east4"
+      - "us-west2"
+    description: "Central US region"
+  
+  us-east1:
+    nearby_regions:
+      - "us-east4"
+      - "us-central1"
+      - "us-west1"
+    description: "Eastern US region"
+  
+  us-east4:
+    nearby_regions:
+      - "us-east1"
+      - "us-central1"
+      - "us-west1"
+    description: "Eastern US region (Virginia)"
+  
+  us-west1:
+    nearby_regions:
+      - "us-west2"
+      - "us-central1"
+      - "us-east1"
+    description: "Western US region"
+  
+  us-west2:
+    nearby_regions:
+      - "us-west1"
+      - "us-central1"
+      - "us-east1"
+    description: "Western US region (Los Angeles)"
+
+# Common regions for non-GPU machine types
+common_regions:
+  - "us-central1"
+  - "us-east1"
+  - "us-west1"
+  - "us-east4"
+  - "us-west2"

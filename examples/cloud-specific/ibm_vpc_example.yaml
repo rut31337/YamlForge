@@ -29,10 +29,10 @@ yamlforge:
           source: "0.0.0.0/0"
   
   instances:
-    - name: "web-server-{guid}"
+    - name: "ibm-vpc-vm-{guid}"
       provider: "ibm_vpc"
-      size: "medium"
       region: "us-south"
+      flavor: "medium"
       image: "RHEL9-latest"
       security_groups: ["web-sg-{guid}"]
       tags:

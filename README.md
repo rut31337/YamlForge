@@ -61,20 +61,23 @@ yamlforge:
     - name: "web-aws-{guid}"
       provider: "aws"
       region: "us-east"
-      size: "medium"
+      flavor: "medium"
       image: "RHEL9-latest"
+      count: 3  # Deploy 3 identical instances
       
     - name: "web-azure-{guid}"
       provider: "azure"
       region: "us-east"
-      size: "medium"
+      flavor: "medium"
       image: "RHEL9-latest"
+      count: 2  # Deploy 2 identical instances
       
     - name: "web-gcp-{guid}"
       provider: "gcp"
       region: "us-east"
-      size: "medium"
+      flavor: "medium"
       image: "RHEL9-latest"
+      # count: 1 (default - single instance)
   
   # Deploy OpenShift clusters using universal locations
   # us-east maps to: AWS us-east-1, Azure East US, GCP us-east1, IBM VPC us-east
@@ -104,6 +107,34 @@ yamlforge:
           protocol: "tcp"
           port_range: "443"
           source: "0.0.0.0/0"
+```
+
+### CNV Example: Virtual Machines on Kubernetes/OpenShift
+```yaml
+# cnv-infrastructure.yaml
+guid: "cnv1"
+
+yamlforge:
+  cloud_workspace:
+    name: "cnv-workspace-{guid}"
+    description: "CNV virtual machines on OpenShift"
+  
+  instances:
+    - name: "cnv-vm-{guid}"
+      provider: "cnv"
+      flavor: "small"  # 1 vCPU, 1GB RAM
+      image: "rhel-9.6"  # Dynamic discovery from DataVolumes
+      ssh_key: "~/.ssh/id_rsa.pub"
+```
+
+**Environment Setup:**
+```bash
+# Set OpenShift cluster credentials
+export OPENSHIFT_CLUSTER_URL="https://api.cluster.example.com:6443"
+export OPENSHIFT_CLUSTER_TOKEN="your_openshift_token"
+
+# Deploy CNV VM
+python yamlforge.py cnv-infrastructure.yaml -d output/ --auto-deploy
 ```
 
 ### Deploy with Confidence
@@ -255,17 +286,17 @@ yamlforge:
     - name: "app-aws-{guid}"
       provider: "aws"
       region: "us-east"
-      size: "large"
+      flavor: "large"
       image: "RHEL9-latest"
     - name: "app-azure-{guid}"
       provider: "azure"
       region: "us-east"
-      size: "large"
+      flavor: "large"
       image: "RHEL9-latest"
     - name: "app-gcp-{guid}"
       provider: "gcp"
       region: "us-east"
-      size: "large"
+      flavor: "large"
       image: "RHEL9-latest"
 ```
 
@@ -283,7 +314,7 @@ yamlforge:
     - name: "migrated-app-{guid}"
       provider: "aws"  # Migrate from Azure to AWS
       region: "us-east"
-      size: "medium"
+      flavor: "medium"
       image: "RHEL9-latest"
 ```
 
@@ -339,21 +370,57 @@ yamlforge:
     - name: "web-server-{guid}"
       provider: "aws"
       region: "us-east"
-      size: "small"  # Generic size - works on all clouds
+      flavor: "small"  # Generic size - works on all clouds
       image: "RHEL9-latest"
     - name: "app-server-{guid}"
       provider: "azure"
       region: "us-east"
-      size: "medium"  # Generic size - works on all clouds
+      flavor: "medium"  # Generic size - works on all clouds
       image: "RHEL9-latest"
     - name: "database-{guid}"
       provider: "gcp"
       region: "us-east"
-      size: "large"  # Generic size - works on all clouds
+      flavor: "large"  # Generic size - works on all clouds
       image: "RHEL9-latest"
 ```
 
 **Available sizes:** `nano`, `micro`, `small`, `medium`, `large`, `xlarge`, `2xlarge`, `4xlarge`, `8xlarge`, `16xlarge`
+
+### Instance Count and Scaling
+Deploy multiple identical instances using the `count` field:
+
+```yaml
+guid: "scale1"
+
+yamlforge:
+  cloud_workspace:
+    name: "scaling-demo-{guid}"
+    description: "Instance scaling demonstration"
+  
+  instances:
+    - name: "web-server-{guid}"
+      provider: "aws"
+      region: "us-east"
+      flavor: "medium"
+      image: "RHEL9-latest"
+      count: 5  # Deploy 5 identical web servers
+    
+    - name: "worker-{guid}"
+      provider: "gcp"
+      region: "us-east"
+      cores: 4
+      memory: 8192
+      image: "RHEL9-latest"
+      count: 3  # Deploy 3 identical worker nodes
+```
+
+**Instance Naming**: When `count > 1`, instances are automatically named with suffixes:
+- `web-server-scale1-1`, `web-server-scale1-2`, `web-server-scale1-3`, etc.
+- Each instance gets identical configuration but unique names and resources
+
+**Cost Analysis**: YamlForge automatically calculates total costs:
+- Shows per-instance cost and total cost across all instances
+- Includes count multipliers in cost summaries and analysis
 
 ### Cost Optimization
 YamlForge offers two intelligent cost optimization providers:
@@ -371,7 +438,7 @@ yamlforge:
     - name: "api-server-{guid}"
       provider: "cheapest"  # Finds cheapest instance meeting CPU/memory requirements
       region: "us-east"
-      size: "medium"  # Must specify size or cores/memory
+      flavor: "medium"  # Must specify size or cores/memory
       image: "RHEL9-latest"
     - name: "database-server-{guid}"
       provider: "cheapest"  # CPU/memory only - no GPU needed
@@ -390,7 +457,7 @@ yamlforge:
     - name: "app-server-{guid}"
       provider: "cheapest"  # Combines t-shirt sizing with cost optimization
       region: "us-east"
-      size: "large"  # Generic size - YamlForge finds cheapest "large" across all clouds
+      flavor: "large"  # Generic size - YamlForge finds cheapest "large" across all clouds
       image: "RHEL9-latest"
 ```
 
@@ -431,12 +498,12 @@ yamlforge:
       type: "rosa-classic"
       region: "us-east"
       version: "4.18.19"
-      size: "large"
+      size: "large"  # Cluster size (not instance size)
     - name: "azure-aro-{guid}"
       type: "aro"
       region: "us-east"
       version: "latest"
-      size: "large"
+      size: "large"  # Cluster size (not instance size)
 ```
 
 ### Generic Images
@@ -453,22 +520,22 @@ yamlforge:
     - name: "web-server-{guid}"
       provider: "aws"
       region: "us-east"
-      size: "medium"
+      flavor: "medium"
       image: "RHEL9-latest"  # Generic name - maps to provider-specific images
     - name: "app-server-{guid}"
       provider: "azure"
       region: "us-east"
-      size: "medium"
+      flavor: "medium"
       image: "Ubuntu2204-latest"  # Ubuntu 22.04 LTS - works on all clouds
     - name: "db-server-{guid}"
       provider: "gcp"
       region: "us-east"
-      size: "medium"
+      flavor: "medium"
       image: "Fedora-latest"  # Fedora (latest stable) - works on all clouds
     - name: "monitoring-{guid}"
       provider: "oci"
       region: "us-east"
-      size: "medium"
+      flavor: "medium"
       image: "OracleLinux9-latest"  # Oracle Linux 9 - works on all clouds
 ```
 
@@ -506,6 +573,7 @@ YamlForge is not biased toward any specific operating system image or cloud prov
 - **Oracle Cloud (OCI)** - Compute instances and networking
 - **Alibaba Cloud** - ECS instances and VPC
 - **VMware vSphere** - Virtual machines and networking
+- **CNV** - Container Native Virtualization (KubeVirt) for Kubernetes and OpenShift clusters with automatic operator validation
 
 ### OpenShift Platforms
 - **ROSA** (Classic & HCP) - Red Hat OpenShift Service on AWS
@@ -513,6 +581,15 @@ YamlForge is not biased toward any specific operating system image or cloud prov
 - **OpenShift Dedicated** - Managed OpenShift clusters
 - **Self-Managed** - Custom OpenShift deployments
 - **HyperShift** - Hosted control planes
+
+### Container Native Virtualization (CNV)
+- **Kubernetes KubeVirt** - Upstream KubeVirt operator support
+- **OpenShift CNV** - Red Hat CNV operator with enhanced features
+- **Automatic Validation** - Kubernetes API-based operator validation
+- **Environment Variables** - Direct cluster access via `OPENSHIFT_CLUSTER_URL` and `OPENSHIFT_CLUSTER_TOKEN`
+- **Namespace Management** - Automatic namespace creation and CNV enablement
+- **DataVolume Support** - Dynamic image discovery from DataVolumes
+- **Cost Optimization** - Minimal cost since VMs use local cluster resources
 
 ## Key Features
 
@@ -530,6 +607,7 @@ YamlForge is not biased toward any specific operating system image or cloud prov
 - **Smart Detection**: Only includes Terraform providers you use
 - **Unified Deployment**: Single command deploys infrastructure and OpenShift clusters
 - **ROSA Integration**: Automated ROSA account role creation via CLI
+- **CNV Integration**: Kubernetes API-based validation and deployment for virtual machines
 
 ## How It Works
 
@@ -546,6 +624,7 @@ YamlForge acts as the intelligent translation layer between your infrastructure 
 - [AI Training Guide](docs/ai-training.md)
 - [Multi-Cloud Examples](examples/)
 - [OpenShift Deployment](docs/openshift/)
+- [CNV Provider](docs/cnv-provider.md)
 
 ## Contributing
 

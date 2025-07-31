@@ -3,28 +3,31 @@ Day 2 Operations Provider for yamlforge
 Supports cluster lifecycle management, upgrades, and operational automation
 """
 
+import os
+
 from typing import Dict, List
 from ..base import BaseOpenShiftProvider
 
 
 class Day2OperationsProvider(BaseOpenShiftProvider):
-    """Day 2 Operations provider for cluster lifecycle management"""
+    """Provider for Day2 operations on OpenShift clusters"""
     
     def generate_day2_operations(self, yaml_data: Dict, clusters: List[Dict]) -> str:
-        """Generate Day 2 operations for OpenShift clusters"""
+        """Generate Day2 operations configuration"""
         
-        day2_config = yaml_data.get('day2_operations', {})
+        day2_config = yaml_data.get('yamlforge', {}).get('day2_operations', {})
         if not day2_config:
             return ""
         
-        cluster_names = [cluster.get('name') for cluster in clusters if cluster.get('name')]
-        
         terraform_config = '''
 # =============================================================================
-# DAY 2 OPERATIONS
+# DAY2 OPERATIONS CONFIGURATION
 # =============================================================================
 
 '''
+        
+        # Get cluster names from the clusters list
+        cluster_names = [cluster.get('name', '') for cluster in clusters if cluster.get('name')]
         
         # Generate Day2 operations for each cluster
         for cluster_name in cluster_names:
@@ -50,6 +53,9 @@ class Day2OperationsProvider(BaseOpenShiftProvider):
     def _generate_cluster_upgrades(self, upgrade_config: Dict, cluster_name: str, clean_cluster_name: str) -> str:
         """Generate cluster upgrade configurations"""
         
+        # Get Red Hat API URL from environment variable
+        default_upstream = os.getenv('REDHAT_OPENSHIFT_API_URL', 'https://api.openshift.com') + '/api/upgrades_info/v1/graph'
+        
         return f'''
 # Cluster Upgrade Configuration for {cluster_name}
 resource "kubernetes_manifest" "cluster_upgrade_{clean_cluster_name}" {{
@@ -63,7 +69,7 @@ resource "kubernetes_manifest" "cluster_upgrade_{clean_cluster_name}" {{
     }}
     spec = {{
       channel = "{upgrade_config.get('channel', 'stable-4.14')}"
-      upstream = "{upgrade_config.get('upstream', 'https://api.openshift.com/api/upgrades_info/v1/graph')}"
+      upstream = "{upgrade_config.get('upstream', default_upstream)}"
     }}
   }}
   

@@ -5,14 +5,23 @@ This directory contains utility tools for YamlForge development and maintenance.
 ## Available Tools
 
 ### `run_vulture.sh` - Static Analysis Tool
-Convenient script for running Vulture static analysis with proper ignore patterns.
+Optimized script for running Vulture static analysis with smart configuration and multiple output modes.
 
 ```bash
-# Run Vulture analysis
+# Run Vulture analysis (default 70% confidence)
 ./tools/run_vulture.sh
 
 # Run with higher confidence
-vulture yamlforge/ --min-confidence 80
+./tools/run_vulture.sh --confidence 80
+
+# Sort results by code size
+./tools/run_vulture.sh --sort-by-size
+
+# Generate whitelist format
+./tools/run_vulture.sh --make-whitelist
+
+# Verbose output
+./tools/run_vulture.sh --verbose
 ```
 
 ### `install_git_hooks.sh` - Git Integration
@@ -27,8 +36,34 @@ Installs Git hooks to automatically run Vulture before and after commits.
 #   • After commit (post-commit hook)
 ```
 
-### ROSA Version Management
-**Note:** ROSA version management has been integrated into the YamlForge codebase as `yamlforge.core.rosa_versions.ROSAVersionManager`. The external tool has been removed to improve maintainability and reduce dependencies.
+### `extract_resourceclaim_vars.py` - ResourceClaim Variable Extractor
+Extracts cloud provider credentials from Babylon ResourceClaim objects and outputs them as bash export statements.
+
+```bash
+# Basic usage (clean output for sourcing)
+./tools/extract_resourceclaim_vars.py \
+  --resource-claim azure-resource-claim-name \
+  --namespace my-namespace \
+  --kubeconfig ~/.kube/config
+
+# Verbose output (with source comments)
+./tools/extract_resourceclaim_vars.py \
+  --resource-claim gcp-resource-claim-name \
+  --namespace my-namespace \
+  --kubeconfig ~/.kube/config \
+  --verbose
+
+# Source directly into environment
+source <(./tools/extract_resourceclaim_vars.py -r azure-claim -n my-namespace -k ~/.kube/config)
+```
+
+**Features:**
+- Multi-cloud support (AWS, Azure, GCP, IBM Cloud, OCI, VMware, Alibaba Cloud)
+- Maps ResourceClaim variables to standard cloud provider credential formats
+- Extracts DNS zones and domain information
+- Optional verbose mode with source variable comments
+- Perfect for integration with YamlForge environment variables
+
 
 ## Vulture Static Analysis
 
@@ -52,7 +87,8 @@ Vulture is a static analysis tool that finds dead code in Python projects. We us
 The Vulture setup includes:
 
 - **`.vulture`** - Configuration file with ignore patterns for false positives
-- **`tools/run_vulture.sh`** - Convenient script for running Vulture with proper ignore patterns
+- **`tools/run_vulture.sh`** - Optimized script with configurable confidence levels, sorting, and output formats
+- **`pyproject.toml`** - Alternative configuration for direct vulture usage
 
 ### Ignore Patterns
 
@@ -97,26 +133,40 @@ The following types of code are ignored as they are dynamically called or are st
 ### Usage Examples
 
 ```bash
-# Run with default settings (60% confidence)
+# Run with default settings (70% confidence)
 ./tools/run_vulture.sh
 
-# Run with higher confidence (80%)
-vulture yamlforge/ --min-confidence 80
+# Run with higher confidence
+./tools/run_vulture.sh --confidence 80
 
-# Run with custom ignore patterns
-vulture yamlforge/ --ignore-names 'method1,method2'
+# Sort results by code size (largest first)
+./tools/run_vulture.sh --sort-by-size
 
-# Run on specific files
-vulture yamlforge/providers/aws.py yamlforge/providers/azure.py
+# Generate whitelist format for adding to ignore patterns
+./tools/run_vulture.sh --make-whitelist
+
+# Verbose output with detailed analysis
+./tools/run_vulture.sh --verbose
+
+# Combined options
+./tools/run_vulture.sh --confidence 80 --sort-by-size --verbose
 ```
 
 ### Adding New Ignore Patterns
 
-When Vulture finds false positives, add them to the ignore list in `tools/run_vulture.sh`:
+When Vulture finds false positives, add them to the `.vulture` configuration file:
 
 ```bash
-# Edit the IGNORE_LIST variable in tools/run_vulture.sh
-IGNORE_LIST="existing,patterns,new_method_name"
+# Add to .vulture file in the project root
+new_method_name
+another_false_positive
+```
+
+Alternatively, use the whitelist generation feature:
+
+```bash
+# Generate whitelist format from current findings
+./tools/run_vulture.sh --make-whitelist
 ```
 
 ### Best Practices

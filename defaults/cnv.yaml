@@ -1,0 +1,167 @@
+# CNV Defaults for yamlforge
+# Container Native Virtualization (CNV) configuration defaults
+
+# Default namespace for CNV resources
+default_namespace: "default"
+
+# Default network configuration
+default_network: "pod"
+
+# Default storage class
+default_storage_class: "local-path"
+
+# Default container disk image
+default_image: "kubevirt/fedora-cloud-container-disk-demo:latest"
+
+# Default VM sizes
+default_size: "medium"
+
+# Default storage size for persistent volumes
+default_storage_size: "10Gi"
+
+# Default network subnet
+default_subnet: "10.244.0.0/16"
+
+# CNV operator configuration
+operator:
+  # OpenShift CNV operator settings
+  openshift:
+    namespace: "openshift-cnv"
+    channel: "stable"
+    source: "redhat-operators"
+    source_namespace: "openshift-marketplace"
+  
+  # Kubernetes KubeVirt operator settings
+  kubernetes:
+    namespace: "kubevirt"
+    chart_repository: "https://kubevirt.io/charts"
+    chart_name: "kubevirt"
+    cdi_chart_name: "cdi"
+
+# Network configuration
+networking:
+  # Default Multus network settings
+  multus:
+    cni_version: "0.3.1"
+    network_type: "bridge"
+    ipam_type: "host-local"
+  
+  # Service network settings
+  service:
+    default_type: "ClusterIP"
+    default_port: 22
+    default_target_port: 22
+
+# Storage configuration
+storage:
+  # Default storage class settings
+  storage_class:
+    provisioner: "rancher.io/local-path"
+    volume_binding_mode: "WaitForFirstConsumer"
+    reclaim_policy: "Retain"
+  
+  # Persistent volume settings
+  persistent_volume:
+    access_mode: "ReadWriteOnce"
+    host_path: "/tmp/cnv-storage"
+    host_path_type: "DirectoryOrCreate"
+
+# VM configuration
+virtual_machine:
+  # Default VM features
+  features:
+    acpi: true
+    apic: true
+    hyperv:
+      relaxed: true
+      vapic: true
+      spinlocks: 8191
+  
+  # Default termination grace period
+  termination_grace_period_seconds: 0
+  
+  # Default disk configuration
+  disk:
+    type: "disk"
+    bus: "virtio"
+  
+  # Default interface configuration
+  interface:
+    type: "bridge"
+    model: "virtio"
+
+# DataVolume configuration
+datavolume:
+  # Default DataVolume settings
+  default_size: "10Gi"
+  default_storage_class: "local-path"
+  
+  # Import settings
+  import:
+    timeout: "5m"
+    retry_count: 3
+  
+  # Upload settings
+  upload:
+    timeout: "5m"
+    retry_count: 3
+
+# Security configuration
+security:
+  # Default security context
+  security_context:
+    run_as_non_root: true
+    run_as_user: 1000
+    fs_group: 1000
+  
+  # Default service account
+  service_account:
+    name: "cnv-vm-sa"
+    namespace: "default"
+
+# Monitoring configuration
+monitoring:
+  # Default monitoring settings
+  enabled: true
+  
+  # Metrics configuration
+  metrics:
+    enabled: true
+    port: 8443
+    path: "/metrics"
+  
+  # Service monitor configuration
+  service_monitor:
+    enabled: true
+    interval: "30s"
+    scrape_timeout: "10s"
+
+# Backup configuration
+backup:
+  # Default backup settings
+  enabled: false
+  
+  # Backup schedule
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  
+  # Backup retention
+  retention:
+    days: 7
+    max_backups: 10
+
+# Resource limits
+resource_limits:
+  # Default CPU limits
+  cpu:
+    min: "100m"
+    max: "4"
+  
+  # Default memory limits
+  memory:
+    min: "128Mi"
+    max: "8Gi"
+  
+  # Default storage limits
+  storage:
+    min: "1Gi"
+    max: "100Gi"

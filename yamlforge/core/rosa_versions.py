@@ -62,10 +62,10 @@ def retry_with_backoff(max_retries=3, base_delay=1.0, max_delay=60.0, backoff_fa
 class ROSAVersionManager:
     """Manages ROSA versions by querying Red Hat API"""
     
-    def __init__(self, token: Optional[str] = None, base_url: str = "https://api.openshift.com"):
+    def __init__(self, token: Optional[str] = None, base_url: str = None):
         """Initialize with Red Hat API credentials"""
         self.token = token or os.getenv('REDHAT_OPENSHIFT_TOKEN')
-        self.base_url = base_url
+        self.base_url = base_url or os.getenv('REDHAT_OPENSHIFT_API_URL', "https://api.openshift.com")
         self.versions_cache = None
         self.cache_timestamp = None
         

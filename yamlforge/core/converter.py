@@ -21,6 +21,7 @@ from ..providers.oci import OCIProvider
 from ..providers.vmware import VMwareProvider
 from ..providers.alibaba import AlibabaProvider
 from ..providers.openshift import OpenShiftProvider
+from ..providers.cnv import CNVProvider
 
 
 class YamlForgeConverter:
@@ -57,6 +58,9 @@ class YamlForgeConverter:
         
         # Initialize OpenShift provider
         self.openshift_provider = OpenShiftProvider(self)
+        
+        # Initialize CNV provider
+        self.cnv_provider = CNVProvider(self)
 
         # Current YAML data for GUID extraction
         self.current_yaml_data = None
@@ -77,6 +81,13 @@ class YamlForgeConverter:
         if self._aws_provider is None:
             self._aws_provider = AWSProvider(self)
         return self._aws_provider
+
+    def get_cnv_provider(self):
+        """Return the CNV provider instance for use by other components."""
+        if not hasattr(self, '_cnv_provider') or self._cnv_provider is None:
+            from yamlforge.providers.cnv.base import BaseCNVProvider
+            self._cnv_provider = BaseCNVProvider(self)
+        return self._cnv_provider
 
     def _has_rosa_clusters(self, yaml_data):
         """Check if YAML configuration contains any ROSA clusters."""
@@ -582,7 +593,96 @@ class YamlForgeConverter:
 
     def validate_provider_setup(self, yaml_data):
         """Validate cloud provider setup early to catch issues before processing."""
+        
+        # Validate that cloud_workspace.name is required for all YamlForge configurations
+        # Handle both full YAML data and yamlforge section
+        if 'yamlforge' in yaml_data:
+            # Full YAML data passed
+            yamlforge_data = yaml_data.get('yamlforge', {})
+        else:
+            # Only yamlforge section passed
+            yamlforge_data = yaml_data
+        
+        cloud_workspace = yamlforge_data.get('cloud_workspace', {})
+        workspace_name = cloud_workspace.get('name')
+        
+        if not workspace_name:
+            raise ValueError(
+                "Configuration Error: 'yamlforge.cloud_workspace.name' is required for all YamlForge configurations.\n\n"
+                "Add this to your YAML file:\n"
+                "yamlforge:\n"
+                "  cloud_workspace:\n"
+                "    name: \"your-workspace-name\"\n"
+                "    description: \"Optional description\"\n\n"
+                "The workspace name is used for:\n"
+                "  • Resource naming and organization\n"
+                "  • CNV namespace creation\n"
+                "  • Cost tracking and management\n"
+                "  • Multi-cloud resource grouping"
+            )
+        
+        # Validate that either instances or openshift_clusters are required under yamlforge
+        yamlforge_data = yaml_data.get('yamlforge', {})
+        instances = yamlforge_data.get('instances', [])
+        openshift_clusters = yamlforge_data.get('openshift_clusters', [])
+        
+        if not instances and not openshift_clusters:
+            raise ValueError(
+                "Configuration Error: Either 'instances' or 'openshift_clusters' (or both) are required in YamlForge configurations.\n\n"
+                "Add at least one of these to your YAML file:\n\n"
+                "For cloud instances:\n"
+                "yamlforge:\n"
+                "  cloud_workspace:\n"
+                "    name: \"your-workspace-name\"\n"
+                "  instances:\n"
+                "    - name: \"my-instance-{guid}\"\n"
+                "      provider: \"aws\"\n"
+                "      flavor: \"small\"\n"
+                "      image: \"RHEL9-latest\"\n"
+                "      region: \"us-east-1\"\n"
+                "      ssh_key: \"my-key\"\n\n"
+                "For OpenShift clusters:\n"
+                "yamlforge:\n"
+                "  cloud_workspace:\n"
+                "    name: \"your-workspace-name\"\n"
+                "  openshift_clusters:\n"
+                "    - name: \"my-cluster-{guid}\"\n"
+                "      type: \"rosa-classic\"\n"
+                "      region: \"us-east-1\"\n"
+                "      size: \"small\"\n\n"
+                "YamlForge is designed to deploy both cloud instances and OpenShift clusters."
+            )
+        
         required_providers = self.detect_required_providers(yaml_data)
+        
+        # Validate that all instances have required fields
+        instances = yamlforge_data.get('instances', [])
+        for instance in instances:
+            provider = instance.get('provider')
+            if provider and provider != 'cnv':  # CNV doesn't need regions
+                # Check if instance has region or location
+                has_region = 'region' in instance
+                has_location = 'location' in instance
+                
+                if not has_region and not has_location:
+                    instance_name = instance.get('name', 'unnamed')
+                    raise ValueError(
+                        f"Configuration Error: Instance '{instance_name}' (provider: {provider}) must specify either 'region' or 'location'.\n\n"
+                        f"Add one of these to your instance configuration:\n"
+                        f"  region: \"us-east-1\"  # Direct region specification\n"
+                        f"  location: \"east\"     # Location mapping (see mappings/locations.yaml)\n\n"
+                        f"Available locations: {', '.join(sorted(self.locations.keys()))}\n"
+                        f"Common regions: us-east-1, us-west-2, eu-west-1, ap-southeast-1"
+                    )
+                
+                if has_region and has_location:
+                    instance_name = instance.get('name', 'unnamed')
+                    raise ValueError(
+                        f"Configuration Error: Instance '{instance_name}' cannot specify both 'region' and 'location'.\n\n"
+                        f"Choose one:\n"
+                        f"  region: \"us-east-1\"  # Direct region specification\n"
+                        f"  location: \"east\"     # Location mapping"
+                    )
         
         # Check each required provider
         for provider in required_providers:
@@ -617,6 +717,37 @@ class YamlForgeConverter:
             #     self.azure_provider.validate_azure_setup()
             # elif provider == 'gcp':
             #     self.gcp_provider.validate_gcp_setup()
+            elif provider == 'cnv':
+                # Get CNV configuration
+                yamlforge_config = yaml_data.get('yamlforge', {})
+                cnv_config = yamlforge_config.get('cnv', {})
+                validate_operator = cnv_config.get('validate_operator', True)
+                
+                # Skip CNV validation for now to avoid hanging
+                print("CNV operator validation skipped (temporarily disabled)")
+                
+                # TODO: Re-enable validation once kubectl timeout issues are resolved
+                # if validate_operator:
+                #     try:
+                #         # Import CNV provider and validate operator
+                #         from yamlforge.providers.cnv.base import BaseCNVProvider
+                #         cnv_provider = BaseCNVProvider(self)
+                #         if not cnv_provider.validate_cnv_operator():
+                #             raise ValueError("CNV/KubeVirt operator is not installed or not working")
+                #     except ImportError:
+                #         print("Warning: CNV provider not available for validation")
+                #     except Exception as e:
+                #         # Get CNV instances for error context
+                #         cnv_instances = []
+                #         for instance in yaml_data.get('instances', []):
+                #             if instance.get('provider') == 'cnv':
+                #                 cnv_instances.append(instance.get('name', 'unnamed'))
+                #         
+                #         instance_list = ', '.join(cnv_instances) if cnv_instances else 'CNV instances'
+                #         error_msg = f"CNV Provider Error (needed for: {instance_list}): {str(e)}"
+                #         raise ValueError(error_msg) from e
+                # else:
+                #     print("CNV operator validation skipped (validate_operator: false)")
 
     def validate_instance_names(self, instances):
         """Validate that no two instances have the same name within the same cloud provider."""
@@ -861,6 +992,20 @@ terraform {{
       source  = "gavinbunney/kubectl"
       version = "~> 1.14"
     }'''
+            elif provider == 'cnv':
+                terraform_content += '''
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.23"
+    }
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+      version = "~> 1.14"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.11"
+    }'''
 
         terraform_content += '''
   }
@@ -978,6 +1123,32 @@ provider "rhcs" {
 }
 
 '''
+            elif provider == 'cnv':
+                terraform_content += '''# CNV/Kubernetes Provider Configuration
+# Uses OpenShift environment variables for authentication
+provider "kubernetes" {
+  host                   = var.openshift_cluster_url
+  token                  = var.openshift_cluster_token
+  insecure               = false
+  cluster_ca_certificate = base64decode(var.openshift_cluster_ca_cert)
+}
+
+provider "kubectl" {
+  host                   = var.openshift_cluster_url
+  token                  = var.openshift_cluster_token
+  insecure               = false
+  cluster_ca_certificate = base64decode(var.openshift_cluster_ca_cert)
+  load_config_file       = false
+}
+
+provider "helm" {
+  host                   = var.openshift_cluster_url
+  token                  = var.openshift_cluster_token
+  insecure               = false
+  cluster_ca_certificate = base64decode(var.openshift_cluster_ca_cert)
+}
+
+'''
 
         # Generate GCP project management if GCP is used
         if 'gcp' in required_providers:
@@ -1022,14 +1193,46 @@ provider "rhcs" {
         # Validate IBM Cloud region consistency
         self.validate_ibm_cloud_region_consistency(instances)
         
-        for i, instance in enumerate(instances):
-            # Get zone for IBM VPC instances
-            zone = None
-            if instance.get('provider') == 'ibm_vpc':
-                region = self.resolve_instance_region(instance, 'ibm_vpc')
-                zone = ibm_vpc_zones.get(region)
+        instance_counter = 1
+        for instance in instances:
+            # Get count for this instance (default to 1 if not specified)
+            instance_count = instance.get('count', 1)
             
-            terraform_content += self.generate_virtual_machine(instance, i+1, yaml_data, full_yaml_data=effective_yaml_data, zone=zone)
+            # Generate multiple instances if count > 1
+            for instance_index in range(instance_count):
+                # Get zone for IBM VPC instances
+                zone = None
+                if instance.get('provider') == 'ibm_vpc':
+                    region = self.resolve_instance_region(instance, 'ibm_vpc')
+                    zone = ibm_vpc_zones.get(region)
+                
+                # Create a copy of the instance with modified name if count > 1
+                instance_copy = instance.copy()
+                if instance_count > 1:
+                    original_name = instance_copy['name']
+                    # Resolve GUID first before applying count naming logic
+                    if '{guid}' in original_name:
+                        guid = self.get_validated_guid()
+                        original_name = original_name.replace('{guid}', guid)
+                    
+                    # Check if name ends with a number and increment from there
+                    import re
+                    match = re.search(r'(.+?)(\d+)$', original_name)
+                    if match:
+                        # Name ends with number, increment from that base
+                        base_name = match.group(1)
+                        base_number_str = match.group(2)
+                        base_number = int(base_number_str)
+                        # Preserve padding (e.g., 01, 02, 003) by using the same width
+                        padding_width = len(base_number_str)
+                        new_number = base_number + instance_index
+                        instance_copy['name'] = f"{base_name}{new_number:0{padding_width}d}"
+                    else:
+                        # Name doesn't end with number, append -X
+                        instance_copy['name'] = f"{original_name}-{instance_index + 1}"
+                
+                terraform_content += self.generate_virtual_machine(instance_copy, instance_counter, yaml_data, full_yaml_data=effective_yaml_data, zone=zone)
+                instance_counter += 1
 
         # ROSA clusters use ROSA CLI instead of Terraform providers
 
@@ -1470,9 +1673,18 @@ output "all_instances_summary" {
                 elif provider == 'vmware':
                     ip_ref = f"vsphere_virtual_machine.{resource_name}.default_ip_address"
                     private_ip_ref = f"vsphere_virtual_machine.{resource_name}.default_ip_address"
+                elif provider == 'cnv':
+                    ip_ref = "\"NODE_IP\""
+                    private_ip_ref = "\"N/A\""
                 else:
                     ip_ref = "\"N/A\""
                     private_ip_ref = "\"N/A\""
+                
+                # Generate SSH command based on provider
+                if provider == 'cnv':
+                    ssh_command = f"ssh {ssh_username}@${{{ip_ref}}} -p ${{kubernetes_service.{resource_name}_ssh_service.spec[0].port[0].node_port}}"
+                else:
+                    ssh_command = f"ssh {ssh_username}@${{{ip_ref}}}"
                 
                 outputs.append(f'''    "{instance_name}" = {{
       provider = "{self.format_provider_name_for_display(provider)}"
@@ -1482,7 +1694,7 @@ output "all_instances_summary" {
       image = "{instance.get('image', 'unknown')}"
       region = "{instance.get('region', 'N/A')}"
       ssh_username = "{ssh_username}"
-      ssh_command = "ssh {ssh_username}@${{{ip_ref}}}"
+      ssh_command = "{ssh_command}"
     }}''')
         
         outputs.append('''  }
@@ -1519,6 +1731,8 @@ output "external_ips" {
                     ip_ref = f"ibm_compute_vm_instance.{resource_name}.ipv4_address"
                 elif provider == 'vmware':
                     ip_ref = f"vsphere_virtual_machine.{resource_name}.default_ip_address"
+                elif provider == 'cnv':
+                    ip_ref = "\"NODE_IP\""
                 else:
                     ip_ref = "\"N/A\""
                 
@@ -1548,7 +1762,7 @@ output "external_ips" {
         """Print provider-specific output with proper formatting."""
         provider_name = self.format_provider_name_for_display(provider)
         indent = "  " * indent_level
-        print(f"{indent}{message}")
+        print(f"{indent}{provider_name}: {message}")
 
     def start_provider_section(self, provider):
         """Start a new provider section in output."""
@@ -1568,10 +1782,9 @@ output "external_ips" {
     def start_instance_section(self, instance_name, provider):
         """Start a new instance section in the output."""
         print()
-        provider_display = self.format_provider_name_for_display(provider)
         # Replace {guid} with actual GUID in instance name
         resolved_instance_name = self.replace_guid_placeholders(instance_name)
-        print(f"[{resolved_instance_name}] ({provider_display})")
+        print(f"[{resolved_instance_name}]")
 
     def print_instance_output(self, instance_name, provider, message, indent_level=1):
         """Print instance-specific output with proper indentation."""
@@ -1581,6 +1794,7 @@ output "external_ips" {
     def _print_cost_analysis_for_instance(self, instance, selected_provider):
         """Print cost analysis for cheapest provider selection under instance section."""
         instance_name = instance.get('name', 'unnamed')
+        instance_count = instance.get('count', 1)
         # Get instance-specific exclusions
         instance_exclusions = instance.get('exclude_providers', [])
         
@@ -1595,13 +1809,14 @@ output "external_ips" {
         provider_costs = self.find_cheapest_by_specs(
             instance.get('cores', 2), 
             memory_mb,
-            instance.get('gpus', 0),
+            instance.get('gpu_count', 0),
             instance.get('gpu_type'),
             instance_exclusions
         )
         
         if provider_costs:
-            self.print_instance_output(instance_name, selected_provider, "Cost analysis:")
+            cost_header = f"Cost analysis (x{instance_count} instances):" if instance_count > 1 else "Cost analysis:"
+            self.print_instance_output(instance_name, selected_provider, cost_header)
             for provider, info in sorted(provider_costs.items(), key=lambda x: x[1]['cost']):
                 marker = " ← SELECTED" if provider == selected_provider else ""
                 vcpus = info.get('vcpus', 'N/A')
@@ -1609,17 +1824,30 @@ output "external_ips" {
                 gpu_count = info.get('gpu_count', 0)
                 detected_gpu_type = info.get('gpu_type', '')
                 
+                # Calculate total cost for all instances
+                per_hour_cost = info['cost']
+                total_hourly_cost = per_hour_cost * instance_count
+                
                 if gpu_count > 0:
                     gpu_info = f", {gpu_count}x {detected_gpu_type}" if detected_gpu_type else f", {gpu_count} GPU(s)"
-                    self.print_instance_output(instance_name, selected_provider, 
-                        f"  {provider}: ${info['cost']:.4f}/hour ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}", 2)
+                    if instance_count > 1:
+                        self.print_instance_output(instance_name, selected_provider, 
+                            f"  {provider}: ${per_hour_cost:.4f}/hour each, ${total_hourly_cost:.4f}/hour total ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}", 2)
+                    else:
+                        self.print_instance_output(instance_name, selected_provider, 
+                            f"  {provider}: ${per_hour_cost:.4f}/hour ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}", 2)
                 else:
-                    self.print_instance_output(instance_name, selected_provider, 
-                        f"  {provider}: ${info['cost']:.4f}/hour ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB){marker}", 2)
+                    if instance_count > 1:
+                        self.print_instance_output(instance_name, selected_provider, 
+                            f"  {provider}: ${per_hour_cost:.4f}/hour each, ${total_hourly_cost:.4f}/hour total ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB){marker}", 2)
+                    else:
+                        self.print_instance_output(instance_name, selected_provider, 
+                            f"  {provider}: ${per_hour_cost:.4f}/hour ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB){marker}", 2)
 
     def _print_gpu_cost_analysis_for_instance(self, instance, selected_provider):
         """Print GPU cost analysis for cheapest GPU provider selection under instance section."""
         instance_name = instance.get('name', 'unnamed')
+        instance_count = instance.get('count', 1)
         gpu_type = instance.get("gpu_type")
         
         # Get instance-specific exclusions
@@ -1630,7 +1858,8 @@ output "external_ips" {
         
         if provider_costs:
             analysis_type = f"cheapest {gpu_type} GPU" if gpu_type else "cheapest GPU (any type)"
-            self.print_instance_output(instance_name, selected_provider, f"GPU-optimized cost analysis ({analysis_type}):")
+            cost_header = f"GPU-optimized cost analysis ({analysis_type}, x{instance_count} instances):" if instance_count > 1 else f"GPU-optimized cost analysis ({analysis_type}):"
+            self.print_instance_output(instance_name, selected_provider, cost_header)
             for provider, info in sorted(provider_costs.items(), key=lambda x: x[1]['cost']):
                 marker = " ← SELECTED" if provider == selected_provider else ""
                 vcpus = info.get('vcpus', 'N/A')
@@ -1638,9 +1867,17 @@ output "external_ips" {
                 gpu_count = info.get('gpu_count', 0)
                 detected_gpu_type = info.get('gpu_type', '')
                 
+                # Calculate total cost for all instances
+                per_hour_cost = info['cost']
+                total_hourly_cost = per_hour_cost * instance_count
+                
                 gpu_info = f", {gpu_count}x {detected_gpu_type}" if detected_gpu_type else f", {gpu_count} GPU(s)"
-                self.print_instance_output(instance_name, selected_provider, 
-                    f"  {provider}: ${info['cost']:.4f}/hour ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}", 2)
+                if instance_count > 1:
+                    self.print_instance_output(instance_name, selected_provider, 
+                        f"  {provider}: ${per_hour_cost:.4f}/hour each, ${total_hourly_cost:.4f}/hour total ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}", 2)
+                else:
+                    self.print_instance_output(instance_name, selected_provider, 
+                        f"  {provider}: ${per_hour_cost:.4f}/hour ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}", 2)
 
     def get_instance_ssh_username(self, instance, provider, yaml_data=None):
         """Get the SSH username for an instance based on provider and operating system."""
@@ -1757,10 +1994,10 @@ output "external_ips" {
 
         if 'aws' in required_providers:
             # Get the primary AWS region that will be used
-            primary_aws_region = self.get_primary_aws_region(yaml_data) if yaml_data else 'us-east-1'
+            primary_aws_region = self.get_primary_aws_region(yaml_data) if yaml_data else None
             
             variables_content += f'''# AWS Variables
-# Note: AWS region is automatically determined from your configuration: {primary_aws_region}
+# Note: AWS region is determined from your YAML configuration: {primary_aws_region or 'No regions specified'}
 
 variable "aws_billing_account_id" {{
   description = "AWS billing account ID for ROSA clusters (overrides default account)"
@@ -1945,6 +2182,38 @@ variable "rhcs_url" {
   default     = "https://api.openshift.com"
 }
 
+variable "redhat_openshift_api_url" {
+  description = "Red Hat OpenShift API URL"
+  type        = string
+  default     = "https://api.openshift.com"
+}
+
+'''
+        if 'cnv' in required_providers:
+            variables_content += '''# CNV/Kubernetes Variables
+variable "openshift_cluster_url" {
+  description = "OpenShift cluster API URL"
+  type        = string
+}
+
+variable "openshift_cluster_token" {
+  description = "OpenShift cluster authentication token"
+  type        = string
+  sensitive   = true
+}
+
+variable "openshift_cluster_ca_cert" {
+  description = "OpenShift cluster CA certificate (base64 encoded)"
+  type        = string
+  sensitive   = true
+}
+
+variable "no_credentials_mode" {
+  description = "Run in no-credentials mode (skip dynamic lookups)"
+  type        = bool
+  default     = false
+}
+
 '''
 
                 # Add OpenShift variables if clusters are present
@@ -2032,17 +2301,14 @@ ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAA... your-public-key-here"
 '''
             
             # Try to auto-detect AWS credentials from environment variables
-            aws_region = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
             aws_billing_account_id = os.getenv('AWS_BILLING_ACCOUNT_ID')
             
-
-            
-            # Get the determined AWS region
-            determined_region = self.get_primary_aws_region(yaml_data) if yaml_data else aws_region
+            # Get the determined AWS region from YAML only
+            determined_region = self.get_primary_aws_region(yaml_data) if yaml_data else None
             
             # ROSA CLI uses AWS credentials from environment variables or AWS CLI profiles
             tfvars_content += f'''# AWS Region Configuration
-# Region automatically determined from your configuration: {determined_region}
+# Region determined from your YAML configuration: {determined_region or 'No regions specified'}
 
 # AWS Billing Account Override (if different from default account)
 aws_billing_account_id = "{aws_billing_account_id or ''}"
@@ -2091,18 +2357,23 @@ aws_billing_account_id = "{aws_billing_account_id or ''}"
 '''
 
         if 'azure' in required_providers:
-            # Get Azure credentials from environment variables (no defaults)
-            azure_creds = self.credentials.get_azure_credentials()
-            subscription_id = azure_creds.get('subscription_id')
-            
-            if not subscription_id:
-                raise ValueError("Azure subscription ID not found. Please set ARM_SUBSCRIPTION_ID or AZURE_SUBSCRIPTION_ID environment variable.")
-            
-            # Get ARM_CLIENT_SECRET for ARO service principal
-            arm_client_secret = azure_creds.get('client_secret')
-            
-            if not arm_client_secret:
-                raise ValueError("Azure client secret not found. Please set ARM_CLIENT_SECRET environment variable.")
+            if self.no_credentials:
+                # In no-credentials mode, use placeholders for Azure
+                subscription_id = "placeholder-subscription-id"
+                arm_client_secret = "placeholder-client-secret"
+            else:
+                # Get Azure credentials from environment variables (no defaults)
+                azure_creds = self.credentials.get_azure_credentials()
+                subscription_id = azure_creds.get('subscription_id')
+                
+                if not subscription_id:
+                    raise ValueError("Azure subscription ID not found. Please set ARM_SUBSCRIPTION_ID or AZURE_SUBSCRIPTION_ID environment variable.")
+                
+                # Get ARM_CLIENT_SECRET for ARO service principal
+                arm_client_secret = azure_creds.get('client_secret')
+                
+                if not arm_client_secret:
+                    raise ValueError("Azure client secret not found. Please set ARM_CLIENT_SECRET environment variable.")
                 
             tfvars_content += f'''# Azure Configuration (from environment variables)
 azure_subscription_id = "{subscription_id}"
@@ -2133,7 +2404,6 @@ gcp_region = "us-east1"
                 ibm_vpc_config = yaml_data['yamlforge'].get('ibm_vpc', {})
                 if 'region' in ibm_vpc_config:
                     ibm_region = ibm_vpc_config['region']
-                    self.print_provider_output('ibm_vpc', f"Using region from YAML configuration: {ibm_region}")
                 else:
                     self.print_provider_output('ibm_vpc', f"No region specified in YAML, using default: {ibm_region}")
             
@@ -2186,8 +2456,8 @@ alibaba_region     = "cn-hangzhou"
 '''
 
         if 'rhcs' in required_providers:
-            # Try to get RHCS token from environment variable
-            rhcs_token = os.getenv('REDHAT_OPENSHIFT_TOKEN') or os.getenv('ROSA_TOKEN') or os.getenv('OCM_TOKEN')
+            # Check for Red Hat OpenShift token
+            rhcs_token = os.getenv('REDHAT_OPENSHIFT_TOKEN')
             
             tfvars_content += '''# =============================================================================
 # RED HAT CLOUD SERVICES CONFIGURATION
@@ -2196,19 +2466,24 @@ alibaba_region     = "cn-hangzhou"
 '''
             
             if rhcs_token:
+                # Get Red Hat API URL from environment variable
+                rhcs_url = os.getenv('REDHAT_OPENSHIFT_API_URL', 'https://api.openshift.com')
                 
                 tfvars_content += f'''# Red Hat OpenShift Cluster Manager Token
 # Automatically detected from environment variable
 rhcs_token = "{rhcs_token}"
-rhcs_url   = "https://api.openshift.com"
+rhcs_url   = "{rhcs_url}"
 
 '''
             else:
-                tfvars_content += '''# Red Hat OpenShift Cluster Manager Token (required for ROSA)
+                # Get Red Hat API URL from environment variable
+                rhcs_url = os.getenv('REDHAT_OPENSHIFT_API_URL', 'https://api.openshift.com')
+                
+                tfvars_content += f'''# Red Hat OpenShift Cluster Manager Token (required for ROSA)
 # Get your token from: https://console.redhat.com/openshift/token/rosa
 # Set REDHAT_OPENSHIFT_TOKEN environment variable or configure here
 rhcs_token = "your-offline-token-here"
-rhcs_url   = "https://api.openshift.com"
+rhcs_url   = "{rhcs_url}"
 
 '''
 
@@ -2233,6 +2508,44 @@ redhat_pull_secret = ""
 
 '''
 
+        # CNV/Kubernetes configuration
+        if 'cnv' in required_providers:
+            # Get OpenShift cluster credentials from environment variables
+            openshift_cluster_url = os.getenv('OPENSHIFT_CLUSTER_URL')
+            openshift_cluster_token = os.getenv('OPENSHIFT_CLUSTER_TOKEN')
+            
+            if openshift_cluster_url and openshift_cluster_token:
+                tfvars_content += f'''# =============================================================================
+# CNV/KUBERNETES CONFIGURATION
+# =============================================================================
+
+# OpenShift Cluster Configuration
+# Automatically detected from environment variables
+openshift_cluster_url = "{openshift_cluster_url}"
+openshift_cluster_token = "{openshift_cluster_token}"
+
+# Note: openshift_cluster_ca_cert is optional for most OpenShift clusters
+# Set OPENSHIFT_CLUSTER_CA_CERT environment variable if needed
+openshift_cluster_ca_cert = ""
+no_credentials_mode = {str(self.no_credentials).lower()}
+
+'''
+            else:
+                tfvars_content += '''# =============================================================================
+# CNV/KUBERNETES CONFIGURATION
+# =============================================================================
+
+# OpenShift Cluster Configuration
+# Set these environment variables or configure manually:
+#   export OPENSHIFT_CLUSTER_URL="https://api.cluster.example.com:6443"
+#   export OPENSHIFT_CLUSTER_TOKEN="your-token-here"
+openshift_cluster_url = "https://api.cluster.example.com:6443"
+openshift_cluster_token = "your-token-here"
+openshift_cluster_ca_cert = ""
+no_credentials_mode = {str(self.no_credentials).lower()}
+
+'''
+
         return tfvars_content
 
     def convert(self, config, output_dir, verbose=False, full_yaml_data=None):
@@ -2251,7 +2564,7 @@ redhat_pull_secret = ""
         self.start_global_section()
         
         # Validate cloud provider setup early
-        self.validate_provider_setup(config)
+        self.validate_provider_setup(full_yaml_data or config)
         
         required_providers = self.detect_required_providers(config)
 
@@ -2299,6 +2612,7 @@ redhat_pull_secret = ""
                     os.chmod(cleanup_path, 0o755)
                 
                 if self.verbose:
+                    print()
                     print(f"Generated files:")
                     print(f"  - {main_tf_path}")
                     print(f"  - {variables_path}")
@@ -2309,6 +2623,7 @@ redhat_pull_secret = ""
             else:
                 # Terraform deployment method - no scripts generated
                 if self.verbose:
+                    print()
                     print(f"Generated files:")
                     print(f"  - {main_tf_path}")
                     print(f"  - {variables_path}")
@@ -2316,6 +2631,7 @@ redhat_pull_secret = ""
         else:
             # No ROSA clusters
             if self.verbose:
+                print()
                 print(f"Generated files:")
                 print(f"  - {main_tf_path}")
                 print(f"  - {variables_path}")
@@ -2349,6 +2665,10 @@ redhat_pull_secret = ""
 
     def _resolve_instance_region_silent(self, instance, provider):
         """Resolve instance region silently for validation purposes (no output)."""
+        # CNV provider doesn't use regions - return None
+        if provider == 'cnv':
+            return None
+            
         # Create cache key to prevent multiple validations for the same instance
         instance_name = instance.get('name', 'unnamed')
         cache_key = f"{instance_name}_{provider}_{instance.get('region', '')}_{instance.get('location', '')}"
@@ -2442,6 +2762,10 @@ redhat_pull_secret = ""
 
     def resolve_instance_region(self, instance, provider):
         """Resolve instance region with support for both direct regions and mapped locations."""
+        # CNV provider doesn't use regions - return None
+        if provider == 'cnv':
+            return None
+            
         # Create cache key to prevent multiple validations for the same instance
         instance_name = instance.get('name', 'unnamed')
         cache_key = f"{instance_name}_{provider}_{instance.get('region', '')}_{instance.get('location', '')}"
@@ -2477,8 +2801,7 @@ redhat_pull_secret = ""
                 raise ValueError(f"Instance '{instance_name}': Location '{location_key}' not found in location mappings. "
                                f"Check mappings/locations.yaml for supported locations.")
             
-            # Show the location mapping
-            self.print_instance_output(instance_name, provider, f"Location '{location_key}' -> mapped to region '{mapped_region}'")
+            # Location mapping will be shown in the Region line below
             
             # For location-based, validate and auto-select best region if needed
             instance_type = self._get_instance_type_for_validation(instance, provider)
@@ -2547,11 +2870,11 @@ redhat_pull_secret = ""
 
     def _get_instance_type_for_validation(self, instance, provider):
         """Get the instance type for validation purposes."""
-        # Get the size/instance_type from the instance
-        size = instance.get('size') or instance.get('instance_type')
+        # Get the flavor from the instance
+        flavor = instance.get('flavor')
         gpu_type = instance.get('gpu_type')
         
-        if not size:
+        if not flavor:
             return None
         
         # For GCP, resolve the machine type considering GPU requirements
@@ -2568,10 +2891,10 @@ redhat_pull_secret = ""
                     provider_flavors = self.flavors.get(provider, {})
                     flavor_mappings = provider_flavors.get('flavor_mappings', {})
                     
-                    # Look for size/GPU combination in flavor mappings
-                    for size_category, size_options in flavor_mappings.items():
-                        if size_category == size or size in size_category:
-                            for instance_type, specs in size_options.items():
+                    # Look for flavor/GPU combination in flavor mappings
+                    for flavor_category, flavor_options in flavor_mappings.items():
+                        if flavor_category == flavor or flavor in flavor_category:
+                            for instance_type, specs in flavor_options.items():
                                 if (specs.get('gpu_count', 0) > 0 and 
                                     self.gpu_type_matches(specs.get('gpu_type', ''), gpu_type)):
                                     return instance_type
@@ -2584,14 +2907,14 @@ redhat_pull_secret = ""
                             return instance_type
                 
                 # For non-GPU instances, use the regular machine type resolution
-                return self.gcp_provider.get_gcp_machine_type(size)
+                return self.gcp_provider.get_gcp_machine_type(flavor)
                 
             except ValueError:
                 # If we can't resolve the machine type, assume it's already a machine type
-                return size
+                return flavor
         
-        # For other providers, return the size as-is
-        return size
+        # For other providers, return the flavor as-is
+        return flavor
 
     def get_all_aws_regions(self, yaml_data):
         """Get all AWS regions used in the deployment configuration."""
@@ -2612,8 +2935,9 @@ redhat_pull_secret = ""
                     region = self._resolve_instance_region_silent(instance, 'aws')
                     aws_regions.add(region)
                 except ValueError:
-                    # Instance doesn't specify region, use default
-                    aws_regions.add(os.environ.get('AWS_DEFAULT_REGION', 'us-east-1'))
+                    # Instance doesn't specify region - this should be a validation error
+                    # Don't add any fallback region
+                    pass
         
         # Collect regions from OpenShift clusters
         for cluster in yaml_data.get('openshift_clusters', []):
@@ -2624,12 +2948,15 @@ redhat_pull_secret = ""
                     aws_regions.add(region)
         
         # Return sorted list of regions (primary first)
-        regions_list = sorted(aws_regions) if aws_regions else [os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')]
+        regions_list = sorted(aws_regions) if aws_regions else []
         return regions_list
     
     def get_primary_aws_region(self, yaml_data):
         """Get the primary AWS region (first in sorted order)."""
-        return self.get_all_aws_regions(yaml_data)[0]
+        regions = self.get_all_aws_regions(yaml_data)
+        if not regions:
+            return None  # No regions found - let caller handle this
+        return regions[0]
     
     def get_aws_provider_reference(self, region, all_regions):
         """Get the Terraform provider reference for a specific AWS region."""
@@ -2844,7 +3171,9 @@ redhat_pull_secret = ""
             instance_exclusions = instance.get('exclude_providers', [])
             # Log provider exclusions if any (always suppress since they're shown under instance name)
             self.log_provider_exclusions("cheapest provider selection", suppress_output, instance_exclusions, True)
-            print(f"   Cost analysis for instance '{instance_name}':")
+            # Resolve GUID in instance name before showing cost analysis
+            resolved_instance_name = self.replace_guid_placeholders(instance_name)
+            print(f"   Cost analysis for instance '{resolved_instance_name}':")
             for provider, info in sorted(provider_costs.items(), key=lambda x: x[1]['cost']):
                 marker = " ← SELECTED" if provider == cheapest_provider else ""
                 vcpus = info.get('vcpus', 'N/A')
@@ -2990,7 +3319,9 @@ redhat_pull_secret = ""
         provider_costs = self.find_cheapest_gpu_by_specs(gpu_type)
         
         if provider in provider_costs:
-            return provider_costs[provider]['instance_type']
+            instance_type = provider_costs[provider]['instance_type']
+            if instance_type:  # Make sure it's not None
+                return instance_type
         
         # Fallback to default GPU instance type
         provider_flavors = self.flavors.get(provider, {})
@@ -3250,33 +3581,42 @@ redhat_pull_secret = ""
         
         return None
     
-    def resolve_instance_type(self, provider, size, instance):
-        """Resolve instance type based on provider, size, and instance specifications."""
+    def resolve_instance_type(self, provider, flavor, instance):
+        """Resolve instance type based on provider, flavor, and instance specifications."""
         instance_name = instance.get("name", "unnamed")
         
-        # Check if instance specifies instance_type directly
-        direct_type = instance.get("instance_type")
-        if direct_type:
-            return direct_type
+        # If flavor is already a provider-specific type, return it directly
+        if flavor:
+            # Check if this looks like a provider-specific instance type
+            provider_prefixes = {
+                'aws': ['t3.', 't2.', 't4g.', 'm5.', 'm5a.', 'm5ad.', 'm5d.', 'm5dn.', 'm5n.', 'm5zn.', 'm6a.', 'm6g.', 'm6gd.', 'm6i.', 'm6id.', 'm6idn.', 'm6in.', 'm7a.', 'm7g.', 'm7gd.', 'm7i.', 'm7i-flex.', 'c5.', 'c5a.', 'c5ad.', 'c5d.', 'c5n.', 'c6a.', 'c6g.', 'c6gd.', 'c6gn.', 'c6i.', 'c6id.', 'c6in.', 'c7a.', 'c7g.', 'c7gd.', 'c7gn.', 'c7i.', 'r5.', 'r5a.', 'r5ad.', 'r5b.', 'r5d.', 'r5dn.', 'r5n.', 'r6a.', 'r6g.', 'r6gd.', 'r6i.', 'r6id.', 'r6idn.', 'r6in.', 'r7a.', 'r7g.', 'r7gd.', 'r7i.', 'r7iz.', 'g4ad.', 'g4dn.', 'g5.', 'g5g.', 'p3.', 'p3dn.', 'p4d.', 'p4de.', 'p5.', 'inf1.', 'inf2.', 'trn1.', 'trn1n.', 'dl1.', 'f1.', 'i3.', 'i3en.', 'i4g.', 'i4i.', 'is4gen.', 'im4gn.', 'd2.', 'd3.', 'd3en.', 'h1.', 'z1d.', 'x1.', 'x1e.', 'x2gd.', 'x2idn.', 'x2iedn.', 'x2iezn.', 'u-3tb1.', 'u-6tb1.', 'u-9tb1.', 'u-12tb1.', 'u-18tb1.', 'u-24tb1.', 'u-1.', 'u-2.', 'u-3.', 'u-6.', 'u-9.', 'u-12.', 'u-18.', 'u-24.'],
+                'azure': ['Standard_', 'Basic_'],
+                'gcp': ['n1-', 'n2-', 'n2d-', 'n4-', 'e2-', 'c2-', 'c2d-', 'c3-', 'c3d-', 't2d-', 't2a-', 'a2-', 'a3-', 'g2-', 'm1-', 'm2-', 'm3-'],
+                'oci': ['VM.Standard', 'VM.DenseIO', 'VM.GPU', 'VM.Optimized', 'BM.Standard', 'BM.DenseIO', 'BM.GPU', 'BM.HPC'],
+                'ibm_vpc': ['bx2-', 'cx2-', 'mx2-', 'gx2-', 'gx3-', 'vx2d-', 'ox2-', 'ux2d-'],
+                'alibaba': ['ecs.', 'r6.', 'c6.', 'g6.', 'ebm.', 'scc.', 'scch.']
+            }
+            
+            if provider in provider_prefixes:
+                if any(flavor.startswith(prefix) for prefix in provider_prefixes[provider]):
+                    return flavor
         
-        # Map generic size to provider-specific instance type
-        if size in self.flavors:
-            generic_flavor = self.flavors[size]
+        # Map generic flavor to provider-specific instance type
+        if flavor in self.flavors:
+            generic_flavor = self.flavors[flavor]
             if provider in generic_flavor:
                 instance_type = generic_flavor[provider]
-                # Only print during regular conversion, not during analysis (to prevent duplicates)
-                if not hasattr(self, 'analysis_mode') or not self.analysis_mode:
-                    self.print_instance_output(instance_name, provider, f"Size mapping: '{size}' -> '{instance_type}'")
+                # Flavor mapping output will be handled in _display_instance_hourly_cost
                 return instance_type
             else:
                 # Check if this is a GPU flavor that doesn't support this provider
-                if any(gpu_prefix in size for gpu_prefix in ['gpu_', 'gpu_t4_', 'gpu_v100_', 'gpu_a100_', 'gpu_amd_']):
+                if any(gpu_prefix in flavor for gpu_prefix in ['gpu_', 'gpu_t4_', 'gpu_v100_', 'gpu_a100_', 'gpu_amd_']):
                     available_providers = list(generic_flavor.keys())
                     
                     # Special handling for AMD GPUs
-                    if 'gpu_amd_' in size:
+                    if 'gpu_amd_' in flavor:
                         raise ValueError(
-                            f"AMD GPU flavor '{size}' is only available on AWS. "
+                            f"AMD GPU flavor '{flavor}' is only available on AWS. "
                             f"Provider '{provider}' does not support AMD GPUs. "
                             f"Consider using:\n"
                             f"  - AWS provider: provider: 'aws'\n"
@@ -3286,8 +3626,8 @@ redhat_pull_secret = ""
                     else:
                         # General GPU flavor not available on provider
                         raise ValueError(
-                            f"GPU flavor '{size}' is not available on provider '{provider}'. "
-                            f"Available providers for {size}: {', '.join(available_providers)}. "
+                            f"GPU flavor '{flavor}' is not available on provider '{provider}'. "
+                            f"Available providers for {flavor}: {', '.join(available_providers)}. "
                             f"Consider using:\n"
                             f"  - Supported provider: {', '.join(available_providers)}\n"
                             f"  - Cost optimization: provider: 'cheapest'\n"
@@ -3298,33 +3638,33 @@ redhat_pull_secret = ""
         provider_flavors = self.flavors.get(provider, {})
         flavor_mappings = provider_flavors.get('flavor_mappings', {})
         
-        if size in flavor_mappings:
-            size_options = flavor_mappings[size]
+        if flavor in flavor_mappings:
+            flavor_options = flavor_mappings[flavor]
             # Return the first (usually cheapest) option
-            if size_options:
-                return next(iter(size_options.keys()))
+            if flavor_options:
+                return next(iter(flavor_options.keys()))
         
         # No mapping found - fail with clear error message
-        # Get available sizes from both generic and provider-specific mappings
-        generic_sizes = list(self.flavors.keys()) if hasattr(self, 'flavors') else []
-        provider_sizes = list(flavor_mappings.keys()) if flavor_mappings else []
-        all_available_sizes = sorted(set(generic_sizes + provider_sizes))
+        # Get available flavors from both generic and provider-specific mappings
+        generic_flavors = list(self.flavors.keys()) if hasattr(self, 'flavors') else []
+        provider_flavors_list = list(flavor_mappings.keys()) if flavor_mappings else []
+        all_available_flavors = sorted(set(generic_flavors + provider_flavors_list))
         
         raise ValueError(
-            f"Instance '{instance_name}': No mapping found for size '{size}' on provider '{provider}'. "
-            f"Available sizes: {', '.join(all_available_sizes)}. "
-            f"Check mappings/flavors/generic.yaml and mappings/flavors/{provider}.yaml for supported sizes."
+            f"Instance '{instance_name}': No mapping found for flavor '{flavor}' on provider '{provider}'. "
+            f"Available flavors: {', '.join(all_available_flavors)}. "
+            f"Check mappings/flavors/generic.yaml and mappings/flavors/{provider}.yaml for supported flavors."
         )
     
-    def get_instance_cost_info(self, provider, instance_type, size, provider_flavors):
+    def get_instance_cost_info(self, provider, instance_type, flavor, provider_flavors):
         """Get detailed cost and specification information for a specific instance type."""
         # Look in provider-specific flavor mappings
         flavor_mappings = provider_flavors.get('flavor_mappings', {})
         
-        if size in flavor_mappings:
-            size_options = flavor_mappings[size]
-            # Find the instance type in the size category
-            for type_name, type_info in size_options.items():
+        if flavor in flavor_mappings:
+            flavor_options = flavor_mappings[flavor]
+            # Find the instance type in the flavor category
+            for type_name, type_info in flavor_options.items():
                 if type_name == instance_type:
                     cost = type_info.get('hourly_cost')
                     if cost is not None:
@@ -3333,6 +3673,22 @@ redhat_pull_secret = ""
                             'instance_type': instance_type,
                             'vcpus': type_info.get('vcpus'),
                             'memory_gb': type_info.get('memory_gb')
+                        }
+        
+        # If flavor is a direct instance type, search across all flavor categories
+        if flavor == instance_type:
+            for flavor_category, flavor_options in flavor_mappings.items():
+                if instance_type in flavor_options:
+                    type_info = flavor_options[instance_type]
+                    cost = type_info.get('hourly_cost')
+                    if cost is not None:
+                        return {
+                            'cost': cost,
+                            'instance_type': instance_type,
+                            'vcpus': type_info.get('vcpus'),
+                            'memory_gb': type_info.get('memory_gb'),
+                            'gpu_count': type_info.get('gpu_count'),
+                            'gpu_type': type_info.get('gpu_type')
                         }
         
         # Check direct machine type mapping for GCP
@@ -3349,7 +3705,7 @@ redhat_pull_secret = ""
         
         return None
 
-    def _display_instance_hourly_cost(self, instance_name, provider, instance_type, size, original_provider, instance):
+    def _display_instance_hourly_cost(self, instance_name, provider, instance_type, flavor, original_provider, instance):
         """Display the hourly cost for an instance."""
         # For cheapest provider instances, get the cost from the cheapest provider analysis
         if original_provider in ['cheapest', 'cheapest-gpu']:
@@ -3369,7 +3725,7 @@ redhat_pull_secret = ""
                     provider_costs = self.find_cheapest_by_specs(
                         instance.get('cores', 2), 
                         memory_mb,
-                        instance.get('gpus', 0),
+                        instance.get('gpu_count', 0),
                         instance.get('gpu_type'),
                         instance_exclusions
                     )
@@ -3378,8 +3734,22 @@ redhat_pull_secret = ""
                     provider_costs = self.find_cheapest_gpu_by_specs(gpu_type, instance_exclusions)
                 
                 if provider_costs and provider in provider_costs:
-                    hourly_cost = provider_costs[provider]['cost']
-                    self.print_instance_output(instance_name, provider, f"Instance hourly cost: ${hourly_cost:.4f}")
+                    selected_option = provider_costs[provider]
+                    hourly_cost = selected_option['cost']
+                    instance_type = selected_option['instance_type']
+                    # Get and display region information for cheapest provider
+                    region = instance.get('region') or instance.get('location', 'unspecified')
+                    mapped_region = self.locations.get(region, {}).get(provider, region) if region != 'unspecified' else 'unspecified'
+                    if region == mapped_region:
+                        self.print_instance_output(instance_name, provider, f"Region: {region}")
+                    else:
+                        self.print_instance_output(instance_name, provider, f"Region: {region} ({mapped_region})")
+                    # Show flavor mapping format: original_flavor (resolved_instance_type)
+                    if flavor and flavor != instance_type:
+                        self.print_instance_output(instance_name, provider, f"Flavor: {flavor} ({instance_type})")
+                    else:
+                        self.print_instance_output(instance_name, provider, f"Flavor: {instance_type}")
+                    self.print_instance_output(instance_name, provider, f"Hourly Cost: ${hourly_cost:.4f}")
                     # Track the cost for total calculation
                     self.instance_costs.append({
                         'instance_name': instance_name,
@@ -3390,13 +3760,85 @@ redhat_pull_secret = ""
             except Exception:
                 pass  # Fall back to regular cost lookup
         
+
+        
+        # Special handling for CNV provider
+        if provider == 'cnv':
+            provider_flavors = self.flavors.get(provider, {})
+            flavor_mappings = provider_flavors.get('flavor_mappings', {})
+            
+            # Get the actual flavor name (could be from flavor or cores/memory)
+            actual_flavor = flavor
+            if not actual_flavor:
+                # If no flavor specified, determine from cores/memory
+                cores = instance.get('cores')
+                memory = instance.get('memory')
+                if cores and memory:
+                    # For cores/memory, we'll show the specs instead of a flavor name
+                    self.print_instance_output(instance_name, provider, f"Provider: {provider}")
+                    self.print_instance_output(instance_name, provider, f"Instance specs: {cores} vCPU, {memory}MB RAM")
+                    self.print_instance_output(instance_name, provider, "Hourly Cost: $0.001 (minimal CNV cost)")
+                    self.instance_costs.append({
+                        'instance_name': instance_name,
+                        'provider': provider,
+                        'cost': 0.001
+                    })
+                    return
+            
+            # Look up cost for the flavor
+            if actual_flavor in flavor_mappings:
+                flavor_options = flavor_mappings[actual_flavor]
+                # Get the first flavor option (e.g., 'cnv-small' for 'small')
+                flavor_name = next(iter(flavor_options.keys()))
+                flavor_config = flavor_options[flavor_name]
+                
+                hourly_cost = flavor_config.get('hourly_cost', 0.001)
+                vcpus = flavor_config.get('vcpus', 1)
+                memory_gb = flavor_config.get('memory_gb', 1)
+                
+                self.print_instance_output(instance_name, provider, f"Provider: {provider}")
+                self.print_instance_output(instance_name, provider, f"Instance flavor: {flavor_name} ({vcpus} vCPU, {memory_gb}GB RAM)")
+                self.print_instance_output(instance_name, provider, f"Hourly Cost: ${hourly_cost:.4f}")
+                
+                self.instance_costs.append({
+                    'instance_name': instance_name,
+                    'provider': provider,
+                    'cost': hourly_cost
+                })
+                return
+            else:
+                self.print_instance_output(instance_name, provider, f"Provider: {provider}")
+                self.print_instance_output(instance_name, provider, f"Instance flavor: {actual_flavor}")
+                self.print_instance_output(instance_name, provider, "Hourly Cost: $0.001 (minimal CNV cost)")
+                self.instance_costs.append({
+                    'instance_name': instance_name,
+                    'provider': provider,
+                    'cost': 0.001
+                })
+                return
+        
         # Regular cost lookup for non-cheapest providers or fallback
+        # Show provider information for regular instances
+        self.print_instance_output(instance_name, provider, f"Provider: {provider}")
+        
         provider_flavors = self.flavors.get(provider, {})
-        cost_info = self.get_instance_cost_info(provider, instance_type, size, provider_flavors)
+        cost_info = self.get_instance_cost_info(provider, instance_type, flavor, provider_flavors)
         
         if cost_info and cost_info.get('cost') is not None:
             hourly_cost = cost_info['cost']
-            self.print_instance_output(instance_name, provider, f"Instance hourly cost: ${hourly_cost:.4f}")
+            # Get and display region information
+            region = instance.get('region', 'unspecified')
+            mapped_region = self.locations.get(region, {}).get(provider, region) if region != 'unspecified' else 'unspecified'
+            if region == mapped_region:
+                self.print_instance_output(instance_name, provider, f"Region: {region}")
+            else:
+                self.print_instance_output(instance_name, provider, f"Region: {region} ({mapped_region})")
+            # Show flavor mapping format: original_flavor (resolved_instance_type)
+            if flavor and flavor != instance_type:
+                self.print_instance_output(instance_name, provider, f"Flavor: {flavor} ({instance_type})")
+            else:
+                self.print_instance_output(instance_name, provider, f"Flavor: {instance_type}")
+            self.print_instance_output(instance_name, provider, f"Hourly Cost: ${hourly_cost:.4f}")
             # Track the cost for total calculation
             self.instance_costs.append({
                 'instance_name': instance_name,
@@ -3404,7 +3846,19 @@ redhat_pull_secret = ""
                 'cost': hourly_cost
             })
         else:
-            self.print_instance_output(instance_name, provider, "Instance hourly cost: Cost information not available")
+            # Get and display region information even when cost is not available
+            region = instance.get('region', 'unspecified')
+            mapped_region = self.locations.get(region, {}).get(provider, region) if region != 'unspecified' else 'unspecified'
+            if region == mapped_region:
+                self.print_instance_output(instance_name, provider, f"Region: {region}")
+            else:
+                self.print_instance_output(instance_name, provider, f"Region: {region} ({mapped_region})")
+            # Show flavor mapping format: original_flavor (resolved_instance_type)
+            if flavor and flavor != instance_type:
+                self.print_instance_output(instance_name, provider, f"Flavor: {flavor} ({instance_type})")
+            else:
+                self.print_instance_output(instance_name, provider, f"Flavor: {instance_type}")
+            self.print_instance_output(instance_name, provider, "Hourly Cost: Cost information not available")
 
     def calculate_openshift_cluster_cost(self, cluster, cluster_type):
         """Calculate the hourly cost for an OpenShift cluster."""
@@ -3536,7 +3990,7 @@ redhat_pull_secret = ""
             raise ValueError(f"Instance '{instance_name}' must specify a 'provider'")
 
         clean_name, has_guid_placeholder = self.clean_name(instance.get("name", f"instance_{index}"))
-        size = instance.get("size")
+        flavor = instance.get("flavor")
         instance_name = instance.get("name", "unnamed")
         
         # Store original provider before it gets changed
@@ -3573,52 +4027,60 @@ redhat_pull_secret = ""
         # Call resolve_instance_region to show instance-specific messages
         self.resolve_instance_region(instance, provider)
         
-        # Handle cheapest provider meta-provider output
+        # Handle cheapest provider meta-provider output (without cost analysis yet)
         if original_provider in ['cheapest', 'cheapest-gpu']:
             if original_provider == 'cheapest':
-                self.print_instance_output(instance_name, provider, f"Selected cheapest provider: {provider}")
-                # Pass the original instance to recalculate cost analysis
-                # Create a fresh copy of the original instance before any modifications
-                original_instance = {
-                    'name': instance.get('name'),
-                    'provider': original_provider,
-                    'cores': instance.get('cores', 2),
-                    'memory': instance.get('memory', 4),
-                    'gpus': instance.get('gpus', 0),
-                    'gpu_type': instance.get('gpu_type'),
-                    'exclude_providers': instance.get('exclude_providers', [])
-                }
-                self._print_cost_analysis_for_instance(original_instance, provider)
+                self.print_instance_output(instance_name, provider, f"Provider: cheapest ({provider})")
             else:
-                self.print_instance_output(instance_name, provider, f"Selected cheapest GPU provider: {provider}")
-                # Pass the original instance to recalculate cost analysis
-                original_instance = {
-                    'name': instance.get('name'),
-                    'provider': original_provider,
-                    'cores': instance.get('cores', 2),
-                    'memory': instance.get('memory', 4),
-                    'gpus': instance.get('gpus', 0),
-                    'gpu_type': instance.get('gpu_type'),
-                    'exclude_providers': instance.get('exclude_providers', [])
-                }
-                self._print_gpu_cost_analysis_for_instance(original_instance, provider)
+                self.print_instance_output(instance_name, provider, f"Provider: cheapest-gpu ({provider})")
         
         # Validate that we have enough information to determine instance type
-        direct_instance_type = instance.get("instance_type")
+        cores = instance.get("cores")
+        memory = instance.get("memory")
         
-        if not direct_instance_type and not selected_instance_type and not size:
-            raise ValueError(
-                f"Instance '{instance_name}': Must specify either:\n"
-                f"  - 'size': nano, micro, small, medium, large, xlarge, etc.\n"
-                f"  - 'instance_type': provider-specific type (e.g., 't3.small', 'e2-micro')\n"
-                f"  - Use 'provider: cheapest' with requirements (cores, memory, gpu_type)"
-            )
+        # For CNV provider, allow cores and memory as an alternative to flavor
+        if provider == 'cnv':
+            if not flavor and not selected_instance_type and not (cores and memory):
+                raise ValueError(
+                    f"Instance '{instance_name}': Must specify either:\n"
+                    f"  - 'flavor': small, medium, large, xlarge, etc.\n"
+                    f"  - 'cores' and 'memory': e.g., cores: 2, memory: 4096 (MB)"
+                )
+        else:
+            if not flavor and not selected_instance_type:
+                raise ValueError(
+                    f"Instance '{instance_name}': Must specify either:\n"
+                    f"  - 'flavor': generic (small, medium, large, xlarge) or provider-specific (t3.small, e2-micro)\n"
+                    f"  - Use 'provider: cheapest' with requirements (cores, memory, gpu_type)"
+                )
         
-        # Determine instance type (priority: direct specification > cheapest selection > size mapping)
-        instance_type = direct_instance_type or selected_instance_type or self.resolve_instance_type(provider, size, instance)
+        # Determine instance type (priority: direct flavor specification > cheapest selection > flavor mapping)
+        # Skip instance type resolution for CNV provider entirely
+        if provider == 'cnv':
+            instance_type = None  # CNV doesn't use instance types
+        else:
+            instance_type = selected_instance_type or self.resolve_instance_type(provider, flavor, instance)
 
         # Calculate and display hourly cost
-        self._display_instance_hourly_cost(instance_name, provider, instance_type, size, original_provider, instance)
+        self._display_instance_hourly_cost(instance_name, provider, instance_type, flavor, original_provider, instance)
+
+        # Now show cost analysis for cheapest providers (after all instance details)
+        if original_provider in ['cheapest', 'cheapest-gpu']:
+            # Create a fresh copy of the original instance for cost analysis
+            original_instance = {
+                'name': instance.get('name'),
+                'provider': original_provider,
+                'cores': instance.get('cores', 2),
+                'memory': instance.get('memory', 4),
+                'gpu_count': instance.get('gpu_count', 0),
+                'gpu_type': instance.get('gpu_type'),
+                'exclude_providers': instance.get('exclude_providers', [])
+            }
+            
+            if original_provider == 'cheapest':
+                self._print_cost_analysis_for_instance(original_instance, provider)
+            else:  # cheapest-gpu
+                self._print_gpu_cost_analysis_for_instance(original_instance, provider)
 
         # Use full_yaml_data if provided, otherwise fall back to yaml_data
         effective_yaml_data = full_yaml_data if full_yaml_data is not None else yaml_data
@@ -3627,20 +4089,36 @@ redhat_pull_secret = ""
             strategy_info = {'instance_type': instance_type, 'architecture': 'x86_64'}
             return self.get_aws_provider().generate_aws_vm(instance, index, clean_name, strategy_info, available_subnets, effective_yaml_data, has_guid_placeholder)
         elif provider == 'azure':
-            return self.azure_provider.generate_azure_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data, has_guid_placeholder)
+            # For cheapest providers, pass the selected instance type instead of flavor
+            azure_flavor = selected_instance_type or flavor
+            return self.azure_provider.generate_azure_vm(instance, index, clean_name, azure_flavor, available_subnets, effective_yaml_data, has_guid_placeholder)
         elif provider == 'gcp':
-            return self.gcp_provider.generate_gcp_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data, has_guid_placeholder)
+            # For cheapest providers, pass the selected instance type instead of flavor
+            gcp_flavor = selected_instance_type or flavor
+            return self.gcp_provider.generate_gcp_vm(instance, index, clean_name, gcp_flavor, available_subnets, effective_yaml_data, has_guid_placeholder)
         elif provider == 'oci':
-            return self.oci_provider.generate_oci_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data, has_guid_placeholder)
+            # For cheapest providers, pass the selected instance type instead of flavor
+            oci_flavor = selected_instance_type or flavor
+            return self.oci_provider.generate_oci_vm(instance, index, clean_name, oci_flavor, available_subnets, effective_yaml_data, has_guid_placeholder)
         elif provider == 'vmware':
-            return self.vmware_provider.generate_vmware_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data, has_guid_placeholder)
+            # For cheapest providers, pass the selected instance type instead of flavor
+            vmware_flavor = selected_instance_type or flavor
+            return self.vmware_provider.generate_vmware_vm(instance, index, clean_name, vmware_flavor, available_subnets, effective_yaml_data, has_guid_placeholder)
         elif provider == 'alibaba':
-            return self.alibaba_provider.generate_alibaba_vm(instance, index, clean_name, instance_type, available_subnets, effective_yaml_data, has_guid_placeholder)
+            # For cheapest providers, pass the selected instance type instead of flavor
+            alibaba_flavor = selected_instance_type or flavor
+            return self.alibaba_provider.generate_alibaba_vm(instance, index, clean_name, alibaba_flavor, available_subnets, effective_yaml_data, has_guid_placeholder)
         elif provider in ['ibm_vpc', 'ibm_classic']:
+            # For cheapest providers, pass the selected instance type instead of flavor
+            ibm_flavor = selected_instance_type or flavor
             if provider == 'ibm_vpc':
-                return self.ibm_vpc_provider.generate_ibm_vpc_vm(instance, index, clean_name, instance_type, effective_yaml_data, has_guid_placeholder, zone)
+                return self.ibm_vpc_provider.generate_ibm_vpc_vm(instance, index, clean_name, ibm_flavor, effective_yaml_data, has_guid_placeholder, zone)
             else:
-                return self.ibm_classic_provider.generate_ibm_classic_vm(instance, index, clean_name, instance_type, effective_yaml_data, has_guid_placeholder)
+                return self.ibm_classic_provider.generate_ibm_classic_vm(instance, index, clean_name, ibm_flavor, effective_yaml_data, has_guid_placeholder)
+        elif provider == 'cnv':
+            # For CNV, pass flavor (which may be None if using cores/memory)
+            # The CNV provider will handle cores/memory internally
+            return self.cnv_provider.generate_cnv_vm(instance, index, clean_name, flavor, available_subnets, effective_yaml_data, has_guid_placeholder)
         else:
             raise ValueError(f"Unsupported provider: {provider}")
 

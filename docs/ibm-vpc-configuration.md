@@ -1,237 +1,230 @@
-# IBM VPC Configuration
+# IBM VPC Configuration Guide
 
-IBM VPC (Virtual Private Cloud) configuration options for YamlForge deployments.
+This guide covers IBM VPC-specific configuration options and best practices for YamlForge.
 
-## Configuration Options
+## Quick Start
 
-### Basic Configuration
+### Basic IBM VPC Instance
 
 ```yaml
+guid: "ibm01"
+
 yamlforge:
-  ibm_vpc:
-    use_existing_resource_group: false
-    create_cloud_user: true
+  instances:
+    - name: "ibm-vpc-vm-{guid}"
+      provider: "ibm_vpc"
+      flavor: "medium"
+      image: "RHEL9-latest"
+      region: "us-south"
 ```
 
-### Configuration Parameters
+### Multi-Region IBM VPC Deployment
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `use_existing_resource_group` | boolean | `false` | Use an existing IBM Cloud resource group instead of creating new ones |
-| `existing_resource_group_name` | string | - | Name of the existing IBM Cloud resource group to use (required if `use_existing_resource_group` is `true`) |
-| `create_cloud_user` | boolean | `true` | Create cloud-user account with SSH access instead of using root account |
-| `auto_create_outbound_sg` | boolean | `true` | Automatically create outbound security group for internet access if none configured |
-
-## Cloud-User Configuration
-
-### Default Behavior (create_cloud_user: true)
-
-When `create_cloud_user` is set to `true` (default):
-
-- Creates a `cloud-user` account on RHEL instances
-- Configures SSH access for the cloud-user account
-- Sets up sudo access without password
-- Disables root SSH access for security
-- SSH username will be `cloud-user`
-
-**Example:**
 ```yaml
+guid: "ibm02"
+
 yamlforge:
-  ibm_vpc:
-    create_cloud_user: true  # Default behavior
+  instances:
+    - name: "vpc-east-{guid}"
+      provider: "ibm_vpc"
+      flavor: "medium"
+      image: "RHEL9-latest"
+      region: "us-east"
+      
+    - name: "vpc-south-{guid}"
+      provider: "ibm_vpc"
+      flavor: "medium"
+      image: "RHEL9-latest"
+      region: "us-south"
 ```
 
-### Root Account Usage (create_cloud_user: false)
+## Environment Variables
 
-When `create_cloud_user` is set to `false`:
+### Required IBM VPC Credentials
 
-- No user_data script is generated
-- Uses the default root account
-- SSH username will be `root`
-- No system modifications are performed
+```bash
+# IBM Cloud API Key
+export IBMCLOUD_API_KEY=your_ibm_cloud_api_key
 
-**Example:**
-```yaml
-yamlforge:
-  ibm_vpc:
-    create_cloud_user: false  # Use root account
+# IBM Cloud Region
+export IBMCLOUD_REGION=us-south
+
+# SSH Public Key
+export SSH_PUBLIC_KEY="ssh-rsa your_public_key_here"
 ```
 
-## Outbound Security Group Configuration
+### Getting IBM Cloud API Key
 
-### Automatic Outbound Security Group (Default)
+1. **Log into IBM Cloud Console**: https://cloud.ibm.com
+2. **Go to Manage → Access (IAM) → API Keys**
+3. **Create API Key**: Click "Create an IBM Cloud API key"
+4. **Copy the key**: Save it securely
 
-When `auto_create_outbound_sg` is set to `true` (default):
+## Available Regions
 
-- YamlForge automatically creates an outbound security group if no outbound rules are configured
-- The auto-created security group allows all outbound traffic (0.0.0.0/0)
-- This is essential for RHEL instances to complete their initialization process
-- A message is displayed: "INFO: No outbound security group rules found. Creating automatic outbound security group for {region}."
+IBM VPC supports these regions:
 
-**Example:**
 ```yaml
-yamlforge:
-  ibm_vpc:
-    auto_create_outbound_sg: true  # Default behavior
+# ✅ Supported regions
+region: "us-south"      # Dallas
+region: "us-east"       # Washington DC
+region: "eu-gb"         # London
+region: "eu-de"         # Frankfurt
+region: "jp-tok"        # Tokyo
+region: "au-syd"        # Sydney
+region: "ca-tor"        # Toronto
+region: "br-sao"        # São Paulo
 ```
 
-### Manual Outbound Configuration
+## Instance Flavors
 
-When `auto_create_outbound_sg` is set to `false`:
+IBM VPC supports these instance profiles:
 
-- No automatic outbound security group is created
-- You must manually configure outbound rules in your security groups
-- Useful when you need specific outbound restrictions
-
-**Example:**
 ```yaml
-yamlforge:
-  ibm_vpc:
-    auto_create_outbound_sg: false  # Manual configuration required
+# ✅ Available flavors
+flavor: "small"         # 2 vCPU, 4GB RAM
+flavor: "medium"        # 4 vCPU, 8GB RAM
+flavor: "large"         # 8 vCPU, 16GB RAM
+flavor: "xlarge"        # 16 vCPU, 32GB RAM
 
-security_groups:
-  - name: "my-security-group"
-    rules:
-      - direction: "ingress"
-        protocol: "tcp"
-        port_range: "22"
-        source: "0.0.0.0/0"
-      - direction: "egress"  # Manual outbound rule
-        protocol: "all"
-        port_range: "0-65535"
-        source: "0.0.0.0/0"
+# ✅ Custom specifications
+cores: 4
+memory: 8192  # 8GB in MB
 ```
 
-## Resource Group Configuration
+## Advanced Configuration
 
-### Creating New Resource Groups (Default)
-
-```yaml
-yamlforge:
-  ibm_vpc:
-    use_existing_resource_group: false  # Default behavior
-```
-
-YamlForge will create a new resource group for each deployment with the naming pattern:
-`{deployment-name}-{guid}-vpc-{region}`
-
-### Using Existing Resource Groups
+### Security Groups
 
 ```yaml
-yamlforge:
-  ibm_vpc:
-    use_existing_resource_group: true
-    existing_resource_group_name: "my-existing-resource-group"
-```
-
-When using existing resource groups:
-- All resources will be created in the specified resource group
-- The resource group must exist before deployment
-- Useful for organizations with centralized resource management
-
-## Complete Example
-
-```yaml
----
-guid: "demo01"
+guid: "ibm03"
 
 yamlforge:
-  cloud_workspace:
-    name: "ibm-vpc-demo-{guid}"
-    description: "IBM VPC deployment example"
-  
-  ibm_vpc:
-    use_existing_resource_group: false
-    create_cloud_user: true  # Create cloud-user account with SSH access
-    auto_create_outbound_sg: true  # Automatically create outbound security group for internet access
-  
   security_groups:
-    - name: "ssh-access-{guid}"
-      description: "Allow SSH access (ingress only - outbound will be auto-created)"
+    - name: "web-access-{guid}"
+      description: "Web server access"
       rules:
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "80"
+          source: "0.0.0.0/0"
+        - direction: "ingress"
+          protocol: "tcp"
+          port_range: "443"
+          source: "0.0.0.0/0"
         - direction: "ingress"
           protocol: "tcp"
           port_range: "22"
           source: "0.0.0.0/0"
-          description: "SSH access from anywhere"
-  
+
   instances:
     - name: "web-server-{guid}"
       provider: "ibm_vpc"
-      size: "medium"
-      region: "us-south"
+      flavor: "medium"
       image: "RHEL9-latest"
-      security_groups: ["ssh-access-{guid}"]
+      region: "us-south"
+      security_groups: ["web-access-{guid}"]
+```
+
+### Tags and Labels
+
+```yaml
+guid: "ibm04"
+
+yamlforge:
+  instances:
+    - name: "tagged-vm-{guid}"
+      provider: "ibm_vpc"
+      flavor: "medium"
+      image: "RHEL9-latest"
+      region: "us-south"
       tags:
         environment: "production"
-        tier: "web"
-  
-  tags:
-    project: "ibm-vpc-demo"
-    managed_by: "yamlforge"
+        team: "development"
+        cost_center: "it-ops"
 ```
 
-**Note**: With `auto_create_outbound_sg: true`, YamlForge will automatically create an outbound security group that allows all protocols (TCP, UDP, ICMP) on ports 1-65535, which is essential for RHEL instances to complete their initialization process.
+## Cost Optimization
 
-## SSH Access
+### Using Cheapest Provider
 
-### With Cloud-User (Default)
-```bash
-ssh cloud-user@<public-ip>
+```yaml
+guid: "ibm05"
+
+yamlforge:
+  instances:
+    - name: "cost-optimized-{guid}"
+      provider: "cheapest"  # IBM VPC may be selected if cheapest
+      flavor: "medium"
+      image: "RHEL9-latest"
+      region: "us-south"
 ```
 
-### With Root Account
-```bash
-ssh root@<public-ip>
+### Custom Specifications
+
+```yaml
+guid: "ibm06"
+
+yamlforge:
+  instances:
+    - name: "custom-specs-{guid}"
+      provider: "ibm_vpc"
+      cores: 6
+      memory: 12288  # 12GB in MB
+      image: "RHEL9-latest"
+      region: "us-south"
 ```
-
-## Security Considerations
-
-- **Cloud-User (Recommended)**: More secure, follows security best practices
-- **Root Account**: Less secure, but may be required for certain use cases
-- **SSH Key Management**: Always use SSH keys instead of passwords
-- **Security Groups**: Configure appropriate security group rules for SSH access
 
 ## Troubleshooting
 
-### Common Issues and Solutions
+### Common Issues
 
-#### 1. RHEL Instance Fails to Start (`cannot_start_compute`)
+1. **API Key Issues**
+   ```bash
+   # Verify API key
+   curl -H "Authorization: Bearer $IBMCLOUD_API_KEY" \
+        https://us-south.iaas.cloud.ibm.com/v1/instances
+   ```
 
-**Problem**: RHEL instances fail to start with `cannot_start_compute` error.
+2. **Region Availability**
+   ```bash
+   # Check available regions
+   ibmcloud regions
+   ```
 
-**Cause**: Missing outbound security group rules prevent RHEL instances from completing initialization.
+3. **Instance Profile Issues**
+   ```bash
+   # List available profiles
+   ibmcloud is instance-profiles
+   ```
 
-**Solution**: 
-- Ensure `auto_create_outbound_sg: true` (default) is set
-- Or manually configure outbound rules in your security groups
-- The automatic outbound security group allows all protocols (TCP, UDP, ICMP) on ports 1-65535
+### Best Practices
 
-#### 2. Cloud-User Account Not Created
+1. **Use Universal Locations**: `region: "us-east"` maps to IBM VPC regions
+2. **Tag Resources**: Use tags for cost tracking and organization
+3. **Security Groups**: Always use security groups for network access control
+4. **Backup Strategy**: Consider IBM Cloud Backup for data protection
 
-**Problem**: The `cloud-user` account is not created despite `create_cloud_user: true`.
+## Integration with OpenShift
 
-**Cause**: User data script not executing due to cloud-init configuration issues.
+IBM VPC can be used with OpenShift clusters:
 
-**Solution**:
-- YamlForge now passes user data directly without base64 encoding (fixed in v0.99.0a1)
-- Ensure `create_cloud_user: true` is set in your configuration
-- Check cloud-init logs: `journalctl -u cloud-init --no-pager`
+```yaml
+guid: "ibm07"
 
-#### 3. SSH Connection Fails
-   - Verify the correct username (cloud-user vs root)
-   - Check security group rules allow SSH access
-   - Ensure SSH key is properly configured
+yamlforge:
+  openshift_clusters:
+    - name: "ibm-openshift-{guid}"
+      type: "self-managed"
+      provider: "ibm_vpc"
+      region: "us-south"
+      version: "latest"
+      size: "medium"  # Cluster size (not instance size)
+      worker_count: 3
+```
 
-#### 4. Resource Group Errors
-   - Verify resource group exists when using `use_existing_resource_group: true`
-   - Check permissions for resource group access
+## Next Steps
 
-#### 5. Security Group Protocol Issues
-
-**Problem**: Security group rules with "all" protocol not working correctly.
-
-**Solution**: 
-- YamlForge automatically creates separate rules for TCP, UDP, and ICMP when protocol is "all"
-- This ensures compatibility with IBM VPC requirements
-- Port ranges are automatically corrected to 1-65535 (IBM VPC doesn't allow port 0) 
+- [Multi-Cloud Configuration](multi-cloud.md)
+- [Cost Optimization](features/cost-optimization.md)
+- [Troubleshooting Guide](troubleshooting.md) 

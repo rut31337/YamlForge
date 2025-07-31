@@ -1,4 +1,4 @@
-guid: "ent01"
+guid: "entrp"
 
 yamlforge:
   cloud_workspace:
@@ -70,7 +70,7 @@ yamlforge:
     # Web tier - Azure with existing resource group
     - name: "web-azure-{guid}"
       provider: "azure"
-      size: "medium"
+      flavor: "medium"
       region: "eastus"
       image: "RHEL9-latest"
       security_groups: ["web-tier-{guid}"]
@@ -83,7 +83,7 @@ yamlforge:
     # App tier - GCP with existing project
     - name: "app-gcp-{guid}"
       provider: "gcp"
-      size: "large"
+      flavor: "large"
       region: "us-central1"
       image: "RHEL9-latest"
       security_groups: ["app-tier-{guid}"]
@@ -96,7 +96,7 @@ yamlforge:
     # Database tier - IBM VPC with existing resource group
     - name: "db-ibm-{guid}"
       provider: "ibm_vpc"
-      size: "large"
+      flavor: "large"
       region: "us-south"
       image: "RHEL9-latest"
       security_groups: ["db-tier-{guid}"]
@@ -109,7 +109,7 @@ yamlforge:
     # Backup server - AWS (full account access)
     - name: "backup-aws-{guid}"
       provider: "aws"
-      size: "medium"
+      flavor: "medium"
       region: "us-east-1"
       image: "RHEL9-latest"
       security_groups: ["app-tier-{guid}"]

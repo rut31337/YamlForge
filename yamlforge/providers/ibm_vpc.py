@@ -34,26 +34,25 @@ class IBMVPCProvider:
             'existing_resource_group_name': existing_resource_group_name
         }
 
-    def get_ibm_instance_profile(self, size_or_instance_type):
-        """Get IBM instance profile from size mapping or return direct instance type."""
-        # If it looks like a direct IBM instance profile, return it as-is
-        if any(prefix in size_or_instance_type for prefix in ['bx2-', 'cx2-', 'mx2-', 'gx2-', 'gx3-', 'vx2d-']):
-            return size_or_instance_type
+    def get_ibm_instance_profile(self, flavor_or_instance_type):
+        """Get IBM VPC instance profile from flavor or instance type."""
+        # If it's already an IBM VPC instance profile, return it directly
+        if any(prefix in flavor_or_instance_type for prefix in ['bx2-', 'cx2-', 'mx2-', 'gx2-', 'gx3-', 'vx2d-']):
+            return flavor_or_instance_type
         
-        # Check for advanced flavor mappings
+        # Load IBM VPC flavors
         ibm_flavors = self.converter.flavors.get('ibm_vpc', {}).get('flavor_mappings', {})
-        size_mapping = ibm_flavors.get(size_or_instance_type, {})
-
+        size_mapping = ibm_flavors.get(flavor_or_instance_type, {})
+        
         if size_mapping:
-            # Return the first (preferred) instance profile for this size
-            instance_profile = list(size_mapping.keys())[0]
-            return instance_profile
-
-        # No fallbacks - all mappings should be in mappings/flavors/ibm_vpc.yaml
+            # Return the first (usually cheapest) option
+            return next(iter(size_mapping.keys()))
+        
+        # No mapping found
         available_sizes = list(ibm_flavors.keys()) if ibm_flavors else []
-        raise ValueError(f"No IBM VPC instance profile mapping found for size '{size_or_instance_type}'. "
-                       f"Available sizes: {available_sizes}. "
-                       f"Please add mapping to mappings/flavors/ibm_vpc.yaml under 'flavor_mappings: {size_or_instance_type}'")
+        raise ValueError(f"No IBM VPC instance profile mapping found for flavor '{flavor_or_instance_type}'. "
+                        f"Available flavors: {', '.join(available_sizes)}. "
+                        f"Please add mapping to mappings/flavors/ibm_vpc.yaml under 'flavor_mappings: {flavor_or_instance_type}'")
 
     def generate_ibm_security_group(self, sg_name, rules, region, yaml_data=None):
         """Generate IBM security group with rules for specific region."""
@@ -158,7 +157,7 @@ resource "ibm_is_security_group_rule" "{resource_name}_rule_{i+1}" {{
 
         return security_group_config
 
-    def generate_ibm_vpc_vm(self, instance, index, clean_name, size, yaml_data=None, has_guid_placeholder=False, zone=None):
+    def generate_ibm_vpc_vm(self, instance, index, clean_name, flavor, yaml_data=None, has_guid_placeholder=False, zone=None):
         """Generate IBM VPC virtual server instance."""
         instance_name = instance.get("name", f"instance_{index}")
         instance_name = self.converter.replace_guid_placeholders(instance_name)
@@ -229,7 +228,7 @@ resource "ibm_is_security_group_rule" "{resource_name}_rule_{i+1}" {{
                 self.converter.print_instance_output(instance_name, 'ibm_vpc', f"Warning: Image lookup failed: {e}")
                 # Fall back to placeholder
                 image_id = "PLACEHOLDER-IBM-VPC-IMAGE-ID"
-        ibm_profile = self.get_ibm_instance_profile(size)
+        ibm_profile = self.get_ibm_instance_profile(flavor)
         user_data_script = instance.get('user_data_script')
         
         # Check if cloud-user creation is enabled in IBM VPC config

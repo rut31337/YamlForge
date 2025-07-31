@@ -1,13 +1,17 @@
----
-project: openshift-network-override
-location: us-east-1
+guid: "net01"
+
 yamlforge:
+  cloud_workspace:
+    name: "openshift-network-override-{guid}"
+    description: "ROSA with custom networking"
+  
   instances:
-    web_tier:
+    - name: "web-tier-{guid}"
+      provider: "aws"
+      image: "RHEL9-latest"
+      flavor: "medium"
+      region: "us-east-1"
       count: 3
-      image: rhel8-latest
-      size: medium
-      region: us-east-1
   openshift_clusters:
   - name: rosa-with-custom-networking
     type: rosa-classic
@@ -85,6 +89,3 @@ yamlforge:
         - port: 80
           targetPort: 80
         type: ClusterIP
-  cloud_workspace:
-    name: default-workspace
-    description: Default workspace for this deployment

@@ -462,8 +462,7 @@ class AWSProvider:
                 "   aws configure\n\n"
                 "2️⃣  Environment variables:\n"
                 "   export AWS_ACCESS_KEY_ID=your-key-id\n"
-                "   export AWS_SECRET_ACCESS_KEY=your-secret-key\n"
-                "   export AWS_DEFAULT_REGION=us-east-1\n\n"
+                "   export AWS_SECRET_ACCESS_KEY=your-secret-key\n\n"
                 "3️⃣  AWS credentials file:\n"
                 "   ~/.aws/credentials\n\n"
                 "4️⃣  IAM roles (for EC2 instances)\n\n"
@@ -817,12 +816,15 @@ resource "aws_security_group" "{regional_sg_name}_{guid}" {{{self.get_aws_provid
         # Get security group references with regional awareness
         aws_sg_refs = []
         sg_names = instance.get('security_groups', [])
+        
+        # Define clean_region outside the loop so it can be used later
+        clean_region = aws_region.replace("-", "_").replace(".", "_")
+        
         for sg_name in sg_names:
             # Replace {guid} placeholder in security group name
             sg_name = self.converter.replace_guid_placeholders(sg_name)
             # Generate regional security group reference with GUID
             clean_sg = sg_name.replace("-", "_").replace(".", "_")
-            clean_region = aws_region.replace("-", "_").replace(".", "_")
             aws_sg_refs.append(f"aws_security_group.{clean_sg}_{clean_region}_{guid}.id")
 
 
@@ -1426,39 +1428,31 @@ output "private_subnet_ids_{clean_region}_{guid}" {{
             # Not logged in, try automatic login with environment variables
             print("ROSA CLI not authenticated, attempting automatic login...")
             
-            # Try to get token from multiple possible environment variable sources
-            token = None
-            token_sources = ['ROSA_TOKEN', 'OCM_TOKEN', 'REDHAT_OPENSHIFT_TOKEN']
-            
+            # Check for Red Hat OpenShift token
+            token_sources = ['REDHAT_OPENSHIFT_TOKEN']
+            rhcs_token = None
             for token_var in token_sources:
-                if token_var in os.environ:
-                    token = os.environ[token_var]
-                    print(f"Found token in environment variable: {token_var}")
+                rhcs_token = os.getenv(token_var)
+                if rhcs_token:
                     break
             
-            if token:
-                # Attempt automatic login with token
-                cmd = ['rosa', 'login', '--token', token]
-                result = subprocess.run(cmd, capture_output=True, text=True)
-                
-                if result.returncode == 0:
-                    print("ROSA CLI login successful!")
-                    return True
-                else:
-                    print("ROSA CLI login failed with provided token:")
-                    print(result.stderr)
-                    return False
-            else:
-                # No token found in environment variables
-                print("No ROSA token found in environment variables")
-                print("Please set one of the following environment variables:")
-                print("  export ROSA_TOKEN='your_token_here'")
-                print("  export OCM_TOKEN='your_token_here'")  
+            if not rhcs_token:
+                print("  WARNING: Red Hat OpenShift token not found")
+                print("  Required for ROSA cluster creation")
+                print("  Set the following environment variable:")
                 print("  export REDHAT_OPENSHIFT_TOKEN='your_token_here'")
-                print("")
-                print("Get your token from: https://console.redhat.com/openshift/token/rosa")
-                print("")
-                print("Alternative: Run 'rosa login' manually, then re-run this script")
+                return False
+
+            # Attempt automatic login with token
+            cmd = ['rosa', 'login', '--token', rhcs_token]
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            
+            if result.returncode == 0:
+                print("ROSA CLI login successful!")
+                return True
+            else:
+                print("ROSA CLI login failed with provided token:")
+                print(result.stderr)
                 return False
                 
         except Exception as e:

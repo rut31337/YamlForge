@@ -169,7 +169,7 @@ To migrate existing CLI-based deployments:
 For ROSA clusters using the Terraform method, ensure the following environment variables are set (reference your `~/envvars.sh` setup):
 
 - **AWS Credentials**: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` (if using temporary credentials)
-- **ROSA Token**: `ROSA_TOKEN` or `OCM_TOKEN` for Red Hat Cloud Services authentication
+- **ROSA Token**: `REDHAT_OPENSHIFT_TOKEN` for Red Hat Cloud Services authentication
 - **AWS Account Info**: `AWS_ACCOUNT_ID`, `AWS_ARN` for ROSA cluster creation
 
 The RHCS Terraform provider will use these credentials to create and manage ROSA clusters through the Red Hat Cloud Services API. 

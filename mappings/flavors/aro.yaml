@@ -1,0 +1,59 @@
+# ARO (Azure Red Hat OpenShift) Flavors for yamlforge
+# VM size mappings for ARO cluster nodes
+
+flavor_mappings:
+  # Small cluster configuration
+  small:
+    aro-small:
+      master_size: "Standard_D8s_v3"
+      worker_size: "Standard_D4s_v3"
+      master_count: 3
+      worker_count: 3
+      hourly_cost: 0.50  # Estimated cost for small ARO cluster
+      description: "Small ARO cluster for development and testing"
+      suitable_for:
+        - "Development environments"
+        - "Testing workloads"
+        - "Small applications"
+  
+  # Medium cluster configuration
+  medium:
+    aro-medium:
+      master_size: "Standard_D16s_v3"
+      worker_size: "Standard_D8s_v3"
+      master_count: 3
+      worker_count: 5
+      hourly_cost: 1.20  # Estimated cost for medium ARO cluster
+      description: "Medium ARO cluster for general workloads"
+      suitable_for:
+        - "General applications"
+        - "Web servers"
+        - "Database workloads"
+  
+  # Large cluster configuration
+  large:
+    aro-large:
+      master_size: "Standard_D32s_v3"
+      worker_size: "Standard_D16s_v3"
+      master_count: 3
+      worker_count: 10
+      hourly_cost: 2.50  # Estimated cost for large ARO cluster
+      description: "Large ARO cluster for production workloads"
+      suitable_for:
+        - "Production applications"
+        - "High-performance workloads"
+        - "Multi-tenant environments"
+  
+  # Extra large cluster configuration
+  xlarge:
+    aro-xlarge:
+      master_size: "Standard_D64s_v3"
+      worker_size: "Standard_D32s_v3"
+      master_count: 3
+      worker_count: 20
+      hourly_cost: 5.00  # Estimated cost for xlarge ARO cluster
+      description: "Extra large ARO cluster for heavy workloads"
+      suitable_for:
+        - "Heavy computational workloads"
+        - "Large databases"
+        - "Resource-intensive applications"

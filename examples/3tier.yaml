@@ -1,4 +1,4 @@
-guid: "3tier1"
+guid: "3tier"
 
 yamlforge:
   cloud_workspace:
@@ -59,9 +59,9 @@ yamlforge:
   instances:
     - name: "web-server-{guid}"
       provider: "aws"
-      image: "RHEL9-latest"
-      size: "small"
       region: "us-east-1"
+      flavor: "small"
+      image: "RHEL9-latest"
       security_groups: ["web-sg-{guid}"]
       tags:
         Tier: "Web"
@@ -70,9 +70,9 @@ yamlforge:
     
     - name: "app-server-{guid}"
       provider: "aws"
-      image: "RHEL9-latest"
-      size: "small"
       region: "us-east-1"
+      flavor: "small"
+      image: "RHEL9-latest"
       security_groups: ["app-sg-{guid}"]
       tags:
         Tier: "Application"
@@ -81,9 +81,9 @@ yamlforge:
     
     - name: "db-server-{guid}"
       provider: "aws"
-      image: "RHEL9-latest"
-      size: "small"
       region: "us-east-1"
+      flavor: "small"
+      image: "RHEL9-latest"
       security_groups: ["db-sg-{guid}"]
       tags:
         Tier: "Database"

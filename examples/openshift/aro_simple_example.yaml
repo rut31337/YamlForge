@@ -1,6 +1,6 @@
 # Azure Red Hat OpenShift (ARO) Simple Example
 
-guid: "test1"
+guid: "aro1"
 
 yamlforge:
   cloud_workspace:
@@ -9,7 +9,7 @@ yamlforge:
 
   openshift_clusters:
     # Production ARO cluster with enhanced security
-    - name: "test-aro-cluster"
+    - name: "simple-aro-cluster"
       type: "aro"                          # Azure Red Hat OpenShift
       region: "eastus"                     # Azure region
       version: "latest"                    # OpenShift version

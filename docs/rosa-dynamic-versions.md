@@ -89,7 +89,7 @@ yamlforge:
 ```bash
 # Required for API access
 export REDHAT_OPENSHIFT_TOKEN="your_offline_token"
-export REDHAT_OPENSHIFT_URL="https://api.openshift.com"
+export REDHAT_OPENSHIFT_API_URL="https://api.openshift.com"
 ```
 
 ### **Dependencies**
@@ -104,7 +104,7 @@ pip install requests>=2.25.0
 ```bash
 # Get token manually from: https://console.redhat.com/openshift/token
 export REDHAT_OPENSHIFT_TOKEN="your_offline_token_here"
-export REDHAT_OPENSHIFT_URL="https://api.openshift.com"
+export REDHAT_OPENSHIFT_API_URL="https://api.openshift.com"
 ```
 
 ---

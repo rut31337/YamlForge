@@ -25,7 +25,7 @@ class IBMClassicProvider:
             'create_cloud_user': True  # Default to True for automatic cloud-user creation
         }
 
-    def generate_ibm_classic_vm(self, instance, index, clean_name, size, yaml_data=None, has_guid_placeholder=False):
+    def generate_ibm_classic_vm(self, instance, index, clean_name, flavor, yaml_data=None, has_guid_placeholder=False):
         """Generate IBM Classic virtual guest."""
         instance_name = instance.get("name", f"instance_{index}")
         # Replace {guid} placeholder in instance name
@@ -51,7 +51,7 @@ class IBMClassicProvider:
         self.converter.print_instance_output(instance_name, 'ibm_classic', f"Dynamic image search for {image} in {datacenter} results in {ibm_image}")
         
         # Get instance specs from size
-        cores, memory = self.get_ibm_classic_specs(size)
+        cores, memory = self.get_ibm_classic_specs(flavor)
         
         # Get user_data script if provided
         user_data_script = instance.get('user_data_script')
@@ -170,38 +170,42 @@ resource "ibm_compute_vm_instance" "{resource_name}" {{
         raise ValueError(f"No IBM Classic image mapping found for '{image}'. "
                        f"Please add mapping to mappings/images.yaml under '{image}: ibm_classic: os_reference_code'")
     
-    def get_ibm_classic_specs(self, size_or_instance_type):
-        """Get cores and memory for IBM Classic from centralized flavor mappings.
+    def get_ibm_classic_specs(self, flavor_or_instance_type):
+        """Get IBM Classic instance specifications from flavor or instance type.
         
         Args:
-            size_or_instance_type: Either a generic size ('medium', 'large') or 
-                                 specific IBM instance type ('B1.4x8x100')
+            flavor_or_instance_type: Either a generic flavor ('medium', 'large') or
+                                    a specific IBM Classic instance type.
+        
+        Returns:
+            tuple: (cores, memory_mb) where memory_mb is in MB
         """
+        # Load IBM Classic flavors
         ibm_flavors = self.converter.flavors.get('ibm_classic', {}).get('flavor_mappings', {})
         
-        # First, try as a generic size (medium, large, etc.)
-        if size_or_instance_type in ibm_flavors:
-            size_mapping = ibm_flavors[size_or_instance_type]
-            # Get the first (preferred) instance profile for this size
-            first_profile = list(size_mapping.values())[0]
-            cores = first_profile.get('vcpus', 2)
-            memory_mb = first_profile.get('memory_gb', 4) * 1024  # Convert GB to MB
-            return (cores, memory_mb)
+        # Check if it's a generic flavor
+        if flavor_or_instance_type in ibm_flavors:
+            size_mapping = ibm_flavors[flavor_or_instance_type]
+            # Get the first (usually cheapest) option
+            instance_type = next(iter(size_mapping.keys()))
+            profile = size_mapping[instance_type]
+            cores = profile.get('vcpus', 1)
+            memory_mb = profile.get('memory_gb', 1) * 1024
+            return cores, memory_mb
         
-        # Next, search for the specific instance type across all sizes
+        # Check if it's a specific instance type
         for size_name, instance_types in ibm_flavors.items():
-            if size_or_instance_type in instance_types:
-                profile = instance_types[size_or_instance_type]
-                cores = profile.get('vcpus', 2)
-                memory_mb = profile.get('memory_gb', 4) * 1024  # Convert GB to MB
-                self.converter.print_provider_output('ibm_classic', f"Size mapping: '{size_name}' -> '{size_or_instance_type}' ({cores} vCPU, {memory_mb//1024}GB)")
-                return (cores, memory_mb)
+            if flavor_or_instance_type in instance_types:
+                profile = instance_types[flavor_or_instance_type]
+                cores = profile.get('vcpus', 1)
+                memory_mb = profile.get('memory_gb', 1) * 1024
+                self.converter.print_provider_output('ibm_classic', f"Flavor mapping: '{size_name}' -> '{flavor_or_instance_type}' ({cores} vCPU, {memory_mb//1024}GB)")
+                return cores, memory_mb
         
         # No mapping found
         available_sizes = list(ibm_flavors.keys())
-        raise ValueError(f"No IBM Classic mapping found for '{size_or_instance_type}'. "
-                       f"Available sizes: {available_sizes}. "
-                       f"Please add to mappings/flavors/ibm_classic.yaml")
+        raise ValueError(f"No IBM Classic mapping found for '{flavor_or_instance_type}'. "
+                        f"Available flavors: {', '.join(available_sizes)}")
 
     def generate_ibm_classic_networking(self, deployment_name, deployment_config, region, yaml_data=None):
         """Generate IBM Classic networking resources."""

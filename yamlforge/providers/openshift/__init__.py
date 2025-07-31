@@ -347,7 +347,7 @@ class OpenShiftProvider(BaseOpenShiftProvider):
 #
 # Prerequisites:
 # - Red Hat OpenShift token in environment variables:
-#   * ROSA_TOKEN, OCM_TOKEN, or REDHAT_OPENSHIFT_TOKEN
+#   * REDHAT_OPENSHIFT_TOKEN
 # - AWS credentials configured (environment variables or AWS CLI profiles)
 #
 # Usage: ./rosa-setup.sh
@@ -439,13 +439,9 @@ echo " AWS CLI version: $(aws --version)"
 rosa_auto_login() {{
     echo " Checking ROSA authentication..."
     
-    # Try to get ROSA token from multiple environment variable sources
+    # Try to get ROSA token from environment variable
     TOKEN=""
-    if [ -n "$ROSA_TOKEN" ]; then
-        TOKEN="$ROSA_TOKEN"
-    elif [ -n "$OCM_TOKEN" ]; then
-        TOKEN="$OCM_TOKEN"
-    elif [ -n "$REDHAT_OPENSHIFT_TOKEN" ]; then
+    if [ -n "$REDHAT_OPENSHIFT_TOKEN" ]; then
         TOKEN="$REDHAT_OPENSHIFT_TOKEN"
     fi
     
@@ -460,7 +456,7 @@ rosa_auto_login() {{
         fi
     else
         echo " No ROSA token found in environment variables"
-        echo " Please set one of: ROSA_TOKEN, OCM_TOKEN, or REDHAT_OPENSHIFT_TOKEN"
+        echo " Please set: REDHAT_OPENSHIFT_TOKEN"
         echo " Get token from: https://console.redhat.com/openshift/token/rosa"
         exit 1
     fi

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # YamlForge Vulture Analysis Script
-# This script runs Vulture with all the learned ignore patterns to find truly unused code
+# Optimized script for finding truly unused code with smart configuration
 
 set -e
 
@@ -10,7 +10,51 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
+
+# Default values
+CONFIDENCE=70
+SORT_BY_SIZE=false
+VERBOSE=false
+USE_WHITELIST=false
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --confidence)
+            CONFIDENCE="$2"
+            shift 2
+            ;;
+        --sort-by-size)
+            SORT_BY_SIZE=true
+            shift
+            ;;
+        --verbose)
+            VERBOSE=true
+            shift
+            ;;
+        --make-whitelist)
+            USE_WHITELIST=true
+            shift
+            ;;
+        --help)
+            echo "Usage: $0 [options]"
+            echo "Options:"
+            echo "  --confidence N      Set minimum confidence (default: 70)"
+            echo "  --sort-by-size      Sort results by code size"
+            echo "  --verbose           Show verbose output"
+            echo "  --make-whitelist    Generate whitelist format"
+            echo "  --help              Show this help"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
 
 echo -e "${BLUE}YamlForge Vulture Analysis${NC}"
 echo "=================================="
@@ -22,44 +66,72 @@ if ! command -v vulture &> /dev/null; then
     exit 1
 fi
 
-# Comprehensive ignore list based on our cleanup experience
-IGNORE_LIST="__init__,main,setup,test_,_test,conftest,generate_aws_vm,generate_aws_security_group,generate_aws_networking,generate_azure_vm,generate_azure_security_group,generate_azure_networking,generate_gcp_vm,generate_gcp_firewall_rules,generate_ibm_vpc_vm,generate_ibm_security_group,generate_ibm_classic_vm,generate_oci_vm,generate_oci_security_group,generate_alibaba_vm,generate_alibaba_security_group,generate_alibaba_networking,generate_vmware_vm,get_aws_credentials,get_azure_credentials,get_gcp_credentials,get_ibm_vpc_credentials,get_ibm_classic_credentials,get_oci_credentials,get_alibaba_credentials,get_vmware_credentials,get_cert_manager_credentials,oci_config,alibaba_config,validate_openshift_version,create_rosa_account_roles_via_cli,generate_rosa_operator_roles,generate_rosa_oidc_config,generate_rosa_sts_data_sources,generate_lifecycle_management,generate_blue_green_automation,generate_upgrade_automation,generate_ingress_resources,generate_external_dns,generate_gitops_operator,generate_pipelines_operator,generate_serverless_operator,generate_logging_operator,generate_monitoring_operator,generate_storage_operator,generate_service_mesh_operator,generate_metallb_operator,generate_submariner_operator,generate_cert_manager_operator,generate_oadp_operator,ROSAVersionManager,retry_with_backoff,AlibabaImageResolver,GCPImageResolver,OCIImageResolver,GitOpsOperator,PipelinesOperator,ServerlessOperator"
-
-echo -e "${YELLOW}Running Vulture with ignore patterns...${NC}"
-echo "   Ignoring: $IGNORE_LIST"
+# Show configuration
+echo -e "${CYAN}Configuration:${NC}"
+echo "   Confidence level: $CONFIDENCE%"
+echo "   Sort by size: $SORT_BY_SIZE"
+echo "   Verbose mode: $VERBOSE"
+echo "   Whitelist mode: $USE_WHITELIST"
+echo "   Using .vulture file for ignore patterns"
 echo ""
 
-# Run vulture
-if vulture yamlforge/ --ignore-names "$IGNORE_LIST" --min-confidence 60; then
+# Build vulture command
+VULTURE_CMD="vulture yamlforge/ .vulture --min-confidence $CONFIDENCE"
+
+if [ "$SORT_BY_SIZE" = true ]; then
+    VULTURE_CMD="$VULTURE_CMD --sort-by-size"
+fi
+
+if [ "$VERBOSE" = true ]; then
+    VULTURE_CMD="$VULTURE_CMD --verbose"
+fi
+
+if [ "$USE_WHITELIST" = true ]; then
+    VULTURE_CMD="$VULTURE_CMD --make-whitelist"
+fi
+
+echo -e "${YELLOW}Running: $VULTURE_CMD${NC}"
+echo ""
+
+# Run vulture and capture exit code
+if eval $VULTURE_CMD; then
     echo ""
-    echo -e "${GREEN}Vulture analysis completed successfully!${NC}"
+    echo -e "${GREEN}✓ Vulture analysis completed successfully!${NC}"
     echo ""
     echo -e "${BLUE}Summary:${NC}"
-    echo "   • No unused code found, or all findings are false positives"
+    echo "   • No unused code found at $CONFIDENCE% confidence level"
     echo "   • Codebase is clean and well-maintained"
+    echo "   • All known false positives are properly ignored"
     echo ""
-    echo -e "${YELLOW}Tips:${NC}"
-    echo "   • Use --min-confidence 80 for stricter analysis"
-    echo "   • Add new ignore patterns to .vulture file"
-    echo "   • Review findings manually before removing code"
+    echo -e "${CYAN}Optimization tips:${NC}"
+    echo "   • Try higher confidence: ./tools/run_vulture.sh --confidence 80"
+    echo "   • Sort by size: ./tools/run_vulture.sh --sort-by-size"
+    echo "   • Generate whitelist: ./tools/run_vulture.sh --make-whitelist"
 else
     echo ""
-    echo -e "${YELLOW}Vulture found potential unused code${NC}"
+    echo -e "${YELLOW}⚠  Vulture found potential unused code${NC}"
     echo ""
     echo -e "${BLUE}Next steps:${NC}"
-    echo "   1. Review the findings above"
+    echo "   1. Review the findings above carefully"
     echo "   2. Verify they are truly unused (not dynamically called)"
-    echo "   3. Add false positives to .vulture file"
+    echo "   3. Add confirmed false positives to .vulture file"
     echo "   4. Remove confirmed unused code"
     echo ""
-    echo -e "${YELLOW}To ignore specific findings, add them to .vulture:${NC}"
-    echo "   # Add method names to ignore"
+    echo -e "${CYAN}Analysis tips:${NC}"
+    echo "   • Lower confidence for more findings: ./tools/run_vulture.sh --confidence 60"
+    echo "   • Verbose analysis: ./tools/run_vulture.sh --verbose"
+    echo "   • Check specific methods in codebase before removing"
+    echo ""
+    echo -e "${YELLOW}To ignore false positives, add them to .vulture:${NC}"
+    echo "   # Add method names (one per line)"
     echo "   method_name"
     echo "   another_method"
 fi
 
 echo ""
-echo -e "${BLUE}Usage:${NC}"
-echo "   ./tools/run_vulture.sh                    # Run with current settings"
-echo "   vulture yamlforge/ --min-confidence 80    # Run with higher confidence"
-echo "   vulture yamlforge/ --ignore-names 'pattern1,pattern2'  # Custom ignore" 
+echo -e "${BLUE}Quick reference:${NC}"
+echo "   ./tools/run_vulture.sh                    # Standard analysis (70% confidence)"
+echo "   ./tools/run_vulture.sh --confidence 80    # Stricter analysis"
+echo "   ./tools/run_vulture.sh --sort-by-size     # Sort by code size"
+echo "   ./tools/run_vulture.sh --make-whitelist   # Generate whitelist format"
+echo "   ./tools/run_vulture.sh --verbose          # Detailed analysis output" 

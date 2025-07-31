@@ -1,0 +1,146 @@
+# CNV Flavors for yamlforge
+# Container Native Virtualization (CNV) instance size configurations
+
+flavor_mappings:
+  # Small instances for development and testing
+  small:
+    cnv-small:
+      vcpus: 1
+      memory_gb: 1
+      hourly_cost: 0.001  # Minimal cost for CNV
+      description: "Small CNV instance for development and testing"
+      storage_size: "5Gi"
+      network_bandwidth: "100Mbps"
+      suitable_for:
+        - "Development environments"
+        - "Testing workloads"
+        - "Light applications"
+  
+  # Medium instances for general workloads
+  medium:
+    cnv-medium:
+      vcpus: 2
+      memory_gb: 4
+      hourly_cost: 0.002  # Minimal cost for CNV
+      description: "Medium CNV instance for general workloads"
+      storage_size: "10Gi"
+      network_bandwidth: "500Mbps"
+      suitable_for:
+        - "General applications"
+        - "Web servers"
+        - "Database workloads"
+  
+  # Large instances for production workloads
+  large:
+    cnv-large:
+      vcpus: 4
+      memory_gb: 8
+      hourly_cost: 0.004  # Minimal cost for CNV
+      description: "Large CNV instance for production workloads"
+      storage_size: "20Gi"
+      network_bandwidth: "1Gbps"
+      suitable_for:
+        - "Production applications"
+        - "High-performance workloads"
+        - "Multi-tenant environments"
+  
+  # Extra large instances for heavy workloads
+  xlarge:
+    cnv-xlarge:
+      vcpus: 8
+      memory_gb: 16
+      hourly_cost: 0.008  # Minimal cost for CNV
+      description: "Extra large CNV instance for heavy workloads"
+      storage_size: "50Gi"
+      network_bandwidth: "2Gbps"
+      suitable_for:
+        - "Heavy computational workloads"
+        - "Large databases"
+        - "Resource-intensive applications"
+  
+  # Custom instances for specific requirements
+  custom:
+    cnv-custom:
+      vcpus: 1
+      memory_gb: 1
+      hourly_cost: 0.001  # Minimal cost for CNV
+      description: "Custom CNV instance - configure as needed"
+      storage_size: "10Gi"
+      network_bandwidth: "500Mbps"
+      suitable_for:
+        - "Custom requirements"
+        - "Specialized workloads"
+        - "Specific use cases"
+  
+  # GPU instances for machine learning and graphics
+  gpu-small:
+    cnv-gpu-small:
+      vcpus: 2
+      memory_gb: 8
+      hourly_cost: 0.005  # Minimal cost for CNV with GPU
+      description: "Small GPU-enabled CNV instance"
+      storage_size: "20Gi"
+      network_bandwidth: "1Gbps"
+      gpu_count: 1
+      gpu_type: "nvidia-tesla-t4"
+      suitable_for:
+        - "Machine learning workloads"
+        - "Graphics processing"
+        - "AI/ML development"
+  
+  gpu-large:
+    cnv-gpu-large:
+      vcpus: 8
+      memory_gb: 32
+      hourly_cost: 0.015  # Minimal cost for CNV with GPU
+      description: "Large GPU-enabled CNV instance"
+      storage_size: "100Gi"
+      network_bandwidth: "2Gbps"
+      gpu_count: 2
+      gpu_type: "nvidia-tesla-v100"
+      suitable_for:
+        - "Heavy machine learning workloads"
+        - "Deep learning training"
+        - "High-performance computing"
+  
+  # Memory-optimized instances
+  memory-optimized:
+    cnv-memory-optimized:
+      vcpus: 4
+      memory_gb: 32
+      hourly_cost: 0.006  # Minimal cost for CNV
+      description: "Memory-optimized CNV instance"
+      storage_size: "20Gi"
+      network_bandwidth: "1Gbps"
+      suitable_for:
+        - "In-memory databases"
+        - "Large data processing"
+        - "Memory-intensive applications"
+  
+  # Storage-optimized instances
+  storage-optimized:
+    cnv-storage-optimized:
+      vcpus: 2
+      memory_gb: 4
+      hourly_cost: 0.003  # Minimal cost for CNV
+      description: "Storage-optimized CNV instance"
+      storage_size: "100Gi"
+      network_bandwidth: "500Mbps"
+      suitable_for:
+        - "File servers"
+        - "Backup systems"
+        - "Storage-intensive workloads"
+  
+  # Network-optimized instances
+  network-optimized:
+    cnv-network-optimized:
+      vcpus: 4
+      memory_gb: 8
+      hourly_cost: 0.004  # Minimal cost for CNV
+      description: "Network-optimized CNV instance"
+      storage_size: "20Gi"
+      network_bandwidth: "5Gbps"
+      suitable_for:
+        - "Load balancers"
+        - "Proxy servers"
+        - "Network-intensive applications"

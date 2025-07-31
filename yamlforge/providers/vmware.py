@@ -16,32 +16,32 @@ class VMwareProvider:
         """Initialize the instance."""
         self.converter = converter
 
-    def get_vmware_vm_size(self, size_or_instance_type):
-        """Get VMware VM configuration from size mapping or return direct specifications."""
-        # Handle the -vm suffix from generic mappings
-        base_size = size_or_instance_type.replace('-vm', '') if size_or_instance_type.endswith('-vm') else size_or_instance_type
+    def get_vmware_vm_size(self, flavor_or_instance_type):
+        """Get VMware VM size configuration from flavor or instance type."""
+        # Handle VMware-specific suffixes
+        base_size = flavor_or_instance_type.replace('-vm', '') if flavor_or_instance_type.endswith('-vm') else flavor_or_instance_type
         
-        # Check for advanced flavor mappings
+        # Load VMware flavors
         vmware_flavors = self.converter.flavors.get('vmware', {}).get('flavor_mappings', {})
         size_mapping = vmware_flavors.get(base_size, {})
-
+        
         if size_mapping:
-            # Return the first (preferred) VM configuration for this size
-            vm_config = list(size_mapping.keys())[0]
-            return vm_config
-
-        # Check direct machine type mapping
+            # Return the first (usually cheapest) option
+            return next(iter(size_mapping.keys()))
+        
+        # Check machine types
         machine_types = self.converter.flavors.get('vmware', {}).get('machine_types', {})
-        if size_or_instance_type in machine_types:
-            return size_or_instance_type
-
-        # Try to parse as direct hardware spec
-        if isinstance(size_or_instance_type, dict):
-            return size_or_instance_type
-
-        # No mapping found for this size
-        raise ValueError(f"No VMware VM size mapping found for size '{size_or_instance_type}'. "
-                       f"Available sizes: {list(vmware_flavors.keys())}")
+        if flavor_or_instance_type in machine_types:
+            return flavor_or_instance_type
+        
+        # Check if it's a direct configuration
+        if isinstance(flavor_or_instance_type, dict):
+            return flavor_or_instance_type
+        
+        # No mapping found
+        available_sizes = list(vmware_flavors.keys())
+        raise ValueError(f"No VMware VM size mapping found for flavor '{flavor_or_instance_type}'. "
+                        f"Available flavors: {', '.join(available_sizes)}")
 
     def get_vmware_template(self, image_name):
         """Get VMware template reference from image mapping or direct reference."""
@@ -65,7 +65,7 @@ class VMwareProvider:
         # Default fallback
         return "rhel9-template"
 
-    def generate_vmware_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None, has_guid_placeholder=False):
+    def generate_vmware_vm(self, instance, index, clean_name, flavor, available_subnets=None, yaml_data=None, has_guid_placeholder=False):
         """Generate VMware vSphere virtual machine."""
         instance_name = instance.get("name", f"instance_{index}")
         # Replace {guid} placeholder in instance name
@@ -73,7 +73,7 @@ class VMwareProvider:
         image = instance.get("image", "RHEL9-latest")
 
         # Get VM size configuration
-        vm_size = self.get_vmware_vm_size(size)
+        vm_size = self.get_vmware_vm_size(flavor)
         
         # Extract CPU, memory, and disk from size configuration
         if isinstance(vm_size, dict):

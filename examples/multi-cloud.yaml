@@ -29,38 +29,26 @@ yamlforge:
           description: "HTTPS access from internet"
   
   instances:
-    - name: "aws-vm-{guid}"
+    - name: "web-aws-{guid}"
       provider: "aws"
-      size: "large"
+      region: "us-east-1"
+      flavor: "large"
       image: "RHEL9-latest"
-      region: "us-east-2"
       security_groups: ["demo-sg-{guid}"]
       tags:
         provider: "aws"
         deployment_method: "direct"
         tier: "demo"
     
-    - name: "gcp-vm-{guid}"
-      provider: "gcp"
-      size: "large"
+    - name: "web-azure-{guid}"
+      provider: "azure"
+      region: "eastus"
+      flavor: "large"
       image: "RHEL9-latest"
-      region: "us-central1"
       security_groups: ["demo-sg-{guid}"]
       tags:
-        provider: "gcp"
+        provider: "azure"
         deployment_method: "direct"
-        tier: "demo"
-    
-    - name: "cheapest-vm-{guid}"
-      location: "us-east"
-      provider: "cheapest"
-      cores: 2
-      memory: 4096
-      image: "RHEL9-latest"
-      security_groups: ["demo-sg-{guid}"]
-      tags:
-        provider: "cheapest"
-        deployment_method: "cost_optimized"
         tier: "demo"
   
   tags:

@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yamlforge"
+version = "0.99.0a1"
+description = "Multi-Cloud Infrastructure as Code and PaaS Management Suite (ALPHA - Work in Progress)"
+authors = [{name = "Patrick T. Rutledge III"}]
+license = {text = "Apache-2.0"}
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: System :: Systems Administration",
+]
+keywords = ["terraform", "multi-cloud", "infrastructure-as-code", "paas", "management", "yaml", "aws", "azure", "gcp", "openshift", "kubernetes"]
+dependencies = [
+    "PyYAML>=6.0.2",
+    "boto3>=1.39.0",
+    "google-cloud-compute>=1.32.0",
+    "google-cloud-dns>=0.35.0",
+    "oci>=2.155.0",
+    "alibabacloud-ecs20140526>=7.0.0",
+    "alibabacloud-tea-openapi>=0.3.0",
+    "ibm-cloud-sdk-core>=3.16.7",
+    "ibm-vpc>=0.10.0",
+    "requests>=2.32.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "black>=21.0",
+    "flake8>=3.8",
+    "mypy>=0.800",
+    "vulture>=2.0",
+]
+docs = [
+    "sphinx>=4.0",
+    "sphinx-rtd-theme>=0.5",
+]
+
+[project.urls]
+Homepage = "https://github.com/rut31337/YamlForge"
+Repository = "https://github.com/rut31337/YamlForge"
+Issues = "https://github.com/rut31337/YamlForge/issues"
+
+[project.scripts]
+yamlforge = "yamlforge.main:main"
+
+[tool.vulture]
+min_confidence = 70
+paths = ["yamlforge"]
+exclude = ["tests"]
+ignore_names = ["__version__", "__author__", "__copyright__", "__all__"]
+ignore_decorators = ["@property", "@staticmethod", "@classmethod"]

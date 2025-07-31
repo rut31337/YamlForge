@@ -26,7 +26,7 @@ yamlforge:
     # Development GPU instances
     - name: "ml-dev-small-{guid}"
       provider: "aws"
-      size: "gpu_small"
+      flavor: "gpu_small"
       region: "us-east-1"
       image: "RHEL9-latest"
       security_groups: ["gpu-access-{guid}"]
@@ -37,7 +37,7 @@ yamlforge:
     
     - name: "ml-training-medium-{guid}"
       provider: "azure"
-      size: "gpu_medium"
+      flavor: "gpu_medium"
       region: "eastus"
       image: "RHEL9-latest"
       security_groups: ["gpu-access-{guid}"]
@@ -52,7 +52,7 @@ yamlforge:
       cores: 8
       memory: 32768
       gpu_count: 1
-      region: "us-east-1"
+      location: "us-east"
       image: "RHEL9-latest"
       security_groups: ["gpu-access-{guid}"]
       tags:

@@ -174,6 +174,11 @@ images:
       os_reference_code: "REDHAT_9_64"
     ibm_vpc:
       name_pattern: "ibm-redhat-9-*-minimal-amd64-*"
+    cnv:
+      name_pattern: "rhel-9.*"
+      datavolume_namespace: "cnv-images"
+      os_family: "rhel"
+      os_version_pattern: "9.*"
 
   RHEL8-latest:
     description: "RHEL 8 latest public image"
@@ -198,6 +203,11 @@ images:
       os_reference_code: "REDHAT_8_64"
     ibm_vpc:
       name_pattern: "ibm-redhat-8-*-amd64-*"
+    cnv:
+      name_pattern: "rhel-8.*"
+      datavolume_namespace: "cnv-images"
+      os_family: "rhel"
+      os_version_pattern: "8.*"
 
   RHEL7-latest:
     description: "RHEL 7 latest public image"
@@ -213,26 +223,51 @@ images:
     description: "RHEL 9.4 latest public image"
     aws:
       name_pattern: "RHEL-9.4*"
+    cnv:
+      name_pattern: "rhel-9.4*"
+      datavolume_namespace: "cnv-images"
+      os_family: "rhel"
+      os_version_pattern: "9.4.*"
 
   RHEL93-latest:
     description: "RHEL 9.3 latest public image"
     aws:
       name_pattern: "RHEL-9.3*"
+    cnv:
+      name_pattern: "rhel-9.3*"
+      datavolume_namespace: "cnv-images"
+      os_family: "rhel"
+      os_version_pattern: "9.3.*"
 
   RHEL92-latest:
     description: "RHEL 9.2 latest public image"
     aws:
       name_pattern: "RHEL-9.2*"
+    cnv:
+      name_pattern: "rhel-9.2*"
+      datavolume_namespace: "cnv-images"
+      os_family: "rhel"
+      os_version_pattern: "9.2.*"
 
   RHEL91-latest:
     description: "RHEL 9.1 latest public image"
     aws:
       name_pattern: "RHEL-9.1*"
+    cnv:
+      name_pattern: "rhel-9.1*"
+      datavolume_namespace: "cnv-images"
+      os_family: "rhel"
+      os_version_pattern: "9.1.*"
 
   RHEL90-latest:
     description: "RHEL 9.0 latest public image"
     aws:
       name_pattern: "RHEL-9.0*"
+    cnv:
+      name_pattern: "rhel-9.0*"
+      datavolume_namespace: "cnv-images"
+      os_family: "rhel"
+      os_version_pattern: "9.0.*"
 
   RHEL89-latest:
     description: "RHEL 8.9 latest public image"
@@ -288,6 +323,23 @@ images:
     description: "RHEL 7.9 latest public image"
     aws:
       name_pattern: "RHEL-7.9_HVM*"
+
+  # CNV-specific RHEL versions (not available in other providers)
+  RHEL96-latest:
+    description: "RHEL 9.6 latest public image"
+    cnv:
+      name_pattern: "rhel-9.6*"
+      datavolume_namespace: "cnv-images"
+      os_family: "rhel"
+      os_version_pattern: "9.6.*"
+
+  RHEL95-latest:
+    description: "RHEL 9.5 latest public image"
+    cnv:
+      name_pattern: "rhel-9.5*"
+      datavolume_namespace: "cnv-images"
+      os_family: "rhel"
+      os_version_pattern: "9.5.*"
 
   # CentOS Stream Images
   CentOS-Stream9-latest:
@@ -501,5 +553,15 @@ images:
     description: "Alibaba Cloud Linux 3"
     alibaba:
       image_name: "aliyun_3_x64_20G_alibase_20230727.vhd"
+
+  # CNV-specific static images
+  fedora-demo:
+    description: "Fedora Cloud Container Disk Demo"
+    cnv:
+      datavolume_name: "fedora-cloud-container-disk-demo"
+      datavolume_namespace: "cnv-images"
+      os_family: "fedora"
+      os_version: "latest"
+      static: true
 
  

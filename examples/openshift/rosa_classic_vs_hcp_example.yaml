@@ -1,13 +1,17 @@
----
-project: rosa-comparison
-location: us-east-1
+guid: "rosa1"
+
 yamlforge:
+  cloud_workspace:
+    name: "rosa-comparison-{guid}"
+    description: "ROSA Classic vs HCP comparison"
+  
   instances:
-    monitoring_server:
+    - name: "monitoring-server-{guid}"
+      provider: "aws"
+      image: "RHEL9-latest"
+      flavor: "medium"
+      region: "us-east-1"
       count: 1
-      image: rhel8-latest
-      size: medium
-      region: us-east-1
   openshift_clusters:
   - name: rosa-classic-production
     type: rosa-classic

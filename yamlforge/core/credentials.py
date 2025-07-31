@@ -27,26 +27,21 @@ class CredentialsManager:
         if not (access_key_id and secret_access_key) and not aws_profile:
             return {'available': False}
         
-        region = os.getenv('AWS_DEFAULT_REGION', 'us-east-1')
-        
         # Determine credential type
         if access_key_id and secret_access_key:
             creds = {
                 'type': 'access_key',
                 'access_key_id': access_key_id,
-                'secret_access_key': secret_access_key,
-                'region': region
+                'secret_access_key': secret_access_key
             }
         elif aws_profile:
             creds = {
                 'type': 'profile',
-                'profile_name': aws_profile,
-                'region': region
+                'profile_name': aws_profile
             }
         else:
             creds = {
-                'type': 'environment',
-                'region': region
+                'type': 'environment'
             }
 
         # Auto-discover AWS account information using boto3
@@ -74,16 +69,14 @@ class CredentialsManager:
             if creds['type'] == 'access_key':
                 session = boto3.Session(
                     aws_access_key_id=creds['access_key_id'],
-                    aws_secret_access_key=creds['secret_access_key'],
-                    region_name=creds['region']
+                    aws_secret_access_key=creds['secret_access_key']
                 )
             elif creds['type'] == 'profile':
                 session = boto3.Session(
-                    profile_name=creds['profile_name'],
-                    region_name=creds['region']
+                    profile_name=creds['profile_name']
                 )
             elif creds['type'] == 'environment':
-                session = boto3.Session(region_name=creds['region'])
+                session = boto3.Session()
             
             if not session:
                 return {}

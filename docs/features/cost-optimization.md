@@ -1,263 +1,397 @@
-# Cost Optimization
+# Cost Optimization Guide
 
-YamlForge provides powerful cost optimization features to automatically find the cheapest cloud providers and instance types.
+YamlForge provides powerful cost optimization features that automatically select the most cost-effective cloud providers and instance types for your workloads.
 
-## Cheapest Provider Auto-Selection
+## Quick Start
 
-The **"cheapest"** meta-provider automatically finds the lowest-cost instance across AWS, Azure, GCP, and IBM Cloud.
-
-### How It Works
-
-1. **Specify Requirements**: Use either generic size (`medium`) or exact specs (`cores: 4, memory: 8192`)
-2. **Automatic Cost Comparison**: System compares hourly costs across all cloud providers
-3. **Real-Time Selection**: Automatically deploys to the cheapest option
-4. **Transparent Output**: Shows cost comparison and selection reasoning
-
-### Usage Examples
-
-#### Generic Size Specification
-```yaml
-instances:
-  - name: "web-server"
-    provider: "cheapest"
-    size: "medium"              # Finds cheapest medium instance
-    image: "RHEL9-latest"
-    region: "us-east-1"
-```
-
-#### Exact CPU/Memory Requirements
-```yaml
-instances:
-  - name: "database"
-    provider: "cheapest"
-    cores: 8                    # 8 vCPUs required
-    memory: 16384               # 16GB RAM required (in MB)
-    image: "RHEL9-latest"
-    region: "us-east-1"
-```
-
-#### Workload-Optimized Selection
-```yaml
-instances:
-  - name: "analytics"
-    provider: "cheapest"
-    size: "memory_large"        # Cheapest memory-optimized instance
-    image: "RHEL9-latest"
-    
-  - name: "compute-worker"
-    provider: "cheapest"
-    size: "compute_large"       # Cheapest compute-optimized instance
-    image: "RHEL9-latest"
-```
-
-### Sample Output
-
-```
- Resolving cheapest provider for instance 'web-server'...
- Finding cheapest option for size 'medium' with auto cores, auto memory...
- Cheapest option: gcp e2-medium ($0.0335/hour, 1 vCPU, 4GB RAM)
- Cost comparison (top 3):
-  1. gcp: e2-medium - $0.0335/hour (1 vCPU, 4GB)
-  2. azure: Standard_B2ms - $0.0376/hour (2 vCPU, 8GB)
-  3. aws: t3.medium - $0.0416/hour (2 vCPU, 4GB)
-```
-
-## GPU Cost Optimization
-
-### Cheapest GPU Provider
-
-For GPU workloads, use the **"cheapest-gpu"** meta-provider:
+### Basic Cost Optimization
 
 ```yaml
-instances:
-  - name: "ml-training"
-    provider: "cheapest-gpu"    # GPU-focused optimization
-    cores: 8
-    memory: 32768
-    gpu_count: 1
-    gpu_type: "NVIDIA T4"       # Optional: specific GPU type
+guid: "cost1"
+
+yamlforge:
+  instances:
+    - name: "cost-optimized-{guid}"
+      provider: "cheapest"
+      flavor: "medium"
+      image: "RHEL9-latest"
+      region: "us-east-1"
 ```
 
-### GPU Type-Specific Cost Analysis
+### GPU Cost Optimization
 
 ```yaml
-instances:
-  # Find cheapest NVIDIA T4 specifically
-  - name: "t4-optimized"
-    provider: "cheapest"
-    cores: 8
-    memory: 32768
-    gpu_count: 1
-    gpu_type: "NVIDIA T4"       # Only T4 instances
-    
-  # Find cheapest NVIDIA A100 specifically  
-  - name: "a100-optimized"
-    provider: "cheapest"
-    cores: 32
-    memory: 131072
-    gpu_count: 2
-    gpu_type: "NVIDIA A100"     # Only A100 instances
+guid: "gpu1"
+
+yamlforge:
+  instances:
+    - name: "gpu-optimized-{guid}"
+      provider: "cheapest-gpu"
+      flavor: "medium"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      gpu_type: "NVIDIA T4"
+      gpu_count: 1
 ```
 
-### Sample GPU Cost Analysis
+## Cost Analysis
+
+### Using the Analyze Command
 
 ```bash
-Cost analysis for 8 cores, 32.0GB RAM, 1 NVIDIA T4 GPU(s):
-  aws: $0.752/hour (g4dn.2xlarge, 8 vCPU, 32GB, 1x NVIDIA T4) ← SELECTED
-  azure: $0.752/hour (Standard_NC8as_T4_v3, 8 vCPU, 56GB, 1x NVIDIA T4)
-  ibm_vpc: $1.420/hour (gx3-16x128x1l4, 16 vCPU, 128GB, 1x NVIDIA L4)
+# Analyze configuration for cost optimization
+python yamlforge.py my-config.yaml --analyze
 ```
 
-## Cost Exclusion Policies
+**Sample Output:**
+```
+Instance Analysis:
+- Name: cost-optimized-cost1
+- Provider: GCP (selected for lowest cost)
+- Flavor: medium (e2-medium)
+- Estimated Cost: $0.0335/hour
+- Total Monthly: ~$24.12
+```
 
-### Exclude Specific Providers
+### Cost Comparison
 
-You can exclude providers from cost optimization in `defaults/core.yaml`:
+YamlForge automatically compares costs across all providers:
+
+```
+Cost analysis for instance 'web-server-cost1':
+  gcp: $0.0335/hour (e2-medium, 2 vCPU, 4GB) ← SELECTED
+  aws: $0.0416/hour (t3.medium, 2 vCPU, 4GB)
+  azure: $0.0752/hour (Standard_B4ms, 4 vCPU, 16GB)
+```
+
+## Optimization Strategies
+
+### 1. Generic Size Optimization
 
 ```yaml
-cheapest_provider:
-  exclude_providers:
-    - "alibaba"        # Exclude Alibaba Cloud
-    - "vmware"         # Exclude VMware
+guid: "size1"
+
+yamlforge:
+  instances:
+    # Automatically finds cheapest medium instance across ALL clouds
+    - name: "medium-optimized-{guid}"
+      provider: "cheapest"
+      flavor: "medium"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+```
+
+### 2. Specialized Workload Optimization
+
+```yaml
+guid: "spec1"
+
+yamlforge:
+  instances:
+    # Finds cheapest compute-optimized instance across all providers
+    - name: "compute-optimized-{guid}"
+      provider: "cheapest"
+      flavor: "compute_large"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      
+    # Finds cheapest memory-optimized instance across all providers
+    - name: "memory-optimized-{guid}"
+      provider: "cheapest"
+      flavor: "memory_large"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+```
+
+### 3. Provider-Specific Optimization
+
+```yaml
+guid: "prov1"
+
+yamlforge:
+  instances:
+    # Automatically maps to best AWS instance for medium workloads
+    - name: "aws-optimized-{guid}"
+      provider: "aws"
+      flavor: "medium"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      
+    # Automatically maps to best Azure memory-optimized VM
+    - name: "azure-optimized-{guid}"
+      provider: "azure"
+      flavor: "memory_large"
+      image: "RHEL9-latest"
+      region: "eastus"
+      
+    # Automatically maps to best GCP compute-optimized instance
+    - name: "gcp-optimized-{guid}"
+      provider: "gcp"
+      flavor: "compute_large"
+      image: "RHEL9-latest"
+      region: "us-central1"
+```
+
+## Advanced Cost Optimization
+
+### 1. Custom Specifications
+
+```yaml
+guid: "cust1"
+
+yamlforge:
+  instances:
+    # Find cheapest instance with specific CPU/memory requirements
+    - name: "custom-specs-{guid}"
+      provider: "cheapest"
+      cores: 8
+      memory: 16384  # 16GB in MB
+      image: "RHEL9-latest"
+      region: "us-east-1"
+```
+
+### 2. Multi-Region Optimization
+
+```yaml
+guid: "multi1"
+
+yamlforge:
+  instances:
+    # Compare costs across different regions
+    - name: "east-cost-{guid}"
+      provider: "cheapest"
+      flavor: "large"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      
+    - name: "west-cost-{guid}"
+      provider: "cheapest"
+      flavor: "large"
+      image: "RHEL9-latest"
+      region: "us-west-2"
+```
+
+### 3. GPU Cost Optimization
+
+```yaml
+guid: "gpu2"
+
+yamlforge:
+  instances:
+    # Find cheapest GPU instance across all providers
+    - name: "gpu-cheapest-{guid}"
+      provider: "cheapest-gpu"
+      flavor: "large"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      gpu_type: "NVIDIA T4"
+      gpu_count: 1
+      
+    # Compare different GPU types
+    - name: "gpu-v100-{guid}"
+      provider: "cheapest-gpu"
+      flavor: "large"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      gpu_type: "NVIDIA V100"
+      gpu_count: 1
+      
+    - name: "gpu-a100-{guid}"
+      provider: "cheapest-gpu"
+      flavor: "large"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      gpu_type: "NVIDIA A100"
+      gpu_count: 1
+```
+
+## Provider Exclusions
+
+### Global Exclusions
+
+```yaml
+guid: "excl1"
+
+yamlforge:
+  # Exclude providers from cost comparison
+  exclude_providers: ["vmware", "alibaba"]
   
-  # Include only specific providers
-  include_only:
-    - "aws"
-    - "azure"
-    - "gcp"
+  instances:
+    - name: "excluded-optimized-{guid}"
+      provider: "cheapest"  # Only considers aws, azure, gcp, oci, ibm_vpc, ibm_classic
+      flavor: "medium"
+      image: "RHEL9-latest"
+      region: "us-east-1"
 ```
 
-### Example with Exclusions
+### Instance-Specific Exclusions
 
 ```yaml
-# This configuration in defaults/core.yaml:
-cheapest_provider:
-  exclude_providers: ["alibaba", "oci"]
+guid: "inst1"
 
-# Will only compare costs across:
-# AWS, Azure, GCP, IBM VPC, IBM Classic, VMware
+yamlforge:
+  instances:
+    - name: "selective-optimized-{guid}"
+      provider: "cheapest"
+      flavor: "medium"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      exclude_providers: ["aws", "azure"]  # Only consider gcp, oci, ibm_vpc, ibm_classic
 ```
 
-## Multi-Cloud Cost Strategies
+## Cost Monitoring
 
-### Strategy 1: Pure Cost Optimization
+### Monthly Cost Estimation
+
+```bash
+# Get detailed cost breakdown
+python yamlforge.py my-config.yaml --analyze
+```
+
+**Output includes:**
+- Hourly cost per instance
+- Monthly cost estimation
+- Provider selection rationale
+- Alternative provider costs
+
+### Cost Tracking
+
 ```yaml
-guid: "cost01"
+guid: "track1"
 
-instances:
-  # Let cheapest provider decide everything
-  - name: "web-tier"
-    provider: "cheapest"
-    size: "medium"
-    count: 3
-    
-  - name: "api-tier"
-    provider: "cheapest"
-    size: "large"
-    count: 2
-    
-  - name: "db-tier"
-    provider: "cheapest"
-    size: "memory_xlarge"
-    count: 1
-```
-
-### Strategy 2: Mixed Optimization
-```yaml
-guid: "mix01"
-
-instances:
-  # Critical workload on preferred provider
-  - name: "critical-db"
-    provider: "aws"
-    size: "memory_xlarge"
-    
-  # Non-critical workloads optimized for cost
-  - name: "batch-workers"
-    provider: "cheapest"
-    size: "compute_large"
-    count: 10
-    
-  - name: "cache-servers"
-    provider: "cheapest"
-    size: "memory_large"
-    count: 3
-```
-
-### Strategy 3: GPU Cost Optimization
-```yaml
-guid: "gpu01"
-
-instances:
-  # Training workloads - cost optimized
-  - name: "training-nodes"
-    provider: "cheapest-gpu"
-    gpu_count: 1
-    gpu_type: "NVIDIA T4"
-    count: 5
-    
-  # Inference workloads - specific provider
-  - name: "inference-cluster"
-    provider: "aws"
-    size: "gpu_t4_large"
-    count: 3
-```
-
-## Cost Benefits
-
-### Key Advantages
-
-- ** Maximum Cost Savings**: Automatically finds lowest-cost option across all clouds
-- ** No Vendor Lock-in**: Deploy to actually cheapest provider, not predetermined choice  
-- ** Transparent Pricing**: See real hourly costs and comparison before deployment
-- ** Intelligent Matching**: Considers both cost and resource efficiency
-- ** Multi-Cloud by Default**: Different instances can land on different optimal providers
-- ** Real-Time Optimization**: Uses current pricing data from all flavor mappings
-
-### Cost Comparison Examples
-
-**Development Environment:**
-```
-Cheapest option: gcp e2-small ($0.0201/hour)
-Savings vs AWS t3.small: 52%
-Savings vs Azure Standard_B1s: 37%
-```
-
-**Production Environment:**
-```
-Cheapest option: aws m5.large ($0.096/hour)
-Savings vs Azure Standard_D2s_v3: 23%
-Savings vs GCP n2-standard-2: 15%
-```
-
-**GPU Workload:**
-```
-Cheapest option: aws g4dn.xlarge ($0.526/hour)
-Savings vs Azure NC6s_v3: 31%
-Savings vs GCP NVIDIA T4: 18%
+yamlforge:
+  instances:
+    - name: "tracked-instance-{guid}"
+      provider: "cheapest"
+      flavor: "medium"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      tags:
+        cost_center: "development"
+        budget: "monthly"
+        owner: "team-a"
 ```
 
 ## Best Practices
 
-### 1. Use Provider Exclusions
-- Exclude providers you don't have access to
-- Focus cost comparison on available options
+### 1. Use Generic Flavors
 
-### 2. Consider Regional Pricing
-- Different regions have different pricing
-- Use region-specific cost optimization
+```yaml
+# ✅ Good - YamlForge finds cheapest option
+flavor: "medium"
 
-### 3. GPU Type Specificity
-- Specify GPU type for accurate cost comparison
-- Consider performance vs cost for GPU workloads
+# ❌ Less optimal - Provider-specific may not be cheapest
+flavor: "t3.medium"  # AWS-specific
+```
 
-### 4. Monitor and Adjust
-- Review cost reports regularly
-- Adjust exclusions based on actual usage
+### 2. Leverage Cost Analysis
 
-## Related Documentation
+```bash
+# Always analyze before deployment
+python yamlforge.py my-config.yaml --analyze
 
-- [Multi-Cloud Support](multi-cloud.md)
-- [GPU Support](gpu-support.md)
-- [Auto Discovery](auto-discovery.md)
-- [Configuration Guide](../configuration/mappings.md) 
+# Compare different configurations
+python yamlforge.py config-a.yaml --analyze
+python yamlforge.py config-b.yaml --analyze
+```
+
+### 3. Consider Spot Instances
+
+```yaml
+# YamlForge automatically considers spot/preemptible instances
+# when they provide cost savings
+provider: "cheapest"
+flavor: "large"
+```
+
+### 4. Monitor Usage
+
+```yaml
+# Tag resources for cost tracking
+tags:
+  environment: "development"
+  cost_center: "engineering"
+  project: "web-app"
+```
+
+## Cost Optimization Examples
+
+### Development Environment
+
+```yaml
+guid: "dev1"
+
+yamlforge:
+  instances:
+    - name: "dev-server-{guid}"
+      provider: "cheapest"
+      flavor: "small"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      tags:
+        environment: "development"
+        auto_shutdown: "true"
+```
+
+### Production Environment
+
+```yaml
+guid: "prod1"
+
+yamlforge:
+  instances:
+    - name: "prod-web-{guid}"
+      provider: "cheapest"
+      flavor: "large"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      tags:
+        environment: "production"
+        sla: "99.9"
+```
+
+### High-Performance Computing
+
+```yaml
+guid: "hpc1"
+
+yamlforge:
+  instances:
+    - name: "hpc-compute-{guid}"
+      provider: "cheapest"
+      flavor: "memory_xlarge"
+      image: "RHEL9-latest"
+      region: "us-east-1"
+      tags:
+        workload: "hpc"
+        priority: "high"
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **No Cost Data Available**
+   ```bash
+   # Check provider exclusions
+   python yamlforge.py my-config.yaml --analyze
+   ```
+
+2. **Unexpected Provider Selection**
+   ```bash
+   # Review cost analysis output
+   python yamlforge.py my-config.yaml --analyze --verbose
+   ```
+
+3. **High Costs**
+   ```yaml
+   # Try smaller flavors or different regions
+   flavor: "small"
+   region: "us-west-2"  # May be cheaper than us-east-1
+   ```
+
+## Next Steps
+
+- [Multi-Cloud Configuration](multi-cloud.md)
+- [GPU Optimization](ai-training.md)
+- [Troubleshooting Guide](troubleshooting.md) 

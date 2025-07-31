@@ -1,0 +1,55 @@
+# CNV (Container Native Virtualization) Provider Example
+# This example demonstrates deploying virtual machines using CNV/KubeVirt
+# on Kubernetes or OpenShift clusters
+
+guid: "cnv01"
+
+yamlforge:
+  # Required cloud workspace configuration
+  cloud_workspace:
+    name: "cnv-demo-workspace"
+    description: "CNV provider demonstration workspace"
+  
+  # CNV instances - works on both Kubernetes (KubeVirt) and OpenShift (CNV) clusters
+  instances:
+    # Small development VM using flavor
+    - name: "dev-vm-{guid}"
+      provider: "cnv"
+      flavor: "small"
+      image: "kubevirt/fedora-cloud-container-disk-demo:latest"
+      
+    # Production VM using cores and memory specifications
+    - name: "prod-vm-{guid}"
+      provider: "cnv"
+      cores: 4
+      memory: 8192  # 8GB in MB
+      image: "kubevirt/fedora-cloud-container-disk-demo:latest"
+      
+    # Compute-optimized VM using flavor
+    - name: "compute-vm-{guid}"
+      provider: "cnv"
+      flavor: "large"
+      image: "kubevirt/fedora-cloud-container-disk-demo:latest"
+      
+    # GPU VM using cores and memory specifications
+    - name: "gpu-vm-{guid}"
+      provider: "cnv"
+      cores: 8
+      memory: 16384  # 16GB in MB
+      image: "kubevirt/fedora-cloud-container-disk-demo:latest"
+  
+  # SSH configuration for VM access
+  ssh_keys:
+    default:
+      public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC..."
+      username: "cloud-user"
+
+# CNV Provider Notes:
+# - Requires KubeVirt operator on Kubernetes clusters
+# - Requires CNV operator on OpenShift clusters
+# - Automatically detects cluster type from YAML configuration
+# - No cloud provider credentials required (uses local cluster resources)
+# - Set KUBECONFIG environment variable for Kubernetes clusters
+# - Set OPENSHIFT_CLUSTER_URL/OPENSHIFT_CLUSTER_TOKEN for OpenShift clusters
+# - All VMs are deployed in the namespace derived from cloud_workspace.name
+# - Can specify either 'size' OR 'cores' and 'memory', but not both

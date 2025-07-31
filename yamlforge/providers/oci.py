@@ -103,29 +103,27 @@ class OCIProvider:
 
 
 
-    def get_oci_shape(self, size_or_instance_type):
-        """Get OCI shape from size mapping or return direct instance type."""
-        # If it looks like a direct OCI shape, return it as-is
-        if any(prefix in size_or_instance_type for prefix in ['VM.Standard', 'VM.DenseIO', 'BM.Standard']):
-            return size_or_instance_type
+    def get_oci_shape(self, flavor_or_instance_type):
+        """Get OCI shape from flavor or instance type."""
+        # If it's already an OCI shape, return it directly
+        if any(prefix in flavor_or_instance_type for prefix in ['VM.Standard', 'VM.DenseIO', 'BM.Standard']):
+            return flavor_or_instance_type
         
-        # Check for advanced flavor mappings
+        # Load OCI flavors
         oci_flavors = self.converter.flavors.get('oci', {}).get('flavor_mappings', {})
-        size_mapping = oci_flavors.get(size_or_instance_type, {})
-
+        size_mapping = oci_flavors.get(flavor_or_instance_type, {})
+        
         if size_mapping:
-            # Return the first (preferred) shape for this size
-            shape = list(size_mapping.keys())[0]
-            return shape
-
-        # Check direct machine type mapping
+            # Return the first (usually cheapest) option
+            return next(iter(size_mapping.keys()))
+        
+        # Check machine types
         machine_types = self.converter.flavors.get('oci', {}).get('machine_types', {})
-        if size_or_instance_type in machine_types:
-            return size_or_instance_type
-
-        # No mapping found for this size
-        raise ValueError(f"No OCI shape mapping found for size '{size_or_instance_type}'. "
-                       f"Available sizes: {list(oci_flavors.keys())}")
+        if flavor_or_instance_type in machine_types:
+            return flavor_or_instance_type
+        
+        raise ValueError(f"No OCI shape mapping found for flavor '{flavor_or_instance_type}'. "
+                        f"Available flavors: {list(oci_flavors.keys())}")
 
     def get_oci_image_reference(self, image_name):
         """Get OCI image reference from image mapping or direct reference."""
@@ -162,7 +160,7 @@ class OCIProvider:
         # Default fallback for Oracle Linux
         return 'Oracle Linux'
 
-    def generate_oci_vm(self, instance, index, clean_name, size, available_subnets=None, yaml_data=None, has_guid_placeholder=False):
+    def generate_oci_vm(self, instance, index, clean_name, flavor, available_subnets=None, yaml_data=None, has_guid_placeholder=False):
         """Generate native OCI Compute instance."""
         instance_name = instance.get("name", f"instance_{index}")
         # Replace {guid} placeholder in instance name
@@ -194,7 +192,7 @@ class OCIProvider:
             pass
 
         # Get shape
-        oci_shape = self.get_oci_shape(size)
+        oci_shape = self.get_oci_shape(flavor)
 
         # Get image reference
         oci_image = self.get_oci_image_reference(image)
