@@ -76,7 +76,7 @@ echo "   Using .vulture file for ignore patterns"
 echo ""
 
 # Build vulture command
-VULTURE_CMD="vulture yamlforge/ .vulture --min-confidence $CONFIDENCE"
+VULTURE_CMD="vulture yamlforge/ demobuilder/ .vulture --min-confidence $CONFIDENCE"
 
 if [ "$SORT_BY_SIZE" = true ]; then
     VULTURE_CMD="$VULTURE_CMD --sort-by-size"
