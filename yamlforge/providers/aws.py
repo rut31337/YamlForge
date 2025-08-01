@@ -987,7 +987,7 @@ resource "aws_instance" "{resource_name}" {{{self.get_aws_provider_reference(aws
     ManagedBy = "yamlforge"
   }}
   
-  {f"user_data = base64encode(<<-EOF\n{user_data_script}\nEOF\n)" if user_data_script else ""}
+  {f"user_data = base64encode(<<-EOF{chr(10)}{user_data_script}{chr(10)}EOF{chr(10)})" if user_data_script else ""}
 }}
 
 {ami_data_source}
