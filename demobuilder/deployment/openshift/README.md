@@ -1,405 +1,341 @@
 # DemoBuilder OpenShift Deployment
 
-This directory contains Kustomize manifests for deploying DemoBuilder to OpenShift.
+This guide covers deploying DemoBuilder to OpenShift using Source-to-Image (S2I) builds that pull directly from the Git repository.
 
 ## Prerequisites
 
 - OpenShift cluster access with appropriate permissions
 - `oc` CLI configured and logged in
-- Access to container registry (internal OpenShift registry or external)
+- Git repository access (public or with credentials configured)
 
-## Quick Deployment
+## Quick S2I Deployment
 
-### 1. Deploy with Internal Image Build
+### 1. Create New Application with S2I
+
+Deploy DemoBuilder directly from the Git repository using OpenShift's S2I capability:
 
 ```bash
-# Navigate to demobuilder directory
-cd demobuilder
+# Create a new application from the Git repository
+oc new-app python:3.11~https://github.com/rut31337/YamlForge.git \
+  --context-dir=demobuilder \
+  --name=demobuilder \
+  --env=PORT=8501
 
-# Create build configuration (one-time setup)
-oc new-build --binary --strategy=docker --name=demobuilder
+# Expose the service
+oc expose svc/demobuilder
 
-# Build the image
-oc start-build demobuilder --from-dir=. --follow
+# Create secure route (optional)
+oc create route edge demobuilder-secure --service=demobuilder --port=8501
+```
+
+### 2. Configure Environment Variables
+
+Set up required configuration and API keys:
+
+```bash
+# Create secret for API keys
+oc create secret generic demobuilder-secrets \
+  --from-literal=anthropic-api-key="${ANTHROPIC_API_KEY}"
+
+# Create configmap for application settings
+oc create configmap demobuilder-config \
+  --from-literal=app_env="production" \
+  --from-literal=anthropic_model="claude-3-5-sonnet-20241022" \
+  --from-literal=ai_enabled="true"
+
+# Update deployment to use secrets and configmap
+oc set env deployment/demobuilder --from=secret/demobuilder-secrets
+oc set env deployment/demobuilder --from=configmap/demobuilder-config
+```
+
+### 3. Advanced S2I Configuration
+
+For more control over the build process, create a BuildConfig manually:
+
+```bash
+# Create BuildConfig with specific Git branch/tag
+oc create -f - <<EOF
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: demobuilder
+  labels:
+    app: demobuilder
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/rut31337/YamlForge.git
+      ref: master
+    contextDir: demobuilder
+  strategy:
+    type: Source
+    sourceStrategy:
+      from:
+        kind: ImageStreamTag
+        name: python:3.11
+      env:
+        - name: ENABLE_PIPENV
+          value: "0"
+        - name: UPGRADE_PIP_TO_LATEST
+          value: "1"
+  output:
+    to:
+      kind: ImageStreamTag
+      name: demobuilder:latest
+  triggers:
+    - type: ConfigChange
+    - type: GitHub
+      github:
+        secret: webhook-secret
+    - type: Generic
+      generic:
+        secret: webhook-secret
+EOF
+
+# Create ImageStream
+oc create imagestream demobuilder
+
+# Start the build
+oc start-build demobuilder --follow
+```
+
+## Deployment Options
+
+### Option A: Using Kustomize (Recommended)
+
+Deploy using the provided Kustomize manifests after building the image:
+
+```bash
+# Ensure the image exists
+oc get imagestream demobuilder
 
 # Deploy with kustomize
 oc apply -k deployment/openshift/
 
-# Check deployment status
+# Check deployment
 oc get pods -n demobuilder
-oc get routes -n demobuilder
-
-# Get application URL
-./deployment/openshift/get-url.sh
 ```
 
-### 2. Deploy with External Image
+### Option B: Simple Deployment
 
-If using an external image registry:
+Create a basic deployment directly:
 
 ```bash
-# Update the image reference in deployment.yaml
-# Then deploy
-oc apply -k deployment/openshift/
+# Create deployment
+oc create deployment demobuilder --image=image-registry.openshift-image-registry.svc:5000/$(oc project -q)/demobuilder:latest
+
+# Set environment variables
+oc set env deployment/demobuilder \
+  --from=secret/demobuilder-secrets \
+  --from=configmap/demobuilder-config
+
+# Expose the service
+oc expose deployment/demobuilder --port=8501 --target-port=8501
+oc expose service/demobuilder
 ```
 
-## Accessing the Application
+## Webhook Configuration (Optional)
 
-### Quick Access Helper
-
-Use the provided script for easy access to your deployed application:
+Set up automatic builds when code is pushed to Git:
 
 ```bash
-# Run the helper script
-./deployment/openshift/get-url.sh
+# Get webhook URL
+WEBHOOK_URL=$(oc describe bc demobuilder | grep "Webhook GitHub" -A 1 | tail -1 | awk '{print $2}')
 
-# Or specify a different namespace
-./deployment/openshift/get-url.sh my-namespace
+echo "Add this webhook URL to your GitHub repository:"
+echo "$WEBHOOK_URL"
+
+# Configure webhook secret (if needed)
+oc set triggers bc/demobuilder --from-github --remove
+oc set triggers bc/demobuilder --from-github=webhook-secret-value
 ```
 
-### Get Application URLs
+## Troubleshooting S2I Builds
 
-Once deployment is complete, retrieve the application URLs:
+### Common Issues and Solutions
 
+1. **Build Fails - Missing Dependencies**:
 ```bash
-# List all routes
-oc get routes -n demobuilder
-
-# Get the primary HTTPS URL
-echo "DemoBuilder application:"
-echo "https://$(oc get route demobuilder -n demobuilder -o jsonpath='{.spec.host}')"
-
-# Get the secure route URL (if different)
-echo "Secure route:"
-echo "https://$(oc get route demobuilder-secure -n demobuilder -o jsonpath='{.spec.host}')"
-```
-
-### Verify Application is Running
-
-```bash
-# Check pod status
-oc get pods -n demobuilder
-
-# Verify pods are ready (should show 1/1 Ready)
-oc get pods -n demobuilder -o wide
-
-# Check application logs
-oc logs deployment/demobuilder -n demobuilder
-
-# Test health endpoint
-ROUTE_HOST=$(oc get route demobuilder -n demobuilder -o jsonpath='{.spec.host}')
-curl -k "https://${ROUTE_HOST}/_stcore/health"
-```
-
-### Complete Application Access Example
-
-```bash
-# Complete verification and access workflow
-echo "=== DemoBuilder Deployment Status ==="
-
-# Check pods
-echo "Pod Status:"
-oc get pods -n demobuilder
-
-# Check routes
-echo -e "\nRoute Status:"
-oc get routes -n demobuilder
-
-# Get application URL
-echo -e "\n=== Application Access ==="
-ROUTE_HOST=$(oc get route demobuilder -n demobuilder -o jsonpath='{.spec.host}')
-echo "Application URL: https://${ROUTE_HOST}"
-echo "Health Check: https://${ROUTE_HOST}/_stcore/health"
-
-# Test connectivity
-echo -e "\n=== Connectivity Test ==="
-if curl -k -s "https://${ROUTE_HOST}/_stcore/health" > /dev/null; then
-    echo "SUCCESS: Application is accessible and healthy"
-    echo "Open your browser to: https://${ROUTE_HOST}"
-else
-    echo "ERROR: Application health check failed"
-    echo "Check pod logs: oc logs deployment/demobuilder -n demobuilder"
-fi
-```
-
-## Base Image Options
-
-The Dockerfile supports multiple base images for broader accessibility:
-
-### RHEL UBI9 (Default - Recommended for OpenShift)
-```bash
-# Default build uses RHEL UBI9
-oc start-build demobuilder --from-dir=.
-```
-
-### Fedora (Alternative for broader access)
-```bash
-# Build with Fedora base image
-oc start-build demobuilder --from-dir=. --build-arg BASE_IMAGE=python:3.11
-```
-
-### Custom Base Image
-```bash
-# Use any Python 3.11+ compatible base image
-oc start-build demobuilder --from-dir=. --build-arg BASE_IMAGE=your-registry/python:3.11
-```
-
-## Configuration
-
-### Environment Variables
-
-The application is configured via ConfigMap (`configmap.yaml`):
-
-```yaml
-data:
-  app_title: "DemoBuilder - YamlForge Assistant"
-  max_conversation_turns: "10"
-  anthropic_model: "claude-3-5-sonnet-20241022"
-  context7_enabled: "false"
-  context7_mcp_url: ""
-  redis_enabled: "false"
-  keycloak_enabled: "false"
-  log_level: "INFO"
-```
-
-### Secrets
-
-API keys and sensitive configuration via Secret (`secret.yaml`):
-
-```yaml
-data:
-  anthropic-api-key: ""  # Base64 encoded
-  redis-url: ""          # Base64 encoded (if Redis enabled)
-```
-
-**Important**: Set your Anthropic API key:
-
-```bash
-# Set API key from environment variable
-oc create secret generic demobuilder-secrets \
-  --from-literal=anthropic-api-key="${ANTHROPIC_API_KEY}" \
-  -n demobuilder --dry-run=client -o yaml | oc apply -f -
-```
-
-## Security Context Constraints
-
-The deployment is configured to work with OpenShift's Security Context Constraints:
-
-- Uses `runAsNonRoot: true`
-- No hardcoded user IDs (allows OpenShift to assign)
-- Compatible with `restricted-v2` SCC
-- Proper group permissions for OpenShift
-
-## Networking
-
-### Services
-- **demobuilder**: Internal service on port 8501
-
-### Routes
-- **demobuilder**: HTTP route with edge termination
-- **demobuilder-secure**: HTTPS route with reencrypt termination
-
-### Network Policy
-- Allows ingress from OpenShift router
-- Allows internal pod-to-pod communication
-- Blocks external traffic except through routes
-
-## Scaling and Resources
-
-### Horizontal Pod Autoscaler
-Automatically scales based on CPU/memory usage:
-- Min replicas: 2
-- Max replicas: 10
-- Target CPU: 70%
-- Target Memory: 80%
-
-### Resource Limits
-Per pod:
-- **Requests**: 250m CPU, 512Mi memory
-- **Limits**: 500m CPU, 1Gi memory
-
-## Health Checks
-
-### Readiness Probe
-- Path: `/_stcore/health`
-- Initial delay: 5s
-- Period: 10s
-
-### Liveness Probe  
-- Path: `/_stcore/health`
-- Initial delay: 30s
-- Period: 30s
-
-## Troubleshooting
-
-### Common Issues
-
-#### 1. Image Pull Errors
-```bash
-# Check if build completed successfully
-oc get builds -l build=demobuilder
-
 # Check build logs
 oc logs build/demobuilder-1
 
-# Verify image stream
-oc get imagestream demobuilder
+# Verify requirements.txt exists in context directory
+oc describe bc demobuilder | grep "Context Dir"
 ```
 
-#### 2. Security Context Constraints Violations
+2. **Python Version Issues**:
 ```bash
-# Check pod events for SCC errors
-oc describe pod <pod-name> -n demobuilder
+# Use specific Python version
+oc patch bc demobuilder -p '{"spec":{"strategy":{"sourceStrategy":{"from":{"name":"python:3.11"}}}}}'
 
-# Verify SCC assignment
-oc get pod <pod-name> -o yaml | grep "openshift.io/scc"
+# Or try UBI Python image
+oc patch bc demobuilder -p '{"spec":{"strategy":{"sourceStrategy":{"from":{"name":"ubi9/python-311"}}}}}'
 ```
 
-#### 3. Configuration Issues
+3. **Application Won't Start**:
 ```bash
-# Check configmap
-oc get configmap demobuilder-config -o yaml
+# Check if app.py is in the right location
+oc exec deployment/demobuilder -- ls -la /opt/app-root/src/
 
-# Check secrets (values are base64 encoded)
-oc get secret demobuilder-secrets -o yaml
-
-# Test configuration in pod
-oc exec <pod-name> -- env | grep -E "(ANTHROPIC|APP_)"
+# Check Streamlit port configuration
+oc exec deployment/demobuilder -- cat /opt/app-root/src/app.py | head -20
 ```
 
-#### 4. Application Not Starting
+4. **Dependency Installation Issues**:
 ```bash
-# Check pod logs
-oc logs <pod-name> -n demobuilder
+# Force pip upgrade during build
+oc set env bc/demobuilder UPGRADE_PIP_TO_LATEST=1
 
-# Check streamlit health endpoint
-oc exec <pod-name> -- curl -f http://localhost:8501/_stcore/health
+# Disable pipenv if causing issues
+oc set env bc/demobuilder ENABLE_PIPENV=0
+
+# Rebuild
+oc start-build demobuilder --follow
 ```
 
-### Debug Commands
+## Monitoring and Maintenance
 
-```bash
-# Get all resources
-oc get all -n demobuilder
-
-# Check events
-oc get events -n demobuilder --sort-by='.lastTimestamp'
-
-# Describe deployment
-oc describe deployment demobuilder -n demobuilder
-
-# Port forward for local testing
-oc port-forward svc/demobuilder 8501:8501 -n demobuilder
-```
-
-## Customization
-
-### Kustomize Overlays
-
-Create environment-specific overlays:
+### Check Application Status
 
 ```bash
-# Create overlay directory
-mkdir -p deployment/openshift/overlays/production
+# Get application URL
+./deployment/openshift/get-url.sh
 
-# Create kustomization.yaml
-cat > deployment/openshift/overlays/production/kustomization.yaml << EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
+# Check pod health
+oc get pods -l app=demobuilder -o wide
 
-namespace: demobuilder-prod
+# View application logs
+oc logs -f deployment/demobuilder
 
-resources:
-- ../../base
-
-patchesStrategicMerge:
-- deployment-patch.yaml
-
-replicas:
-- name: demobuilder
-  count: 5
-EOF
-
-# Deploy overlay
-oc apply -k deployment/openshift/overlays/production/
+# Check resource usage
+oc top pods -l app=demobuilder
 ```
 
-### Custom Images
-
-To use a custom image:
-
-1. Update `deployment.yaml`:
-```yaml
-spec:
-  template:
-    spec:
-      containers:
-      - name: demobuilder
-        image: your-registry/demobuilder:tag
-```
-
-2. Or use kustomize image transformer:
-```yaml
-images:
-- name: demobuilder
-  newName: your-registry/demobuilder
-  newTag: v1.2.3
-```
-
-## Monitoring
-
-### Prometheus Integration
-
-The deployment includes prometheus annotations:
-```yaml
-annotations:
-  prometheus.io/scrape: "false"  # Set to "true" to enable
-  prometheus.io/port: "8501"
-  prometheus.io/path: "/metrics"
-```
-
-### Application Metrics
-
-Streamlit provides health endpoints:
-- `/_stcore/health` - Health check
-- `/_stcore/metrics` - Application metrics (if enabled)
-
-## Cleanup
+### Update Application
 
 ```bash
-# Delete namespace (removes everything)
-oc delete namespace demobuilder
+# Trigger new build from latest Git
+oc start-build demobuilder --follow
 
-# Or delete individual components
-oc delete -k deployment/openshift/
+# Force deployment rollout
+oc rollout restart deployment/demobuilder
 
-# Clean up build artifacts
-oc delete bc,is demobuilder
+# Check rollout status
+oc rollout status deployment/demobuilder
 ```
 
-## Production Considerations
+### Scaling
 
-### Security
-- Use external secret management (e.g., External Secrets Operator)
-- Enable network policies
-- Use specific image tags, not `latest`
-- Regular security updates
+```bash
+# Scale up for high availability
+oc scale deployment/demobuilder --replicas=3
 
-### Performance
-- Tune resource requests/limits based on usage
-- Consider using persistent storage for session data
-- Implement proper logging and monitoring
+# Enable autoscaling
+oc autoscale deployment/demobuilder --min=2 --max=10 --cpu-percent=70
+```
 
-### High Availability
-- Spread pods across availability zones
-- Use pod disruption budgets
-- Configure proper health checks
-- Consider external Redis for session persistence
+## Configuration Management
 
-## Support
+### Environment Variables
 
-For issues specific to OpenShift deployment:
-1. Check this README troubleshooting section
-2. Review pod logs and events
-3. Verify OpenShift permissions and quotas
-4. Consult OpenShift documentation for SCC and networking
+```bash
+# View current configuration
+oc set env deployment/demobuilder --list
+
+# Update API model
+oc patch configmap demobuilder-config \
+  --type merge -p '{"data":{"anthropic_model":"claude-3-5-sonnet-20241022"}}'
+
+# Update API key
+oc create secret generic demobuilder-secrets \
+  --from-literal=anthropic-api-key="new-key" \
+  --dry-run=client -o yaml | oc apply -f -
+
+# Restart to pick up changes
+oc rollout restart deployment/demobuilder
+```
+
+### Resource Limits
+
+```bash
+# Set resource limits
+oc set resources deployment/demobuilder \
+  --requests=cpu=200m,memory=512Mi \
+  --limits=cpu=1000m,memory=1Gi
+```
+
+## Security Configuration
+
+### Network Policies
+
+```bash
+# Apply network policies (if using the kustomize deployment)
+oc apply -f deployment/openshift/networkpolicy.yaml
+```
+
+### Service Account
+
+```bash
+# Create dedicated service account
+oc create serviceaccount demobuilder
+
+# Use custom service account
+oc patch deployment demobuilder -p '{"spec":{"template":{"spec":{"serviceAccountName":"demobuilder"}}}}'
+```
+
+## Complete Deployment Example
+
+Here's a complete deployment workflow:
+
+```bash
+#!/bin/bash
+set -e
+
+echo "=== DemoBuilder S2I Deployment ==="
+
+# 1. Create new S2I application
+echo "Creating S2I application..."
+oc new-app python:3.11~https://github.com/rut31337/YamlForge.git \
+  --context-dir=demobuilder \
+  --name=demobuilder \
+  --env=PORT=8501
+
+# 2. Create configuration
+echo "Setting up configuration..."
+oc create secret generic demobuilder-secrets \
+  --from-literal=anthropic-api-key="${ANTHROPIC_API_KEY}" \
+  --dry-run=client -o yaml | oc apply -f -
+
+oc create configmap demobuilder-config \
+  --from-literal=app_env="production" \
+  --from-literal=anthropic_model="claude-3-5-sonnet-20241022" \
+  --from-literal=ai_enabled="true" \
+  --dry-run=client -o yaml | oc apply -f -
+
+# 3. Configure deployment
+echo "Configuring deployment..."
+oc set env deployment/demobuilder --from=secret/demobuilder-secrets
+oc set env deployment/demobuilder --from=configmap/demobuilder-config
+
+# 4. Expose service
+echo "Exposing service..."
+oc expose svc/demobuilder
+oc create route edge demobuilder-secure --service=demobuilder --port=8501 || true
+
+# 5. Wait for deployment
+echo "Waiting for deployment..."
+oc rollout status deployment/demobuilder --timeout=300s
+
+# 6. Show results
+echo "=== Deployment Complete ==="
+oc get pods -l app=demobuilder
+oc get routes
+
+echo ""
+echo "Application URLs:"
+echo "HTTP:  http://$(oc get route demobuilder -o jsonpath='{.spec.host}')"
+echo "HTTPS: https://$(oc get route demobuilder-secure -o jsonpath='{.spec.host}')"
+```
+
+Save this as `deploy-s2i.sh` and run it for a complete S2I deployment.
