@@ -2,6 +2,7 @@ import re
 import yaml
 import json
 import os
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 from .validation import validate_and_fix_yaml
@@ -116,92 +117,46 @@ class YamlForgeGenerator:
                 self.use_ai = False
                 print("DEBUG: No working AI client available")
         
-        self.provider_mappings = {
-            'aws': 'aws',
-            'amazon': 'aws',
-            'ec2': 'aws',
-            'azure': 'azure',
-            'microsoft': 'azure',
-            'gcp': 'gcp',
-            'google': 'gcp',
-            'google cloud': 'gcp',
-            'ibm': 'ibm_vpc',
-            'ibm cloud': 'ibm_vpc',
-            'oracle': 'oci',
-            'oci': 'oci',
-            'alibaba': 'alibaba',
-            'vmware': 'vmware',
-            'vsphere': 'vmware',
-            'openshift virtualization': 'cnv',
-            'kubevirt': 'cnv',
-            'cnv': 'cnv',
-            'cheapest': 'cheapest',
-            'cost optimized': 'cheapest',
-            'cheap': 'cheapest',
-            'gpu cheapest': 'cheapest-gpu',
-            'cheapest gpu': 'cheapest-gpu'
-        }
+        # Load YamlForge mapping data for AI context
+        self.yamlforge_mappings = self._load_yamlforge_mappings()
         
-        self.size_mappings = {
-            'tiny': 'small',
-            'small': 'small',
-            'medium': 'medium',
-            'large': 'large',
-            'extra large': 'xlarge',
-            'xlarge': 'xlarge',
-            'xl': 'xlarge',
-            '2xl': 'xlarge',
-            'xxl': 'xlarge'
-        }
-        
-        self.os_mappings = {
-            'rhel': 'RHEL9-latest',
-            'red hat': 'RHEL9-latest',
-            'redhat': 'RHEL9-latest',
-            'rhel9': 'RHEL9-latest',
-            'rhel8': 'RHEL8-latest',
-            'ubuntu': 'Ubuntu22-latest',
-            'ubuntu22': 'Ubuntu22-latest',
-            'ubuntu20': 'Ubuntu20-latest',
-            'centos': 'CentOS-latest',
-            'fedora': 'Fedora-latest',
-            'windows': 'Windows2022-latest',
-            'windows server': 'Windows2022-latest',
-            'windows 2022': 'Windows2022-latest',
-            'windows server 2022': 'Windows2022-latest',
-            'windows 2019': 'Windows2019-latest',
-            'windows server 2019': 'Windows2019-latest',
-            'windows 2016': 'Windows2016-latest',
-            'windows server 2016': 'Windows2016-latest',
-            'windows 11': 'Windows11-latest',
-            'windows 10': 'Windows10-latest',
-            'win2022': 'Windows2022-latest',
-            'win2019': 'Windows2019-latest',
-            'win2016': 'Windows2016-latest',
-            'win11': 'Windows11-latest',
-            'win10': 'Windows10-latest',
-            'sql server': 'WindowsSQL2022-latest',
-            'sql 2022': 'WindowsSQL2022-latest',
-            'sql 2019': 'WindowsSQL2019-latest'
-        }
-        
-        self.region_mappings = {
-            'us east': 'us-east',
-            'east coast': 'us-east',
-            'virginia': 'us-east',
-            'us west': 'us-west',
-            'west coast': 'us-west',
-            'california': 'us-west',
-            'oregon': 'us-west',
-            'europe': 'eu-west',
-            'eu': 'eu-west',
-            'london': 'eu-west',
-            'ireland': 'eu-west',
-            'asia': 'ap-southeast',
-            'singapore': 'ap-southeast',
-            'tokyo': 'ap-northeast',
-            'japan': 'ap-northeast'
-        }
+        # Supported YamlForge providers (for AI reference)
+        self.supported_providers = [
+            'aws', 'azure', 'gcp', 'ibm_vpc', 'ibm_classic', 'oci', 
+            'alibaba', 'vmware', 'cnv', 'cheapest', 'cheapest-gpu'
+        ]
+    
+    def _load_yamlforge_mappings(self) -> Dict[str, Any]:
+        """Load YamlForge mapping files for AI context."""
+        try:
+            # Get parent directory (YamlForge root)
+            yamlforge_root = Path(__file__).parent.parent.parent
+            mappings_dir = yamlforge_root / "mappings"
+            
+            mappings = {}
+            
+            # Load images mapping
+            images_file = mappings_dir / "images.yaml"
+            if images_file.exists():
+                with open(images_file, 'r') as f:
+                    mappings['images'] = yaml.safe_load(f)
+            
+            # Load locations mapping  
+            locations_file = mappings_dir / "locations.yaml"
+            if locations_file.exists():
+                with open(locations_file, 'r') as f:
+                    mappings['locations'] = yaml.safe_load(f)
+            
+            # Load generic flavors (most commonly used)
+            flavors_file = mappings_dir / "flavors" / "generic.yaml"
+            if flavors_file.exists():
+                with open(flavors_file, 'r') as f:
+                    mappings['flavors'] = yaml.safe_load(f)
+            
+            return mappings
+        except Exception as e:
+            print(f"Warning: Could not load YamlForge mappings: {e}")
+            return {}
     
     def parse_natural_language_requirements(self, text: str, use_cheapest: bool = False) -> InfrastructureRequirement:
         text = text.lower().strip()
@@ -395,55 +350,64 @@ class YamlForgeGenerator:
         
         return security_groups
     
+    def _ai_extract_infrastructure_element(self, text: str, element_type: str, context: Dict[str, Any] = None) -> Any:
+        """Use AI to extract infrastructure elements from natural language."""
+        if not self.use_ai:
+            raise ValueError(f"AI is required for {element_type} extraction but is not available")
+        
+        try:
+            # Prepare context data for AI
+            available_options = self._get_available_options(element_type)
+            
+            # Create prompt for AI extraction
+            prompt = self._create_extraction_prompt(text, element_type, available_options, context)
+            
+            # Get AI response
+            if self.client_type == "direct":
+                response = self.anthropic.messages.create(
+                    model="claude-3-haiku-20240307",
+                    max_tokens=200,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                result = response.content[0].text.strip()
+            elif self.client_type in ["langchain", "vertex"]:
+                response = self.llm.invoke(prompt)
+                result = response.content.strip() if hasattr(response, 'content') else str(response).strip()
+            else:
+                raise ValueError(f"No valid AI client available for {element_type} extraction")
+            
+            # Parse and validate AI response
+            return self._parse_ai_response(result, element_type, available_options)
+            
+        except Exception as e:
+            print(f"Error: AI extraction failed for {element_type}: {e}")
+            raise
+    
     def _extract_provider(self, text: str, use_cheapest: bool = False) -> str:
-        # If use_cheapest is enabled, override provider selection
+        # Handle cheapest override first
         if use_cheapest:
             if any(gpu_keyword in text for gpu_keyword in ['gpu', 'ai', 'ml', 'machine learning', 'training']):
                 return 'cheapest-gpu'
             return 'cheapest'
         
-        # Normal provider extraction
-        for keyword, provider in self.provider_mappings.items():
-            if keyword in text:
-                return provider
-        
-        if any(gpu_keyword in text for gpu_keyword in ['gpu', 'ai', 'ml', 'machine learning', 'training']):
-            return 'cheapest-gpu'
-        
-        return 'cheapest'
+        # Use AI to extract provider
+        result = self._ai_extract_infrastructure_element(text, 'provider', {'use_cheapest': use_cheapest})
+        return result if result else 'cheapest'
     
     def _extract_region(self, text: str) -> Optional[str]:
-        for keyword, region in self.region_mappings.items():
-            if keyword in text:
-                return region
-        return None
+        # Use AI to extract region/location
+        result = self._ai_extract_infrastructure_element(text, 'region')
+        return result
     
     def _extract_size(self, text: str) -> str:
-        for keyword, size in self.size_mappings.items():
-            if keyword in text:
-                return size
-        
-        core_match = re.search(r'(\d+)\s+(?:cores?|cpus?|vcpus?)', text)
-        memory_match = re.search(r'(\d+)\s*(?:gb|gib)\s+(?:ram|memory)', text)
-        
-        if core_match:
-            cores = int(core_match.group(1))
-            if cores <= 2:
-                return 'small'
-            elif cores <= 4:
-                return 'medium'
-            elif cores <= 8:
-                return 'large'
-            else:
-                return 'xlarge'
-        
-        return 'medium'
+        # Use AI to extract instance size/flavor
+        result = self._ai_extract_infrastructure_element(text, 'size')
+        return result if result else 'medium'
     
     def _extract_os(self, text: str) -> str:
-        for keyword, os_image in self.os_mappings.items():
-            if keyword in text:
-                return os_image
-        return 'RHEL9-latest'
+        # Use AI to extract OS/image
+        result = self._ai_extract_infrastructure_element(text, 'os')
+        return result if result else 'RHEL9-latest'
     
     def _extract_gpu_requirements(self, text: str) -> Dict[str, Any]:
         gpu_info = {'gpu_type': None, 'gpu_count': 1}
@@ -474,6 +438,88 @@ class YamlForgeGenerator:
             gpu_info['gpu_count'] = int(gpu_count_match.group(1))
         
         return gpu_info
+    
+    def _get_available_options(self, element_type: str) -> Dict[str, Any]:
+        """Get available options for the given element type."""
+        options = {}
+        
+        if element_type == 'provider':
+            options['providers'] = self.supported_providers
+            
+        elif element_type == 'region':
+            if 'locations' in self.yamlforge_mappings:
+                options['locations'] = list(self.yamlforge_mappings['locations'].keys())
+            else:
+                options['locations'] = ['us-east', 'us-west', 'eu-west', 'ap-southeast']
+                
+        elif element_type == 'size':
+            if 'flavors' in self.yamlforge_mappings:
+                options['flavors'] = list(self.yamlforge_mappings['flavors'].keys())
+            else:
+                options['flavors'] = ['nano', 'micro', 'small', 'medium', 'large', 'xlarge']
+                
+        elif element_type == 'os':
+            if 'images' in self.yamlforge_mappings:
+                options['images'] = list(self.yamlforge_mappings['images'].keys())
+            else:
+                options['images'] = ['RHEL9-latest', 'RHEL8-latest', 'Ubuntu22-latest', 'Windows2022-latest']
+        
+        return options
+    
+    def _create_extraction_prompt(self, text: str, element_type: str, available_options: Dict[str, Any], context: Dict[str, Any] = None) -> str:
+        """Create AI prompt for extracting infrastructure elements."""
+        base_prompt = f"Extract the {element_type} from this infrastructure request: '{text}'\n\n"
+        
+        if element_type == 'provider':
+            base_prompt += f"Available providers: {', '.join(available_options['providers'])}\n"
+            base_prompt += "For 'aws', 'amazon', 'ec2' use 'aws'. For 'azure', 'microsoft' use 'azure'. "
+            base_prompt += "For 'google', 'gcp' use 'gcp'. For 'oracle' use 'oci'. "
+            base_prompt += "For cost optimization, use 'cheapest' or 'cheapest-gpu' for GPU workloads.\n"
+            
+        elif element_type == 'region':
+            base_prompt += f"Available regions: {', '.join(available_options['locations'][:10])}...\n"
+            base_prompt += "Map 'us east', 'virginia', 'east coast' to 'us-east'. "
+            base_prompt += "Map 'us west', 'california', 'oregon' to 'us-west'. "
+            base_prompt += "Map 'europe', 'eu', 'london' to 'eu-west'.\n"
+            
+        elif element_type == 'size':
+            base_prompt += f"Available sizes: {', '.join(available_options['flavors'])}\n"
+            base_prompt += "Map 'tiny' to 'small'. Map 'extra large', 'xl', '2xl' to 'xlarge'. "
+            base_prompt += "Also consider cores/memory: 1-2 cores = small, 3-4 cores = medium, 5-8 cores = large, 9+ cores = xlarge.\n"
+            
+        elif element_type == 'os':
+            # Show first 20 image options including gold images
+            image_list = available_options['images'][:20] if len(available_options['images']) > 20 else available_options['images']
+            base_prompt += f"Available images: {', '.join(image_list)}\n"
+            base_prompt += "IMPORTANT: For 'rhel gold', 'gold rhel', 'rhel byos', 'byos rhel' use 'RHEL9-GOLD-latest' or 'RHEL8-GOLD-latest'. "
+            base_prompt += "For regular RHEL use 'RHEL9-latest' or 'RHEL8-latest'. "
+            base_prompt += "For Ubuntu use 'Ubuntu22-latest' or 'Ubuntu20-latest'.\n"
+        
+        base_prompt += f"Return ONLY the exact {element_type} value from the available options, no explanation."
+        return base_prompt
+    
+    def _parse_ai_response(self, response: str, element_type: str, available_options: Dict[str, Any]) -> Any:
+        """Parse and validate AI response."""
+        response = response.strip().strip('"').strip("'")
+        
+        # Validate response against available options
+        if element_type == 'provider' and response in available_options['providers']:
+            return response
+        elif element_type == 'region' and response in available_options['locations']:
+            return response
+        elif element_type == 'size' and response in available_options['flavors']:
+            return response
+        elif element_type == 'os' and response in available_options['images']:
+            return response
+        
+        # If exact match fails, try partial matching for some types
+        if element_type == 'region':
+            for location in available_options['locations']:
+                if response.lower() in location.lower() or location.lower() in response.lower():
+                    return location
+        
+        return None
+    
     
     def _extract_cluster_size(self, text: str) -> str:
         if any(keyword in text for keyword in ['large', 'production', 'prod', 'enterprise']):
@@ -602,7 +648,7 @@ MANDATORY INSTANCE FIELDS:
 - Size specification (choose ONE):
   * flavor: "small", "medium", "large", "xlarge" (string values only)
   * OR cores: 2 AND memory: 2048 (both required as integers)
-- image: RHEL9-latest, Ubuntu22-latest, Windows2022-latest, etc.
+- image: RHEL9-latest, RHEL9-GOLD-latest, Ubuntu22-latest, Windows2022-latest, etc.
 - location: us-east, us-west, eu-west, ap-southeast, etc.
 
 CRITICAL SIZING RULES:
@@ -619,6 +665,13 @@ CRITICAL SIZING RULES:
 - NEVER create flavor as an object with cores/memory - flavor must be a string only
 - ALL instance types support both approaches (flavor OR cores/memory)
 - TERMINOLOGY: Treat "RAM", "memory", "RAM memory", "system memory" all as the same - use memory field in YAML
+
+CRITICAL IMAGE RULES:
+- For RHEL GOLD/BYOS images: Use "RHEL9-GOLD-latest" or "RHEL8-GOLD-latest"
+- For regular RHEL: Use "RHEL9-latest" or "RHEL8-latest"
+- For Ubuntu: Use "Ubuntu22-latest" or "Ubuntu20-latest"
+- IMPORTANT: When user requests "rhel gold", "gold rhel", "rhel byos", "byos rhel" → use GOLD images
+- When user requests regular "rhel" without gold/byos → use standard RHEL images
 
 Example for multi-cloud setup:
 ```yaml
@@ -668,6 +721,11 @@ yamlforge:
       memory: 8192
       image: Windows2022-latest
       location: us-east
+    - name: rhel-gold-server-1
+      provider: aws
+      flavor: medium
+      image: RHEL9-GOLD-latest
+      location: us-west
   security_groups:
     - name: web-access
       description: HTTP and SSH access
