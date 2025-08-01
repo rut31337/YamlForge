@@ -319,7 +319,7 @@ resource "ibm_security_group_rule" "{resource_name}_rule_{i+1}" {{
         # Get the SSH username that should be created
         ssh_username = self.converter.get_instance_ssh_username(instance, yaml_data or {})
         
-        user_data_script = f'''#!/bin/bash
+        user_data_script = '''#!/bin/bash
 # User data script for RHEL instance
 # This script creates the {ssh_username} user and configures SSH access
 
@@ -354,9 +354,9 @@ sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
 sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
 
 # Restart SSH service
-systemctl restart sshd
+systemlit restart sshd
 
 echo "User data script completed successfully"
-'''
+'''.format(ssh_username=ssh_username, public_key=public_key)
         
         return user_data_script

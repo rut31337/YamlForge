@@ -669,7 +669,7 @@ resource "ibm_is_ssh_key" "{key_name}" {{
         # Get the SSH username that should be created
         ssh_username = self.converter.get_instance_ssh_username(instance, yaml_data or {})
         
-        user_data_script = f'''#!/bin/bash
+        user_data_script = '''#!/bin/bash
 # User data script for RHEL instance
 # This script creates the {ssh_username} user and configures SSH access
 
@@ -707,6 +707,6 @@ sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_c
 systemctl restart sshd
 
 echo "User data script completed successfully"
-'''
+'''.format(ssh_username=ssh_username, public_key=public_key)
         
         return user_data_script
