@@ -37,25 +37,34 @@ kubectl version --client
    oc login https://api.your-cluster.com:6443
    ```
 
-2. **Deploy DemoBuilder** (creates namespace automatically):
+2. **Deploy DemoBuilder** (creates namespace and empty secret automatically):
    ```bash
    cd demobuilder/deployment/openshift
    oc apply -f .
    ```
 
-3. **Get the application URL**:
+3. **Add your Anthropic API key** (required for DemoBuilder to function):
+   ```bash
+   oc patch secret demobuilder-secrets -n demobuilder \
+     --type='json' -p='[{"op": "add", "path": "/data/anthropic-api-key", "value":"'$(echo -n "your-anthropic-api-key" | base64)'"}]'
+   
+   # Restart to pick up the API key
+   oc rollout restart deployment/demobuilder -n demobuilder
+   ```
+
+4. **Get the application URL**:
    ```bash
    oc get route demobuilder -n demobuilder -o jsonpath='{.spec.host}'
    ```
 
-4. **Access DemoBuilder**:
+5. **Access DemoBuilder**:
    ```
    https://demobuilder-demobuilder.apps.your-cluster.com
    ```
 
 ### Method 2: Using Kustomize (Recommended for Production)
 
-1. **Build and apply with Kustomize** (creates namespace automatically):
+1. **Build and apply with Kustomize** (creates namespace and empty secret automatically):
    ```bash
    cd demobuilder/deployment/openshift
    oc apply -k .
@@ -63,7 +72,16 @@ kubectl version --client
 
    **Note**: The kustomization.yaml uses modern syntax (not deprecated fields). If you have an older version of kustomize and see warnings about `commonLabels` or `patchesStrategicMerge`, upgrade to kustomize v4.1+ or use `kustomize edit fix` to automatically update deprecated syntax.
 
-2. **Verify deployment**:
+2. **Add your Anthropic API key** (required for DemoBuilder to function):
+   ```bash
+   oc patch secret demobuilder-secrets -n demobuilder \
+     --type='json' -p='[{"op": "add", "path": "/data/anthropic-api-key", "value":"'$(echo -n "your-anthropic-api-key" | base64)'"}]'
+   
+   # Restart to pick up the API key
+   oc rollout restart deployment/demobuilder -n demobuilder
+   ```
+
+3. **Verify deployment**:
    ```bash
    oc get all -n demobuilder
    
@@ -103,23 +121,45 @@ data:
 
 ### Secrets Management
 
-Configure required and optional credentials:
+The deployment creates an empty secret that you need to populate with your API keys:
 
+**Step 1: Deploy the application first** (this creates the empty secret):
 ```bash
-# Anthropic API key (REQUIRED - DemoBuilder is a conversational AI tool)
-oc create secret generic demobuilder-secrets \
-  --from-literal=anthropic-api-key="your-anthropic-api-key" \
-  -n demobuilder
+cd demobuilder/deployment/openshift
+oc apply -k .  # or oc apply -f .
+```
 
-# Context7 API credentials (optional - for enhanced infrastructure knowledge)
-oc create secret generic demobuilder-secrets \
-  --from-literal=context7-api-key="your-context7-api-key" \
-  -n demobuilder
+**Step 2: Add your API keys to the existing secret**:
+```bash
+# Add Anthropic API key (REQUIRED - DemoBuilder needs this to function)
+oc patch secret demobuilder-secrets -n demobuilder \
+  --type='json' -p='[{"op": "add", "path": "/data/anthropic-api-key", "value":"'$(echo -n "your-anthropic-api-key" | base64)'"}]'
 
-# Redis for session persistence (future enhancement)
-oc create secret generic demobuilder-secrets \
-  --from-literal=redis-url="redis://redis:6379" \
-  -n demobuilder
+# Optionally add Context7 API key for enhanced infrastructure knowledge
+oc patch secret demobuilder-secrets -n demobuilder \
+  --type='json' -p='[{"op": "add", "path": "/data/context7-api-key", "value":"'$(echo -n "your-context7-api-key" | base64)'"}]'
+
+# Restart deployment to pick up the new secrets
+oc rollout restart deployment/demobuilder -n demobuilder
+```
+
+**Alternative: Pre-populate before deployment** (advanced users):
+```bash
+# Edit the secret.yaml file directly before applying
+# Add your base64-encoded keys to the data section:
+echo -n "your-anthropic-api-key" | base64  # Copy this value
+# Edit demobuilder/deployment/openshift/secret.yaml
+# Then deploy normally
+```
+
+**Update existing secrets**:
+```bash
+# Update Anthropic API key
+oc patch secret demobuilder-secrets -n demobuilder \
+  --type='json' -p='[{"op": "replace", "path": "/data/anthropic-api-key", "value":"'$(echo -n "new-anthropic-api-key" | base64)'"}]'
+
+# Restart to apply changes
+oc rollout restart deployment/demobuilder -n demobuilder
 ```
 
 **Note**: While DemoBuilder does not require cloud credentials for YAML generation and cost analysis, it **requires an Anthropic API key** to function as it is a conversational AI application.
@@ -455,6 +495,24 @@ oc get configmap demobuilder-config -n demobuilder -o yaml | grep context7
 # Disable Context7 if experiencing connectivity issues
 oc patch configmap demobuilder-config -n demobuilder \
   --type merge -p '{"data":{"context7_enabled":"false"}}'
+```
+
+**Secret Management Issues**:
+```bash
+# Check if secret exists and what keys it contains
+oc get secret demobuilder-secrets -n demobuilder -o yaml
+
+# View secret keys (without values)
+oc get secret demobuilder-secrets -n demobuilder -o jsonpath='{.data}' | jq -r 'keys[]'
+
+# If secret exists error occurs during creation:
+oc delete secret demobuilder-secrets -n demobuilder --ignore-not-found=true
+oc create secret generic demobuilder-secrets \
+  --from-literal=anthropic-api-key="your-key" \
+  -n demobuilder
+
+# Verify deployment picks up secret changes
+oc rollout status deployment/demobuilder -n demobuilder
 ```
 
 **Kustomize Deployment Issues**:
