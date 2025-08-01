@@ -141,7 +141,7 @@ resource "ibm_compute_vm_instance" "{resource_name}" {{
   local_disk               = false
   ssh_key_ids              = [{key_name_ref}]
   
-  {f"user_metadata = <<-EOF\n{user_data_script}\nEOF" if user_data_script else ""}
+  {("user_metadata = <<-EOF" + chr(10) + user_data_script + chr(10) + "EOF") if user_data_script else ""}
   
   tags = [
     "environment:agnosticd",
@@ -354,7 +354,7 @@ sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
 sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
 
 # Restart SSH service
-systemlit restart sshd
+systemctl restart sshd
 
 echo "User data script completed successfully"
 '''.format(ssh_username=ssh_username, public_key=public_key)
