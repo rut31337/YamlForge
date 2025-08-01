@@ -30,11 +30,9 @@ spec:
       serviceAccountName: demobuilder
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1001
-        fsGroup: 1001
       containers:
       - name: demobuilder
-        image: demobuilder:latest
+        image: image-registry.openshift-image-registry.svc:5000/demobuilder/demobuilder:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8501
@@ -83,13 +81,13 @@ spec:
               name: demobuilder-config
               key: log_level
         
-        # Optional secrets (comment out if not used)
-        # - name: ANTHROPIC_API_KEY
-        #   valueFrom:
-        #     secretKeyRef:
-        #       name: demobuilder-secrets
-        #       key: anthropic-api-key
-        #       optional: true
+        # Secrets
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: demobuilder-secrets
+              key: anthropic-api-key
+              optional: true
         # - name: REDIS_URL
         #   valueFrom:
         #     secretKeyRef:
@@ -127,7 +125,6 @@ spec:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: false
           runAsNonRoot: true
-          runAsUser: 1001
           capabilities:
             drop:
             - ALL

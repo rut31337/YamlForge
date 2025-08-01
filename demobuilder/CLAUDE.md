@@ -28,14 +28,28 @@ mypy .
 
 ### Docker/OpenShift Deployment
 ```bash
-# Build container
+# Build container locally
 docker build -t demobuilder:latest .
 
 # Run locally
 docker run -p 8501:8501 demobuilder:latest
 
-# Deploy to OpenShift
-oc apply -f deployment/openshift/
+# Deploy to OpenShift with internal build
+cd demobuilder
+oc new-build --binary --strategy=docker --name=demobuilder
+oc start-build demobuilder --from-dir=. --follow
+oc apply -k deployment/openshift/
+
+# Deploy with Fedora base (for broader access)
+oc start-build demobuilder --from-dir=. --build-arg BASE_IMAGE=python:3.11
+
+# Check deployment
+oc get pods -n demobuilder
+oc get routes -n demobuilder
+
+# Get application URL and open in browser
+echo "Application available at:"
+echo "https://$(oc get route demobuilder -n demobuilder -o jsonpath='{.spec.host}')"
 ```
 
 ## Architecture Overview
@@ -278,6 +292,209 @@ demobuilder/
 - Recovery options for users
 - State preservation during errors
 
+## OpenShift Deployment Guide
+
+### Prerequisites and Setup
+
+**Required Tools:**
+- OpenShift CLI (`oc`) configured and authenticated
+- Access to OpenShift cluster with appropriate permissions
+- Container registry access (internal OpenShift registry recommended)
+
+**Essential Commands:**
+```bash
+# Create build config (one-time setup)
+oc new-build --binary --strategy=docker --name=demobuilder
+
+# Build image from source
+oc start-build demobuilder --from-dir=. --follow
+
+# Deploy application stack
+oc apply -k deployment/openshift/
+
+# Monitor deployment
+oc get pods -n demobuilder --watch
+oc get routes -n demobuilder
+
+# Access application after deployment
+echo "=== DemoBuilder Ready ==="
+ROUTE_HOST=$(oc get route demobuilder -n demobuilder -o jsonpath='{.spec.host}')
+echo "Application URL: https://${ROUTE_HOST}"
+echo "Health Check: https://${ROUTE_HOST}/_stcore/health"
+```
+
+### Base Image Selection
+
+**RHEL UBI9 (Default - Recommended for Production):**
+```bash
+# Default build uses RHEL UBI9 Python 3.11
+oc start-build demobuilder --from-dir=. --follow
+```
+
+**Fedora (Alternative for Broader Access):**
+```bash
+# Use Fedora base for environments without RHEL access
+oc start-build demobuilder --from-dir=. --build-arg BASE_IMAGE=python:3.11
+```
+
+**Custom Base Images:**
+```bash
+# Use any Python 3.11+ compatible image
+oc start-build demobuilder --from-dir=. --build-arg BASE_IMAGE=registry.company.com/python:3.11
+```
+
+### Security Context Constraints
+
+**Critical Requirements for OpenShift:**
+- **NEVER** use hardcoded user IDs (`runAsUser: 1001`)
+- **NEVER** use hardcoded group IDs (`fsGroup: 1001`) 
+- Always use `runAsNonRoot: true`
+- Let OpenShift assign UIDs dynamically
+- Use group permissions (`chgrp -R 0` and `chmod -R g=u`)
+
+**Working Security Context:**
+```yaml
+securityContext:
+  runAsNonRoot: true
+  # No runAsUser or fsGroup specified
+containers:
+- name: demobuilder
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    # No runAsUser specified
+    capabilities:
+      drop: [ALL]
+```
+
+### Configuration Management
+
+**Environment Variables (ConfigMap):**
+```bash
+# View current configuration
+oc get configmap demobuilder-config -o yaml
+
+# Update configuration
+oc edit configmap demobuilder-config
+```
+
+**Secrets Management:**
+```bash
+# Set Anthropic API key from environment
+oc create secret generic demobuilder-secrets \
+  --from-literal=anthropic-api-key="${ANTHROPIC_API_KEY}" \
+  -n demobuilder --dry-run=client -o yaml | oc apply -f -
+
+# Verify secret
+oc get secret demobuilder-secrets -o yaml
+```
+
+### Networking and Routes
+
+**Internal Service:**
+- Port 8501 (Streamlit default)
+- ClusterIP service for internal communication
+
+**External Access:**
+- HTTP route: `demobuilder-demobuilder.apps.<cluster-domain>`
+- HTTPS route: `demobuilder-secure-demobuilder.apps.<cluster-domain>`
+
+**Network Policies:**
+- Ingress allowed from OpenShift router
+- Pod-to-pod communication within namespace
+- External traffic blocked except through routes
+
+### Troubleshooting Guide
+
+**Common Issues and Solutions:**
+
+1. **Image Pull Errors:**
+```bash
+# Check build status
+oc get builds -l build=demobuilder
+oc logs build/demobuilder-1
+
+# Verify image in registry
+oc get imagestream demobuilder
+```
+
+2. **Security Context Violations:**
+```bash
+# Check for SCC errors in events
+oc describe pod <pod-name> | grep -A 10 Events
+oc get events --field-selector reason=FailedCreate
+```
+
+3. **Application Startup Issues:**
+```bash
+# Check pod logs
+oc logs <pod-name> -n demobuilder
+
+# Verify health endpoint
+oc exec <pod-name> -- curl -f http://localhost:8501/_stcore/health
+```
+
+4. **Configuration Problems:**
+```bash
+# Test environment variables
+oc exec <pod-name> -- env | grep -E "(ANTHROPIC|APP_)"
+
+# Verify secret mounting
+oc exec <pod-name> -- ls -la /var/run/secrets/
+```
+
+### Kustomize Template Structure
+
+**Base Manifests (`deployment/openshift/`):**
+- `kustomization.yaml` - Main kustomize configuration
+- `namespace.yaml` - Namespace definition
+- `serviceaccount.yaml` - Service account and RBAC
+- `configmap.yaml` - Application configuration
+- `secret.yaml` - Sensitive configuration template
+- `deployment.yaml` - Pod specification and deployment
+- `service.yaml` - Internal service
+- `route.yaml` - External access routes
+- `networkpolicy.yaml` - Network security
+- `horizontalpodautoscaler.yaml` - Auto-scaling configuration
+
+**Environment Overlays:**
+```bash
+# Create production overlay
+mkdir -p deployment/openshift/overlays/production
+cat > deployment/openshift/overlays/production/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: demobuilder-prod
+resources:
+- ../../base
+replicas:
+- name: demobuilder
+  count: 5
+EOF
+```
+
+### Production Deployment Checklist
+
+**Security:**
+- [ ] Use specific image tags, not `latest`
+- [ ] Implement external secret management
+- [ ] Enable network policies
+- [ ] Regular security updates
+- [ ] Resource quotas and limits
+
+**Performance:**
+- [ ] Tune resource requests/limits based on load testing
+- [ ] Configure horizontal pod autoscaler
+- [ ] Implement persistent storage for sessions if needed
+- [ ] Set up proper monitoring and alerting
+
+**High Availability:**
+- [ ] Multiple replicas across availability zones
+- [ ] Pod disruption budgets
+- [ ] Proper health checks with appropriate timeouts
+- [ ] External Redis for session persistence
+
 ## Lessons Learned from Development
 
 ### AI-Driven Configuration Management
@@ -324,3 +541,47 @@ demobuilder/
   - Verify CNV provider appears after IBM providers in UI
   - Test fallback generation when AI fails
   - Validate schema compliance with auto-correction features
+
+### OpenShift Deployment Lessons Learned
+
+#### Security Context Constraints (Critical)
+- **Never use hardcoded UIDs/GIDs**: OpenShift dynamically assigns user IDs in ranges like `[1000890000, 1000899999]`
+- **Always use `runAsNonRoot: true`**: Required for most OpenShift security policies
+- **Use group permissions**: `chgrp -R 0 /app && chmod -R g=u /app` for OpenShift compatibility
+- **Let OpenShift assign security context**: Remove `runAsUser` and `fsGroup` from manifests
+
+#### Container Image Strategy
+- **RHEL UBI9 for production**: Use Red Hat Universal Base Images for enterprise deployments
+- **Fedora fallback**: Provide alternative base images for broader accessibility
+- **Internal registry preferred**: Use OpenShift's internal registry to avoid external dependencies
+- **Build arguments**: Support multiple base images via `ARG BASE_IMAGE`
+
+#### Build and Deployment Process
+- **Binary builds work best**: `oc new-build --binary` for source-to-image workflows
+- **Update deployment image references**: Point to internal registry after successful builds
+- **Deployment selector immutability**: Delete and recreate deployments when changing selectors
+- **Watch build logs**: Use `oc start-build --follow` to monitor build progress
+
+#### Configuration Management
+- **Environment variables via ConfigMaps**: Separate configuration from deployment manifests
+- **Secrets for sensitive data**: Use OpenShift secrets for API keys and credentials
+- **Kustomize for environment management**: Use overlays for different deployment environments
+- **Health checks are critical**: Proper readiness/liveness probes prevent deployment issues
+
+#### Networking and Access
+- **Routes vs Services**: Use OpenShift routes for external access, services for internal
+- **Network policies**: Implement proper network segmentation for security
+- **TLS termination**: Use edge or reencrypt termination based on requirements
+- **Internal DNS**: Leverage OpenShift's internal service discovery
+
+#### Troubleshooting Best Practices
+- **Check events first**: `oc get events --sort-by='.lastTimestamp'` shows most recent issues
+- **Pod describe for SCC errors**: Security context violations appear in pod events
+- **Build logs for image issues**: Failed builds show detailed error information
+- **Test inside pods**: Use `oc exec` to verify configuration and connectivity
+
+#### Production Deployment
+- **Resource limits required**: OpenShift quotas require proper resource specifications
+- **Horizontal pod autoscaling**: Configure HPA for automatic scaling based on metrics
+- **Pod disruption budgets**: Ensure availability during cluster maintenance
+- **External secret management**: Use operators like External Secrets for production secrets
