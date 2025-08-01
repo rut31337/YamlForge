@@ -1,10 +1,7 @@
 # S2I Environment Variables for YamlForge DemoBuilder
 
-# Point S2I to the DemoBuilder application
-APP_FILE=demobuilder/app.py
-
-# Python application configuration
-APP_MODULE=demobuilder.app
+# Point S2I to the startup script that launches Streamlit server
+APP_SCRIPT=run-streamlit.sh
 
 # Streamlit configuration
 STREAMLIT_SERVER_PORT=8080
