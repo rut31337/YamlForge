@@ -8,6 +8,8 @@ This guide provides comprehensive instructions for deploying DemoBuilder on Open
 - OpenShift 4.8+ or Kubernetes 1.21+
 - Cluster admin access or sufficient RBAC permissions
 - Access to container registry (for custom images)
+- **Required**: Anthropic API key (DemoBuilder is a conversational AI application)
+- Optional: Context7 API key for enhanced infrastructure knowledge
 - Optional: Persistent storage for Redis (future enhancement)
 
 ### Local Tools Required
@@ -72,29 +74,47 @@ Edit `configmap.yaml` to customize application behavior:
 
 ```yaml
 data:
+  # Application settings
   app_title: "Your Custom Title"
   max_conversation_turns: "100"
+  
+  # AI Configuration (current production model)
   anthropic_model: "claude-3-5-sonnet-20241022"
+  
+  # Context7 MCP Integration for enhanced infrastructure knowledge
   context7_enabled: "true"
+  context7_mcp_url: "https://mcp.context7.com/mcp"
+  
+  # Optional features (disabled by default)
   redis_enabled: "false"
   keycloak_enabled: "false"
+  
+  # Logging level (INFO, DEBUG, WARNING, ERROR)
+  log_level: "INFO"
 ```
 
 ### Secrets Management
 
-For optional features, create secrets:
+Configure required and optional credentials:
 
 ```bash
-# Anthropic API key for enhanced features
+# Anthropic API key (REQUIRED - DemoBuilder is a conversational AI tool)
 oc create secret generic demobuilder-secrets \
-  --from-literal=anthropic-api-key="your-api-key" \
+  --from-literal=anthropic-api-key="your-anthropic-api-key" \
   -n demobuilder
 
-# Redis for session persistence (future)
+# Context7 API credentials (optional - for enhanced infrastructure knowledge)
+oc create secret generic demobuilder-secrets \
+  --from-literal=context7-api-key="your-context7-api-key" \
+  -n demobuilder
+
+# Redis for session persistence (future enhancement)
 oc create secret generic demobuilder-secrets \
   --from-literal=redis-url="redis://redis:6379" \
   -n demobuilder
 ```
+
+**Note**: While DemoBuilder does not require cloud credentials for YAML generation and cost analysis, it **requires an Anthropic API key** to function as it is a conversational AI application.
 
 ### Resource Limits
 
@@ -396,12 +416,37 @@ oc describe node
 
 Enable debug logging:
 ```bash
-# Update ConfigMap
+# Update ConfigMap for debug logging
 oc patch configmap demobuilder-config -n demobuilder \
   --type merge -p '{"data":{"log_level":"DEBUG"}}'
 
-# Restart deployment
+# Restart deployment to apply changes
 oc rollout restart deployment/demobuilder -n demobuilder
+
+# Monitor logs for debugging
+oc logs -f deployment/demobuilder -n demobuilder
+```
+
+### AI Configuration Troubleshooting
+
+**Anthropic Model Issues**:
+```bash
+# Verify correct model format (should be: claude-3-5-sonnet-20241022)
+oc get configmap demobuilder-config -n demobuilder -o yaml | grep anthropic_model
+
+# Update to latest model if needed
+oc patch configmap demobuilder-config -n demobuilder \
+  --type merge -p '{"data":{"anthropic_model":"claude-3-5-sonnet-20241022"}}'
+```
+
+**Context7 Integration Issues**:
+```bash
+# Check Context7 MCP configuration
+oc get configmap demobuilder-config -n demobuilder -o yaml | grep context7
+
+# Disable Context7 if experiencing connectivity issues
+oc patch configmap demobuilder-config -n demobuilder \
+  --type merge -p '{"data":{"context7_enabled":"false"}}'
 ```
 
 ### Performance Tuning
