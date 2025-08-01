@@ -48,9 +48,10 @@ kubectl version --client
    # Set your API key as an environment variable (easier for copy/paste)
    export ANTHROPIC_API_KEY="your-anthropic-api-key-here"
    
-   # Add the key to the secret
-   oc patch secret demobuilder-secrets -n demobuilder \
-     --type='json' -p='[{"op": "add", "path": "/data/anthropic-api-key", "value":"'$(echo -n "$ANTHROPIC_API_KEY" | base64)'"}]'
+   # Add the key to the secret using the simpler --from-literal approach
+   oc create secret generic demobuilder-secrets \
+     --from-literal=anthropic-api-key="$ANTHROPIC_API_KEY" \
+     --dry-run=client -o yaml | oc apply -f -
    
    # Restart to pick up the API key
    oc rollout restart deployment/demobuilder -n demobuilder
@@ -81,9 +82,10 @@ kubectl version --client
    # Set your API key as an environment variable (easier for copy/paste)
    export ANTHROPIC_API_KEY="your-anthropic-api-key-here"
    
-   # Add the key to the secret
-   oc patch secret demobuilder-secrets -n demobuilder \
-     --type='json' -p='[{"op": "add", "path": "/data/anthropic-api-key", "value":"'$(echo -n "$ANTHROPIC_API_KEY" | base64)'"}]'
+   # Add the key to the secret using the simpler --from-literal approach
+   oc create secret generic demobuilder-secrets \
+     --from-literal=anthropic-api-key="$ANTHROPIC_API_KEY" \
+     --dry-run=client -o yaml | oc apply -f -
    
    # Restart to pick up the API key
    oc rollout restart deployment/demobuilder -n demobuilder
@@ -143,13 +145,18 @@ oc apply -k .  # or oc apply -f .
 export ANTHROPIC_API_KEY="your-anthropic-api-key-here"
 export CONTEXT7_API_KEY="your-context7-api-key-here"  # Optional
 
-# Add Anthropic API key (REQUIRED - DemoBuilder needs this to function)
-oc patch secret demobuilder-secrets -n demobuilder \
-  --type='json' -p='[{"op": "add", "path": "/data/anthropic-api-key", "value":"'$(echo -n "$ANTHROPIC_API_KEY" | base64)'"}]'
+# Update the secret with your Anthropic API key (REQUIRED)
+oc create secret generic demobuilder-secrets \
+  --from-literal=anthropic-api-key="$ANTHROPIC_API_KEY" \
+  --dry-run=client -o yaml | oc apply -f -
 
 # Optionally add Context7 API key for enhanced infrastructure knowledge
-oc patch secret demobuilder-secrets -n demobuilder \
-  --type='json' -p='[{"op": "add", "path": "/data/context7-api-key", "value":"'$(echo -n "$CONTEXT7_API_KEY" | base64)'"}]'
+if [ ! -z "$CONTEXT7_API_KEY" ]; then
+  oc create secret generic demobuilder-secrets \
+    --from-literal=anthropic-api-key="$ANTHROPIC_API_KEY" \
+    --from-literal=context7-api-key="$CONTEXT7_API_KEY" \
+    --dry-run=client -o yaml | oc apply -f -
+fi
 
 # Restart deployment to pick up the new secrets
 oc rollout restart deployment/demobuilder -n demobuilder
@@ -169,9 +176,10 @@ echo -n "your-anthropic-api-key" | base64  # Copy this value
 # Set your new API key as an environment variable
 export ANTHROPIC_API_KEY="your-new-anthropic-api-key"
 
-# Update Anthropic API key
-oc patch secret demobuilder-secrets -n demobuilder \
-  --type='json' -p='[{"op": "replace", "path": "/data/anthropic-api-key", "value":"'$(echo -n "$ANTHROPIC_API_KEY" | base64)'"}]'
+# Update the secret with the new API key
+oc create secret generic demobuilder-secrets \
+  --from-literal=anthropic-api-key="$ANTHROPIC_API_KEY" \
+  --dry-run=client -o yaml | oc apply -f -
 
 # Restart to apply changes
 oc rollout restart deployment/demobuilder -n demobuilder
