@@ -1,0 +1,22 @@
+#!/bin/bash
+set -e
+
+# S2I run script for DemoBuilder
+# This script is executed by OpenShift S2I to start the application
+
+echo "Starting DemoBuilder with Streamlit..."
+echo "Working directory: $(pwd)"
+echo "Contents: $(ls -la)"
+
+# Set Streamlit configuration for containerized environment
+export STREAMLIT_SERVER_PORT=${PORT:-8501}
+export STREAMLIT_SERVER_ADDRESS=0.0.0.0
+export STREAMLIT_SERVER_HEADLESS=true
+export STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+
+# Start the application using streamlit
+exec streamlit run app.py \
+  --server.headless=true \
+  --server.port=${STREAMLIT_SERVER_PORT} \
+  --server.address=0.0.0.0 \
+  --browser.gatherUsageStats=false
