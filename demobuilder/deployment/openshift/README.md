@@ -15,8 +15,8 @@ This guide covers deploying DemoBuilder to OpenShift using Source-to-Image (S2I)
 Deploy DemoBuilder directly from the Git repository using OpenShift's S2I capability:
 
 ```bash
-# Create a new application from the Git repository
-oc new-app python:3.11~https://github.com/rut31337/YamlForge.git \
+# Create a new application from the Git repository  
+oc new-app python:3.11-ubi9~https://github.com/rut31337/YamlForge.git \
   --context-dir=demobuilder \
   --name=demobuilder \
   --env=PORT=8501
@@ -296,7 +296,7 @@ echo "=== DemoBuilder S2I Deployment ==="
 
 # 1. Create new S2I application
 echo "Creating S2I application..."
-oc new-app python:3.11~https://github.com/rut31337/YamlForge.git \
+oc new-app python:3.11-ubi9~https://github.com/rut31337/YamlForge.git \
   --context-dir=demobuilder \
   --name=demobuilder \
   --env=PORT=8501
