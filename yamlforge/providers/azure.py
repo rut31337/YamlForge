@@ -371,7 +371,7 @@ resource "azurerm_linux_virtual_machine" "{resource_name}" {{
         if ssh_username == default_username:
             # Create user data script to set up the configurable default account
             public_key = ssh_key_config.get('public_key', '') if ssh_key_config else ''
-            custom_username_script = f'''#!/bin/bash
+            custom_username_script = '''#!/bin/bash
 # User data script for Azure instance
 # This script creates the {ssh_username} user and configures SSH access
 
@@ -409,11 +409,11 @@ sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_c
 systemctl restart sshd
 
 echo "User data script completed successfully"
-'''
+'''.format(ssh_username=ssh_username, public_key=public_key)
         elif ssh_username != 'azureuser':
             # Create user data script to set up other custom usernames
             public_key = ssh_key_config.get('public_key', '') if ssh_key_config else ''
-            custom_username_script = f'''#!/bin/bash
+            custom_username_script = '''#!/bin/bash
 # User data script for Azure instance
 # This script creates the {ssh_username} user and configures SSH access
 
@@ -451,7 +451,7 @@ sed -i 's/PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_c
 systemctl restart sshd
 
 echo "User data script completed successfully"
-'''
+'''.format(ssh_username=ssh_username, public_key=public_key)
         
         # Combine custom username script with user-provided script
         if custom_username_script:
