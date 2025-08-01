@@ -449,11 +449,110 @@ images:
     description: "Windows Server 2022"
     aws:
       name_pattern: "Windows_Server-2022-English-Full-Base-*"
+    azure:
+      publisher: "MicrosoftWindowsServer"
+      offer: "WindowsServer"
+      sku: "2022-datacenter-g2"
+      version: "latest"
+    gcp:
+      name_pattern: "windows-server-2022-dc-*"
+    vmware:
+      name: "Windows Server 2022"
+    oci:
+      name_pattern: "Windows-Server-2022-Standard-Edition-VM-*"
+    alibaba:
+      name_pattern: "win2022_64_dtc_*"
 
   Windows2019-latest:
     description: "Windows Server 2019"
     aws:
       name_pattern: "Windows_Server-2019-English-Full-Base-*"
+    azure:
+      publisher: "MicrosoftWindowsServer"
+      offer: "WindowsServer"
+      sku: "2019-datacenter-gensecond"
+      version: "latest"
+    gcp:
+      name_pattern: "windows-server-2019-dc-*"
+    vmware:
+      name: "Windows Server 2019"
+    oci:
+      name_pattern: "Windows-Server-2019-Standard-Edition-VM-*"
+    alibaba:
+      name_pattern: "win2019_64_dtc_*"
+
+  Windows2016-latest:
+    description: "Windows Server 2016"
+    aws:
+      name_pattern: "Windows_Server-2016-English-Full-Base-*"
+    azure:
+      publisher: "MicrosoftWindowsServer"
+      offer: "WindowsServer"
+      sku: "2016-datacenter-gensecond"
+      version: "latest"
+    gcp:
+      name_pattern: "windows-server-2016-dc-*"
+    vmware:
+      name: "Windows Server 2016"
+    oci:
+      name_pattern: "Windows-Server-2016-Standard-Edition-VM-*"
+    alibaba:
+      name_pattern: "win2016_64_dtc_*"
+
+  Windows11-latest:
+    description: "Windows 11 Enterprise"
+    aws:
+      name_pattern: "Windows-11-Enterprise-*"
+    azure:
+      publisher: "MicrosoftWindowsDesktop"
+      offer: "Windows-11"
+      sku: "win11-22h2-ent"
+      version: "latest"
+    gcp:
+      name_pattern: "windows-11-*"
+    vmware:
+      name: "Windows 11"
+    # Note: OCI and Alibaba may not support Windows 11 desktop
+
+  Windows10-latest:
+    description: "Windows 10 Enterprise"
+    aws:
+      name_pattern: "Windows-10-Enterprise-*"
+    azure:
+      publisher: "MicrosoftWindowsDesktop"
+      offer: "Windows-10"
+      sku: "win10-22h2-ent-g2"
+      version: "latest"
+    gcp:
+      name_pattern: "windows-10-*"
+    vmware:
+      name: "Windows 10"
+    # Note: OCI and Alibaba may not support Windows 10 desktop
+
+  WindowsSQL2022-latest:
+    description: "Windows Server 2022 with SQL Server 2022"
+    aws:
+      name_pattern: "Windows_Server-2022-English-Full-SQL_2022_Standard-*"
+    azure:
+      publisher: "MicrosoftSQLServer"
+      offer: "sql2022-ws2022"
+      sku: "standard-gen2"
+      version: "latest"
+    gcp:
+      name_pattern: "sql-server-2022-standard-windows-2022-dc-*"
+    # Note: VMware, OCI, Alibaba typically require separate SQL Server licensing
+
+  WindowsSQL2019-latest:
+    description: "Windows Server 2019 with SQL Server 2019"
+    aws:
+      name_pattern: "Windows_Server-2019-English-Full-SQL_2019_Standard-*"
+    azure:
+      publisher: "MicrosoftSQLServer"
+      offer: "sql2019-ws2019"
+      sku: "standard-gen2"
+      version: "latest"
+    gcp:
+      name_pattern: "sql-server-2019-standard-windows-2019-dc-*"
 
   # Fedora Images
   Fedora41-latest:

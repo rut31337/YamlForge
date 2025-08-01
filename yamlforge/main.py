@@ -251,7 +251,8 @@ def analyze_configuration(converter, config, raw_yaml_data):
                     print(f"   Specs: {cores} cores, {memory}GB RAM")
                 else:
                     print(f"   Specs: {cores} cores, {memory}MB RAM")
-                # For spec-based instances, try to get cost from cheapest provider analysis
+                
+                # For spec-based instances, try to find closest matching flavor and cost
                 if provider in ['cheapest', 'cheapest-gpu']:
                     try:
                         if provider == 'cheapest':
@@ -301,6 +302,45 @@ def analyze_configuration(converter, config, raw_yaml_data):
                                 })
                     except Exception as e:
                         print(f"   Hourly Cost: Error calculating cost - {e}")
+                else:
+                    # For specific providers (azure, aws, etc.), find closest matching flavor
+                    try:
+                        # Convert memory to MB if needed for consistency
+                        memory_mb = memory
+                        if memory < 100:  # Assume GB if less than 100
+                            memory_mb = memory * 1024
+                        
+                        # Find closest matching flavor for this specific provider
+                        closest_flavor_info = converter.find_closest_flavor_for_provider(
+                            resolved_provider, cores, memory_mb, gpu_count, gpu_type
+                        )
+                        
+                        if closest_flavor_info:
+                            instance_type = closest_flavor_info['instance_type']
+                            flavor_name = closest_flavor_info['flavor']
+                            cost = closest_flavor_info.get('cost')
+                            print(f"   Closest Flavor: {flavor_name} ({instance_type})")
+                            
+                            if cost is not None:
+                                original_cost = cost
+                                discounted_cost = converter.apply_discount(original_cost, resolved_provider)
+                                cost_display = converter._format_cost_with_discount(resolved_provider, original_cost, discounted_cost)
+                                print(f"   Hourly Cost: {cost_display}")
+                                
+                                # Track cost for this instance
+                                converter.instance_costs.append({
+                                    'instance_name': resolved_name,
+                                    'provider': resolved_provider,
+                                    'cost': discounted_cost,
+                                    'count': 1,
+                                    'per_instance_cost': discounted_cost
+                                })
+                            else:
+                                print(f"   Hourly Cost: Cost information not available")
+                        else:
+                            print(f"   Hourly Cost: No matching flavor found for {cores} cores, {memory_mb}MB RAM")
+                    except Exception as e:
+                        print(f"   Hourly Cost: Error finding closest flavor - {e}")
             
             # Show resolved GPU info
             if gpu_type and gpu_count:

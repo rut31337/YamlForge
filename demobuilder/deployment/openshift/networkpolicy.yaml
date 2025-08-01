@@ -1,0 +1,75 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: demobuilder-netpol
+  namespace: demobuilder
+  labels:
+    app: demobuilder
+    component: network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: demobuilder
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  ingress:
+  # Allow traffic from OpenShift router
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: openshift-ingress
+    ports:
+    - protocol: TCP
+      port: 8501
+  
+  # Allow traffic from same namespace (for internal communication)
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8501
+  
+  # Allow monitoring (if Prometheus is enabled)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: openshift-monitoring
+    ports:
+    - protocol: TCP
+      port: 8501
+  
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  
+  # Allow HTTPS for external API calls (Context7, etc.)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  
+  # Allow HTTP for external API calls
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 80
+  
+  # Allow communication within namespace
+  - to:
+    - podSelector: {}
+  
+  # Allow access to OpenShift API (future CNV integration)
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: openshift-kube-apiserver
+    ports:
+    - protocol: TCP
+      port: 6443

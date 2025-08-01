@@ -1,0 +1,94 @@
+# Cheapest provider flavor to cores/memory mapping
+# These specifications are used when cheapest provider needs to resolve
+# generic flavor names to specific resource requirements for cost analysis
+
+flavor_mappings:
+  # Basic compute instances
+  nano:
+    cheapest-nano:
+      description: "Ultra-small instance for minimal workloads"
+      cores: 1
+      memory: 512  # MB
+      
+  micro:
+    cheapest-micro:
+      description: "Small instance for lightweight applications"
+      cores: 1
+      memory: 1024  # MB
+      
+  small:
+    cheapest-small:
+      description: "Small instance for development and testing"
+      cores: 2
+      memory: 2048  # MB
+      
+  medium:
+    cheapest-medium:
+      description: "Medium instance for production workloads"
+      cores: 2
+      memory: 4096  # MB
+      
+  large:
+    cheapest-large:
+      description: "Large instance for resource-intensive applications"
+      cores: 4
+      memory: 8192  # MB
+      
+  xlarge:
+    cheapest-xlarge:
+      description: "Extra large instance for high-performance workloads"
+      cores: 8
+      memory: 16384  # MB
+      
+  xxlarge:
+    cheapest-xxlarge:
+      description: "Double extra large instance for enterprise workloads"
+      cores: 16
+      memory: 32768  # MB
+
+  # Memory-optimized instances
+  memory_large:
+    cheapest-memory-large:
+      description: "Memory-optimized instance for data processing"
+      cores: 4
+      memory: 16384  # MB
+
+  memory_xlarge:
+    cheapest-memory-xlarge:
+      description: "Large memory-optimized instance"
+      cores: 8
+      memory: 32768  # MB
+
+  # Compute-optimized instances
+  compute_large:
+    cheapest-compute-large:
+      description: "Compute-optimized instance for CPU-intensive tasks"
+      cores: 8
+      memory: 8192  # MB
+
+  compute_xlarge:
+    cheapest-compute-xlarge:
+      description: "Large compute-optimized instance"
+      cores: 16
+      memory: 16384  # MB
+
+  # High-memory instances  
+  highmem_large:
+    cheapest-highmem-large:
+      description: "High-memory instance for in-memory databases"
+      cores: 8
+      memory: 65536  # MB
+
+  # Storage-optimized instances
+  storage_large:
+    cheapest-storage-large:
+      description: "Storage-optimized instance for high I/O workloads"
+      cores: 4
+      memory: 8192  # MB
+
+  # Network-optimized instances
+  network_large:
+    cheapest-network-large:
+      description: "Network-optimized instance for high throughput"
+      cores: 4
+      memory: 8192  # MB

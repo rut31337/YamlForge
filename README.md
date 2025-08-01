@@ -256,6 +256,49 @@ REQUIRED PROVIDERS:
 
 ### AI-Assisted Configuration
 
+**DemoBuilder - Conversational Infrastructure Assistant:**
+YamlForge includes DemoBuilder, a Streamlit-based conversational AI that transforms natural language into YamlForge configurations with advanced context-aware modification capabilities:
+
+```bash
+# Run the interactive AI assistant
+cd demobuilder
+streamlit run app.py
+```
+
+**Example Conversations:**
+- "I need 3 RHEL VMs on AWS with SSH access"
+- "Deploy a small ROSA cluster for development"
+- "Create the cheapest GPU instance for machine learning"
+- "Add an OpenShift HCP cluster to my existing infrastructure"
+- "Add a bastion host to my current setup"
+- "Change all instances to use the cheapest provider"
+- "Remove one VM and add monitoring infrastructure"
+
+**Advanced Features:**
+- **Pure AI-Driven Modifications**: Context-aware configuration changes without static keyword matching
+- **Natural Language Processing**: Describe infrastructure in plain English with intelligent intent recognition
+- **Real-time Schema Validation**: Auto-validates and fixes configurations against YamlForge schema
+- **Live Cost Analysis**: Direct integration with YamlForge `--analyze` mode for instant cost feedback
+- **Interactive Refinement**: Seamlessly modify existing configurations through conversation
+- **Multi-cloud Support**: All 11 YamlForge providers with intelligent cost optimization
+- **Preservation Logic**: Maintains existing infrastructure while adding only requested changes
+- **Smart Instance Naming**: Automatically generates meaningful names based on context (bastion-host, web-server, database, etc.)
+
+**Configuration Modification Examples:**
+```
+Initial: "Deploy a ROSA HCP cluster"
+→ Creates ROSA HCP cluster configuration
+
+Follow-up: "Add a bastion host"
+→ Preserves existing cluster, adds bastion-host instance with appropriate configuration
+
+Follow-up: "Add monitoring and a database server"
+→ Preserves cluster and bastion, adds monitoring-server and database instances
+
+Follow-up: "Make everything use the cheapest providers"
+→ Updates all components to use cost-optimized providers while maintaining functionality
+```
+
 **Training AI to Use YamlForge:**
 Provide the AI with our JSON schema ([`docs/yamlforge-schema.json`](docs/yamlforge-schema.json)) and real examples from the `examples/` directory. Emphasize the required 5-character GUID, valid provider names, and exact field structure. See [AI Training Guide](docs/ai-training.md) for comprehensive training materials.
 
@@ -655,6 +698,7 @@ YamlForge acts as the intelligent translation layer between your infrastructure 
 ## Documentation
 
 - [Getting Started](docs/quickstart.md)
+- [DemoBuilder AI Assistant](demobuilder/README.md) - Conversational infrastructure configuration
 - [Configuration Reference](docs/configuration/)
 - [AI Training Guide](docs/ai-training.md)
 - [Multi-Cloud Examples](examples/)

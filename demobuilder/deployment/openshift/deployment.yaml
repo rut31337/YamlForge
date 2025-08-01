@@ -1,0 +1,136 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demobuilder
+  namespace: demobuilder
+  labels:
+    app: demobuilder
+    component: web-app
+    version: v1.0.0
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: demobuilder
+      component: web-app
+  template:
+    metadata:
+      labels:
+        app: demobuilder
+        component: web-app
+        version: v1.0.0
+      annotations:
+        prometheus.io/scrape: "false"
+    spec:
+      serviceAccountName: demobuilder
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+      - name: demobuilder
+        image: demobuilder:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8501
+          name: http
+          protocol: TCP
+        env:
+        # Configuration from ConfigMap
+        - name: APP_TITLE
+          valueFrom:
+            configMapKeyRef:
+              name: demobuilder-config
+              key: app_title
+        - name: MAX_CONVERSATION_TURNS
+          valueFrom:
+            configMapKeyRef:
+              name: demobuilder-config
+              key: max_conversation_turns
+        - name: ANTHROPIC_MODEL
+          valueFrom:
+            configMapKeyRef:
+              name: demobuilder-config
+              key: anthropic_model
+        - name: CONTEXT7_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: demobuilder-config
+              key: context7_enabled
+        - name: CONTEXT7_MCP_URL
+          valueFrom:
+            configMapKeyRef:
+              name: demobuilder-config
+              key: context7_mcp_url
+        - name: REDIS_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: demobuilder-config
+              key: redis_enabled
+        - name: KEYCLOAK_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: demobuilder-config
+              key: keycloak_enabled
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: demobuilder-config
+              key: log_level
+        
+        # Optional secrets (comment out if not used)
+        # - name: ANTHROPIC_API_KEY
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: demobuilder-secrets
+        #       key: anthropic-api-key
+        #       optional: true
+        # - name: REDIS_URL
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: demobuilder-secrets
+        #       key: redis-url
+        #       optional: true
+        
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        
+        livenessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 1001
+          capabilities:
+            drop:
+            - ALL
+      
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30

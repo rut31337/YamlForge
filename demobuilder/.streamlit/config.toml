@@ -1,0 +1,32 @@
+[server]
+# Disable browser auto-open
+headless = true
+
+# Server configuration
+port = 8501
+address = "0.0.0.0"
+
+# CORS settings for production
+enableCORS = false
+enableXsrfProtection = false
+enableStaticServing = false
+
+[browser]
+# Disable browser auto-open
+gatherUsageStats = false
+
+[global]
+# Development settings
+developmentMode = false
+showWarningOnDirectExecution = false
+
+[ui]
+# Hide deploy button and top bar elements
+hideTopBar = true
+
+[theme]
+# Optional: Set a professional theme
+primaryColor = "#1f77b4"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f0f2f6"
+textColor = "#000000"

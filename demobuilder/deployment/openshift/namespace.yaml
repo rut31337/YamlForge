@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demobuilder
+  labels:
+    name: demobuilder
+    app.kubernetes.io/name: demobuilder
+    app.kubernetes.io/component: infrastructure-assistant
+  annotations:
+    openshift.io/display-name: "DemoBuilder - Infrastructure Assistant"
+    openshift.io/description: "AI-powered multi-cloud infrastructure configuration assistant"

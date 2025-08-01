@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: demobuilder
+  namespace: demobuilder
+  labels:
+    app: demobuilder
+    component: web-service
+  annotations:
+    service.alpha.openshift.io/serving-cert-secret-name: demobuilder-tls
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8501
+    targetPort: 8501
+    protocol: TCP
+  selector:
+    app: demobuilder
+    component: web-app
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 300

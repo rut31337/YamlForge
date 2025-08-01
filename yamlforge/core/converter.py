@@ -3069,6 +3069,57 @@ no_credentials_mode = {str(self.no_credentials).lower()}
         clean_region = region.replace("-", "_").replace(".", "_")
         return f"provider = aws.{clean_region}"
 
+    def find_closest_flavor_for_provider(self, provider, cores, memory_mb, gpus=None, gpu_type=None):
+        """Find the closest matching flavor for a specific provider given hardware requirements."""
+        memory_gb = memory_mb / 1024
+        
+        # Get provider-specific flavor mappings
+        provider_flavors = self.flavors.get(provider, {})
+        flavor_mappings = provider_flavors.get('flavor_mappings', {})
+        
+        best_match = None
+        best_score = float('inf')
+        
+        # Search through all flavor categories for this provider
+        for flavor_name, flavor_options in flavor_mappings.items():
+            for instance_type, specs in flavor_options.items():
+                instance_cores = specs.get('vcpus', 0)
+                instance_memory_gb = specs.get('memory_gb', 0)
+                instance_gpus = specs.get('gpu_count', 0)
+                instance_gpu_type = specs.get('gpu_type')
+                cost = specs.get('hourly_cost')
+                
+                # Check if this instance meets minimum requirements
+                meets_cpu = instance_cores >= cores
+                meets_memory = instance_memory_gb >= memory_gb
+                meets_gpu_count = gpus is None or instance_gpus >= gpus
+                meets_gpu_type = gpu_type is None or (instance_gpu_type and self.gpu_type_matches(instance_gpu_type, gpu_type))
+                
+                if meets_cpu and meets_memory and meets_gpu_count and meets_gpu_type:
+                    # Calculate score based on resource overhead (lower is better)
+                    cpu_overhead = instance_cores - cores
+                    memory_overhead = instance_memory_gb - memory_gb
+                    gpu_overhead = instance_gpus - (gpus or 0)
+                    
+                    # Weight the score to favor CPU accuracy over memory, and minimize cost
+                    score = (cpu_overhead * 2) + memory_overhead + (gpu_overhead * 3)
+                    if cost is not None:
+                        score += cost * 0.1  # Small cost factor for tie-breaking
+                    
+                    if score < best_score:
+                        best_score = score
+                        best_match = {
+                            'instance_type': instance_type,
+                            'flavor': flavor_name,
+                            'cost': cost,
+                            'vcpus': instance_cores,
+                            'memory_gb': instance_memory_gb,
+                            'gpu_count': instance_gpus,
+                            'gpu_type': instance_gpu_type
+                        }
+        
+        return best_match
+
     def find_closest_flavor(self, cores, memory_mb, gpus=None, gpu_type=None):
         """Find the closest matching generic flavor for given hardware requirements."""
         memory_gb = memory_mb / 1024
@@ -3177,7 +3228,10 @@ no_credentials_mode = {str(self.no_credentials).lower()}
 
     def find_cheapest_provider(self, instance, suppress_output=False):
         """Find the cheapest cloud provider for given instance requirements."""
-        size = instance.get("size")
+        # Apply flavor-to-cores/memory conversion for cheapest provider
+        instance = self._convert_flavor_to_specs_for_cheapest(instance)
+        
+        size = instance.get("flavor")  # Changed from "size" to "flavor"
         cores = instance.get("cores")
         memory = instance.get("memory")  # in MB
         gpu_count = instance.get("gpu_count")  # Number of GPUs required
@@ -3236,9 +3290,9 @@ no_credentials_mode = {str(self.no_credentials).lower()}
             else:
                 analysis_type = f"{cores} cores, {memory_gb:.1f}GB RAM"
         elif size:
-            # Size-based selection (fallback when no specs provided)
+            # Flavor-based selection (fallback when no specs provided)
             provider_costs = self.find_cheapest_by_size(size, gpu_type, instance_exclusions)
-            analysis_type = f"size '{size}'"
+            analysis_type = f"flavor '{size}'"
             if gpu_type:
                 analysis_type += f" with {gpu_type} GPU"
         else:
@@ -3246,7 +3300,7 @@ no_credentials_mode = {str(self.no_credentials).lower()}
             instance_name = instance.get('name', 'unnamed')
             raise ValueError(
                 f"Instance '{instance_name}': When using provider 'cheapest', you must specify either:\n"
-                f"  - 'size': nano, micro, small, medium, large, xlarge, etc.\n"
+                f"  - 'flavor': nano, micro, small, medium, large, xlarge, etc.\n"
                 f"  - 'cores' and 'memory': e.g., cores: 2, memory: 4096 (MB)\n"
                 f"  - GPU requirements: gpu_count, gpu_type, etc."
             )
@@ -3482,6 +3536,30 @@ no_credentials_mode = {str(self.no_credentials).lower()}
         
         return provider_costs
     
+    def _convert_flavor_to_specs_for_cheapest(self, instance):
+        """Convert generic flavor names to cores/memory for cheapest provider analysis."""
+        instance = instance.copy()
+        flavor = instance.get('flavor')
+        
+        # Only convert if we have a flavor but no cores/memory specs
+        if flavor and not (instance.get('cores') and instance.get('memory')):
+            # Load cheapest provider flavor mappings
+            cheapest_flavors = self.flavors.get('cheapest', {})
+            flavor_mappings = cheapest_flavors.get('flavor_mappings', {})
+            
+            if flavor in flavor_mappings:
+                flavor_options = flavor_mappings[flavor]
+                # Get the first (and typically only) option for this flavor
+                flavor_key = next(iter(flavor_options.keys()))
+                flavor_config = flavor_options[flavor_key]
+                
+                if 'cores' in flavor_config and 'memory' in flavor_config:
+                    instance['cores'] = flavor_config['cores']
+                    instance['memory'] = flavor_config['memory']
+                    # Keep the flavor for reference, but cores/memory take precedence
+        
+        return instance
+    
     def find_cheapest_by_specs(self, required_cores, required_memory_mb, required_gpus=None, gpu_type=None, instance_exclusions=None):
         """Find cheapest provider for specific CPU/memory/GPU requirements."""
         provider_costs = {}
@@ -3675,13 +3753,16 @@ no_credentials_mode = {str(self.no_credentials).lower()}
     
     def get_cheapest_instance_type(self, instance, provider):
         """Get the specific instance type selected by cheapest provider analysis."""
-        size = instance.get("size")
+        # Apply flavor-to-cores/memory conversion for cheapest provider
+        instance = self._convert_flavor_to_specs_for_cheapest(instance)
+        
+        size = instance.get("flavor")  # Changed from "size" to "flavor"
         cores = instance.get("cores")
         memory = instance.get("memory")
         gpu_count = instance.get("gpu_count")
         
         if size:
-            # Size-based selection
+            # Flavor-based selection
             provider_costs = self.find_cheapest_by_size(size)
         elif cores and memory:
             # Hardware specification-based selection
@@ -3985,12 +4066,6 @@ no_credentials_mode = {str(self.no_credentials).lower()}
     def calculate_openshift_cluster_cost(self, cluster, cluster_type):
         """Calculate the hourly cost for an OpenShift cluster."""
         try:
-            # Get cluster specifications - simplified to only master/worker terminology
-            master_count = cluster.get('master_count', 0)
-            worker_count = cluster.get('worker_count', 0)
-            master_machine_type = cluster.get('master_machine_type', '')
-            worker_machine_type = cluster.get('worker_machine_type', '')
-            
             # Determine provider based on cluster type
             provider = None
             if cluster_type == 'rosa-classic' or cluster_type == 'rosa-hcp':
@@ -4003,35 +4078,93 @@ no_credentials_mode = {str(self.no_credentials).lower()}
             if not provider:
                 return None
             
+            # Check if cluster uses size-based configuration (modern approach)
+            cluster_size = cluster.get('size')
+            if cluster_size:
+                # Use OpenShift provider to get cluster size configuration
+                try:
+                    size_config = self.openshift_provider.get_cluster_size_config(cluster_size, cluster_type, provider)
+                    
+                    # Get counts from size config, with user overrides
+                    master_count = cluster.get('master_count', size_config.get('master_count', 0))
+                    worker_count = cluster.get('worker_count', size_config.get('worker_count', 0))
+                    
+                    # Resolve master and worker sizes to actual machine types
+                    master_size = size_config.get('master_size', '')
+                    worker_size = size_config.get('worker_size', '')
+                    
+                    master_machine_type = ''
+                    worker_machine_type = ''
+                    
+                    if master_size:
+                        try:
+                            master_machine_type = self.openshift_provider.get_openshift_machine_type(provider, master_size, 'master')
+                        except Exception:
+                            pass
+                            
+                    if worker_size:
+                        try:
+                            worker_machine_type = self.openshift_provider.get_openshift_machine_type(provider, worker_size, 'worker')
+                        except Exception:
+                            pass
+                    
+                except Exception:
+                    # Fall back to direct machine type approach if size config fails
+                    master_count = cluster.get('master_count', 0)
+                    worker_count = cluster.get('worker_count', 0)
+                    master_machine_type = cluster.get('master_machine_type', '')
+                    worker_machine_type = cluster.get('worker_machine_type', '')
+            else:
+                # Use direct machine type approach (legacy)
+                master_count = cluster.get('master_count', 0)
+                worker_count = cluster.get('worker_count', 0)
+                master_machine_type = cluster.get('master_machine_type', '')
+                worker_machine_type = cluster.get('worker_machine_type', '')
+            
             # Calculate costs for different node types
             total_cost = 0.0
             
+            # Try OpenShift-specific flavors first, then fall back to regular provider flavors
+            openshift_flavor_key = f"openshift_{provider}"
+            openshift_flavors = self.flavors.get(openshift_flavor_key, {})
+            provider_flavors = self.flavors.get(provider, {})
+            
             # Calculate master node costs
             if master_count > 0 and master_machine_type:
-                # Look for the machine type in flavor mappings
-                provider_flavors = self.flavors.get(provider, {})
                 master_cost = None
                 
-                # Search through all flavor mappings for this machine type
-                for size, instances in provider_flavors.get('flavor_mappings', {}).items():
+                # Search in OpenShift-specific flavor mappings first
+                for size, instances in openshift_flavors.get('flavor_mappings', {}).items():
                     if master_machine_type in instances:
                         master_cost = instances[master_machine_type]
                         break
+                
+                # Fall back to regular provider flavors if not found
+                if not master_cost:
+                    for size, instances in provider_flavors.get('flavor_mappings', {}).items():
+                        if master_machine_type in instances:
+                            master_cost = instances[master_machine_type]
+                            break
                 
                 if master_cost and master_cost.get('hourly_cost'):
                     total_cost += master_cost['hourly_cost'] * master_count
             
             # Calculate worker node costs
             if worker_count > 0 and worker_machine_type:
-                # Look for the machine type in flavor mappings
-                provider_flavors = self.flavors.get(provider, {})
                 worker_cost = None
                 
-                # Search through all flavor mappings for this machine type
-                for size, instances in provider_flavors.get('flavor_mappings', {}).items():
+                # Search in OpenShift-specific flavor mappings first
+                for size, instances in openshift_flavors.get('flavor_mappings', {}).items():
                     if worker_machine_type in instances:
                         worker_cost = instances[worker_machine_type]
                         break
+                
+                # Fall back to regular provider flavors if not found
+                if not worker_cost:
+                    for size, instances in provider_flavors.get('flavor_mappings', {}).items():
+                        if worker_machine_type in instances:
+                            worker_cost = instances[worker_machine_type]
+                            break
                 
                 if worker_cost and worker_cost.get('hourly_cost'):
                     total_cost += worker_cost['hourly_cost'] * worker_count
@@ -4121,6 +4254,8 @@ no_credentials_mode = {str(self.no_credentials).lower()}
         # Handle cheapest provider meta-provider first to get the actual provider
         selected_instance_type = None
         if provider == 'cheapest':
+            # Convert generic flavor to cores/memory if needed
+            instance = self._convert_flavor_to_specs_for_cheapest(instance)
             provider = self.find_cheapest_provider(instance, suppress_output=True)
             # Update the instance with the selected provider for consistency
             instance = instance.copy()
@@ -4129,6 +4264,8 @@ no_credentials_mode = {str(self.no_credentials).lower()}
             # Get the selected instance type from cheapest provider analysis
             selected_instance_type = self.get_cheapest_instance_type(instance, provider)
         elif provider == 'cheapest-gpu':
+            # Convert generic flavor to cores/memory if needed
+            instance = self._convert_flavor_to_specs_for_cheapest(instance)
             provider = self.find_cheapest_gpu_provider(instance, suppress_output=True)
             # Update the instance with the selected provider for consistency
             instance = instance.copy()
