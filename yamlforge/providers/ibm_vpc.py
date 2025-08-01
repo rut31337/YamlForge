@@ -296,26 +296,33 @@ resource "ibm_is_security_group_rule" "{resource_name}_rule_{i+1}" {{
         # Use clean_name directly if GUID is already present, otherwise add GUID
         resource_name = clean_name if has_guid_placeholder else f"{clean_name}_{guid}"
         
-        vm_config = ssh_key_resources + f'''
+        # Handle user data script with newlines
+        newline = chr(10)
+        user_data_block = f"user_data = <<-EOF{newline}{user_data_script}{newline}EOF" if user_data_script else ""
+        
+        # Clean region for resource references
+        clean_region_ref = ibm_region.replace("-", "_").replace(".", "_")
+        
+        vm_config = ssh_key_resources + '''
 # IBM Cloud VPC Instance: {instance_name}
 resource "ibm_is_instance" "{resource_name}" {{
   name    = "{instance_name}"
   image   = "{image_id}"
   profile = "{ibm_profile}"
   
-  vpc     = ibm_is_vpc.main_vpc_{ibm_region.replace("-", "_").replace(".", "_")}_{guid}.id
+  vpc     = ibm_is_vpc.main_vpc_{clean_region_ref}_{guid}.id
   zone    = "{ibm_zone}"
   keys    = [{key_name_ref}]
 
   primary_network_interface {{
-    subnet          = ibm_is_subnet.main_subnet_{ibm_region.replace("-", "_").replace(".", "_")}_{guid}.id
+    subnet          = ibm_is_subnet.main_subnet_{clean_region_ref}_{guid}.id
     security_groups = {ibm_sg_refs_str}
   }}
 
-          {f"user_data = <<-EOF\n{user_data_script}\nEOF" if user_data_script else ""}
+          {user_data_block}
 
   # Create and attach floating IP
-  resource_group = local.resource_group_id_{ibm_region.replace("-", "_").replace(".", "_")}_{guid}
+  resource_group = local.resource_group_id_{clean_region_ref}_{guid}
 }}
 
 # IBM Cloud Floating IP for {instance_name}
@@ -323,9 +330,20 @@ resource "ibm_is_floating_ip" "{resource_name}_fip" {{
   name   = "{instance_name}-fip"
   target = ibm_is_instance.{resource_name}.primary_network_interface[0].id
   
-  resource_group = local.resource_group_id_{ibm_region.replace("-", "_").replace(".", "_")}_{guid}
+  resource_group = local.resource_group_id_{clean_region_ref}_{guid}
 }}
-'''
+'''.format(
+            instance_name=instance_name,
+            resource_name=resource_name,
+            image_id=image_id,
+            ibm_profile=ibm_profile,
+            clean_region_ref=clean_region_ref,
+            guid=guid,
+            ibm_zone=ibm_zone,
+            key_name_ref=key_name_ref,
+            ibm_sg_refs_str=ibm_sg_refs_str,
+            user_data_block=user_data_block
+        )
         return vm_config
 
     def generate_ibm_vpc_networking(self, deployment_name, deployment_config, region, yaml_data=None, zone=None):
