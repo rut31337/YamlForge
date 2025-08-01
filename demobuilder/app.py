@@ -1087,7 +1087,7 @@ def main():
         """
         <div style='text-align: center; color: #666; font-size: 0.8rem; margin-top: 2rem;'>
             <!-- <p><a href="https://www.redhat.com" target="_blank"><img src="https://www.redhat.com/cms/managed-files/Logo-Red_Hat-A-Standard-RGB.svg" width="60" height="24" style="vertical-align: middle; margin-right: 8px;" alt="Red Hat Logo"/></a>Copyright © 2025 Red Hat, Inc. - Open Source Software</p> /-->
-            <p>Licensed under <a href="https://github.com/rut31337/YamlForge/blob/master/LICENSE" target="_blank">MIT License</a> | 
+            <p>Licensed under <a href="https://github.com/rut31337/YamlForge/blob/master/LICENSE" target="_blank">Apache License 2.0</a> | 
             <a href="https://github.com/rut31337/YamlForge" target="_blank"><img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" width="16" height="16" style="vertical-align: middle; margin-right: 4px;"/> View on GitHub</a> | 
             <a href="https://www.redhat.com/en/about/privacy-policy" target="_blank">Privacy Policy</a> | 
             <a href="https://www.redhat.com/en/about/terms-use" target="_blank">Terms of Use</a> | 
