@@ -125,7 +125,10 @@ resource "ibm_compute_ssh_key" "{ssh_key_name}" {{
         ibm_sg_refs_str = "[" + ", ".join(ibm_sg_refs) + "]" if ibm_sg_refs else "[]"
 
         # Generate the Classic instance
-        vm_config = ssh_key_resources + f'''
+        newline = chr(10)
+        user_metadata_block = ("user_metadata = <<-EOF" + newline + user_data_script + newline + "EOF") if user_data_script else ""
+        
+        vm_config = ssh_key_resources + '''
 # IBM Cloud Classic Instance: {instance_name}
 resource "ibm_compute_vm_instance" "{resource_name}" {{
   hostname                 = "{instance_name}"
@@ -141,14 +144,24 @@ resource "ibm_compute_vm_instance" "{resource_name}" {{
   local_disk               = false
   ssh_key_ids              = [{key_name_ref}]
   
-  {("user_metadata = <<-EOF" + chr(10) + user_data_script + chr(10) + "EOF") if user_data_script else ""}
+  {user_metadata_block}
   
   tags = [
     "environment:agnosticd",
     "managed-by:yamlforge"
   ]
 }}
-'''
+'''.format(
+            instance_name=instance_name,
+            resource_name=resource_name,
+            domain=domain,
+            ibm_image=ibm_image,
+            datacenter=datacenter,
+            cores=cores,
+            memory=memory,
+            key_name_ref=key_name_ref,
+            user_metadata_block=user_metadata_block
+        )
         return vm_config
 
     def get_ibm_classic_image(self, image):
