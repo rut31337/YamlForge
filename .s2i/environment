@@ -1,0 +1,22 @@
+# S2I Environment Variables for YamlForge DemoBuilder
+
+# Point S2I to the DemoBuilder application
+APP_FILE=demobuilder/app.py
+
+# Python application configuration
+APP_MODULE=demobuilder.app
+
+# Streamlit configuration
+STREAMLIT_SERVER_PORT=8080
+STREAMLIT_SERVER_ADDRESS=0.0.0.0
+STREAMLIT_SERVER_HEADLESS=true
+
+# Application settings
+APP_TITLE="DemoBuilder - YamlForge Assistant"
+MAX_CONVERSATION_TURNS=10
+LOG_LEVEL=INFO
+
+# Feature flags
+CONTEXT7_ENABLED=false
+REDIS_ENABLED=false
+KEYCLOAK_ENABLED=false
