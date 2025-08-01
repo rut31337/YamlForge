@@ -19,13 +19,15 @@ resources:
 - networkpolicy.yaml
 - horizontalpodautoscaler.yaml
 
-commonLabels:
-  app.kubernetes.io/name: demobuilder
-  app.kubernetes.io/instance: demobuilder-prod
-  app.kubernetes.io/version: v1.0.0
-  app.kubernetes.io/component: infrastructure-assistant
-  app.kubernetes.io/part-of: yamlforge
-  app.kubernetes.io/managed-by: kustomize
+labels:
+- includeSelectors: true
+  pairs:
+    app.kubernetes.io/name: demobuilder
+    app.kubernetes.io/instance: demobuilder-prod
+    app.kubernetes.io/version: v1.0.0
+    app.kubernetes.io/component: infrastructure-assistant
+    app.kubernetes.io/part-of: yamlforge
+    app.kubernetes.io/managed-by: kustomize
 
 images:
 - name: demobuilder
@@ -39,19 +41,17 @@ configMapGenerator:
   - build.version=BUILD_VERSION
   - build.commit=BUILD_COMMIT
 
-patchesStrategicMerge:
-- |-
-  apiVersion: apps/v1
-  kind: Deployment
-  metadata:
+patches:
+- target:
+    kind: Deployment
     name: demobuilder
-    namespace: demobuilder
-  spec:
-    template:
-      metadata:
-        annotations:
-          config.hash: CONFIG_HASH
-          build.date: BUILD_DATE
+  patch: |-
+    - op: add
+      path: /spec/template/metadata/annotations/config.hash
+      value: CONFIG_HASH
+    - op: add
+      path: /spec/template/metadata/annotations/build.date
+      value: BUILD_DATE
 
 replicas:
 - name: demobuilder

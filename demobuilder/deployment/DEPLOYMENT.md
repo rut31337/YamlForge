@@ -37,7 +37,7 @@ kubectl version --client
    oc login https://api.your-cluster.com:6443
    ```
 
-2. **Deploy DemoBuilder**:
+2. **Deploy DemoBuilder** (creates namespace automatically):
    ```bash
    cd demobuilder/deployment/openshift
    oc apply -f .
@@ -55,15 +55,23 @@ kubectl version --client
 
 ### Method 2: Using Kustomize (Recommended for Production)
 
-1. **Build and apply with Kustomize**:
+1. **Build and apply with Kustomize** (creates namespace automatically):
    ```bash
    cd demobuilder/deployment/openshift
    oc apply -k .
    ```
 
+   **Note**: The kustomization.yaml uses modern syntax (not deprecated fields). If you have an older version of kustomize and see warnings about `commonLabels` or `patchesStrategicMerge`, upgrade to kustomize v4.1+ or use `kustomize edit fix` to automatically update deprecated syntax.
+
 2. **Verify deployment**:
    ```bash
    oc get all -n demobuilder
+   
+   # Check that all pods are running
+   oc get pods -n demobuilder
+   
+   # Verify labels are applied correctly
+   oc get deployment demobuilder -n demobuilder -o yaml | grep -A 10 labels
    ```
 
 ## 🔧 Configuration Options
@@ -447,6 +455,22 @@ oc get configmap demobuilder-config -n demobuilder -o yaml | grep context7
 # Disable Context7 if experiencing connectivity issues
 oc patch configmap demobuilder-config -n demobuilder \
   --type merge -p '{"data":{"context7_enabled":"false"}}'
+```
+
+**Kustomize Deployment Issues**:
+```bash
+# If you see deprecation warnings about commonLabels or patchesStrategicMerge
+# The current kustomization.yaml uses modern syntax, but if you have issues:
+
+# Check kustomize version (should be v4.1+)
+kustomize version
+
+# If using older version, you can build separately and apply
+kustomize build demobuilder/deployment/openshift | oc apply -f -
+
+# For namespace annotation warnings, apply namespace first
+oc apply -f demobuilder/deployment/openshift/namespace.yaml
+oc apply -k demobuilder/deployment/openshift
 ```
 
 ### Performance Tuning
