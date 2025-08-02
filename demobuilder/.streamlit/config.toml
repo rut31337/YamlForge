@@ -20,8 +20,12 @@ gatherUsageStats = false
 developmentMode = false
 showWarningOnDirectExecution = false
 
+[client]
+# Use viewer mode for production security (no developer options)
+toolbarMode = "viewer"
+
 [ui]
-# Hide deploy button and top bar elements
+# Hide top bar since we have custom theme toggle
 hideTopBar = true
 
 [theme]

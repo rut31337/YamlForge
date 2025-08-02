@@ -32,6 +32,7 @@ def init_session_state():
     if 'yamlforge_analyzer' not in st.session_state:
         st.session_state.yamlforge_analyzer = YamlForgeAnalyzer()
     
+    
     if 'show_examples' not in st.session_state:
         st.session_state.show_examples = False
     
@@ -39,18 +40,48 @@ def init_session_state():
 
 
 def get_theme_styles():
+    """Get dark mode CSS styles for professional appearance."""
     return """
     <style>
-    /* Base Styles - Work with both light and dark themes */
-    
-    /* Reduce top padding */
-    .block-container {
-        padding-top: 1rem !important;
+    /* Force dark theme for all users */
+    .stApp {
+        background-color: #0e1117 !important;
+        color: #fafafa !important;
     }
     
+    /* Hide Streamlit header and toolbar elements */
+    header[data-testid="stHeader"] {
+        display: none !important;
+    }
+    
+    div[data-testid="stToolbar"] {
+        display: none !important;
+    }
+    
+    div[data-testid="stDecoration"] {
+        display: none !important;
+    }
+    
+    .stAppViewContainer > .main {
+        padding-top: 0 !important;
+    }
+    
+    /* Main container */
+    .block-container {
+        padding-top: 2rem !important;
+        background-color: #0e1117 !important;
+        color: #fafafa !important;
+    }
+    
+    .main .block-container {
+        background-color: #0e1117 !important;
+        color: #fafafa !important;
+    }
+    
+    /* Header styling */
     .main-header {
         font-size: 2.2rem;
-        color: #1f77b4;
+        color: #58a6ff;
         text-align: center;
         margin-top: 0;
         margin-bottom: 0.5rem;
@@ -58,53 +89,81 @@ def get_theme_styles():
     
     .subtitle {
         font-size: 1.1rem;
-        color: #666;
+        opacity: 0.8;
         text-align: center;
         margin-bottom: 1rem;
+        color: #fafafa;
     }
     
+    /* Workflow stage styling */
     .workflow-stage {
-        background-color: var(--background-color);
+        background-color: rgba(255,255,255,0.05);
+        color: #fafafa;
         padding: 0.75rem;
         border-radius: 0.5rem;
         margin-bottom: 0.75rem;
-        border: 1px solid var(--border-color);
+        border: 1px solid rgba(250, 250, 250, 0.2);
     }
     
+    /* YAML preview styling */
     .yaml-preview {
-        background-color: #2d3748;
+        background-color: #1e1e1e;
         color: #e2e8f0;
         padding: 1rem;
         border-radius: 0.5rem;
         font-family: 'Courier New', monospace;
         font-size: 0.9rem;
+        border: 1px solid rgba(250, 250, 250, 0.2);
     }
     
-    /* Ensure chat input text is always visible */
-    .stChatInput input {
-        color: var(--text-color) !important;
-    }
-    
-    .stChatInput input::placeholder {
-        opacity: 0.7;
-    }
-    
-    /* Only hide the deploy button, leave everything else */
+    /* Hide deploy button */
     button[title="Deploy this app"] {
         display: none !important;
     }
     
-    div[data-testid="deployButton"] {
-        display: none !important;
+    /* Streamlit sidebar theming */
+    .css-1d391kg {
+        background-color: #262730 !important;
     }
     
-    .stDeployButton {
-        display: none !important;
+    /* Streamlit button theming */
+    .stButton > button {
+        background-color: #262730 !important;
+        color: #fafafa !important;
+        border: 1px solid rgba(250, 250, 250, 0.2) !important;
     }
     
-    /* Adjust main content to fill the space */
-    .main .block-container {
-        padding-top: 1rem !important;
+    .stButton > button:hover {
+        background-color: #3a3a3a !important;
+        border-color: #58a6ff !important;
+    }
+    
+    /* Text input theming */
+    .stTextInput > div > div > input {
+        background-color: #262730 !important;
+        color: #fafafa !important;
+        border-color: rgba(250, 250, 250, 0.2) !important;
+    }
+    
+    /* Selectbox theming */
+    .stSelectbox > div > div > select {
+        background-color: #262730 !important;
+        color: #fafafa !important;
+        border-color: rgba(250, 250, 250, 0.2) !important;
+    }
+    
+    /* Chat elements */
+    .stChatMessage {
+        background-color: #262730 !important;
+    }
+    
+    /* Sidebar theming */
+    .css-1d391kg {
+        background-color: #262730 !important;
+    }
+    
+    section[data-testid="stSidebar"] {
+        background-color: #262730 !important;
     }
     </style>
     """
@@ -114,12 +173,26 @@ def display_header():
     st.set_page_config(
         page_title="DemoBuilder - Infrastructure Assistant",
         page_icon="🏗️",
-        layout="wide"
+        layout="wide",
+        menu_items={
+            'Get Help': 'https://docs.anthropic.com/en/docs/claude-code',
+            'Report a bug': "https://github.com/anthropics/claude-code/issues", 
+            'About': """
+            # 🏗️ DemoBuilder
+            AI-Powered Multi-Cloud Infrastructure Assistant
+            
+            Professional dark theme for enhanced focus and reduced eye strain.
+            
+            ---
+            *Built with [Claude Code](https://claude.ai/code)*
+            """
+        }
     )
     
-    # Apply theme styles
+    # Apply dark theme styles
     st.markdown(get_theme_styles(), unsafe_allow_html=True)
     
+    # Simple clean header
     st.markdown('<h1 class="main-header">🏗️ DemoBuilder</h1>', unsafe_allow_html=True)
     st.markdown('<p class="subtitle">AI-Powered Multi-Cloud Infrastructure Assistant</p>', unsafe_allow_html=True)
 
