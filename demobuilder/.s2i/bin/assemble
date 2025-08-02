@@ -9,19 +9,43 @@ echo "---> Installing application source..."
 # Copy application source to /opt/app-root/src
 cp -Rf /tmp/src/. ./
 
-echo "---> Installing dependencies..."
+echo "---> Determining build context..."
 
-# Install Python dependencies
-if [ -f requirements.txt ]; then
+# Check if we're building from the full YamlForge repository
+if [ -f "yamlforge.py" ] && [ -d "yamlforge" ] && [ -d "demobuilder" ]; then
+    echo "---> Building from full YamlForge repository"
+    
+    # Install YamlForge requirements first (if they exist)
+    if [ -f "requirements.txt" ]; then
+        echo "---> Installing YamlForge dependencies..."
+        pip install --no-cache-dir -r requirements.txt
+    fi
+    
+    # Install YamlForge as a package if setup files exist
+    if [ -f "setup.py" ] || [ -f "pyproject.toml" ]; then
+        echo "---> Installing YamlForge package..."
+        pip install --no-cache-dir -e .
+    fi
+    
+    # Install DemoBuilder-specific dependencies
+    if [ -f "demobuilder/requirements.txt" ]; then
+        echo "---> Installing DemoBuilder dependencies..."
+        pip install --no-cache-dir -r demobuilder/requirements.txt
+    fi
+    
+elif [ -f "app.py" ] && [ -f "requirements.txt" ]; then
+    echo "---> Building from DemoBuilder subdirectory only"
+    
+    # Install DemoBuilder dependencies
+    echo "---> Installing DemoBuilder dependencies..."
     pip install --no-cache-dir -r requirements.txt
+    
 else
-    echo "WARNING: No requirements.txt found"
-fi
-
-# If we're building from the full YamlForge repo, install YamlForge as a package
-if [ -f setup.py ] || [ -f pyproject.toml ]; then
-    echo "---> Installing YamlForge package..."
-    pip install --no-cache-dir -e .
+    echo "ERROR: Unable to determine build context"
+    echo "Expected either:"
+    echo "  - Full YamlForge repo with yamlforge.py, yamlforge/, and demobuilder/ directories"
+    echo "  - DemoBuilder subdirectory with app.py and requirements.txt"
+    exit 1
 fi
 
 echo "---> Application source installed"

@@ -6,16 +6,34 @@ set -e
 
 echo "---> Starting DemoBuilder with Streamlit..."
 
-# Check if we're in a subdirectory and need to change to the app directory
-if [ -f "demobuilder/app.py" ]; then
+# Determine runtime context and navigate to correct directory
+if [ -f "yamlforge.py" ] && [ -d "yamlforge" ] && [ -f "demobuilder/app.py" ]; then
+    echo "---> Running from full YamlForge repository context"
     echo "---> Changing to demobuilder directory"
     cd demobuilder
-elif [ ! -f "app.py" ]; then
-    echo "ERROR: app.py not found in current directory or demobuilder subdirectory"
+elif [ -f "app.py" ]; then
+    echo "---> Running from DemoBuilder subdirectory context"
+    # Already in the right directory
+else
+    echo "ERROR: Unable to locate DemoBuilder application"
+    echo "Expected either:"
+    echo "  - Full YamlForge repo with demobuilder/app.py"
+    echo "  - DemoBuilder subdirectory with app.py"
+    echo "Current directory contents:"
+    ls -la
     exit 1
 fi
 
 echo "---> Starting Streamlit on port ${PORT:-8501}"
+
+# Verify app.py exists in current working directory
+if [ ! -f "app.py" ]; then
+    echo "ERROR: app.py not found in current working directory"
+    echo "Current directory: $(pwd)"
+    echo "Contents:"
+    ls -la
+    exit 1
+fi
 
 # Start the application using streamlit
 exec streamlit run app.py \
