@@ -441,8 +441,8 @@ class AWSProvider:
                             "[ERROR] AWS Provider Error: boto3 SDK not installed.\n\n"
             "To use AWS provider, install the required SDK:\n"
                 "   pip install boto3\n\n"
-                "Or install with AWS support:\n"
-                "   pip install -r requirements-aws.txt\n\n"
+                "Or install all dependencies:\n"
+                "   pip install -r requirements.txt\n\n"
                 "Alternative: Use a different provider or remove AWS instances from your configuration."
             )
 

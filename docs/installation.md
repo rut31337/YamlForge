@@ -18,28 +18,15 @@ cd yamlforge
 pip install -r requirements.txt
 ```
 
-### Targeted Installation
-Choose the installation that matches your cloud usage:
+### Single Requirements File
+YamlForge now uses a single unified requirements file that includes all necessary dependencies:
 
 ```bash
-# Major clouds only (AWS + GCP)
-pip install -r requirements-major-clouds.txt
-
-# Minimal installation (Azure, IBM, VMware - no SDKs needed)
-pip install -r requirements-minimal.txt
-
-# AWS only
-pip install -r requirements-aws.txt
-
-# GCP only  
-pip install -r requirements-gcp.txt
-
-# Oracle Cloud only
-pip install -r requirements-oci.txt
-
-# Alibaba Cloud only
-pip install -r requirements-alibaba.txt
+# Install all dependencies (includes all cloud provider SDKs)
+pip install -r requirements.txt
 ```
+
+This simplified approach ensures all cloud providers are supported without needing separate installation commands.
 
 ## Optional: GCP Dynamic Image Discovery
 
@@ -195,8 +182,8 @@ cd yamlforge
 # Install in development mode
 pip install -e .
 
-# Install development dependencies
-pip install -r requirements-dev.txt  # if available
+# All dependencies including development tools are in requirements.txt
+pip install -r requirements.txt
 ```
 
 ## Troubleshooting
