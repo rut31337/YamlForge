@@ -17,6 +17,20 @@ for parent in current_path.parents:
         yamlforge_root = parent
         break
 
+# Special handling for S2I containerized environment
+if yamlforge_root is None:
+    # In S2I containers, check if yamlforge.py exists in any parent directory
+    for parent in current_path.parents:
+        if (parent / 'yamlforge.py').exists():
+            yamlforge_root = parent
+            break
+    
+    # Also check current working directory
+    if yamlforge_root is None:
+        cwd = Path.cwd()
+        if (cwd / 'yamlforge.py').exists():
+            yamlforge_root = cwd
+
 # Store for later use but don't import yet to avoid path issues
 YAMLFORGE_AVAILABLE = yamlforge_root is not None
 
