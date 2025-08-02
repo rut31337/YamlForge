@@ -64,7 +64,7 @@ export ANTHROPIC_API_KEY="your-api-key"
 ./demobuilder/deployment/openshift/deploy-s2i.sh
 ```
 
-📖 **[Full DemoBuilder Documentation](demobuilder/CLAUDE.md)**
+📖 **[Full DemoBuilder Deployment Guide](demobuilder/DEPLOYMENT.md)**
 
 ### Define Once, Deploy Everywhere
 ```yaml

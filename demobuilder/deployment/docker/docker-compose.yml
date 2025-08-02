@@ -20,8 +20,8 @@ services:
       - REDIS_ENABLED=false
       - KEYCLOAK_ENABLED=false
       
-      # Optional: Add API keys via environment or .env file
-      # - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # Required: Add API keys via environment or .env file
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       # - REDIS_URL=redis://redis:6379
       
       # Logging
