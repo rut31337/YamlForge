@@ -14,11 +14,16 @@ if [ -z "$ANTHROPIC_API_KEY" ]; then
     exit 1
 fi
 
-# 1. Create new S2I application
+# 1. Create new S2I application (without auto-created service)
 echo "Creating S2I application..."
 oc new-app python:3.11-ubi9~https://github.com/rut31337/YamlForge.git \
   --context-dir=demobuilder \
-  --name=demobuilder
+  --name=demobuilder \
+  --no-service
+
+# Create service with correct port
+echo "Creating service with correct port..."
+oc expose deployment demobuilder --port=8501 --target-port=8501 --name=demobuilder
 
 # 2. Create configuration
 echo "Setting up configuration..."
@@ -47,11 +52,21 @@ oc create route edge demobuilder \
   --port=8501 \
   --hostname=demobuilder.$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}')
 
-# 5. Wait for deployment
+# 5. Wait for build to complete and update deployment image
+echo "Waiting for build to complete..."
+oc wait --for=condition=Complete build/demobuilder-1 --timeout=600s
+
+echo "Updating deployment with built image..."
+oc set image deployment/demobuilder demobuilder=image-registry.openshift-image-registry.svc:5000/demobuilder/demobuilder:latest
+
+echo "Updating deployment container port to 8501..."
+oc patch deployment demobuilder --patch '{"spec":{"template":{"spec":{"containers":[{"name":"demobuilder","ports":[{"containerPort":8501,"protocol":"TCP"}]}]}}}}'
+
+# 6. Wait for deployment
 echo "Waiting for deployment..."
 oc rollout status deployment/demobuilder --timeout=300s
 
-# 6. Show results
+# 7. Show results
 echo "=== Deployment Complete ==="
 oc get pods -l app=demobuilder
 oc get routes
