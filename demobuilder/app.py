@@ -107,6 +107,63 @@ def get_theme_styles():
         display: none !important;
     }
     
+    /* Button styling - black background with light grey text */
+    .stButton > button, button {
+        background-color: #262730 !important;
+        color: #d0d0d0 !important;
+        border: 1px solid rgba(250, 250, 250, 0.2) !important;
+    }
+    
+    .stButton > button:hover, button:hover {
+        background-color: #3a3a3a !important;
+        color: #fafafa !important;
+        border-color: #58a6ff !important;
+    }
+    
+    /* Sidebar and provider configuration - grey background with white text */
+    section[data-testid="stSidebar"], .stSidebar {
+        background-color: #262730 !important;
+        color: #fafafa !important;
+    }
+    
+    section[data-testid="stSidebar"] *, .stSidebar * {
+        color: #fafafa !important;
+    }
+    
+    /* Text input fields - grey background with light grey text */
+    .stTextInput > div > div > input,
+    .stChatInput > div > div > input,
+    input[type="text"], textarea {
+        background-color: #262730 !important;
+        color: #d0d0d0 !important;
+        border: 1px solid rgba(250, 250, 250, 0.2) !important;
+    }
+    
+    /* Footer links - light grey */
+    a, a:link, a:visited {
+        color: #d0d0d0 !important;
+    }
+    
+    a:hover {
+        color: #fafafa !important;
+    }
+    
+    /* Analysis results and expanders - grey background with white text */
+    .streamlit-expanderHeader, [data-testid="expander"] {
+        background-color: #262730 !important;
+        color: #fafafa !important;
+    }
+    
+    /* Chat messages - grey background with white text */
+    .stChatMessage, [data-testid="chatMessage"] {
+        background-color: #262730 !important;
+        color: #fafafa !important;
+    }
+    
+    .stChatMessage *, [data-testid="chatMessage"] * {
+        color: #fafafa !important;
+    }
+    
     /* Override any remaining black text - simple approach */
     [style*="color: rgb(0, 0, 0)"],
     [style*="color: black"],
