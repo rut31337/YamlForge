@@ -3,6 +3,10 @@ set -e
 
 echo "=== DemoBuilder S2I Deployment ==="
 
+# 0. Create namespace if it doesn't exist
+echo "Creating namespace..."
+oc new-project demobuilder 2>/dev/null || oc project demobuilder
+
 # Check if ANTHROPIC_API_KEY is set
 if [ -z "$ANTHROPIC_API_KEY" ]; then
     echo "Error: ANTHROPIC_API_KEY environment variable is not set"
