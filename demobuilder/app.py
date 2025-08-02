@@ -190,10 +190,11 @@ def get_theme_styles():
         background-color: #1e1e1e !important;
     }
     
-    /* Fix text input field container - remove white background */
+    /* Fix text input field container - dark background to match field */
     .stChatInput, .stChatInput > div, .stChatInput > div > div {
-        background-color: transparent !important;
+        background-color: #262730 !important;
         border: none !important;
+        border-radius: 0.5rem !important;
     }
     
     /* Override any remaining black text - simple approach */
