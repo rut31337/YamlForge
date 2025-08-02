@@ -184,6 +184,17 @@ def get_theme_styles():
         max-width: calc(100% - 2rem) !important;
     }
     
+    /* Fix preformatted text boxes - dark background in OpenShift */
+    .stChatMessage pre, [data-testid="chatMessage"] pre {
+        background-color: #1e1e1e !important;
+    }
+    
+    /* Fix text input field container - remove white background */
+    .stChatInput, .stChatInput > div, .stChatInput > div > div {
+        background-color: transparent !important;
+        border: none !important;
+    }
+    
     /* Override any remaining black text - simple approach */
     [style*="color: rgb(0, 0, 0)"],
     [style*="color: black"],
