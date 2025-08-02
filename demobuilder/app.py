@@ -43,21 +43,37 @@ def get_theme_styles():
     """Get dark mode CSS styles for professional appearance."""
     return """
     <style>
-    /* Force dark theme for all users */
+    /* Force dark theme on root container first */
     .stApp {
         background-color: #0e1117 !important;
         color: #fafafa !important;
     }
     
+    /* Universal text color override - most aggressive approach */
+    * {
+        color: #fafafa !important;
+    }
+    
+    /* Specific overrides for known Streamlit classes */
+    .stMarkdown, .stMarkdown p, .stMarkdown div, .stMarkdown span,
+    .stText, .stText p, .stText div, .stText span,
+    .element-container, .element-container p, .element-container div, .element-container span,
+    [data-testid="stMarkdownContainer"], [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMarkdownContainer"] div, [data-testid="stMarkdownContainer"] span {
+        color: #fafafa !important;
+        background-color: transparent !important;
+    }
+    
+    /* Force dark theme on all container elements */
+    html, body, .stApp, [data-testid="stAppViewContainer"],
+    .main, .block-container, [data-testid="block-container"],
+    .css-1y4p8pa, .css-18e3th9, .css-1d391kg, .css-12oz5g7 {
+        background-color: #0e1117 !important;
+        color: #fafafa !important;
+    }
+    
     /* Hide Streamlit header and toolbar elements */
-    header[data-testid="stHeader"] {
-        display: none !important;
-    }
-    
-    div[data-testid="stToolbar"] {
-        display: none !important;
-    }
-    
+    header[data-testid="stHeader"], div[data-testid="stToolbar"], 
     div[data-testid="stDecoration"] {
         display: none !important;
     }
@@ -66,22 +82,16 @@ def get_theme_styles():
         padding-top: 0 !important;
     }
     
-    /* Main container */
-    .block-container {
-        padding-top: 2rem !important;
-        background-color: #0e1117 !important;
-        color: #fafafa !important;
-    }
-    
-    .main .block-container {
-        background-color: #0e1117 !important;
+    /* All text elements with maximum specificity */
+    p, span, div, h1, h2, h3, h4, h5, h6, label, a, li, td, th, 
+    .stMarkdown *, .stText *, .element-container * {
         color: #fafafa !important;
     }
     
     /* Header styling */
     .main-header {
         font-size: 2.2rem;
-        color: #58a6ff;
+        color: #58a6ff !important;
         text-align: center;
         margin-top: 0;
         margin-bottom: 0.5rem;
@@ -92,28 +102,28 @@ def get_theme_styles():
         opacity: 0.8;
         text-align: center;
         margin-bottom: 1rem;
-        color: #fafafa;
+        color: #fafafa !important;
     }
     
     /* Workflow stage styling */
-    .workflow-stage {
-        background-color: rgba(255,255,255,0.05);
-        color: #fafafa;
+    .workflow-stage, .workflow-stage * {
+        background-color: rgba(255,255,255,0.05) !important;
+        color: #fafafa !important;
         padding: 0.75rem;
         border-radius: 0.5rem;
         margin-bottom: 0.75rem;
-        border: 1px solid rgba(250, 250, 250, 0.2);
+        border: 1px solid rgba(250, 250, 250, 0.2) !important;
     }
     
     /* YAML preview styling */
-    .yaml-preview {
-        background-color: #1e1e1e;
-        color: #e2e8f0;
+    .yaml-preview, .yaml-preview * {
+        background-color: #1e1e1e !important;
+        color: #e2e8f0 !important;
         padding: 1rem;
         border-radius: 0.5rem;
         font-family: 'Courier New', monospace;
         font-size: 0.9rem;
-        border: 1px solid rgba(250, 250, 250, 0.2);
+        border: 1px solid rgba(250, 250, 250, 0.2) !important;
     }
     
     /* Hide deploy button */
@@ -121,49 +131,142 @@ def get_theme_styles():
         display: none !important;
     }
     
-    /* Streamlit sidebar theming */
-    .css-1d391kg {
-        background-color: #262730 !important;
-    }
-    
-    /* Streamlit button theming */
-    .stButton > button {
+    /* Button theming with maximum specificity */
+    .stButton > button, .stButton > button *,
+    button[kind="primary"], button[kind="primary"] *,
+    button[kind="secondary"], button[kind="secondary"] *,
+    .stDownloadButton > button, .stDownloadButton > button *,
+    [data-testid="baseButton-primary"], [data-testid="baseButton-primary"] *,
+    [data-testid="baseButton-secondary"], [data-testid="baseButton-secondary"] *,
+    button, button * {
         background-color: #262730 !important;
         color: #fafafa !important;
         border: 1px solid rgba(250, 250, 250, 0.2) !important;
     }
     
-    .stButton > button:hover {
+    .stButton > button:hover, .stButton > button:hover *,
+    button[kind="primary"]:hover, button[kind="primary"]:hover *,
+    button[kind="secondary"]:hover, button[kind="secondary"]:hover *,
+    .stDownloadButton > button:hover, .stDownloadButton > button:hover *,
+    [data-testid="baseButton-primary"]:hover, [data-testid="baseButton-primary"]:hover *,
+    [data-testid="baseButton-secondary"]:hover, [data-testid="baseButton-secondary"]:hover *,
+    button:hover, button:hover * {
         background-color: #3a3a3a !important;
         border-color: #58a6ff !important;
+        color: #fafafa !important;
     }
     
-    /* Text input theming */
-    .stTextInput > div > div > input {
+    /* Input theming with maximum specificity */
+    .stTextInput > div > div > input, .stTextInput > div > div > input *,
+    .stTextArea > div > div > textarea, .stTextArea > div > div > textarea *,
+    input[type="text"], input[type="text"] *,
+    input[type="email"], input[type="email"] *,
+    input[type="password"], input[type="password"] *,
+    textarea, textarea *,
+    [data-testid="textInput"], [data-testid="textInput"] *,
+    [data-testid="textArea"], [data-testid="textArea"] *,
+    input, input * {
+        background-color: #262730 !important;
+        color: #fafafa !important;
+        border-color: rgba(250, 250, 250, 0.2) !important;
+    }
+    
+    /* Placeholder text */
+    .stTextInput input::placeholder, .stTextArea textarea::placeholder,
+    input::placeholder, textarea::placeholder {
+        color: rgba(250, 250, 250, 0.5) !important;
+    }
+    
+    /* Chat input specific */
+    .stChatInput > div > div > input, .stChatInput > div > div > input *,
+    [data-testid="chatInput"] input, [data-testid="chatInput"] input * {
         background-color: #262730 !important;
         color: #fafafa !important;
         border-color: rgba(250, 250, 250, 0.2) !important;
     }
     
     /* Selectbox theming */
-    .stSelectbox > div > div > select {
+    .stSelectbox > div > div > select, .stSelectbox > div > div > select *,
+    select, select *,
+    [data-testid="selectbox"] select, [data-testid="selectbox"] select * {
         background-color: #262730 !important;
         color: #fafafa !important;
         border-color: rgba(250, 250, 250, 0.2) !important;
     }
     
     /* Chat elements */
-    .stChatMessage {
+    .stChatMessage, .stChatMessage *,
+    [data-testid="chatMessage"], [data-testid="chatMessage"] *,
+    .stChatMessage > div, .stChatMessage > div * {
         background-color: #262730 !important;
+        color: #fafafa !important;
     }
     
     /* Sidebar theming */
-    .css-1d391kg {
+    .css-1d391kg, .css-1d391kg *,
+    section[data-testid="stSidebar"], section[data-testid="stSidebar"] *,
+    .stSidebar, .stSidebar *,
+    [data-testid="stSidebar"] > div, [data-testid="stSidebar"] > div * {
         background-color: #262730 !important;
+        color: #fafafa !important;
     }
     
-    section[data-testid="stSidebar"] {
+    /* Expander theming */
+    .streamlit-expanderHeader, .streamlit-expanderHeader *,
+    [data-testid="expander"], [data-testid="expander"] * {
         background-color: #262730 !important;
+        color: #fafafa !important;
+    }
+    
+    /* Code blocks */
+    .stCode, .stCode *,
+    code, code *,
+    pre, pre *,
+    [data-testid="stCode"], [data-testid="stCode"] * {
+        background-color: #1e1e1e !important;
+        color: #e2e8f0 !important;
+    }
+    
+    /* Checkbox and radio theming */
+    .stCheckbox, .stCheckbox *,
+    .stRadio, .stRadio *,
+    [data-testid="checkbox"], [data-testid="checkbox"] *,
+    [data-testid="radio"], [data-testid="radio"] * {
+        color: #fafafa !important;
+    }
+    
+    /* Metrics and other components */
+    .stMetric, .stMetric *,
+    [data-testid="metric-container"], [data-testid="metric-container"] * {
+        background-color: #262730 !important;
+        color: #fafafa !important;
+    }
+    
+    /* Nuclear option: Override ALL inline styles */
+    [style*="background-color: rgb(255, 255, 255)"],
+    [style*="background-color: white"],
+    [style*="background: white"],
+    [style*="background: rgb(255, 255, 255)"] {
+        background-color: #0e1117 !important;
+    }
+    
+    [style*="color: rgb(0, 0, 0)"],
+    [style*="color: black"],
+    [style*="color: #000"],
+    [style*="color: #000000"] {
+        color: #fafafa !important;
+    }
+    
+    /* Final catch-all for any remaining text */
+    .stApp *, .main *, .block-container *, 
+    [data-testid="stAppViewContainer"] *,
+    [data-testid="block-container"] * {
+        color: #fafafa !important;
+    }
+    
+    /* Force override computed styles */
+    .stApp div:not([class*="stCode"]):not([class*="yaml-preview"]) {
+        color: #fafafa !important;
     }
     </style>
     """
