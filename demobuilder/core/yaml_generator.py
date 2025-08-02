@@ -622,7 +622,21 @@ class YamlForgeGenerator:
         """Generate YamlForge YAML using AI with schema validation"""
         
         # Load the schema
-        schema_path = "/home/prutledg/YamlForge/docs/yamlforge-schema.json"
+        # Try multiple paths to find the schema file
+        schema_paths = [
+            "yamlforge-schema.json",  # S2I build copies it to working directory
+            "../docs/yamlforge-schema.json",  # Relative from demobuilder
+            "/opt/app-root/src/yamlforge-schema.json",  # S2I working directory
+            "docs/yamlforge-schema.json"  # If running from repo root
+        ]
+        schema_path = None
+        for path in schema_paths:
+            if os.path.exists(path):
+                schema_path = path
+                break
+        
+        if not schema_path:
+            raise FileNotFoundError(f"Could not find yamlforge-schema.json in any of: {schema_paths}")
         try:
             with open(schema_path, 'r') as f:
                 schema_content = f.read()

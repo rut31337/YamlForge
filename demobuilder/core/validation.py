@@ -8,7 +8,21 @@ from pathlib import Path
 class YamlForgeValidator:
     def __init__(self, schema_path: Optional[str] = None):
         if schema_path is None:
-            schema_path = Path(__file__).parent.parent.parent / "docs" / "yamlforge-schema.json"
+            # Try multiple paths to find the schema file
+            schema_paths = [
+                Path(__file__).parent.parent / "yamlforge-schema.json",  # S2I working directory
+                Path(__file__).parent.parent.parent / "docs" / "yamlforge-schema.json",  # Relative from demobuilder
+                Path("/opt/app-root/src/yamlforge-schema.json"),  # S2I working directory
+                Path("yamlforge-schema.json")  # Current directory
+            ]
+            schema_path = None
+            for path in schema_paths:
+                if path.exists():
+                    schema_path = path
+                    break
+            
+            if not schema_path:
+                raise FileNotFoundError(f"Could not find yamlforge-schema.json in any of: {schema_paths}")
         
         with open(schema_path, 'r') as f:
             self.schema = json.load(f)
