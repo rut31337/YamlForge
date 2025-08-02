@@ -139,6 +139,7 @@ def get_theme_styles():
         color: #e0e0e0 !important;
         border: none !important;
         border-radius: 0.5rem !important;
+        padding-left: 1rem !important;
     }
     
     /* Input field placeholders */
