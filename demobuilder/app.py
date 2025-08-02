@@ -138,6 +138,7 @@ def get_theme_styles():
         background-color: #262730 !important;
         color: #e0e0e0 !important;
         border: none !important;
+        border-radius: 0.5rem !important;
     }
     
     /* Input field placeholders */
