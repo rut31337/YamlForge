@@ -71,6 +71,9 @@ class YamlForgeAnalyzer:
             return False, {}, [f"Analysis failed: {str(e)}"]
     
     async def _analyze_via_subprocess(self, yaml_config: str, enabled_providers: Optional[List[str]] = None) -> Tuple[bool, Dict[str, Any], List[str]]:
+        # Initialize temp_core_config at method level to avoid UnboundLocalError
+        temp_core_config = None
+        
         try:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
                 f.write(yaml_config)
@@ -96,7 +99,6 @@ class YamlForgeAnalyzer:
                 env['PYTHONPATH'] = str(self.yamlforge_root)
                 
                 # Handle provider selection from DemoBuilder
-                temp_core_config = None
                 if enabled_providers is not None:
                     # Get all available providers
                     all_providers = ['aws', 'azure', 'gcp', 'ibm_vpc', 'ibm_classic', 'oci', 'vmware', 'alibaba', 'cnv']
