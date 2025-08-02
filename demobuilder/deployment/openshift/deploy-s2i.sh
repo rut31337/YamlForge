@@ -12,8 +12,7 @@ fi
 
 # 1. Create new S2I application
 echo "Creating S2I application..."
-oc new-app python:3.11~https://github.com/rut31337/YamlForge.git \
-  --context-dir=demobuilder \
+oc new-app python:3.11-ubi9~https://github.com/rut31337/YamlForge.git \
   --name=demobuilder \
   --env=PORT=8501
 
@@ -33,11 +32,16 @@ oc create configmap demobuilder-config \
 echo "Configuring deployment..."
 oc set env deployment/demobuilder --from=secret/demobuilder-secrets
 oc set env deployment/demobuilder --from=configmap/demobuilder-config
+# Remove any incorrect environment variable and set it properly
+oc set env deployment/demobuilder ANTHROPIC_API_KEY-
+oc set env deployment/demobuilder --from=secret/demobuilder-secrets
 
-# 4. Expose service
-echo "Exposing service..."
-oc expose svc/demobuilder
-oc create route edge demobuilder-secure --service=demobuilder --port=8501 || true
+# 4. Create single HTTPS route with clean domain name
+echo "Creating HTTPS route..."
+oc create route edge demobuilder \
+  --service=demobuilder \
+  --port=8501 \
+  --hostname=demobuilder.$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}')
 
 # 5. Wait for deployment
 echo "Waiting for deployment..."
@@ -49,9 +53,8 @@ oc get pods -l app=demobuilder
 oc get routes
 
 echo ""
-echo "Application URLs:"
-echo "HTTP:  http://$(oc get route demobuilder -o jsonpath='{.spec.host}')"
-echo "HTTPS: https://$(oc get route demobuilder-secure -o jsonpath='{.spec.host}')"
+echo "Application URL:"
+echo "HTTPS: https://$(oc get route demobuilder -o jsonpath='{.spec.host}')"
 
 echo ""
 echo "To check logs: oc logs -f deployment/demobuilder"

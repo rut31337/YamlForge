@@ -21,11 +21,11 @@ oc new-app python:3.11-ubi9~https://github.com/rut31337/YamlForge.git \
   --name=demobuilder \
   --env=PORT=8501
 
-# Expose the service
-oc expose svc/demobuilder
-
-# Create secure route (optional)
-oc create route edge demobuilder-secure --service=demobuilder --port=8501
+# Create single HTTPS route with clean domain name
+oc create route edge demobuilder \
+  --service=demobuilder \
+  --port=8501 \
+  --hostname=demobuilder.$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}')
 ```
 
 ### 2. Configure Environment Variables
@@ -46,6 +46,8 @@ oc create configmap demobuilder-config \
 # Update deployment to use secrets and configmap
 oc set env deployment/demobuilder --from=secret/demobuilder-secrets
 oc set env deployment/demobuilder --from=configmap/demobuilder-config
+# Explicitly set the ANTHROPIC_API_KEY mapping
+oc set env deployment/demobuilder ANTHROPIC_API_KEY="" --from=secret/demobuilder-secrets --keys=anthropic-api-key
 ```
 
 ### 3. Advanced S2I Configuration
@@ -132,7 +134,11 @@ oc set env deployment/demobuilder \
 
 # Expose the service
 oc expose deployment/demobuilder --port=8501 --target-port=8501
-oc expose service/demobuilder
+# Create single HTTPS route with clean domain name
+oc create route edge demobuilder \
+  --service=demobuilder \
+  --port=8501 \
+  --hostname=demobuilder.$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}')
 ```
 
 ## Webhook Configuration (Optional)
@@ -318,10 +324,12 @@ echo "Configuring deployment..."
 oc set env deployment/demobuilder --from=secret/demobuilder-secrets
 oc set env deployment/demobuilder --from=configmap/demobuilder-config
 
-# 4. Expose service
-echo "Exposing service..."
-oc expose svc/demobuilder
-oc create route edge demobuilder-secure --service=demobuilder --port=8501 || true
+# 4. Create single HTTPS route with clean domain name
+echo "Creating HTTPS route..."
+oc create route edge demobuilder \
+  --service=demobuilder \
+  --port=8501 \
+  --hostname=demobuilder.$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}')
 
 # 5. Wait for deployment
 echo "Waiting for deployment..."
@@ -333,9 +341,8 @@ oc get pods -l app=demobuilder
 oc get routes
 
 echo ""
-echo "Application URLs:"
-echo "HTTP:  http://$(oc get route demobuilder -o jsonpath='{.spec.host}')"
-echo "HTTPS: https://$(oc get route demobuilder-secure -o jsonpath='{.spec.host}')"
+echo "Application URL:"
+echo "HTTPS: https://$(oc get route demobuilder -o jsonpath='{.spec.host}')"
 ```
 
 Save this as `deploy-s2i.sh` and run it for a complete S2I deployment.

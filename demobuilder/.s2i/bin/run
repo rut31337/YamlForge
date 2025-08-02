@@ -8,6 +8,17 @@ echo "Starting DemoBuilder with Streamlit..."
 echo "Working directory: $(pwd)"
 echo "Contents: $(ls -la)"
 
+# Check if we need to change to demobuilder directory
+if [ -d "demobuilder" ]; then
+    echo "Found demobuilder directory, changing to it..."
+    cd demobuilder
+    echo "Changed to demobuilder directory: $(pwd)"
+    echo "Demobuilder contents: $(ls -la)"
+else
+    echo "Already in demobuilder root directory: $(pwd)"
+    echo "Contents: $(ls -la)"
+fi
+
 # Set Streamlit configuration for containerized environment
 export STREAMLIT_SERVER_PORT=${PORT:-8501}
 export STREAMLIT_SERVER_ADDRESS=0.0.0.0
