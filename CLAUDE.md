@@ -45,6 +45,23 @@ pip install -e .[dev]
 - **Always use /tmp subdirectories for test files**: `mkdir -p /tmp/yamlforge-test-{timestamp}`
 - Source environment variables if cloud credentials needed: `source ~/.envvars.sh`
 
+### DemoBuilder Deployment (OpenShift S2I)
+```bash
+# Deploy DemoBuilder chatbot to OpenShift
+export ANTHROPIC_API_KEY="your-api-key"
+./demobuilder/deployment/openshift/deploy-s2i.sh
+
+# Check deployment status
+oc get pods -n demobuilder
+oc get routes -n demobuilder
+
+# Application URL
+echo "https://$(oc get route demobuilder -n demobuilder -o jsonpath='{.spec.host}')"
+
+# View logs
+oc logs deployment/demobuilder -n demobuilder
+```
+
 ## Architecture Overview
 
 YamlForge is a multi-cloud infrastructure converter that translates universal YAML configurations into provider-specific Terraform code. The architecture follows a modular provider pattern:
@@ -178,6 +195,23 @@ YamlForge is a multi-cloud infrastructure converter that translates universal YA
 - Use `port_range` not `port` in security group rules
 - Different providers have different networking and security models
 - Examples may be outdated - schema is always current
+
+### Environment Variable Configuration
+**Provider Exclusion**: Control which providers are excluded from `cheapest` analysis:
+```bash
+# Exclude specific providers from cost optimization
+export YAMLFORGE_EXCLUDE_PROVIDERS="aws,azure,gcp"
+python yamlforge.py config.yaml --analyze
+
+# DemoBuilder automatically sets this based on UI provider selection
+# No manual configuration needed for DemoBuilder deployments
+```
+
+**Key Features**:
+- Clean environment-based configuration (no temporary files)
+- Automatic merging with existing `exclude_from_cheapest` settings
+- Used by DemoBuilder for provider filtering in containerized environments
+- Comma-separated list format for multiple provider exclusions
 
 ## Testing and Quality
 

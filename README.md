@@ -45,6 +45,27 @@ terraform version  # Should show v1.12.0 or newer
 
 **Requirement:** Terraform v1.12.0+ required for OpenShift/ROSA support
 
+### DemoBuilder - AI-Powered Configuration Assistant
+
+**Interactive chatbot for YamlForge configuration generation:**
+
+DemoBuilder is a conversational AI assistant that helps you create YamlForge configurations through natural language. Simply describe your infrastructure needs, and DemoBuilder will generate, validate, and analyze configurations in real-time.
+
+**Features:**
+- Natural language infrastructure generation
+- Real-time cost analysis across cloud providers  
+- Interactive configuration refinement
+- Schema validation and auto-correction
+- Provider selection and filtering
+
+**Deploy DemoBuilder to OpenShift:**
+```bash
+export ANTHROPIC_API_KEY="your-api-key"
+./demobuilder/deployment/openshift/deploy-s2i.sh
+```
+
+📖 **[Full DemoBuilder Documentation](demobuilder/CLAUDE.md)**
+
 ### Define Once, Deploy Everywhere
 ```yaml
 # infrastructure.yaml
