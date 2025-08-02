@@ -49,8 +49,9 @@ def get_theme_styles():
         color: #fafafa !important;
     }
     
-    /* Simple text color override for OpenShift compatibility */
-    p, div, span, h1, h2, h3, h4, h5, h6, label, a {
+    /* Simple text color override for OpenShift compatibility - exclude code elements */
+    p:not(code):not(pre), div:not(.stCode):not([data-testid="stCode"]), 
+    span:not(code span), h1, h2, h3, h4, h5, h6, label, a {
         color: #fafafa !important;
     }
     
@@ -135,8 +136,13 @@ def get_theme_styles():
     .stChatInput > div > div > input,
     input[type="text"], textarea {
         background-color: #262730 !important;
-        color: #d0d0d0 !important;
-        border: 1px solid rgba(250, 250, 250, 0.2) !important;
+        color: #e0e0e0 !important;
+        border: none !important;
+    }
+    
+    /* Input field placeholders */
+    input::placeholder, textarea::placeholder {
+        color: #888 !important;
     }
     
     /* Footer links - light grey */
@@ -160,8 +166,22 @@ def get_theme_styles():
         color: #fafafa !important;
     }
     
-    .stChatMessage *, [data-testid="chatMessage"] * {
+    .stChatMessage *:not(code):not(code *), [data-testid="chatMessage"] *:not(code):not(code *) {
         color: #fafafa !important;
+    }
+    
+    /* Only fix text areas in expandable sections if they have readability issues */
+    .stTextArea > div > div > textarea {
+        background-color: #1e1e1e !important;
+        color: #fafafa !important;
+        border: none !important;
+    }
+    
+    /* Restore proper padding for preformatted text in chat */
+    .stChatMessage code, .stChatMessage pre {
+        margin-right: 1rem !important;
+        padding-right: 1rem !important;
+        max-width: calc(100% - 2rem) !important;
     }
     
     /* Override any remaining black text - simple approach */
