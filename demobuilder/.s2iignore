@@ -1,0 +1,47 @@
+# S2I ignore file for DemoBuilder
+# Exclude development and testing files
+
+# Development files
+*.md
+.git*
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing files
+tests/
+test_*/
+*_test.py
+pytest.ini
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Documentation
+docs/
+*.rst
+
+# Deployment files (but keep .s2i)
+deployment/
+Dockerfile
+docker-compose*
+.dockerignore

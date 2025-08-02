@@ -13,8 +13,8 @@ fi
 # 1. Create new S2I application
 echo "Creating S2I application..."
 oc new-app python:3.11-ubi9~https://github.com/rut31337/YamlForge.git \
-  --name=demobuilder \
-  --env=PORT=8501
+  --context-dir=demobuilder \
+  --name=demobuilder
 
 # 2. Create configuration
 echo "Setting up configuration..."

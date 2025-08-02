@@ -2,32 +2,24 @@
 set -e
 
 # S2I run script for DemoBuilder
-# This script is executed by OpenShift S2I to start the application
+# This script runs the assembled application
 
-echo "Starting DemoBuilder with Streamlit..."
-echo "Working directory: $(pwd)"
-echo "Contents: $(ls -la)"
+echo "---> Starting DemoBuilder with Streamlit..."
 
-# Check if we need to change to demobuilder directory
-if [ -d "demobuilder" ]; then
-    echo "Found demobuilder directory, changing to it..."
+# Check if we're in a subdirectory and need to change to the app directory
+if [ -f "demobuilder/app.py" ]; then
+    echo "---> Changing to demobuilder directory"
     cd demobuilder
-    echo "Changed to demobuilder directory: $(pwd)"
-    echo "Demobuilder contents: $(ls -la)"
-else
-    echo "Already in demobuilder root directory: $(pwd)"
-    echo "Contents: $(ls -la)"
+elif [ ! -f "app.py" ]; then
+    echo "ERROR: app.py not found in current directory or demobuilder subdirectory"
+    exit 1
 fi
 
-# Set Streamlit configuration for containerized environment
-export STREAMLIT_SERVER_PORT=${PORT:-8501}
-export STREAMLIT_SERVER_ADDRESS=0.0.0.0
-export STREAMLIT_SERVER_HEADLESS=true
-export STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+echo "---> Starting Streamlit on port ${PORT:-8501}"
 
 # Start the application using streamlit
 exec streamlit run app.py \
   --server.headless=true \
-  --server.port=${STREAMLIT_SERVER_PORT} \
+  --server.port=${PORT:-8501} \
   --server.address=0.0.0.0 \
   --browser.gatherUsageStats=false
