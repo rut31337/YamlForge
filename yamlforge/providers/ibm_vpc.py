@@ -161,7 +161,9 @@ resource "ibm_is_security_group_rule" "{resource_name}_rule_{i+1}" {{
         """Generate IBM VPC virtual server instance."""
         instance_name = instance.get("name", f"instance_{index}")
         instance_name = self.converter.replace_guid_placeholders(instance_name)
-        image = instance.get("image", "RHEL9-latest")
+        image = instance.get("image")
+        if not image:
+            raise ValueError(f"Instance '{instance_name}' requires an 'image' field")
         guid = self.converter.get_validated_guid(yaml_data)
         ibm_region = self.converter.resolve_instance_region(instance, "ibm_vpc")
         user_specified_zone = instance.get('zone')

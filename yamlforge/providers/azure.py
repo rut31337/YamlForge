@@ -194,7 +194,9 @@ resource "azurerm_network_security_group" "{regional_sg_name}_{self.converter.ge
         instance_name = instance.get("name", f"instance_{index}")
         # Replace {guid} placeholder in instance name
         instance_name = self.converter.replace_guid_placeholders(instance_name)
-        image = instance.get("image", "RHEL9-latest")
+        image = instance.get("image")
+        if not image:
+            raise ValueError(f"Instance '{instance_name}' requires an 'image' field")
 
         # Resolve region using region/location logic
         azure_region = self.converter.resolve_instance_region(instance, "azure")

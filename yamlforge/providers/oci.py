@@ -165,7 +165,9 @@ class OCIProvider:
         instance_name = instance.get("name", f"instance_{index}")
         # Replace {guid} placeholder in instance name
         instance_name = self.converter.replace_guid_placeholders(instance_name)
-        image = instance.get("image", "RHEL9-latest")
+        image = instance.get("image")
+        if not image:
+            raise ValueError(f"Instance '{instance_name}' requires an 'image' field")
 
         # Resolve region and availability domain
         oci_region = self.converter.resolve_instance_region(instance, "oci")

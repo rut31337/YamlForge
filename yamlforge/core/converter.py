@@ -2015,7 +2015,7 @@ output "external_ips" {
         default_username = self.core_config.get('security', {}).get('default_username', 'cloud-user')
         
         # Determine username based on provider and image
-        image = instance.get('image', 'RHEL9-latest')
+        image = instance.get('image', '')
         
         # Debug output to trace the issue  
         # print(f"SSH DEBUG START: provider='{provider}', image='{image}'")

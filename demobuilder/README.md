@@ -46,6 +46,10 @@ DemoBuilder is a conversational AI chatbot that simplifies multi-cloud infrastru
 
 3. **Run the application**:
    ```bash
+   # Recommended: Use the local development runner
+   python run_local.py
+   
+   # Alternative: Run directly with Streamlit
    streamlit run app.py
    ```
 
@@ -209,6 +213,43 @@ Use the sidebar controls to enable/disable specific cloud providers. Default ena
 - **Direct Python Imports**: Uses YamlForge core modules for analysis
 - **Analysis-Only Mode**: Executes `--analyze` without requiring cloud credentials
 
+## 💻 Local Development
+
+### Development Runner Script
+
+DemoBuilder includes a dedicated local development script (`run_local.py`) that provides environment validation and convenient startup options:
+
+```bash
+# Basic usage (starts on port 8501)
+python run_local.py
+
+# Advanced options
+python run_local.py --port 8502        # Use different port
+python run_local.py --debug            # Enable debug logging
+python run_local.py --no-browser       # Don't auto-open browser
+python run_local.py --help             # Show all options
+```
+
+**Features:**
+- **Environment Validation**: Checks for required dependencies and YamlForge installation
+- **Path Management**: Automatically sets up Python paths for YamlForge imports
+- **Environment Reporting**: Shows status of API keys and configuration variables
+- **Cross-Platform**: Works on Linux, macOS, and Windows
+- **Non-Conflicting**: Safe to use alongside Docker/Podman and OpenShift deployments
+
+**Environment Variables Checked:**
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."              # Required for AI features
+export ANTHROPIC_VERTEX_PROJECT_ID="my-project"    # Optional: Vertex AI
+export YAMLFORGE_EXCLUDE_PROVIDERS="aws,azure"     # Optional: Provider filtering
+```
+
+**Prerequisites for Local Development:**
+- Python 3.11+
+- Streamlit (`pip install streamlit`)
+- YamlForge installed in parent directory (`../yamlforge/`)
+- Optional: `ANTHROPIC_API_KEY` for enhanced AI features
+
 ## 🐳 Deployment
 
 ### Docker Deployment
@@ -333,6 +374,12 @@ streamlit run app.py
 # Install development dependencies
 pip install -r requirements.txt
 
+# Run the application locally
+python run_local.py                    # Recommended for local development
+python run_local.py --port 8502        # Use different port
+python run_local.py --debug            # Enable debug logging
+python run_local.py --no-browser       # Don't auto-open browser
+
 # Run tests
 pytest tests/
 
@@ -346,6 +393,7 @@ mypy .
 ```
 demobuilder/
 ├── app.py                          # Main Streamlit application
+├── run_local.py                    # Local development runner script
 ├── requirements.txt                # Python dependencies
 ├── README.md                       # This file
 ├── CLAUDE.md                       # Developer documentation

@@ -139,7 +139,12 @@ class YamlForgeGenerator:
             images_file = mappings_dir / "images.yaml"
             if images_file.exists():
                 with open(images_file, 'r') as f:
-                    mappings['images'] = yaml.safe_load(f)
+                    images_yaml = yaml.safe_load(f)
+                    # Extract the actual images dict from the nested structure
+                    if images_yaml and 'images' in images_yaml:
+                        mappings['images'] = images_yaml['images']
+                    else:
+                        mappings['images'] = images_yaml
             
             # Load locations mapping  
             locations_file = mappings_dir / "locations.yaml"
@@ -407,7 +412,7 @@ class YamlForgeGenerator:
     def _extract_os(self, text: str) -> str:
         # Use AI to extract OS/image
         result = self._ai_extract_infrastructure_element(text, 'os')
-        return result if result else 'RHEL9-latest'
+        return result  # No fallback - let YamlForge handle pattern-based RHEL images
     
     def _extract_gpu_requirements(self, text: str) -> Dict[str, Any]:
         gpu_info = {'gpu_type': None, 'gpu_count': 1}
@@ -491,15 +496,19 @@ class YamlForgeGenerator:
             # Show first 20 image options including gold images
             image_list = available_options['images'][:20] if len(available_options['images']) > 20 else available_options['images']
             base_prompt += f"Available images: {', '.join(image_list)}\n"
-            base_prompt += "IMPORTANT: For 'rhel gold', 'gold rhel', 'rhel byos', 'byos rhel' use 'RHEL9-GOLD-latest' or 'RHEL8-GOLD-latest'. "
-            base_prompt += "For regular RHEL use 'RHEL9-latest' or 'RHEL8-latest'. "
+            base_prompt += "IMPORTANT: For 'rhel gold', 'gold rhel', 'rhel byos', 'byos rhel' use 'RHEL10-GOLD-latest', 'RHEL-10-GOLD-latest', 'RHEL9-GOLD-latest', 'RHEL-9-GOLD-latest', 'RHEL8-GOLD-latest', or 'RHEL-8-GOLD-latest'. "
+            base_prompt += "For regular RHEL use 'RHEL10-latest', 'RHEL-10-latest', 'RHEL9-latest', 'RHEL-9-latest', 'RHEL8-latest', or 'RHEL-8-latest'. "
             base_prompt += "For Ubuntu use 'Ubuntu22-latest' or 'Ubuntu20-latest'.\n"
         
-        base_prompt += f"Return ONLY the exact {element_type} value from the available options, no explanation."
+        if element_type == 'os':
+            base_prompt += f"Return ONLY the exact {element_type} value. You can use images from the available list OR pattern-based RHEL images (RHEL10-GOLD-latest, RHEL-10-GOLD-latest, RHEL10-latest, RHEL-10-latest, etc.), no explanation."
+        else:
+            base_prompt += f"Return ONLY the exact {element_type} value from the available options, no explanation."
         return base_prompt
     
     def _parse_ai_response(self, response: str, element_type: str, available_options: Dict[str, Any]) -> Any:
         """Parse and validate AI response."""
+        import re
         response = response.strip().strip('"').strip("'")
         
         # Validate response against available options
@@ -509,8 +518,13 @@ class YamlForgeGenerator:
             return response
         elif element_type == 'size' and response in available_options['flavors']:
             return response
-        elif element_type == 'os' and response in available_options['images']:
-            return response
+        elif element_type == 'os':
+            # Allow exact match from available options
+            if response in available_options['images']:
+                return response
+            # Also allow RHEL pattern-based images (YamlForge handles these dynamically)
+            elif re.match(r'^RHEL-?\d+(\.\d+)?(-GOLD)?-latest$', response, re.IGNORECASE):
+                return response
         
         # If exact match fails, try partial matching for some types
         if element_type == 'region':
@@ -662,7 +676,7 @@ MANDATORY INSTANCE FIELDS:
 - Size specification (choose ONE):
   * flavor: "small", "medium", "large", "xlarge" (string values only)
   * OR cores: 2 AND memory: 2048 (both required as integers)
-- image: RHEL9-latest, RHEL9-GOLD-latest, Ubuntu22-latest, Windows2022-latest, etc.
+- image: RHEL10-latest, RHEL10-GOLD-latest, RHEL9-latest, RHEL9-GOLD-latest, Ubuntu22-latest, Windows2022-latest, etc.
 - location: us-east, us-west, eu-west, ap-southeast, etc.
 
 CRITICAL SIZING RULES:
@@ -681,10 +695,11 @@ CRITICAL SIZING RULES:
 - TERMINOLOGY: Treat "RAM", "memory", "RAM memory", "system memory" all as the same - use memory field in YAML
 
 CRITICAL IMAGE RULES:
-- For RHEL GOLD/BYOS images: Use "RHEL9-GOLD-latest" or "RHEL8-GOLD-latest"
-- For regular RHEL: Use "RHEL9-latest" or "RHEL8-latest"
+- For RHEL GOLD/BYOS images: Use "RHEL10-GOLD-latest", "RHEL9-GOLD-latest" or "RHEL8-GOLD-latest"
+- For regular RHEL: Use "RHEL10-latest", "RHEL9-latest" or "RHEL8-latest"  
 - For Ubuntu: Use "Ubuntu22-latest" or "Ubuntu20-latest"
 - IMPORTANT: When user requests "rhel gold", "gold rhel", "rhel byos", "byos rhel" → use GOLD images
+- IMPORTANT: When user specifies RHEL version (rhel 10, rhel10) → use that version (RHEL10-GOLD-latest, RHEL10-latest)
 - When user requests regular "rhel" without gold/byos → use standard RHEL images
 
 Example for multi-cloud setup:

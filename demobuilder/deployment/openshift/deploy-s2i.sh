@@ -14,14 +14,14 @@ if [ -z "$ANTHROPIC_API_KEY" ]; then
     exit 1
 fi
 
-# 1. Create new S2I application (without auto-created service)
+# 1. Create new S2I application
 echo "Creating S2I application..."
 oc new-app python:3.11-ubi9~https://github.com/rut31337/YamlForge.git \
-  --name=demobuilder \
-  --no-service
+  --name=demobuilder
 
-# Create service with correct port
-echo "Creating service with correct port..."
+# Delete the auto-created service and create one with correct port
+echo "Updating service to use correct port..."
+oc delete service demobuilder
 oc expose deployment demobuilder --port=8501 --target-port=8501 --name=demobuilder
 
 # 2. Create configuration

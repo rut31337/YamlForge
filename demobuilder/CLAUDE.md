@@ -14,7 +14,13 @@ DemoBuilder is a conversational AI chatbot that helps users create multi-cloud i
 cd demobuilder
 pip install -r requirements.txt
 
-# Run the Streamlit app
+# Run the Streamlit app (local development)
+python run_local.py                    # Recommended for local development
+python run_local.py --port 8502        # Run on different port
+python run_local.py --debug            # Enable debug mode
+python run_local.py --no-browser       # Don't auto-open browser
+
+# Alternative: Run directly with Streamlit
 streamlit run app.py
 
 # Run tests
@@ -150,6 +156,7 @@ echo "https://$(oc get route demobuilder -n demobuilder -o jsonpath='{.spec.host
 ```
 demobuilder/
 ├── app.py                          # Streamlit main application
+├── run_local.py                    # Local development runner script
 ├── requirements.txt                # Python dependencies
 ├── Dockerfile                      # Container build configuration
 ├── CLAUDE.md                       # This documentation file
@@ -184,6 +191,46 @@ demobuilder/
         ├── deployment.yaml
         ├── service.yaml
         └── route.yaml
+```
+
+## Local Development Setup
+
+### Using the Development Runner
+
+The `run_local.py` script provides a convenient way to start DemoBuilder for local development:
+
+```bash
+# Basic usage (starts on port 8501)
+python run_local.py
+
+# Advanced options
+python run_local.py --port 8502        # Use different port
+python run_local.py --debug            # Enable debug logging
+python run_local.py --no-browser       # Don't auto-open browser
+python run_local.py --help             # Show all options
+```
+
+**Features:**
+- **Environment validation**: Checks for required dependencies and YamlForge installation
+- **Path management**: Automatically sets up Python paths for YamlForge imports
+- **Environment variable reporting**: Shows status of API keys and configuration
+- **Non-conflicting**: Safe to use alongside Docker/Podman builds and S2I deployments
+- **Cross-platform**: Works on Linux, macOS, and Windows
+
+**Prerequisites:**
+- Python 3.11+
+- Streamlit (`pip install streamlit`)
+- YamlForge installed in parent directory (`../yamlforge/`)
+- Optional: `ANTHROPIC_API_KEY` environment variable for AI features
+
+### Environment Variables
+
+The development runner checks and reports on key environment variables:
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."              # Required for AI features
+export ANTHROPIC_VERTEX_PROJECT_ID="my-project"    # Optional: Vertex AI
+export YAMLFORGE_EXCLUDE_PROVIDERS="aws,azure"     # Optional: Provider filtering
 ```
 
 ## Development Workflow
