@@ -365,10 +365,35 @@ class YamlForgeConverter:
         try:
             with open(file_path, 'r') as f:
                 data = yaml.safe_load(f)
-                return data or {}
+                config = data or {}
         except FileNotFoundError:
             print(f"Warning: {file_path} not found. Using default core configuration.")
-            return self.get_default_core_config()
+            config = self.get_default_core_config()
+        
+        # Override with environment variables if present
+        self._apply_env_overrides(config)
+        return config
+    
+    def _apply_env_overrides(self, config):
+        """Apply environment variable overrides to core configuration."""
+        import os
+        
+        # Check for provider exclusions via environment variable
+        # Format: YAMLFORGE_EXCLUDE_PROVIDERS="aws,azure,gcp"
+        excluded_providers_env = os.getenv('YAMLFORGE_EXCLUDE_PROVIDERS')
+        if excluded_providers_env:
+            excluded_providers = [p.strip() for p in excluded_providers_env.split(',') if p.strip()]
+            if excluded_providers:
+                # Ensure provider_selection exists
+                if 'provider_selection' not in config:
+                    config['provider_selection'] = {}
+                
+                # Merge with existing exclusions
+                existing_excluded = config['provider_selection'].get('exclude_from_cheapest', [])
+                all_excluded = list(set(existing_excluded + excluded_providers))
+                config['provider_selection']['exclude_from_cheapest'] = all_excluded
+                
+                print(f"Environment override: Excluding providers from cheapest analysis: {excluded_providers}")
 
     def get_default_core_config(self):
         """Get default core configuration when core.yaml is not found."""

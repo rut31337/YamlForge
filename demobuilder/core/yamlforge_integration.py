@@ -85,9 +85,6 @@ class YamlForgeAnalyzer:
             return False, {}, [f"Analysis failed: {str(e)}"]
     
     async def _analyze_via_subprocess(self, yaml_config: str, enabled_providers: Optional[List[str]] = None) -> Tuple[bool, Dict[str, Any], List[str]]:
-        # Initialize temp_core_config at method level to avoid UnboundLocalError
-        temp_core_config = None
-        
         try:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
                 f.write(yaml_config)
@@ -112,7 +109,7 @@ class YamlForgeAnalyzer:
                 env = os.environ.copy()
                 env['PYTHONPATH'] = str(self.yamlforge_root)
                 
-                # Handle provider selection from DemoBuilder
+                # Handle provider selection from DemoBuilder via environment variable
                 if enabled_providers is not None:
                     # Get all available providers
                     all_providers = ['aws', 'azure', 'gcp', 'ibm_vpc', 'ibm_classic', 'oci', 'vmware', 'alibaba', 'cnv']
@@ -121,31 +118,8 @@ class YamlForgeAnalyzer:
                     disabled_providers = [p for p in all_providers if p not in enabled_providers]
                     
                     if disabled_providers:
-                        # Create temporary core config with disabled providers excluded
-                        core_config_path = self.yamlforge_root / "defaults" / "core.yaml"
-                        
-                        # Read existing core config
-                        with open(core_config_path, 'r') as f:
-                            core_config = yaml.safe_load(f)
-                        
-                        # Update provider exclusions
-                        if 'provider_selection' not in core_config:
-                            core_config['provider_selection'] = {}
-                        
-                        # Merge disabled providers with existing exclusions
-                        existing_excluded = core_config['provider_selection'].get('exclude_from_cheapest', [])
-                        all_excluded = list(set(existing_excluded + disabled_providers))
-                        core_config['provider_selection']['exclude_from_cheapest'] = all_excluded
-                        
-                        # Write temporary core config
-                        temp_core_config = tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False, dir=str(self.yamlforge_root / "defaults"))
-                        yaml.dump(core_config, temp_core_config, default_flow_style=False)
-                        temp_core_config.close()
-                        
-                        # Backup original and use temporary
-                        original_core_config = core_config_path.with_suffix('.yaml.backup')
-                        core_config_path.rename(original_core_config)
-                        Path(temp_core_config.name).rename(core_config_path)
+                        # Set environment variable for YamlForge to pick up
+                        env['YAMLFORGE_EXCLUDE_PROVIDERS'] = ','.join(disabled_providers)
                 
                 cmd = [
                     sys.executable,
@@ -180,21 +154,6 @@ class YamlForgeAnalyzer:
                     
             finally:
                 os.unlink(config_file)
-                
-                # Restore original core config if we created a temporary one
-                if temp_core_config is not None:
-                    try:
-                        core_config_path = self.yamlforge_root / "defaults" / "core.yaml"
-                        original_core_config = core_config_path.with_suffix('.yaml.backup')
-                        
-                        # Remove temporary config and restore original
-                        if core_config_path.exists():
-                            core_config_path.unlink()
-                        if original_core_config.exists():
-                            original_core_config.rename(core_config_path)
-                    except Exception as e:
-                        # Log error but don't fail the analysis
-                        pass
                 
         except subprocess.TimeoutExpired:
             return False, {}, ["Analysis timed out after 30 seconds"]
