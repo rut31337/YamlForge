@@ -1,0 +1,25 @@
+#!/bin/bash
+set -e
+
+# S2I run script for DemoBuilder
+# This script runs the assembled application
+
+echo "---> Starting DemoBuilder with Streamlit..."
+
+# Check if we're in a subdirectory and need to change to the app directory
+if [ -f "demobuilder/app.py" ]; then
+    echo "---> Changing to demobuilder directory"
+    cd demobuilder
+elif [ ! -f "app.py" ]; then
+    echo "ERROR: app.py not found in current directory or demobuilder subdirectory"
+    exit 1
+fi
+
+echo "---> Starting Streamlit on port ${PORT:-8501}"
+
+# Start the application using streamlit
+exec streamlit run app.py \
+  --server.headless=true \
+  --server.port=${PORT:-8501} \
+  --server.address=0.0.0.0 \
+  --browser.gatherUsageStats=false

@@ -1,0 +1,27 @@
+#!/bin/bash
+set -e
+
+# S2I assemble script for DemoBuilder
+# This script builds and installs the application
+
+echo "---> Installing application source..."
+
+# Copy application source to /opt/app-root/src
+cp -Rf /tmp/src/. ./
+
+echo "---> Installing dependencies..."
+
+# Install Python dependencies
+if [ -f requirements.txt ]; then
+    pip install --no-cache-dir -r requirements.txt
+else
+    echo "WARNING: No requirements.txt found"
+fi
+
+# If we're building from the full YamlForge repo, install YamlForge as a package
+if [ -f setup.py ] || [ -f pyproject.toml ]; then
+    echo "---> Installing YamlForge package..."
+    pip install --no-cache-dir -e .
+fi
+
+echo "---> Application source installed"

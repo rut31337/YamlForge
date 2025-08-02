@@ -17,7 +17,6 @@ fi
 # 1. Create new S2I application (without auto-created service)
 echo "Creating S2I application..."
 oc new-app python:3.11-ubi9~https://github.com/rut31337/YamlForge.git \
-  --context-dir=demobuilder \
   --name=demobuilder \
   --no-service
 
