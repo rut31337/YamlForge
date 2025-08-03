@@ -185,6 +185,15 @@ def get_theme_styles():
         color: #fafafa !important;
     }
     
+    /* Target Streamlit emotion cache classes for expanders */
+    [data-testid="expander"] .st-emotion-cache,
+    .streamlit-expanderContent .st-emotion-cache,
+    .st-emotion-cache[data-testid="expander"],
+    div[class*="st-emotion-cache"] {
+        background-color: #1e1e1e !important;
+        color: #fafafa !important;
+    }
+    
     /* Nuclear option for any remaining white backgrounds in expanders */
     [data-testid="expander"] *,
     .streamlit-expanderContent * {
