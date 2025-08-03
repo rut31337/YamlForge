@@ -40,211 +40,8 @@ def init_session_state():
 
 
 def get_theme_styles():
-    """Get dark mode CSS styles for professional appearance."""
-    return """
-    <style>
-    /* Force dark theme on main containers */
-    .stApp, [data-testid="stAppViewContainer"], .main, .block-container {
-        background-color: #0e1117 !important;
-        color: #fafafa !important;
-    }
-    
-    /* Simple text color override for OpenShift compatibility - exclude code elements */
-    p:not(code):not(pre), div:not(.stCode):not([data-testid="stCode"]), 
-    span:not(code span), h1, h2, h3, h4, h5, h6, label, a {
-        color: #fafafa !important;
-    }
-    
-    /* Hide Streamlit header and toolbar */
-    header[data-testid="stHeader"], div[data-testid="stToolbar"], 
-    div[data-testid="stDecoration"] {
-        display: none !important;
-    }
-    
-    .stAppViewContainer > .main {
-        padding-top: 0 !important;
-    }
-    
-    /* Header styling */
-    .main-header {
-        font-size: 2.2rem;
-        color: #fafafa !important;
-        text-align: center;
-        margin-top: 0;
-        margin-bottom: 0.5rem;
-    }
-    
-    .subtitle {
-        font-size: 1.1rem;
-        opacity: 0.8;
-        text-align: center;
-        margin-bottom: 1rem;
-        color: #fafafa !important;
-    }
-    
-    /* Workflow stage styling */
-    .workflow-stage {
-        background-color: rgba(255,255,255,0.05) !important;
-        color: #fafafa !important;
-        padding: 0.75rem;
-        border-radius: 0.5rem;
-        margin-bottom: 0.75rem;
-        border: 1px solid rgba(250, 250, 250, 0.2) !important;
-    }
-    
-    /* YAML preview styling */
-    .yaml-preview {
-        background-color: #1e1e1e !important;
-        color: #e2e8f0 !important;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        font-family: 'Courier New', monospace;
-        font-size: 0.9rem;
-        border: 1px solid rgba(250, 250, 250, 0.2) !important;
-    }
-    
-    /* Hide deploy button */
-    button[title="Deploy this app"] {
-        display: none !important;
-    }
-    
-    /* Button styling - black background with light grey text */
-    .stButton > button, button {
-        background-color: #262730 !important;
-        color: #d0d0d0 !important;
-        border: 1px solid rgba(250, 250, 250, 0.2) !important;
-    }
-    
-    .stButton > button:hover, button:hover {
-        background-color: #3a3a3a !important;
-        color: #fafafa !important;
-        border-color: #58a6ff !important;
-    }
-    
-    /* Sidebar and provider configuration - grey background with white text */
-    section[data-testid="stSidebar"], .stSidebar {
-        background-color: #262730 !important;
-        color: #fafafa !important;
-    }
-    
-    section[data-testid="stSidebar"] *, .stSidebar * {
-        color: #fafafa !important;
-    }
-    
-    /* Text input fields - grey background with light grey text */
-    .stTextInput > div > div > input,
-    .stChatInput > div > div > input,
-    input[type="text"], textarea {
-        background-color: #262730 !important;
-        color: #e0e0e0 !important;
-        border: none !important;
-        border-radius: 0.5rem !important;
-        padding-left: 1rem !important;
-    }
-    
-    /* Input field placeholders */
-    input::placeholder, textarea::placeholder {
-        color: #888 !important;
-    }
-    
-    /* Footer links - light grey */
-    a, a:link, a:visited {
-        color: #d0d0d0 !important;
-    }
-    
-    a:hover {
-        color: #fafafa !important;
-    }
-    
-    /* Analysis results and expanders - grey background with white text */
-    .streamlit-expanderHeader, [data-testid="expander"] {
-        background-color: #262730 !important;
-        color: #fafafa !important;
-    }
-    
-    /* Fix expander content areas - dark background with aggressive targeting */
-    .streamlit-expanderContent,
-    [data-testid="expander"] > div,
-    .streamlit-expander .streamlit-expanderContent,
-    .streamlit-expanderContent > div,
-    [data-testid="expander"] div[data-testid="stExpander"] > div {
-        background-color: #1e1e1e !important;
-        color: #fafafa !important;
-    }
-    
-    /* Fix code areas within expanders with aggressive targeting */
-    .streamlit-expanderContent code,
-    .streamlit-expanderContent pre,
-    [data-testid="expander"] code,
-    [data-testid="expander"] pre,
-    .streamlit-expanderContent [data-testid="stCode"],
-    [data-testid="expander"] [data-testid="stCode"],
-    .streamlit-expanderContent .stCode,
-    [data-testid="expander"] .stCode {
-        background-color: #1e1e1e !important;
-        color: #fafafa !important;
-    }
-    
-    /* Target specific emotion cache class without background */
-    .st-emotion-cache-1qhj3j0 {
-        background: none !important;
-        background-color: transparent !important;
-    }
-    
-    /* Chat messages - grey background with white text */
-    .stChatMessage, [data-testid="chatMessage"] {
-        background-color: #262730 !important;
-        color: #fafafa !important;
-    }
-    
-    .stChatMessage *:not(code):not(code *), [data-testid="chatMessage"] *:not(code):not(code *) {
-        color: #fafafa !important;
-    }
-    
-    /* Only fix text areas in expandable sections if they have readability issues */
-    .stTextArea > div > div > textarea {
-        background-color: #1e1e1e !important;
-        color: #fafafa !important;
-        border: none !important;
-    }
-    
-    /* Restore proper padding for preformatted text in chat */
-    .stChatMessage code, .stChatMessage pre {
-        margin-right: 1rem !important;
-        padding-right: 1rem !important;
-        max-width: calc(100% - 2rem) !important;
-    }
-    
-    /* Fix preformatted text boxes - dark background in OpenShift */
-    .stChatMessage pre, [data-testid="chatMessage"] pre {
-        background-color: #1e1e1e !important;
-    }
-    
-    /* Fix text input field container - only style the immediate input wrapper */
-    .stChatInput > div > div {
-        background-color: #262730 !important;
-        border: none !important;
-        border-radius: 0.5rem !important;
-        padding: 0 !important;
-        margin: 0 !important;
-    }
-    
-    /* Keep outer containers transparent to avoid extending borders */
-    .stChatInput, .stChatInput > div {
-        background-color: transparent !important;
-        border: none !important;
-        padding: 0 !important;
-    }
-    
-    /* Override any remaining black text - simple approach */
-    [style*="color: rgb(0, 0, 0)"],
-    [style*="color: black"],
-    [style*="color: #000"],
-    [style*="color: #000000"] {
-        color: #fafafa !important;
-    }
-    </style>
-    """
+    """No custom CSS needed - using native Streamlit dark theme."""
+    return ""
 
 
 def display_header():
@@ -267,12 +64,9 @@ def display_header():
         }
     )
     
-    # Apply dark theme styles
-    st.markdown(get_theme_styles(), unsafe_allow_html=True)
-    
-    # Simple clean header
-    st.markdown('<h1 class="main-header">🏗️ DemoBuilder</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle">AI-Powered Multi-Cloud Infrastructure Assistant</p>', unsafe_allow_html=True)
+    # Simple clean header using native Streamlit components
+    st.title("🏗️ DemoBuilder")
+    st.caption("AI-Powered Multi-Cloud Infrastructure Assistant")
 
 
 def display_workflow_stage():
@@ -287,12 +81,9 @@ def display_workflow_stage():
     stage = st.session_state.workflow_stage
     emoji, title, description = stage_info.get(stage, ("❓", "Unknown", "Unknown stage"))
     
-    st.markdown(f"""
-    <div class="workflow-stage">
-        <h3>{emoji} {title}</h3>
-        <p>{description}</p>
-    </div>
-    """, unsafe_allow_html=True)
+    with st.container():
+        st.subheader(f"{emoji} {title}")
+        st.write(description)
 
 
 def display_provider_controls():
