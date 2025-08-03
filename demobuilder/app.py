@@ -162,19 +162,32 @@ def get_theme_styles():
         color: #fafafa !important;
     }
     
-    /* Fix expander content areas - dark background */
+    /* Fix expander content areas - dark background with aggressive targeting */
     .streamlit-expanderContent,
     [data-testid="expander"] > div,
-    .streamlit-expander .streamlit-expanderContent {
+    .streamlit-expander .streamlit-expanderContent,
+    .streamlit-expanderContent > div,
+    [data-testid="expander"] div[data-testid="stExpander"] > div {
         background-color: #1e1e1e !important;
         color: #fafafa !important;
     }
     
-    /* Fix code areas within expanders */
+    /* Fix code areas within expanders with aggressive targeting */
     .streamlit-expanderContent code,
     .streamlit-expanderContent pre,
     [data-testid="expander"] code,
-    [data-testid="expander"] pre {
+    [data-testid="expander"] pre,
+    .streamlit-expanderContent [data-testid="stCode"],
+    [data-testid="expander"] [data-testid="stCode"],
+    .streamlit-expanderContent .stCode,
+    [data-testid="expander"] .stCode {
+        background-color: #1e1e1e !important;
+        color: #fafafa !important;
+    }
+    
+    /* Nuclear option for any remaining white backgrounds in expanders */
+    [data-testid="expander"] *,
+    .streamlit-expanderContent * {
         background-color: #1e1e1e !important;
         color: #fafafa !important;
     }
