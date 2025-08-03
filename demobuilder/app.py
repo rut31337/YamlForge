@@ -53,7 +53,6 @@ def get_theme_styles():
     p:not(code):not(pre), div:not(.stCode):not([data-testid="stCode"]), 
     span:not(code span), h1, h2, h3, h4, h5, h6, label, a {
         color: #fafafa !important;
-        background: #1e1e1e1e;
     }
     
     /* Hide Streamlit header and toolbar */
