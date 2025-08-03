@@ -162,6 +162,12 @@ def get_theme_styles():
         color: #fafafa !important;
     }
     
+    /* Expander hover state */
+    .streamlit-expanderHeader:hover, [data-testid="expander"]:hover {
+        background-color: #3a3a3a !important;
+        color: #fafafa !important;
+    }
+    
     /* Fix expander content areas - dark background with aggressive targeting */
     .streamlit-expanderContent,
     [data-testid="expander"] > div,
