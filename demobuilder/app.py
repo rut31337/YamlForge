@@ -162,6 +162,23 @@ def get_theme_styles():
         color: #fafafa !important;
     }
     
+    /* Fix expander content areas - dark background */
+    .streamlit-expanderContent,
+    [data-testid="expander"] > div,
+    .streamlit-expander .streamlit-expanderContent {
+        background-color: #1e1e1e !important;
+        color: #fafafa !important;
+    }
+    
+    /* Fix code areas within expanders */
+    .streamlit-expanderContent code,
+    .streamlit-expanderContent pre,
+    [data-testid="expander"] code,
+    [data-testid="expander"] pre {
+        background-color: #1e1e1e !important;
+        color: #fafafa !important;
+    }
+    
     /* Chat messages - grey background with white text */
     .stChatMessage, [data-testid="chatMessage"] {
         background-color: #262730 !important;
