@@ -53,6 +53,7 @@ def get_theme_styles():
     p:not(code):not(pre), div:not(.stCode):not([data-testid="stCode"]), 
     span:not(code span), h1, h2, h3, h4, h5, h6, label, a {
         color: #fafafa !important;
+        background: #1e1e1e1e;
     }
     
     /* Hide Streamlit header and toolbar */
@@ -159,12 +160,6 @@ def get_theme_styles():
     /* Analysis results and expanders - grey background with white text */
     .streamlit-expanderHeader, [data-testid="expander"] {
         background-color: #262730 !important;
-        color: #fafafa !important;
-    }
-    
-    /* Expander hover state */
-    .streamlit-expanderHeader:hover, [data-testid="expander"]:hover {
-        background-color: #3a3a3a !important;
         color: #fafafa !important;
     }
     
