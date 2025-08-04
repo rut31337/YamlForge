@@ -13,8 +13,6 @@ data:
   anthropic_model: "claude-3-5-sonnet-20241022"
   
   # Feature flags
-  context7_enabled: "true"
-  context7_mcp_url: "https://mcp.context7.com/mcp"
   redis_enabled: "false"
   keycloak_enabled: "false"
   

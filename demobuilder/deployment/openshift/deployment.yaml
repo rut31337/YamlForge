@@ -55,16 +55,6 @@ spec:
             configMapKeyRef:
               name: demobuilder-config
               key: anthropic_model
-        - name: CONTEXT7_ENABLED
-          valueFrom:
-            configMapKeyRef:
-              name: demobuilder-config
-              key: context7_enabled
-        - name: CONTEXT7_MCP_URL
-          valueFrom:
-            configMapKeyRef:
-              name: demobuilder-config
-              key: context7_mcp_url
         - name: REDIS_ENABLED
           valueFrom:
             configMapKeyRef:

@@ -78,7 +78,7 @@ yamlforge:
     worker_disk_size: 128
     networking:
       vnet_cidr: 10.1.0.0/16
-      master_subnet_cidr: 10.1.0.0/24
+      controlplane_subnet_cidr: 10.1.0.0/24
       worker_subnet_cidr: 10.1.1.0/24
       pod_cidr: 10.128.0.0/14
       service_cidr: 172.30.0.0/16

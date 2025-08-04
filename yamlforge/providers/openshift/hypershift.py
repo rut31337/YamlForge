@@ -84,8 +84,8 @@ class HyperShiftProvider(BaseOpenShiftProvider):
 # =============================================================================
 {group_note}# Management Cluster: {management_cluster_name}
 # Worker Provider: {worker_provider}
-# Cost Savings: ~60-70% compared to dedicated masters
-# Provisioning Time: 2-3 minutes (no master infrastructure needed)
+# Cost Savings: ~60-70% compared to dedicated control plane nodes
+# Provisioning Time: 2-3 minutes (no control plane infrastructure needed)
 
 {worker_terraform}
 

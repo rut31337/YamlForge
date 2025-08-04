@@ -191,6 +191,9 @@ class YamlForgeAnalyzer:
             if line.startswith('INSTANCES ('):
                 current_section = 'instances'
                 continue
+            elif line.startswith('OPENSHIFT CLUSTERS (') or line.startswith('CLUSTERS ('):
+                current_section = 'clusters'
+                continue
             elif line.startswith('REQUIRED PROVIDERS:'):
                 current_section = 'providers'
                 continue
@@ -263,6 +266,79 @@ class YamlForgeAnalyzer:
                             # End of cost analysis section
                             cost_analysis_for_instance = None
             
+            elif current_section == 'clusters':
+                # Parse OpenShift cluster details and expand them into component instances
+                if line and line[0].isdigit() and '. ' in line and line.endswith(':'):
+                    cluster_name = line.split('. ', 1)[1].rstrip(':')
+                    # Parse cluster components in subsequent lines
+                    cluster_info = {
+                        'name': cluster_name,
+                        'provider': 'Unknown',
+                        'region': 'Unknown',
+                        'type': 'OpenShift',
+                        'controlplane_count': 3,
+                        'worker_count': 3,
+                        'controlplane_type': 'Unknown',
+                        'worker_type': 'Unknown'
+                    }
+                    
+                    # Parse cluster details and node breakdown from following lines
+                    j = i + 1
+                    cluster_nodes_section = False
+                    while j < len(lines) and lines[j].strip():
+                        cluster_line = lines[j].strip()
+                        
+                        # Basic cluster info
+                        if cluster_line.startswith('Type: '):
+                            cluster_type = cluster_line[6:].strip()
+                            cluster_info['type'] = cluster_type
+                            # Map cluster type to provider
+                            if cluster_type in ['rosa-classic', 'rosa-hcp']:
+                                cluster_info['provider'] = 'aws'
+                            elif cluster_type == 'aro':
+                                cluster_info['provider'] = 'azure'
+                            elif cluster_type in ['self-managed', 'openshift-dedicated', 'hypershift']:
+                                cluster_info['provider'] = 'aws'  # Default, may be overridden
+                        elif cluster_line.startswith('Region: '):
+                            cluster_info['region'] = cluster_line[8:].strip()
+                        elif cluster_line == 'Cluster Nodes:':
+                            cluster_nodes_section = True
+                        elif cluster_nodes_section and cluster_line.startswith('• '):
+                            # Parse node breakdown: "• 3 control plane nodes (m5.large): $0.0960/hour each = $0.2880/hour"
+                            node_line = cluster_line[2:].strip()  # Remove bullet
+                            if 'control plane nodes' in node_line or 'controlplane nodes' in node_line:
+                                # Extract control plane count and type (support both old and new terminology)
+                                try:
+                                    parts = node_line.split(' ')
+                                    cluster_info['controlplane_count'] = int(parts[0])
+                                    if '(' in node_line and ')' in node_line:
+                                        type_start = node_line.find('(') + 1
+                                        type_end = node_line.find(')', type_start)
+                                        cluster_info['controlplane_type'] = node_line[type_start:type_end]
+                                except:
+                                    pass
+                            elif 'worker nodes' in node_line:
+                                # Extract worker count and type
+                                try:
+                                    parts = node_line.split(' ')
+                                    cluster_info['worker_count'] = int(parts[0])
+                                    if '(' in node_line and ')' in node_line:
+                                        type_start = node_line.find('(') + 1
+                                        type_end = node_line.find(')', type_start)
+                                        cluster_info['worker_type'] = node_line[type_start:type_end]
+                                except:
+                                    pass
+                        elif cluster_line.startswith('Total Cluster Cost:'):
+                            # End of cluster nodes section
+                            cluster_nodes_section = False
+                        elif not cluster_line.startswith(' ') and cluster_nodes_section:
+                            # End of cluster nodes section
+                            cluster_nodes_section = False
+                        j += 1
+                    
+                    # Expand OpenShift cluster into individual component instances
+                    self._expand_cluster_to_instances(cluster_info, analysis_result)
+            
             elif current_section == 'providers':
                 if line.startswith('• '):
                     provider = line[2:].strip()
@@ -315,6 +391,78 @@ class YamlForgeAnalyzer:
             }
         except Exception:
             return None
+    
+    def _expand_cluster_to_instances(self, cluster_info: Dict[str, Any], analysis_result: Dict[str, Any]):
+        """Expand an OpenShift cluster into its component instances for diagram visualization"""
+        cluster_name = cluster_info['name']
+        provider = cluster_info['provider']
+        region = cluster_info['region']
+        controlplane_count = cluster_info.get('controlplane_count', 3)
+        worker_count = cluster_info.get('worker_count', 3)
+        controlplane_type = cluster_info.get('controlplane_type', 'Unknown')
+        worker_type = cluster_info.get('worker_type', 'Unknown')
+        
+        # Create control plane nodes
+        for i in range(controlplane_count):
+            controlplane_instance = {
+                'name': f'{cluster_name}-controlplane-{i+1}',
+                'provider': provider,
+                'region': region,
+                'flavor': controlplane_type if controlplane_type != 'Unknown' else 'Control Plane Node',
+                'instance_type': controlplane_type,
+                'hourly_cost': 'Variable',
+                'image': 'RHCOS',
+                'cost_analysis': [],
+                'errors': [],
+                'purpose': 'control-plane'
+            }
+            analysis_result['instances'].append(controlplane_instance)
+        
+        # Create worker nodes
+        for i in range(worker_count):
+            worker_instance = {
+                'name': f'{cluster_name}-worker-{i+1}',
+                'provider': provider,
+                'region': region,
+                'flavor': worker_type if worker_type != 'Unknown' else 'Worker Node',
+                'instance_type': worker_type,
+                'hourly_cost': 'Variable',
+                'image': 'RHCOS',
+                'cost_analysis': [],
+                'errors': [],
+                'purpose': 'worker'
+            }
+            analysis_result['instances'].append(worker_instance)
+        
+        # Create API load balancer
+        api_lb_instance = {
+            'name': f'{cluster_name}-api-lb',
+            'provider': provider,
+            'region': region,
+            'flavor': 'API Load Balancer',
+            'instance_type': 'Network Load Balancer',
+            'hourly_cost': 'Included',
+            'image': 'Load Balancer',
+            'cost_analysis': [],
+            'errors': [],
+            'purpose': 'loadbalancer'
+        }
+        analysis_result['instances'].append(api_lb_instance)
+        
+        # Create ingress load balancer  
+        ingress_lb_instance = {
+            'name': f'{cluster_name}-ingress-lb',
+            'provider': provider,
+            'region': region,
+            'flavor': 'Ingress Load Balancer',
+            'instance_type': 'Application Load Balancer',
+            'hourly_cost': 'Included',
+            'image': 'Load Balancer',
+            'cost_analysis': [],
+            'errors': [],
+            'purpose': 'loadbalancer'
+        }
+        analysis_result['instances'].append(ingress_lb_instance)
     
     def get_provider_capabilities(self, provider: str) -> Dict[str, Any]:
         capabilities = {

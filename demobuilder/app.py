@@ -7,9 +7,27 @@ from core.yaml_generator import YamlForgeGenerator
 from core.validation import validate_and_fix_yaml
 from core.yamlforge_integration import YamlForgeAnalyzer
 from config.app_config import get_app_config, get_enabled_providers
+from config.auth_config import get_auth_config, show_auth_info, is_power_user, get_display_username
+from core.infrastructure_diagram import (
+    display_mermaid_diagram,
+    display_diagram_in_chat
+)
+from core.sharing import (
+    generate_share_url,
+    restore_state_from_url_params,
+    get_shareable_summary
+)
 
 
 def init_session_state():
+    # Check for shared state first, before initializing defaults
+    shared_state_restored = False
+    if not getattr(st.session_state, '_shared_state_restored', False):
+        if restore_state_from_url_params():
+            shared_state_restored = True
+        st.session_state._shared_state_restored = True
+    
+    # Always initialize these core states (even after shared state restore)
     if 'conversation_history' not in st.session_state:
         st.session_state.conversation_history = []
     
@@ -32,9 +50,11 @@ def init_session_state():
     if 'yamlforge_analyzer' not in st.session_state:
         st.session_state.yamlforge_analyzer = YamlForgeAnalyzer()
     
-    
+    # Initialize UI state (always needed)
     if 'show_examples' not in st.session_state:
         st.session_state.show_examples = False
+    
+    # Don't clear share URL automatically - let user control it with Clear button
     
     # Cost optimization feature removed
 
@@ -64,9 +84,18 @@ def display_header():
         }
     )
     
-    # Simple clean header using native Streamlit components
-    st.title("🏗️ DemoBuilder")
-    st.caption("AI-Powered Multi-Cloud Infrastructure Assistant")
+    # Header with username in top right corner if authenticated
+    username = get_display_username()
+    if username:
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            st.title("🏗️ DemoBuilder")
+            st.caption("AI-Powered Multi-Cloud Infrastructure Assistant")
+        with col2:
+            st.markdown(f"<div style='text-align: right; padding-top: 20px;'>👤 {username}</div>", unsafe_allow_html=True)
+    else:
+        st.title("🏗️ DemoBuilder")
+        st.caption("AI-Powered Multi-Cloud Infrastructure Assistant")
 
 
 def display_workflow_stage():
@@ -86,8 +115,126 @@ def display_workflow_stage():
         st.write(description)
 
 
+def clear_session_state():
+    """Clear all session state to start over"""
+    # Clear all session state except app config
+    keys_to_clear = [
+        'conversation_history',
+        'current_yaml', 
+        'analysis_result',
+        'workflow_stage',
+        'yaml_generator',
+        'yamlforge_analyzer'
+    ]
+    
+    for key in keys_to_clear:
+        if key in st.session_state:
+            del st.session_state[key]
+    
+    # Reset workflow stage
+    st.session_state.workflow_stage = "requirements"
+    st.session_state.conversation_history = []
+    st.session_state.current_yaml = ""
+    st.session_state.analysis_result = None
+    
+    # Reinitialize core components
+    st.session_state.yaml_generator = YamlForgeGenerator()
+    st.session_state.yamlforge_analyzer = YamlForgeAnalyzer()
+
+
+def handle_share_button_click():
+    """Handle the share button click and display the shareable link"""
+    try:
+        share_url = generate_share_url()
+        if share_url:
+            # Store the share URL in session state to persist across reruns
+            st.session_state.current_share_url = share_url
+            # Set a flag to show the share URL was just generated
+            st.session_state.share_url_generated = True
+        else:
+            st.sidebar.error("❌ Failed to generate share link")
+    except Exception as e:
+        st.sidebar.error(f"❌ Error generating share link: {str(e)}")
+
+
+def display_share_link_section():
+    """Display the share link section if a share URL exists"""
+    # Debug: Check if share URL exists
+    has_share_url = hasattr(st.session_state, 'current_share_url') and st.session_state.current_share_url
+    
+    if has_share_url:
+        # Only show success message if URL was just generated
+        if getattr(st.session_state, 'share_url_generated', False):
+            st.sidebar.success("✅ Share link generated!")
+            # Clear the flag so it doesn't show again
+            st.session_state.share_url_generated = False
+        
+        # Use a unique key that changes with the URL to avoid caching issues
+        share_key = f"share_url_{hash(st.session_state.current_share_url) % 10000}"
+        st.sidebar.text_input(
+            "Copy this link to share:",
+            value=st.session_state.current_share_url,
+            key=share_key,
+            help="Select all (Ctrl+A) and copy (Ctrl+C) this URL to share your requirements"
+        )
+        
+        if st.sidebar.button(
+            "🗑️ Clear", 
+            help="Clear the share link display",
+            use_container_width=True
+        ):
+            # Clear the share URL from session state
+            if hasattr(st.session_state, 'current_share_url'):
+                del st.session_state.current_share_url
+            if hasattr(st.session_state, 'share_url_generated'):
+                del st.session_state.share_url_generated
+            st.rerun()
+
+
 def display_provider_controls():
-    st.sidebar.header("🔧 Provider Configuration")
+    # Show authentication info first
+    show_auth_info()
+    
+    # Start Over and Share buttons - only show if user has conversation history
+    if st.session_state.conversation_history:
+        # Debug: Show current share state
+        if hasattr(st.session_state, 'current_share_url') and st.session_state.current_share_url:
+            st.sidebar.caption(f"🔗 Share URL active ({len(st.session_state.current_share_url)} chars)")
+            
+        if st.sidebar.button(
+            "🆕 Start Over", 
+            help="Clear all conversation history and start fresh",
+            use_container_width=True
+        ):
+            clear_session_state()
+            st.rerun()
+        
+        if st.sidebar.button(
+            "🔗 Share Requirements Link", 
+            help="Generate a shareable link with your current requirements",
+            use_container_width=True
+        ):
+            handle_share_button_click()
+        
+        # Display the share link section if a share URL exists
+        display_share_link_section()
+        
+        st.sidebar.divider()
+    
+    # Add diagram toggle control
+    st.sidebar.header("Diagram Settings")
+    if 'show_diagrams_in_chat' not in st.session_state:
+        st.session_state.show_diagrams_in_chat = True
+    
+    st.session_state.show_diagrams_in_chat = st.sidebar.checkbox(
+        "📊 Show infrastructure diagrams in chat",
+        value=st.session_state.show_diagrams_in_chat,
+        help="Toggle whether to include visual diagrams in analysis results"
+    )
+    
+    st.sidebar.divider()
+    
+    st.sidebar.header("Provider Configuration")
     
     config = get_app_config()
     
@@ -131,13 +278,56 @@ def display_provider_controls():
     return False  # Cost optimization disabled
 
 
+def render_chat_message_with_diagrams(content: str):
+    """Render a chat message that may contain Mermaid diagrams"""
+    # Check if the message contains a Mermaid diagram
+    if '[MERMAID_DIAGRAM]:' in content and '[/MERMAID_DIAGRAM]' in content:
+        # Split the content around the diagram
+        parts = content.split('[MERMAID_DIAGRAM]:')
+        
+        # Render the text before the diagram
+        if parts[0].strip():
+            st.write(parts[0].strip())
+        
+        # Extract and render the diagram
+        if len(parts) > 1:
+            diagram_part = parts[1].split('[/MERMAID_DIAGRAM]')[0]
+            remaining_content = parts[1].split('[/MERMAID_DIAGRAM]')[1] if '[/MERMAID_DIAGRAM]' in parts[1] else ''
+            
+            # Render the Mermaid diagram
+            if diagram_part.strip():
+                display_mermaid_diagram(diagram_part.strip(), f"chat_{hash(diagram_part)%10000}")
+            
+            # Render any remaining content after the diagram
+            if remaining_content.strip():
+                st.write(remaining_content.strip())
+    else:
+        # No diagram, render normally
+        st.write(content)
+
+
 def display_chat_interface():
     st.subheader("💬 Conversation")
     
     # Chat input at the top
     user_input = st.chat_input("Describe your demo infrastructure requirements...")
     
-    # Examples are now in the sidebar - remove from main area
+    # Latest Response Section - show most recent assistant response
+    if st.session_state.conversation_history:
+        # Find the most recent assistant message
+        latest_assistant_message = None
+        for message in reversed(st.session_state.conversation_history):
+            if message["role"] == "assistant":
+                latest_assistant_message = message
+                break
+        
+        if latest_assistant_message:
+            st.markdown("### 🔄 Latest Response")
+            # Use Streamlit's native info container for clean styling
+            with st.container():
+                render_chat_message_with_diagrams(latest_assistant_message["content"])
+            
+            st.divider()
     
     # Process user input
     if user_input:
@@ -149,9 +339,11 @@ def display_chat_interface():
         with st.chat_message("assistant"):
             with st.spinner("Processing your requirements..."):
                 response = process_user_input(user_input)
-                st.write(response)
+                render_chat_message_with_diagrams(response)
         
         st.session_state.conversation_history.append({"role": "assistant", "content": response})
+        # Force rerun to ensure sidebar updates properly
+        st.rerun()
     
     # Check if there's a pre-filled example to auto-submit
     if 'example_text' in st.session_state:
@@ -167,15 +359,17 @@ def display_chat_interface():
         with st.chat_message("assistant"):
             with st.spinner("Processing your requirements..."):
                 response = process_user_input(example_text)
-                st.write(response)
+                render_chat_message_with_diagrams(response)
         
         st.session_state.conversation_history.append({"role": "assistant", "content": response})
         st.rerun()
     
-    # Display conversation history
-    for message in st.session_state.conversation_history:
-        with st.chat_message(message["role"]):
-            st.write(message["content"])
+    # Full conversation history section
+    if st.session_state.conversation_history:
+        st.markdown("### 📜 Full Conversation History")
+        for message in st.session_state.conversation_history:
+            with st.chat_message(message["role"]):
+                render_chat_message_with_diagrams(message["content"])
 
 
 def process_user_input(user_input: str) -> str:
@@ -196,9 +390,11 @@ def handle_requirements_stage(user_input: str) -> str:
     st.session_state.original_requirements = user_input
     
     try:
+        enhanced_input = user_input
+        
         # For initial generation, don't pass existing config
         is_valid, yaml_config, messages = st.session_state.yaml_generator.generate_from_text(
-            user_input, auto_fix=True, use_cheapest=False
+            enhanced_input, auto_fix=True, use_cheapest=False
         )
         
         if is_valid:
@@ -342,10 +538,23 @@ def run_analysis():
 
 
 def display_yaml_preview():
-    # Examples section in right pane - always visible at the top
-    st.subheader("💡 Examples")
+    # Authentication-aware features section
+    auth_config = get_auth_config()
+    if auth_config.enabled and auth_config.is_authenticated():
+        user = auth_config.get_current_user()
+        if user and is_power_user():
+            st.subheader("Power User Features")
+            with st.expander("Advanced Options", expanded=False):
+                st.info("Power user features will be available here")
+                st.write("• Advanced configuration options")
+                st.write("• Historical configurations")
+                st.write("• Team collaboration features")
+                st.write("• Custom provider templates")
     
-    button_text = "➖ Hide Examples" if st.session_state.show_examples else "➕ Show Examples"
+    # Examples section in right pane - always visible at the top
+    st.subheader("Examples")
+    
+    button_text = "Hide Examples" if st.session_state.show_examples else "Show Examples"
     if st.button(button_text, help="Toggle example prompts"):
         st.session_state.show_examples = not st.session_state.show_examples
         st.rerun()
@@ -555,6 +764,23 @@ def format_analysis_as_chat_message() -> str:
         message += '\n'.join(relevant_lines)
         message += "\n```\n\n"
     
+    # Add infrastructure diagram marker for rendering (if enabled)
+    if getattr(st.session_state, 'show_diagrams_in_chat', True):
+        yaml_content = getattr(st.session_state, 'current_yaml', '')
+        user_requirements = getattr(st.session_state, 'original_requirements', '')
+        diagram_mermaid = display_diagram_in_chat(result, yaml_content, user_requirements)
+        
+        if diagram_mermaid:
+            # Check generation source from the comment in the mermaid code
+            generation_source = "Unknown"
+            if "%% Generated by: AI Generated" in diagram_mermaid:
+                generation_source = "AI Generated"
+            elif "%% Generated by: Fallback" in diagram_mermaid:
+                generation_source = "Fallback"
+            
+            message += f"📊 **Infrastructure Diagram** *({generation_source})*:\n\n"
+            # Use a special marker that will be processed during display
+            message += f"[MERMAID_DIAGRAM]:{diagram_mermaid}[/MERMAID_DIAGRAM]\n\n"
     
     message += "---\n"
     message += "Click the **Approve** button to the right of the analysis or suggest further changes in chat to refine the configuration."
@@ -574,6 +800,7 @@ def display_examples_in_right_pane():
         "Three RHEL VMs on AWS with SSH access",
         "Small ROSA cluster for development", 
         "Cheapest medium sized GPU instance for AI/ML",
+        "Build a LAMP stack with Linux, Apache, MySQL, PHP on cheapest provider",
         "Two medium sized web servers behind two small load balancer instances - cheapest",
         "Two development VMs on cheapest provider",
         "Two Windows Server 2022 VMs on Azure",
@@ -1008,6 +1235,8 @@ def main():
     
     with col1:
         display_chat_interface()
+    
+    # Full diagram modal removed - now shows in chat
     
     with col2:
         # Always show examples section

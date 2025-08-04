@@ -343,7 +343,13 @@ variable "openshift_{clean_name}_token" {{
         return re.sub(r'[^a-zA-Z0-9_]', '_', name)
     
     def get_openshift_machine_type(self, provider: str, size: str, role: str = 'worker') -> str:
-        """Get OpenShift-optimized machine type from flavor mappings"""
+        """Get OpenShift-optimized machine type from flavor mappings
+        
+        Args:
+            provider: Cloud provider (aws, azure, etc.)
+            size: Size specification (small, medium, large)
+            role: Node role ('worker' or 'controlplane')
+        """
         # Try OpenShift-specific flavors first
         openshift_flavor_key = f"openshift_{provider}"
         openshift_flavors = self.converter.flavors.get(openshift_flavor_key, {})

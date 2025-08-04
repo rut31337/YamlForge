@@ -34,7 +34,7 @@ yamlforge:
       worker_count: 6
       networking:
         vnet_cidr: "10.0.0.0/16"
-        master_subnet_cidr: "10.0.1.0/24"
+        controlplane_subnet_cidr: "10.0.1.0/24"
         worker_subnet_cidr: "10.0.2.0/24"
 ```
 
@@ -75,22 +75,22 @@ az ad sp create-for-rbac \
 openshift_clusters:
   - name: "small-cluster"
     type: "aro"
-    size: "small"    # 3 master + 3 worker nodes
+    size: "small"    # 3 controlplane + 3 worker nodes
     worker_count: 3
     
   - name: "medium-cluster"
     type: "aro"
-    size: "medium"   # 3 master + 6 worker nodes
+    size: "medium"   # 3 controlplane + 6 worker nodes
     worker_count: 6
     
   - name: "large-cluster"
     type: "aro"
-    size: "large"    # 3 master + 12 worker nodes
+    size: "large"    # 3 controlplane + 12 worker nodes
     worker_count: 12
     
   - name: "xlarge-cluster"
     type: "aro"
-    size: "xlarge"   # 3 master + 24 worker nodes
+    size: "xlarge"   # 3 controlplane + 24 worker nodes
     worker_count: 24
 ```
 
@@ -131,7 +131,7 @@ yamlforge:
       version: "latest"
       size: "medium"  # Cluster size (not instance size)
       worker_count: 6
-      master_machine_type: "Standard_D8s_v3"  # Custom master VM size
+      controlplane_machine_type: "Standard_D8s_v3"  # Custom controlplane VM size
       worker_machine_type: "Standard_D4s_v3"  # Custom worker VM size
       worker_disk_size: 256  # Custom disk size in GB
 ```

@@ -43,7 +43,7 @@ openshift:
       
     aro:
       vnet_cidr: "10.1.0.0/16"
-      master_subnet_cidr: "10.1.0.0/24"
+      controlplane_subnet_cidr: "10.1.0.0/24"
       worker_subnet_cidr: "10.1.1.0/24"
       
     openshift-dedicated:
@@ -131,7 +131,7 @@ aro:
     
   # Default VM sizes for ARO
   vm_sizes:
-    masters:
+    controlplanes:
       small: "Standard_D8s_v3"
       medium: "Standard_D8s_v3"
       large: "Standard_D16s_v3"
@@ -144,7 +144,7 @@ aro:
       
   # Default disk sizes
   disk_sizes:
-    master: 128
+    controlplane: 128
     worker: 128
 
 openshift_dedicated:
@@ -168,7 +168,7 @@ openshift_dedicated:
 self_managed:
   # Minimum requirements for self-managed OpenShift
   minimum_requirements:
-    masters:
+    controlplanes:
       cpu_cores: 4
       memory_gb: 16
       disk_gb: 120

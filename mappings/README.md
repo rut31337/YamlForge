@@ -164,9 +164,9 @@ openshift_clusters:
 flavor_mappings:
   small:
     rosa-small:
-      master_size: "master_small"
+      controlplane_size: "controlplane_small"
       worker_size: "worker_micro"
-      master_count: 3
+      controlplane_count: 3
       worker_count: 3
       hourly_cost: 0.25
       description: "Small ROSA cluster for development"
@@ -177,9 +177,9 @@ flavor_mappings:
   
   medium:
     rosa-medium:
-      master_size: "master_medium"
+      controlplane_size: "controlplane_medium"
       worker_size: "worker_medium"
-      master_count: 3
+      controlplane_count: 3
       worker_count: 6
       hourly_cost: 0.50
       description: "Medium ROSA cluster for production"

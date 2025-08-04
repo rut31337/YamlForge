@@ -4111,19 +4111,19 @@ no_credentials_mode = {str(self.no_credentials).lower()}
                     size_config = self.openshift_provider.get_cluster_size_config(cluster_size, cluster_type, provider)
                     
                     # Get counts from size config, with user overrides
-                    master_count = cluster.get('master_count', size_config.get('master_count', 0))
+                    controlplane_count = cluster.get('controlplane_count', size_config.get('controlplane_count', 0))
                     worker_count = cluster.get('worker_count', size_config.get('worker_count', 0))
                     
-                    # Resolve master and worker sizes to actual machine types
-                    master_size = size_config.get('master_size', '')
+                    # Resolve controlplane and worker sizes to actual machine types
+                    controlplane_size = size_config.get('controlplane_size', '')
                     worker_size = size_config.get('worker_size', '')
                     
-                    master_machine_type = ''
+                    controlplane_machine_type = ''
                     worker_machine_type = ''
                     
-                    if master_size:
+                    if controlplane_size:
                         try:
-                            master_machine_type = self.openshift_provider.get_openshift_machine_type(provider, master_size, 'master')
+                            controlplane_machine_type = self.openshift_provider.get_openshift_machine_type(provider, controlplane_size, 'controlplane')
                         except Exception:
                             pass
                             
@@ -4135,15 +4135,15 @@ no_credentials_mode = {str(self.no_credentials).lower()}
                     
                 except Exception:
                     # Fall back to direct machine type approach if size config fails
-                    master_count = cluster.get('master_count', 0)
+                    controlplane_count = cluster.get('controlplane_count', 0)
                     worker_count = cluster.get('worker_count', 0)
-                    master_machine_type = cluster.get('master_machine_type', '')
+                    controlplane_machine_type = cluster.get('controlplane_machine_type', '')
                     worker_machine_type = cluster.get('worker_machine_type', '')
             else:
                 # Use direct machine type approach (legacy)
-                master_count = cluster.get('master_count', 0)
+                controlplane_count = cluster.get('controlplane_count', 0)
                 worker_count = cluster.get('worker_count', 0)
-                master_machine_type = cluster.get('master_machine_type', '')
+                controlplane_machine_type = cluster.get('controlplane_machine_type', '')
                 worker_machine_type = cluster.get('worker_machine_type', '')
             
             # Calculate costs for different node types
@@ -4154,25 +4154,25 @@ no_credentials_mode = {str(self.no_credentials).lower()}
             openshift_flavors = self.flavors.get(openshift_flavor_key, {})
             provider_flavors = self.flavors.get(provider, {})
             
-            # Calculate master node costs
-            if master_count > 0 and master_machine_type:
-                master_cost = None
+            # Calculate controlplane node costs
+            if controlplane_count > 0 and controlplane_machine_type:
+                controlplane_cost = None
                 
                 # Search in OpenShift-specific flavor mappings first
                 for size, instances in openshift_flavors.get('flavor_mappings', {}).items():
-                    if master_machine_type in instances:
-                        master_cost = instances[master_machine_type]
+                    if controlplane_machine_type in instances:
+                        controlplane_cost = instances[controlplane_machine_type]
                         break
                 
                 # Fall back to regular provider flavors if not found
-                if not master_cost:
+                if not controlplane_cost:
                     for size, instances in provider_flavors.get('flavor_mappings', {}).items():
-                        if master_machine_type in instances:
-                            master_cost = instances[master_machine_type]
+                        if controlplane_machine_type in instances:
+                            controlplane_cost = instances[controlplane_machine_type]
                             break
                 
-                if master_cost and master_cost.get('hourly_cost'):
-                    total_cost += master_cost['hourly_cost'] * master_count
+                if controlplane_cost and controlplane_cost.get('hourly_cost'):
+                    total_cost += controlplane_cost['hourly_cost'] * controlplane_count
             
             # Calculate worker node costs
             if worker_count > 0 and worker_machine_type:

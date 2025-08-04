@@ -77,8 +77,8 @@ yamlforge:
       provider: "aws"
       region: "us-east-1"
       version: "4.15"
-      master_count: 3
-      master_machine_type: "m5.xlarge"
+      controlplane_count: 3
+      controlplane_machine_type: "m5.xlarge"
       worker_count: 5
       worker_machine_type: "m5.large"
 ```
@@ -135,8 +135,8 @@ YamlForge uses a simplified, consistent field structure for OpenShift clusters:
 - `version`: OpenShift version (e.g., "4.15", "latest")
 
 ### Node Configuration (Simplified)
-- `master_count`: Number of master/control plane nodes (for self-managed clusters)
-- `master_machine_type`: Machine type for masters (e.g., "m5.xlarge", "Standard_D4s_v3")
+- `controlplane_count`: Number of control plane nodes (for self-managed clusters)
+- `controlplane_machine_type`: Machine type for control plane nodes (e.g., "m5.xlarge", "Standard_D4s_v3")
 - `worker_count`: Number of worker nodes
 - `worker_machine_type`: Machine type for workers (e.g., "m5.large", "Standard_D2s_v3")
 
@@ -148,10 +148,10 @@ openshift_clusters:
     provider: "aws"
     region: "us-east-1"
     version: "4.15"
-    master_count: 3              # Control plane nodes
-    master_machine_type: "m5.xlarge"
+    controlplane_count: 3              # Control plane nodes
+    controlplane_machine_type: "m5.xlarge"
     worker_count: 5              # Application nodes
     worker_machine_type: "m5.large"
 ```
 
-**Note**: Master nodes run the control plane, worker nodes run applications. For managed services (ROSA, ARO), only worker node configuration is needed as the control plane is managed by the cloud provider. 
+**Note**: Control plane nodes run the control plane, worker nodes run applications. For managed services (ROSA, ARO), only worker node configuration is needed as the control plane is managed by the cloud provider. 

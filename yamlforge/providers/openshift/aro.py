@@ -174,7 +174,7 @@ class AROProvider(BaseOpenShiftProvider):
             worker_count = 3
         
         worker_disk_size = cluster_config.get('worker_disk_size', 128)
-        master_vm_size = size_config['master_size']
+        controlplane_vm_size = size_config['controlplane_size']
         worker_vm_size = size_config['worker_size']
         
         # Load ARO flavor mappings from YAML file
@@ -191,28 +191,28 @@ class AROProvider(BaseOpenShiftProvider):
                     # Find the appropriate size configuration
                     size_found = False
                     for size_name, size_configs in flavor_mappings.items():
-                        if size_name in [master_vm_size, worker_vm_size]:
+                        if size_name in [controlplane_vm_size, worker_vm_size]:
                             # Get the first (and usually only) config for this size
                             if size_configs:
                                 flavor_name = next(iter(size_configs.keys()))
                                 flavor_config = size_configs[flavor_name]
                                 
-                                if size_name == master_vm_size:
-                                    master_azure_size = flavor_config.get('master_size', 'Standard_D8s_v3')
+                                if size_name == controlplane_vm_size:
+                                    controlplane_azure_size = flavor_config.get('controlplane_size', 'Standard_D8s_v3')
                                 if size_name == worker_vm_size:
                                     worker_azure_size = flavor_config.get('worker_size', 'Standard_D4s_v3')
                                 size_found = True
                     
                     if not size_found:
                         # Fallback to default sizes if not found in mappings
-                        master_azure_size = 'Standard_D8s_v3'
+                        controlplane_azure_size = 'Standard_D8s_v3'
                         worker_azure_size = 'Standard_D4s_v3'
                         print(f"Warning: ARO size configuration not found in mappings, using defaults")
             else:
                 raise ValueError("ARO flavors file not found: mappings/flavors/aro.yaml")
         except Exception as e:
             # Fallback to default sizes if YAML loading fails
-            master_azure_size = 'Standard_D8s_v3'
+            controlplane_azure_size = 'Standard_D8s_v3'
             worker_azure_size = 'Standard_D4s_v3'
             print(f"Warning: Could not load ARO flavors from YAML: {e}, using defaults")
         
@@ -227,7 +227,7 @@ class AROProvider(BaseOpenShiftProvider):
         # Custom networking configuration
         networking = cluster_config.get('networking', {})
         vnet_cidr = networking.get('vnet_cidr', '10.1.0.0/16')
-        master_subnet_cidr = networking.get('master_subnet_cidr', '10.1.0.0/24')
+        controlplane_subnet_cidr = networking.get('controlplane_subnet_cidr', '10.1.0.0/24')
         worker_subnet_cidr = networking.get('worker_subnet_cidr', '10.1.1.0/24')
         pod_cidr = networking.get('pod_cidr', '10.128.0.0/14')
         service_cidr = networking.get('service_cidr', '172.30.0.0/16')
@@ -285,12 +285,12 @@ resource "azurerm_virtual_network" "aro_{clean_name}_vnet" {{
   }})
 }}
 
-# Master subnet for control plane nodes
-resource "azurerm_subnet" "aro_{clean_name}_master_subnet" {{
-  name                                          = "master-subnet"
+# Control plane subnet for control plane nodes
+resource "azurerm_subnet" "aro_{clean_name}_controlplane_subnet" {{
+  name                                          = "controlplane-subnet"
   resource_group_name                           = azurerm_resource_group.aro_{clean_name}_rg.name
   virtual_network_name                          = azurerm_virtual_network.aro_{clean_name}_vnet.name
-  address_prefixes                              = ["{master_subnet_cidr}"]
+  address_prefixes                              = ["{controlplane_subnet_cidr}"]
   private_link_service_network_policies_enabled = false
   service_endpoints                             = ["Microsoft.ContainerRegistry", "Microsoft.Storage"]
 }}
@@ -358,8 +358,8 @@ resource "azurerm_redhat_openshift_cluster" "aro_{clean_name}" {{
   }}
 
   main_profile {{
-    vm_size   = "{master_azure_size}"
-    subnet_id = azurerm_subnet.aro_{clean_name}_master_subnet.id
+    vm_size   = "{controlplane_azure_size}"
+    subnet_id = azurerm_subnet.aro_{clean_name}_controlplane_subnet.id
   }}
 
   api_server_profile {{
@@ -386,7 +386,7 @@ resource "azurerm_redhat_openshift_cluster" "aro_{clean_name}" {{
   depends_on = [
     azurerm_role_assignment.aro_{clean_name}_sp_contributor,
     azurerm_role_assignment.aro_{clean_name}_rp_network_contributor,
-    azurerm_subnet.aro_{clean_name}_master_subnet,
+    azurerm_subnet.aro_{clean_name}_controlplane_subnet,
     azurerm_subnet.aro_{clean_name}_worker_subnet
   ]
 
@@ -448,9 +448,9 @@ output "aro_service_principal_client_id_{clean_name}" {{
   value       = local.aro_service_principal_client_id
 }}
 
-output "aro_master_subnet_id_{clean_name}" {{
-  description = "ARO cluster master subnet ID"
-  value       = azurerm_subnet.aro_{clean_name}_master_subnet.id
+output "aro_controlplane_subnet_id_{clean_name}" {{
+  description = "ARO cluster control plane subnet ID"
+  value       = azurerm_subnet.aro_{clean_name}_controlplane_subnet.id
 }}
 
 output "aro_worker_subnet_id_{clean_name}" {{

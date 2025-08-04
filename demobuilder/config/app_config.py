@@ -15,8 +15,6 @@ class AppConfig(BaseModel):
     app_title: str = "DemoBuilder - Infrastructure Assistant"
     max_conversation_turns: int = 50
     anthropic_model: str = "claude-3-5-sonnet-20241022"
-    context7_enabled: bool = True
-    context7_mcp_url: str = "https://mcp.context7.com/mcp"
     redis_enabled: bool = False
     redis_url: Optional[str] = None
     keycloak_enabled: bool = False

@@ -359,14 +359,14 @@
             "minimum": 1,
             "description": "Number of worker nodes (must be multiple of 3 for ROSA HCP)"
           },
-          "master_count": {
+          "controlplane_count": {
             "type": "integer",
             "minimum": 1,
-            "description": "Number of master/control plane nodes (for self-managed clusters)"
+            "description": "Number of control plane nodes (for self-managed clusters)"
           },
-          "master_machine_type": {
+          "controlplane_machine_type": {
             "type": "string",
-            "description": "Machine type for master/control plane nodes (e.g., 'm5.xlarge', 'Standard_D4s_v3')"
+            "description": "Machine type for control plane nodes (e.g., 'm5.xlarge', 'Standard_D4s_v3')"
           },
           "worker_machine_type": {
             "type": "string",

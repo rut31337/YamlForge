@@ -35,7 +35,7 @@ yamlforge:
     size: small
     networking:
       vnet_cidr: 10.10.0.0/16
-      master_subnet_cidr: 10.10.1.0/24
+      controlplane_subnet_cidr: 10.10.1.0/24
       worker_subnet_cidr: 10.10.2.0/24
       service_cidr: 172.32.0.0/16
       pod_cidr: 10.129.0.0/14
@@ -50,7 +50,7 @@ yamlforge:
       service_cidr: 172.33.0.0/16
       pod_cidr: 10.130.0.0/14
       host_prefix: 22
-    masters:
+    controlplanes:
       count: 3
       instance_type: n1-standard-8
     workers:

@@ -38,7 +38,7 @@ This directory contains default configuration files for each cloud provider. The
 ### **`openshift.yaml`**
 **OpenShift Default Configuration**
 - **Default Base Networking**: Default CIDR blocks for service, pod, and machine networks per cluster type (can be overridden in input YAML)
-- **Sizing**: Default cluster sizes (micro, small, medium, large, xlarge) with master/worker counts
+- **Sizing**: Default cluster sizes (micro, small, medium, large, xlarge) with controlplane/worker counts
 - **Features**: OpenShift-specific feature defaults (security, auto-scaling, addons)
 - **Usage**: Always loaded by OpenShift provider for networking and cluster configuration defaults
 

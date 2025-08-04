@@ -43,10 +43,10 @@ class SelfManagedOpenShiftProvider(BaseOpenShiftProvider):
             cluster_config.get('size'), 'self-managed', cloud_provider=provider
         )
         
-        if 'master_count' not in size_config:
-            raise ValueError(f"Cluster size configuration for '{cluster_config.get('size')}' is missing 'master_count' field. Available fields: {list(size_config.keys())}")
+        if 'controlplane_count' not in size_config:
+            raise ValueError(f"Cluster size configuration for '{cluster_config.get('size')}' is missing 'controlplane_count' field. Available fields: {list(size_config.keys())}")
         
-        master_count = size_config['master_count']
+        controlplane_count = size_config['controlplane_count']
         worker_count = cluster_config.get('worker_count')
         
         # Generate infrastructure based on provider
@@ -78,12 +78,12 @@ class SelfManagedOpenShiftProvider(BaseOpenShiftProvider):
         zone = cluster_config.get('zone')
         
         # Get machine types using OpenShift-optimized flavor mappings  
-        master_machine_type = self.get_openshift_machine_type('gcp', size_config['master_size'], 'master')
+        controlplane_machine_type = self.get_openshift_machine_type('gcp', size_config['controlplane_size'], 'controlplane')
         worker_machine_type = self.get_openshift_machine_type('gcp', size_config['worker_size'], 'worker')
         
-        if 'master_count' not in size_config:
-            raise ValueError(f"Cluster size configuration is missing 'master_count' field. Available fields: {list(size_config.keys())}")
-        master_count = size_config['master_count']
+        if 'controlplane_count' not in size_config:
+            raise ValueError(f"Cluster size configuration is missing 'controlplane_count' field. Available fields: {list(size_config.keys())}")
+        controlplane_count = size_config['controlplane_count']
         worker_count = cluster_config.get('worker_count')
         
         # Get merged networking configuration (defaults + user overrides)
@@ -143,18 +143,18 @@ resource "google_compute_firewall" "{clean_name}_openshift_external" {{
   }}
   
   source_ranges = ["0.0.0.0/0"]
-  target_tags   = ["{cluster_name}-openshift-master"]
+  target_tags   = ["{cluster_name}-openshift-controlplane"]
 }}
 
 '''
 
-        # Generate master nodes
-        for i in range(master_count):
+        # Generate control plane nodes
+        for i in range(controlplane_count):
             terraform_config += f'''
-# OpenShift Master Node {i+1}
-resource "google_compute_instance" "{clean_name}_master_{i+1}" {{
-  name         = "{cluster_name}-master-{i+1}"
-  machine_type = "{master_machine_type}"
+# OpenShift Control Plane Node {i+1}
+resource "google_compute_instance" "{clean_name}_controlplane_{i+1}" {{
+  name         = "{cluster_name}-controlplane-{i+1}"
+  machine_type = "{controlplane_machine_type}"
   zone         = "{zone}"
   
   boot_disk {{
@@ -172,20 +172,20 @@ resource "google_compute_instance" "{clean_name}_master_{i+1}" {{
     }}
   }}
   
-  tags = ["{cluster_name}-openshift", "{cluster_name}-openshift-master"]
+  tags = ["{cluster_name}-openshift", "{cluster_name}-openshift-controlplane"]
   
   metadata = {{
     ssh-keys = "core:${{var.ssh_public_key}}"
-    user-data = base64encode(templatefile("${{path.module}}/openshift-master-userdata.yaml", {{
+    user-data = base64encode(templatefile("${{path.module}}/openshift-controlplane-userdata.yaml", {{
       cluster_name = "{cluster_name}"
-      node_type = "master"
+      node_type = "controlplane"
       node_index = {i+1}
     }}))
   }}
   
   labels = {{
     cluster = "{cluster_name}"
-    role = "master"
+    role = "controlplane"
     environment = "production"
     managed_by = "yamlforge"
   }}
@@ -257,8 +257,8 @@ resource "local_file" "{clean_name}_install_config" {{
     }}]
     controlPlane = {{
       hyperthreading = "Enabled"  
-      name = "master"
-      replicas = {master_count}
+      name = "controlplane"
+      replicas = {controlplane_count}
     }}
     networking = {{
       clusterNetwork = [{{
@@ -282,7 +282,7 @@ resource "local_file" "{clean_name}_install_config" {{
 # OpenShift Installer Automation
 resource "null_resource" "{clean_name}_installer" {{
   depends_on = [
-    google_compute_instance.{clean_name}_master_1,
+    google_compute_instance.{clean_name}_controlplane_1,
     google_compute_instance.{clean_name}_worker_1,
     local_file.{clean_name}_install_config
   ]

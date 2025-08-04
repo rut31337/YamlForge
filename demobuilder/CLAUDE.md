@@ -1,75 +1,34 @@
-# DemoBuilder - YamlForge Chatbot
+# DemoBuilder - Technical Implementation Guide
 
-This file provides guidance to Claude Code when working with the DemoBuilder chatbot project.
+This file provides comprehensive technical guidance for Claude Code when working with the DemoBuilder project.
 
-## Project Overview
-
-DemoBuilder is a conversational AI chatbot that helps users create multi-cloud infrastructure configurations using YamlForge as the backend engine. Users provide requirements in natural language, and DemoBuilder generates YamlForge YAML configurations with iterative refinement capabilities.
-
-## Quick Commands
+## Quick Reference Commands
 
 ### Development
 ```bash
-# Install dependencies
-cd demobuilder
-pip install -r requirements.txt
+# Setup and run locally
+cd demobuilder && pip install -r requirements.txt
+python run_local.py --debug
 
-# Run the Streamlit app (local development)
-python run_local.py                    # Recommended for local development
-python run_local.py --port 8502        # Run on different port
-python run_local.py --debug            # Enable debug mode
-python run_local.py --no-browser       # Don't auto-open browser
+# Code quality
+black . && flake8 . && pytest tests/
 
-# Alternative: Run directly with Streamlit
-streamlit run app.py
-
-# Run tests
-pytest tests/
-
-# Code formatting
-black .
-flake8 .
-mypy .
-```
-
-### Docker/OpenShift Deployment
-```bash
-# Build container locally
-docker build -t demobuilder:latest .
-
-# Run locally
-docker run -p 8501:8501 demobuilder:latest
-
-# Deploy to OpenShift with internal build
-cd demobuilder
-oc new-build --binary --strategy=docker --name=demobuilder
-oc start-build demobuilder --from-dir=. --follow
-oc apply -k deployment/openshift/
-
-# Deploy with Fedora base (for broader access)
-oc start-build demobuilder --from-dir=. --build-arg BASE_IMAGE=python:3.11
-
-# Check deployment
-oc get pods -n demobuilder
-oc get routes -n demobuilder
-
-# Get application URL and open in browser
-echo "Application available at:"
-echo "https://$(oc get route demobuilder -n demobuilder -o jsonpath='{.spec.host}')"
+# OpenShift deployment
+./deployment/openshift/deploy-s2i.sh --namespace demobuilder-dev
+./deployment/openshift/deploy-s2i.sh --namespace demobuilder-dev --enable-auth \
+  --keycloak-url https://keycloak.example.com --client-secret your-secret
 ```
 
 ## Architecture Overview
 
 ### Core Components
 
-**app.py** - Main Streamlit application entry point with professional UI
-**core/workflow.py** - LangGraph state machine managing conversation flow
+**app.py** - Main Streamlit application entry point with professional UI and authentication awareness
 **core/yaml_generator.py** - Schema-aware YAML generation with validation
 **core/yamlforge_integration.py** - Direct YamlForge Python imports for analysis
-**ui/chat_interface.py** - Clean chat interface with provider controls
-**ui/provider_controls.py** - Provider masking and configuration UI
-**ui/analysis_display.py** - YamlForge analysis results visualization
-**config/auth_config.py** - Keycloak SSO abstraction (future feature)
+**core/validation.py** - YAML schema validation and auto-correction
+**config/app_config.py** - Application configuration and provider management
+**config/auth_config.py** - Optional Keycloak authentication integration via OAuth2 Proxy
 
 ### Workflow States
 
@@ -86,15 +45,46 @@ echo "https://$(oc get route demobuilder -n demobuilder -o jsonpath='{.spec.host
 - Use schema validation from `docs/yamlforge-schema.json`
 - Execute only `--analyze` mode (no credentials required)
 
-**Context7 Integration**: Intermediate approach with MCP server
-- Session-based memory for conversation continuity
-- Cached infrastructure documentation
-- Intelligent context retrieval for multi-cloud knowledge
+**Infrastructure Visualization**: Interactive diagrams and insights
+- Real-time infrastructure diagrams from YamlForge analysis
+- Mini diagrams in sidebar with click-to-expand full view
+- Resource summaries and cost estimates
+- Provider-specific color coding and layouts
 
-**LangGraph Memory**: In-memory persistence with Redis option
-- Conversation state management
-- User preference tracking
-- Provider selection persistence
+**Authentication Integration**: Optional Keycloak SSO via OAuth2 Proxy
+- OAuth2 Proxy handles OIDC authentication at ingress level
+- User information extracted from proxy headers
+- Role-based access control for power user features
+- Seamless operation with or without authentication enabled
+
+## Authentication Architecture
+
+### Optional Keycloak Integration
+
+DemoBuilder supports optional Keycloak authentication through OAuth2 Proxy deployment:
+
+**Authentication Flow:**
+1. User accesses DemoBuilder route
+2. OAuth2 Proxy intercepts request and redirects to Keycloak if not authenticated
+3. After successful Keycloak login, OAuth2 Proxy forwards request with user headers
+4. Streamlit application extracts user information from headers for session management
+
+**Key Components:**
+- **OAuth2 Proxy**: Handles OIDC authentication and user header injection
+- **Authentication Middleware**: `config/auth_config.py` extracts user info from headers
+- **Role-Based Features**: Power user capabilities based on Keycloak roles
+- **Environment Toggle**: `KEYCLOAK_ENABLED` environment variable controls authentication
+
+**Security Features:**
+- Cookie-based session management with secure settings
+- HTTPS-only authentication flows
+- Role-based access control (admin, power-user roles)
+- Session timeout and logout functionality
+
+**Development Mode:**
+- `AUTH_DEV_MODE=true` enables testing without OAuth2 Proxy
+- Mock user information via environment variables
+- Seamless development workflow
 
 ## Development Guidelines
 
@@ -165,7 +155,7 @@ demobuilder/
 │   ├── workflow.py                 # LangGraph state machine
 │   ├── yaml_generator.py           # Schema-aware YAML generation
 │   ├── yamlforge_integration.py    # Direct YamlForge imports
-│   ├── context_manager.py          # Context7 integration
+│   ├── context_manager.py          # Infrastructure Diagrams integration
 │   └── validation.py               # YAML schema validation
 ├── ui/
 │   ├── __init__.py
@@ -190,207 +180,107 @@ demobuilder/
     └── openshift/
         ├── deployment.yaml
         ├── service.yaml
-        └── route.yaml
+        ├── route.yaml
+        ├── oauth2-proxy.yaml         # OAuth2 Proxy deployment for authentication
+        └── deploy-s2i.sh             # Enhanced S2I deployment script with auth support
 ```
 
-## Local Development Setup
-
-### Using the Development Runner
-
-The `run_local.py` script provides a convenient way to start DemoBuilder for local development:
+## Key Environment Variables
 
 ```bash
-# Basic usage (starts on port 8501)
-python run_local.py
+# Required
+export ANTHROPIC_API_KEY="sk-ant-..."              # AI functionality
 
-# Advanced options
-python run_local.py --port 8502        # Use different port
-python run_local.py --debug            # Enable debug logging
-python run_local.py --no-browser       # Don't auto-open browser
-python run_local.py --help             # Show all options
+# Optional
+export YAMLFORGE_EXCLUDE_PROVIDERS="aws,azure"     # Provider filtering
+export KEYCLOAK_ENABLED="true"                     # Enable authentication
+export AUTH_DEV_MODE="true"                        # Development authentication
+export AUTH_DEV_USER="dev-user"                    # Mock user for testing
 ```
 
-**Features:**
-- **Environment validation**: Checks for required dependencies and YamlForge installation
-- **Path management**: Automatically sets up Python paths for YamlForge imports
-- **Environment variable reporting**: Shows status of API keys and configuration
-- **Non-conflicting**: Safe to use alongside Docker/Podman builds and S2I deployments
-- **Cross-platform**: Works on Linux, macOS, and Windows
+## Development Guidelines
 
-**Prerequisites:**
-- Python 3.11+
-- Streamlit (`pip install streamlit`)
-- YamlForge installed in parent directory (`../yamlforge/`)
-- Optional: `ANTHROPIC_API_KEY` environment variable for AI features
+### Code Quality Standards
+- Follow PEP 8 formatting and meaningful variable names
+- Run `./tools/run_vulture.sh` before changes to identify unused code
+- Remove identified unused code but keep clearly marked future feature stubs
+- Use LF line endings (Unix format, not CRLF)
+- No emoji characters in code, comments, or output messages
 
-### Environment Variables
+### File and Repository Management
+- Never create test files or output directories inside the repository
+- Use `/tmp/yamlforge-test-{timestamp}` for all testing and output
+- Clean up test artifacts after completion
 
-The development runner checks and reports on key environment variables:
+### YAML Configuration Development
+- Study existing examples in `examples/` directory before creating new YAML
+- Review schema documentation in `docs/yamlforge-schema.json` 
+- Understand the complete YamlForge schema before creating any YAML files
+- `docs/yamlforge-schema.json` is THE AUTHORITY - always check it first
 
-```bash
-export ANTHROPIC_API_KEY="sk-ant-..."              # Required for AI features
-export ANTHROPIC_VERTEX_PROJECT_ID="my-project"    # Optional: Vertex AI
-export YAMLFORGE_EXCLUDE_PROVIDERS="aws,azure"     # Optional: Provider filtering
-```
+### Testing Protocol
+- Always read the complete schema FIRST: `docs/yamlforge-schema.json`
+- Create unique test directories: `mkdir -p /tmp/yamlforge-test-$(date +%s)`
+- Pre-create output directories before running yamlforge.py
+- Use unique GUIDs for all test configurations
 
-## Development Workflow
+### Authentication Development
+- `config/auth_config.py` handles optional Keycloak integration
+- Use `AUTH_DEV_MODE=true` for local testing without OAuth2 Proxy
+- Mock user data via environment variables for development
+- Test both authenticated and non-authenticated modes
 
-### Phase 1: Core Implementation
-1. Basic Streamlit UI with chat interface
-2. LangGraph workflow with simple state management
-3. YamlForge integration for analysis execution
-4. Schema validation and YAML generation
-
-### Phase 2: Enhancement
-1. Context7 integration for infrastructure knowledge
-2. Advanced provider controls and masking
-3. Improved UI with YAML preview and analysis display
-4. Cost optimization suggestions
-
-### Phase 3: Production Ready
-1. Keycloak SSO integration
-2. OpenShift deployment configuration
-3. Performance optimization and caching
-4. Comprehensive testing and documentation
-
-## Testing Strategy
-
-### Unit Tests
-- YAML generation with various provider combinations
-- Schema validation against YamlForge schema
-- Workflow state transitions
-- Provider masking logic
-
-### Integration Tests
-- YamlForge analysis execution
-- Context7 documentation retrieval
-- End-to-end conversation flows
-- Error handling and recovery
-
-### UI Tests
-- Streamlit component rendering
-- User interaction flows
-- Provider control functionality
-- Analysis result display
-
-## Important Notes
+## Critical Implementation Details
 
 ### YamlForge Integration
-- Use direct Python imports, not subprocess calls
-- Only execute `--analyze` mode
-- No cloud credentials required or processed
-- Handle all provider types including cost optimization
+- Direct Python imports only, no subprocess calls
+- Execute only `--analyze` mode (no credentials required)
+- Handle all provider types including `cheapest` and `cnv`
+- `docs/yamlforge-schema.json` is authoritative for validation
 
-### Schema Compliance
-- `docs/yamlforge-schema.json` is THE AUTHORITY
-- All generated YAML must validate against schema
-- Handle required vs optional fields correctly
-- Support provider-specific configurations
+### Authentication Architecture
+- OAuth2 Proxy handles OIDC at ingress level
+- Streamlit extracts user info from headers (`X-Auth-Request-*`)
+- Role-based access: `demobuilder-admin`, `demobuilder-power`
+- Environment toggle: `KEYCLOAK_ENABLED` controls authentication
 
-### User Experience
-- Professional appearance suitable for enterprise use
-- Clear workflow progression indicators
-- Intuitive provider selection controls
-- Helpful cost optimization suggestions
+### OpenShift Deployment
+- Use variable namespaces with `-n` flag, never hardcode
+- OAuth2 Proxy deployment when `--enable-auth` specified
+- Security context: `runAsNonRoot: true`, no hardcoded UIDs
+- S2I deployment script handles both auth and non-auth modes
 
-### Future Considerations
-- Keycloak SSO integration architecture
-- OpenShift deployment scalability
-- Multi-tenant support
-- Advanced analytics and usage tracking
+## Lessons Learned from Development
 
-## Dependencies Management
+### AI-Driven Configuration Management
+- Pure AI approach with context understanding is more maintainable than static keyword matching
+- AI must preserve existing infrastructure when making modifications
+- Require specific instance names for removals to prevent AI assumptions
+- Post-processing validation with automatic correction is essential
 
-### Core Dependencies
-- **streamlit**: Modern web UI framework
-- **langgraph**: Workflow state machine management
-- **langchain-anthropic**: Claude integration
-- **pydantic**: Data validation and serialization
-- **jsonschema**: YAML schema validation
+### Schema and Validation
+- Cores/Memory vs Flavor: Use either flavor strings OR cores/memory integers, never mix
+- RAM terminology: Users say "RAM", "memory", "system memory" - all map to YAML `memory` field
+- Auto-fixing: Implement validation with automatic correction rather than just error reporting
 
-### Integration Dependencies
-- **redis**: Session persistence and caching
-- **requests**: HTTP client for Context7 API
-- **python-keycloak**: Future SSO integration
+### Provider Management
+- Start with core enterprise providers (AWS, Azure, GCP, IBM, CNV) rather than all providers
+- Logical provider ordering (CNV after IBM providers) improves UX
+- Dynamic credentials: Show only relevant setup instructions based on actual provider usage
 
-### Development Dependencies
-- **pytest**: Testing framework
-- **black**: Code formatting
-- **flake8**: Linting
-- **mypy**: Type checking
+### OpenShift Deployment Lessons
 
-## Error Handling
+#### Security Context Constraints (Critical)
+- Never use hardcoded UIDs/GIDs: OpenShift assigns dynamic ranges like `[1000890000, 1000899999]`
+- Always use `runAsNonRoot: true` for security policies
+- Use group permissions: `chgrp -R 0 /app && chmod -R g=u /app`
+- Let OpenShift assign security context: Remove `runAsUser` and `fsGroup` from manifests
 
-### Schema Validation Errors
-- Pre-validate all generated YAML
-- Provide clear error messages to users
-- Automatic correction attempts when possible
-- Fallback to simpler configurations
-
-### YamlForge Integration Errors
-- Handle missing provider support gracefully
-- Validate analysis output parsing
-- Provide meaningful error feedback
-- Maintain conversation flow continuity
-
-### UI/UX Error States
-- Loading indicators during processing
-- Clear error message display
-- Recovery options for users
-- State preservation during errors
-
-## OpenShift Deployment Guide
-
-### Prerequisites and Setup
-
-**Required Tools:**
-- OpenShift CLI (`oc`) configured and authenticated
-- Access to OpenShift cluster with appropriate permissions
-- Container registry access (internal OpenShift registry recommended)
-
-**Essential Commands:**
-```bash
-# Create build config (one-time setup)
-oc new-build --binary --strategy=docker --name=demobuilder
-
-# Build image from source
-oc start-build demobuilder --from-dir=. --follow
-
-# Deploy application stack
-oc apply -k deployment/openshift/
-
-# Monitor deployment
-oc get pods -n demobuilder --watch
-oc get routes -n demobuilder
-
-# Access application after deployment
-echo "=== DemoBuilder Ready ==="
-ROUTE_HOST=$(oc get route demobuilder -n demobuilder -o jsonpath='{.spec.host}')
-echo "Application URL: https://${ROUTE_HOST}"
-echo "Health Check: https://${ROUTE_HOST}/_stcore/health"
-```
-
-### Base Image Selection
-
-**RHEL UBI9 (Default - Recommended for Production):**
-```bash
-# Default build uses RHEL UBI9 Python 3.11
-oc start-build demobuilder --from-dir=. --follow
-```
-
-**Fedora (Alternative for Broader Access):**
-```bash
-# Use Fedora base for environments without RHEL access
-oc start-build demobuilder --from-dir=. --build-arg BASE_IMAGE=python:3.11
-```
-
-**Custom Base Images:**
-```bash
-# Use any Python 3.11+ compatible image
-oc start-build demobuilder --from-dir=. --build-arg BASE_IMAGE=registry.company.com/python:3.11
-```
-
-### Security Context Constraints
+#### Build and Deployment Process
+- Binary builds work best: `oc new-build --binary` for S2I workflows
+- Use `-n` flag for namespace management instead of hardcoding in YAML
+- Watch build logs: Use `oc start-build --follow` to monitor progress
+- Delete and recreate deployments when changing selectors (immutability)
 
 **Critical Requirements for OpenShift:**
 - **NEVER** use hardcoded user IDs (`runAsUser: 1001`)
@@ -399,150 +289,7 @@ oc start-build demobuilder --from-dir=. --build-arg BASE_IMAGE=registry.company.
 - Let OpenShift assign UIDs dynamically
 - Use group permissions (`chgrp -R 0` and `chmod -R g=u`)
 
-**Working Security Context:**
-```yaml
-securityContext:
-  runAsNonRoot: true
-  # No runAsUser or fsGroup specified
-containers:
-- name: demobuilder
-  securityContext:
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: false
-    runAsNonRoot: true
-    # No runAsUser specified
-    capabilities:
-      drop: [ALL]
-```
-
-### Configuration Management
-
-**Environment Variables (ConfigMap):**
-```bash
-# View current configuration
-oc get configmap demobuilder-config -o yaml
-
-# Update configuration
-oc edit configmap demobuilder-config
-```
-
-**Secrets Management:**
-```bash
-# Set Anthropic API key from environment
-oc create secret generic demobuilder-secrets \
-  --from-literal=anthropic-api-key="${ANTHROPIC_API_KEY}" \
-  -n demobuilder --dry-run=client -o yaml | oc apply -f -
-
-# Verify secret
-oc get secret demobuilder-secrets -o yaml
-```
-
-### Networking and Routes
-
-**Internal Service:**
-- Port 8501 (Streamlit default)
-- ClusterIP service for internal communication
-
-**External Access:**
-- HTTP route: `demobuilder-demobuilder.apps.<cluster-domain>`
-- HTTPS route: `demobuilder-secure-demobuilder.apps.<cluster-domain>`
-
-**Network Policies:**
-- Ingress allowed from OpenShift router
-- Pod-to-pod communication within namespace
-- External traffic blocked except through routes
-
-### Troubleshooting Guide
-
-**Common Issues and Solutions:**
-
-1. **Image Pull Errors:**
-```bash
-# Check build status
-oc get builds -l build=demobuilder
-oc logs build/demobuilder-1
-
-# Verify image in registry
-oc get imagestream demobuilder
-```
-
-2. **Security Context Violations:**
-```bash
-# Check for SCC errors in events
-oc describe pod <pod-name> | grep -A 10 Events
-oc get events --field-selector reason=FailedCreate
-```
-
-3. **Application Startup Issues:**
-```bash
-# Check pod logs
-oc logs <pod-name> -n demobuilder
-
-# Verify health endpoint
-oc exec <pod-name> -- curl -f http://localhost:8501/_stcore/health
-```
-
-4. **Configuration Problems:**
-```bash
-# Test environment variables
-oc exec <pod-name> -- env | grep -E "(ANTHROPIC|APP_)"
-
-# Verify secret mounting
-oc exec <pod-name> -- ls -la /var/run/secrets/
-```
-
-### Kustomize Template Structure
-
-**Base Manifests (`deployment/openshift/`):**
-- `kustomization.yaml` - Main kustomize configuration
-- `namespace.yaml` - Namespace definition
-- `serviceaccount.yaml` - Service account and RBAC
-- `configmap.yaml` - Application configuration
-- `secret.yaml` - Sensitive configuration template
-- `deployment.yaml` - Pod specification and deployment
-- `service.yaml` - Internal service
-- `route.yaml` - External access routes
-- `networkpolicy.yaml` - Network security
-- `horizontalpodautoscaler.yaml` - Auto-scaling configuration
-
-**Environment Overlays:**
-```bash
-# Create production overlay
-mkdir -p deployment/openshift/overlays/production
-cat > deployment/openshift/overlays/production/kustomization.yaml << EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-namespace: demobuilder-prod
-resources:
-- ../../base
-replicas:
-- name: demobuilder
-  count: 5
-EOF
-```
-
-### Production Deployment Checklist
-
-**Security:**
-- [ ] Use specific image tags, not `latest`
-- [ ] Implement external secret management
-- [ ] Enable network policies
-- [ ] Regular security updates
-- [ ] Resource quotas and limits
-
-**Performance:**
-- [ ] Tune resource requests/limits based on load testing
-- [ ] Configure horizontal pod autoscaler
-- [ ] Implement persistent storage for sessions if needed
-- [ ] Set up proper monitoring and alerting
-
-**High Availability:**
-- [ ] Multiple replicas across availability zones
-- [ ] Pod disruption budgets
-- [ ] Proper health checks with appropriate timeouts
-- [ ] External Redis for session persistence
-
-## Lessons Learned from Development
+## Technical Implementation Notes
 
 ### AI-Driven Configuration Management
 - **Pure AI Approach**: Static keyword matching is inflexible and becomes unwieldy. Pure AI with context understanding is more maintainable and user-friendly

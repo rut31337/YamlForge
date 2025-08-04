@@ -9,7 +9,7 @@ This guide provides comprehensive instructions for deploying DemoBuilder on Open
 - Cluster admin access or sufficient RBAC permissions
 - Access to container registry (for custom images)
 - **Required**: Anthropic API key (DemoBuilder is a conversational AI application)
-- Optional: Context7 API key for enhanced infrastructure knowledge
+- Optional: Infrastructure Diagrams API key for enhanced infrastructure knowledge
 - Optional: Persistent storage for Redis (future enhancement)
 
 ### Local Tools Required
@@ -117,9 +117,7 @@ data:
   # AI Configuration (current production model)
   anthropic_model: "claude-3-5-sonnet-20241022"
   
-  # Context7 MCP Integration for enhanced infrastructure knowledge
-  context7_enabled: "true"
-  context7_mcp_url: "https://mcp.context7.com/mcp"
+  # Infrastructure Diagrams MCP Integration for enhanced infrastructure knowledge
   
   # Optional features (disabled by default)
   redis_enabled: "false"
@@ -143,20 +141,11 @@ oc apply -k .  # or oc apply -f .
 ```bash
 # Set your API keys as environment variables (easier for copy/paste)
 export ANTHROPIC_API_KEY="your-anthropic-api-key-here"
-export CONTEXT7_API_KEY="your-context7-api-key-here"  # Optional
 
 # Update the secret with your Anthropic API key (REQUIRED)
 oc create secret generic demobuilder-secrets \
   --from-literal=anthropic-api-key="$ANTHROPIC_API_KEY" \
   --dry-run=client -o yaml | oc apply -f -
-
-# Optionally add Context7 API key for enhanced infrastructure knowledge
-if [ ! -z "$CONTEXT7_API_KEY" ]; then
-  oc create secret generic demobuilder-secrets \
-    --from-literal=anthropic-api-key="$ANTHROPIC_API_KEY" \
-    --from-literal=context7-api-key="$CONTEXT7_API_KEY" \
-    --dry-run=client -o yaml | oc apply -f -
-fi
 
 # Restart deployment to pick up the new secrets
 oc rollout restart deployment/demobuilder -n demobuilder
@@ -510,14 +499,12 @@ oc patch configmap demobuilder-config -n demobuilder \
   --type merge -p '{"data":{"anthropic_model":"claude-3-5-sonnet-20241022"}}'
 ```
 
-**Context7 Integration Issues**:
+**Infrastructure Diagrams Integration Issues**:
 ```bash
-# Check Context7 MCP configuration
-oc get configmap demobuilder-config -n demobuilder -o yaml | grep context7
+# Check Infrastructure Diagrams MCP configuration
 
-# Disable Context7 if experiencing connectivity issues
+# Disable Infrastructure Diagrams if experiencing connectivity issues
 oc patch configmap demobuilder-config -n demobuilder \
-  --type merge -p '{"data":{"context7_enabled":"false"}}'
 ```
 
 **Secret Management Issues**:

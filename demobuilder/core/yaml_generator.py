@@ -665,13 +665,24 @@ CRITICAL REQUIREMENTS - Your YAML MUST include these or it will FAIL validation:
 3. 'yamlforge.cloud_workspace.name' field
 4. Either 'yamlforge.instances' OR 'yamlforge.openshift_clusters' (or both) - THIS IS MANDATORY
 
-For multi-cloud requests, create separate instances for each provider:
-- If request mentions "AWS web servers", create instances with provider: aws
-- If request mentions "Azure database", create instances with provider: azure  
-- If request mentions "GCP load balancers", create instances with provider: gcp
+CLOUD PROVIDER SELECTION RULES:
+- DEFAULT: Use a SINGLE cloud provider for all instances unless explicitly requested otherwise
+- For three-tier architectures, web applications, and general requests: Use ONE provider (aws, azure, or gcp)
+- ONLY use multiple providers when user explicitly mentions specific cloud names for different components
+
+SINGLE-CLOUD (DEFAULT BEHAVIOR):
+- "three-tier web application" → Use ONE provider for all instances
+- "web app with database" → Use ONE provider for all instances  
+- "frontend, backend, database" → Use ONE provider for all instances
+- Choose aws, azure, or gcp as the single provider
+
+MULTI-CLOUD (ONLY when explicitly requested):
+- If request mentions "AWS web servers AND Azure database" → Use specific providers as requested
+- If request mentions "multi-cloud" → Use multiple providers
+- If request mentions "GCP load balancers" → Use gcp for those specific instances
 
 MANDATORY INSTANCE FIELDS:
-- name: meaningful name reflecting purpose (e.g., "web-server-1", "database-primary", "load-balancer-frontend")
+- name: descriptive name based on user request (e.g., "rhel-server-1", "ubuntu-vm-2", "instance-1"). Only use role-based names when user explicitly specifies roles
 - provider: aws, azure, gcp, oci, ibm_vpc, ibm_classic, vmware, alibaba, cheapest, cheapest-gpu, cnv
 - Size specification (choose ONE):
   * flavor: "small", "medium", "large", "xlarge" (string values only)
@@ -702,59 +713,67 @@ CRITICAL IMAGE RULES:
 - IMPORTANT: When user specifies RHEL version (rhel 10, rhel10) → use that version (RHEL10-GOLD-latest, RHEL10-latest)
 - When user requests regular "rhel" without gold/byos → use standard RHEL images
 
-Example for multi-cloud setup:
+CRITICAL NAMING RULES:
+- CONSERVATIVE NAMING: Only assume instance roles when explicitly stated
+- "3 RHEL VMs" → rhel-server-1, rhel-server-2, rhel-server-3 (NOT web-server, app-server)
+- "Ubuntu servers" → ubuntu-server-1, ubuntu-server-2 (NOT web-server, database)
+- "VMs for testing" → test-vm-1, test-vm-2 (NOT app-server, web-server)
+- "Load balancer and web servers" → load-balancer-1, web-server-1 (roles explicitly mentioned)
+- When in doubt, use generic names: instance-1, instance-2, server-1, server-2
+
+NETWORKING RULES:
+- Only create complex networking when user explicitly requests multi-tier architecture
+- Simple VM requests get simple single-subnet configurations
+- Multi-tier only when user mentions "web servers" AND "database" together
+
+NETWORK ISOLATION RULES:
+- When user explicitly requests "isolated", "separate", "own network", "dedicated network", or "network isolation", each instance should get unique configuration
+- Use descriptive instance names that reflect isolation: "monitoring-isolated", "api-server-dedicated", "worker-separate"
+- Network isolation keywords: isolated, separate, own network, new private network, dedicated, independent
+- Example: "add monitoring server on its own isolated network" → create instance with name like "monitoring-isolated-1"
+
+Example for simple VMs:
 ```yaml
 guid: demo1
 yamlforge:
   cloud_workspace:
-    name: multi-cloud-infrastructure
+    name: simple-vms
   instances:
-    - name: web-server-aws-1
+    - name: rhel-server-1
       provider: aws
       flavor: medium
       image: RHEL9-latest
       location: us-east
-    - name: web-server-aws-2  
+    - name: rhel-server-2
       provider: aws
       flavor: medium
       image: RHEL9-latest
       location: us-east
-    - name: load-balancer-aws-1
+    - name: rhel-server-3
       provider: aws
-      flavor: small
+      flavor: medium
       image: RHEL9-latest
       location: us-east
-    - name: load-balancer-aws-2
-      provider: aws  
-      flavor: small
+```
+
+Example for explicit multi-tier (when user requests web + database):
+```yaml
+guid: demo1
+yamlforge:
+  cloud_workspace:
+    name: web-application
+  instances:
+    - name: web-server-1
+      provider: aws
+      flavor: medium
       image: RHEL9-latest
       location: us-east
-    - name: database-azure-1
-      provider: azure
+    - name: database-1
+      provider: aws
       flavor: large
       image: RHEL9-latest
       location: us-east
-    - name: api-server-gcp-1
-      provider: gcp
-      flavor: medium
-      image: RHEL9-latest
       location: us-east
-    - name: cnv-host-1
-      provider: cnv
-      cores: 2
-      memory: 2048
-      image: RHEL9-latest
-    - name: windows-server-1
-      provider: azure
-      cores: 4
-      memory: 8192
-      image: Windows2022-latest
-      location: us-east
-    - name: rhel-gold-server-1
-      provider: aws
-      flavor: medium
-      image: RHEL9-GOLD-latest
-      location: us-west
   security_groups:
     - name: web-access
       description: HTTP and SSH access

@@ -29,7 +29,7 @@ yamlforge:
       # Custom networking configuration
       networking:
         vnet_cidr: "10.1.0.0/16"
-        master_subnet_cidr: "10.1.0.0/24"
+        controlplane_subnet_cidr: "10.1.0.0/24"
         worker_subnet_cidr: "10.1.1.0/24"
         pod_cidr: "10.128.0.0/14"
         service_cidr: "172.30.0.0/16"
@@ -49,7 +49,7 @@ yamlforge:
       # Custom networking to avoid conflicts
       networking:
         vnet_cidr: "10.2.0.0/16"
-        master_subnet_cidr: "10.2.0.0/24"
+        controlplane_subnet_cidr: "10.2.0.0/24"
         worker_subnet_cidr: "10.2.1.0/24"
         pod_cidr: "10.129.0.0/14"
         service_cidr: "172.31.0.0/16"
@@ -70,7 +70,7 @@ yamlforge:
       # Isolated networking
       networking:
         vnet_cidr: "10.3.0.0/16"
-        master_subnet_cidr: "10.3.0.0/24"
+        controlplane_subnet_cidr: "10.3.0.0/24"
         worker_subnet_cidr: "10.3.1.0/24"
         pod_cidr: "10.130.0.0/14"
         service_cidr: "172.32.0.0/16"

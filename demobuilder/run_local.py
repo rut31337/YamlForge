@@ -81,6 +81,9 @@ def check_environment_variables():
         print(f"✓ YAMLFORGE_EXCLUDE_PROVIDERS: {excluded_providers}")
     else:
         print("- YAMLFORGE_EXCLUDE_PROVIDERS not set (all providers enabled)")
+    
+    # Infrastructure diagrams
+    print("✓ Infrastructure diagram visualization: enabled")
 
 def main():
     """Main entry point for local development runner."""

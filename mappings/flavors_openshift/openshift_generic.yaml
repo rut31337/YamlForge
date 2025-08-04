@@ -5,9 +5,9 @@
 # Default mappings for abstract sizes
 size_mappings:
   # Control plane defaults
-  small_master: "master_small"
-  medium_master: "master_medium" 
-  large_master: "master_large"
+  small_controlplane: "controlplane_small"
+  medium_controlplane: "controlplane_medium" 
+  large_controlplane: "controlplane_large"
   
   # Worker node defaults
   micro: "worker_micro"
@@ -25,9 +25,9 @@ size_mappings:
 cluster_sizes:
   micro:
     description: "Single node development cluster"
-    masters: 1
+    controlplanes: 1
     workers: 1
-    master_size: "medium"
+    controlplane_size: "medium"
     worker_size: "medium"
     use_case: "Development/Testing - single node for demos and learning"
     minimum_requirements:
@@ -37,9 +37,9 @@ cluster_sizes:
     
   small:
     description: "Small production cluster"
-    masters: 3
+    controlplanes: 3
     workers: 2
-    master_size: "large"
+    controlplane_size: "large"
     worker_size: "large"
     use_case: "Small production workloads"
     minimum_requirements:
@@ -49,9 +49,9 @@ cluster_sizes:
     
   medium:
     description: "Medium production cluster"
-    masters: 3
+    controlplanes: 3
     workers: 3
-    master_size: "large"
+    controlplane_size: "large"
     worker_size: "xlarge"
     use_case: "Standard production workloads"
     minimum_requirements:
@@ -61,11 +61,11 @@ cluster_sizes:
     
   large:
     description: "Large production cluster"
-    masters: 3
-    master_count: 3
+    controlplanes: 3
+    controlplane_count: 3
     workers: 5
     worker_count: 5
-    master_size: "xlarge"
+    controlplane_size: "xlarge"
     worker_size: "xlarge"
     use_case: "Large production workloads"
     minimum_requirements:
@@ -75,9 +75,9 @@ cluster_sizes:
     
   xlarge:
     description: "Extra large production cluster"
-    masters: 3
+    controlplanes: 3
     workers: 8
-    master_size: "xlarge"
+    controlplane_size: "xlarge"
     worker_size: "2xlarge"
     use_case: "Very large production workloads"
     minimum_requirements:
@@ -87,7 +87,7 @@ cluster_sizes:
 
 # OpenShift-specific requirements and recommendations
 openshift_requirements:
-  minimum_master_specs:
+  minimum_controlplane_specs:
     vcpus: 4
     memory_gb: 16
     storage_gb: 120
@@ -124,9 +124,9 @@ generic_size_translation:
   worker_large: "xlarge"
   worker_xlarge: "2xlarge"
   
-  master_small: "medium"
-  master_medium: "large"
-  master_large: "xlarge"
+  controlplane_small: "medium"
+  controlplane_medium: "large"
+  controlplane_large: "xlarge"
   
   compute_medium: "large"
   memory_medium: "large"

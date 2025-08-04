@@ -151,8 +151,8 @@ yamlforge:
       region: "us-east-1"
       version: "4.15"
       size: "large"
-      master_count: 3
-      master_machine_type: "m5.xlarge"
+      controlplane_count: 3
+      controlplane_machine_type: "m5.xlarge"
       worker_count: 5
       worker_machine_type: "m5.large"
 

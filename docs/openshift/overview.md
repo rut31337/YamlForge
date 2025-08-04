@@ -57,22 +57,22 @@ yamlforge:
 openshift_clusters:
   - name: "small-cluster"
     type: "rosa-classic"
-    size: "small"    # 3 master + 3 worker nodes
+    size: "small"    # 3 controlplane + 3 worker nodes
     worker_count: 3
     
   - name: "medium-cluster"
     type: "rosa-classic"
-    size: "medium"   # 3 master + 6 worker nodes
+    size: "medium"   # 3 controlplane + 6 worker nodes
     worker_count: 6
     
   - name: "large-cluster"
     type: "rosa-classic"
-    size: "large"    # 3 master + 12 worker nodes
+    size: "large"    # 3 controlplane + 12 worker nodes
     worker_count: 12
     
   - name: "xlarge-cluster"
     type: "rosa-classic"
-    size: "xlarge"   # 3 master + 24 worker nodes
+    size: "xlarge"   # 3 controlplane + 24 worker nodes
     worker_count: 24
 ```
 

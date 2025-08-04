@@ -15,8 +15,6 @@ services:
       - ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
       
       # Feature flags
-      - CONTEXT7_ENABLED=true
-      - CONTEXT7_MCP_URL=https://mcp.context7.com/mcp
       - REDIS_ENABLED=false
       - KEYCLOAK_ENABLED=false
       

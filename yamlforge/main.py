@@ -452,13 +452,10 @@ def analyze_configuration(converter, config, raw_yaml_data):
                 if cluster_cost is not None and cluster_cost > 0:
                     print(f"   Cluster Nodes:")
                     
-                    # Get detailed node breakdown - simplified to only master/worker terminology
-                    master_count = cluster.get('master_count', 0)
-                    worker_count = cluster.get('worker_count', 0)
-                    master_machine_type = cluster.get('master_machine_type', '')
-                    worker_machine_type = cluster.get('worker_machine_type', '')
+                    # Get detailed node breakdown from cluster size configuration
+                    size_config = converter.openshift_provider.get_cluster_size_config(size, cluster_type)
                     
-                    # Determine provider based on cluster type
+                    # Determine provider based on cluster type (handle all deployment methods)
                     provider = None
                     if cluster_type == 'rosa-classic' or cluster_type == 'rosa-hcp':
                         provider = 'aws'
@@ -466,6 +463,25 @@ def analyze_configuration(converter, config, raw_yaml_data):
                         provider = 'azure'
                     elif cluster_type == 'self-managed':
                         provider = cluster.get('provider', 'aws')
+                    elif cluster_type == 'openshift-dedicated':
+                        provider = cluster.get('provider', 'aws')
+                    elif cluster_type == 'hypershift':
+                        provider = cluster.get('provider', 'aws')
+                    
+                    # Extract node counts and types from size config or cluster config
+                    controlplane_count = cluster.get('controlplane_count') or size_config.get('controlplane_count', 3)  # Default 3 control plane nodes for HA
+                    worker_count = cluster.get('worker_count') or size_config.get('worker_count', 3)
+                    
+                    # Get machine types from OpenShift mappings if provider is available
+                    controlplane_machine_type = ''
+                    worker_machine_type = ''
+                    if provider:
+                        controlplane_machine_type = converter.openshift_provider.get_openshift_machine_type(
+                            provider, size_config.get('controlplane_size', 'medium'), 'controlplane'
+                        )
+                        worker_machine_type = converter.openshift_provider.get_openshift_machine_type(
+                            provider, size_config.get('worker_size', 'medium'), 'worker'
+                        )
                     
                     if provider:
                         provider_flavors = converter.flavors.get(provider, {})
@@ -473,18 +489,18 @@ def analyze_configuration(converter, config, raw_yaml_data):
                         # Track all node types and their costs
                         node_breakdown = []
                         
-                        # Handle master/control plane nodes
-                        if master_count > 0 and master_machine_type:
-                            master_cost = None
+                        # Handle control plane nodes
+                        if controlplane_count > 0 and controlplane_machine_type:
+                            controlplane_cost = None
                             for size, instances in provider_flavors.get('flavor_mappings', {}).items():
-                                if master_machine_type in instances:
-                                    master_cost = instances[master_machine_type]
+                                if controlplane_machine_type in instances:
+                                    controlplane_cost = instances[controlplane_machine_type]
                                     break
                             
-                            if master_cost and master_cost.get('hourly_cost'):
-                                node_cost = master_cost['hourly_cost']
-                                total_cost = node_cost * master_count
-                                node_breakdown.append(f"     • {master_count} master nodes ({master_machine_type}): ${node_cost:.4f}/hour each = ${total_cost:.4f}/hour")
+                            if controlplane_cost and controlplane_cost.get('hourly_cost'):
+                                node_cost = controlplane_cost['hourly_cost']
+                                total_cost = node_cost * controlplane_count
+                                node_breakdown.append(f"     • {controlplane_count} control plane nodes ({controlplane_machine_type}): ${node_cost:.4f}/hour each = ${total_cost:.4f}/hour")
                         
                         # Handle worker nodes
                         if worker_count > 0 and worker_machine_type:
@@ -712,16 +728,16 @@ def generate_deployment_instructions(config, output_dir, converter=None, raw_yam
                 region = cluster.get('region', 'unspecified')
                 version = cluster.get('version', 'unspecified')
                 size = cluster.get('size', 'unspecified')
-                master_count = cluster.get('master_count', 'unspecified')
+                controlplane_count = cluster.get('controlplane_count', 'unspecified')
                 worker_count = cluster.get('worker_count', 'unspecified')
-                master_type = cluster.get('compute_machine_type', 'unspecified')
+                controlplane_type = cluster.get('compute_machine_type', 'unspecified')
                 worker_type = cluster.get('worker_machine_type', 'unspecified')
                 instructions += f" * {resolved_cluster_name} (Self-Managed):\n"
                 instructions += f"     Provider: {provider}\n"
                 instructions += f"     Region: {region}\n"
                 instructions += f"     Version: {version}\n"
                 instructions += f"     Size: {size}\n"
-                instructions += f"     Master count: {master_count} ({master_type})\n"
+                instructions += f"     Control plane count: {controlplane_count} ({controlplane_type})\n"
                 instructions += f"     Worker count: {worker_count} ({worker_type})\n"
                 
                 # Calculate and display cost if converter is available

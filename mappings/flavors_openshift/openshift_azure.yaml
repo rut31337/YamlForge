@@ -3,8 +3,8 @@
 # Optimized for OpenShift control plane and worker node requirements
 
 flavor_mappings:
-  # OpenShift Master/Control Plane Sizes
-  master_small:
+  # OpenShift Control Plane Sizes
+  controlplane_small:
     Standard_D2s_v3:
       vcpus: 2
       memory_gb: 8
@@ -14,7 +14,7 @@ flavor_mappings:
       use_case: "Development/Testing control plane"
       storage_type: "Premium SSD"
     
-  master_medium:
+  controlplane_medium:
     Standard_D4s_v3:
       vcpus: 4
       memory_gb: 16
@@ -24,7 +24,7 @@ flavor_mappings:
       use_case: "Production control plane - small to medium clusters"
       storage_type: "Premium SSD"
     
-  master_large:
+  controlplane_large:
     Standard_D8s_v3:
       vcpus: 8
       memory_gb: 32
@@ -166,9 +166,9 @@ flavor_mappings:
 # Default mappings for abstract sizes
 size_mappings:
   # Control plane defaults
-  small_master: "master_small"
-  medium_master: "master_medium" 
-  large_master: "master_large"
+  small_controlplane: "controlplane_small"
+  medium_controlplane: "controlplane_medium" 
+  large_controlplane: "controlplane_large"
   
   # Worker node defaults
   micro: "worker_micro"
@@ -185,40 +185,40 @@ size_mappings:
 # OpenShift cluster size configurations
 cluster_sizes:
   micro:
-    master_count: 1
-    master_size: "master_small"
+    controlplane_count: 1
+    controlplane_size: "controlplane_small"
     worker_count: 1
     worker_size: "worker_micro"
     total_cost_factor: 2.0
     use_case: "Development/Testing - single node"
     
   small:
-    master_count: 3
-    master_size: "master_small"
+    controlplane_count: 3
+    controlplane_size: "controlplane_small"
     worker_count: 3
     worker_size: "worker_small"
     total_cost_factor: 7.0
     use_case: "Small production workloads"
     
   medium:
-    master_count: 3
-    master_size: "master_medium"
+    controlplane_count: 3
+    controlplane_size: "controlplane_medium"
     worker_count: 3
     worker_size: "worker_medium"
     total_cost_factor: 18.0
     use_case: "Standard production workloads"
     
   large:
-    master_count: 3
-    master_size: "master_large"
+    controlplane_count: 3
+    controlplane_size: "controlplane_large"
     worker_count: 5
     worker_size: "worker_large"
     total_cost_factor: 52.0
     use_case: "Large production workloads"
     
   xlarge:
-    master_count: 3
-    master_size: "master_large"
+    controlplane_count: 3
+    controlplane_size: "controlplane_large"
     worker_count: 8
     worker_size: "worker_xlarge"
     total_cost_factor: 140.0
@@ -251,7 +251,7 @@ provider_settings:
       - "Standard_E16s_v3"
       
   aro_supported_sizes:
-    masters:
+    controlplanes:
       - "Standard_D4s_v3"
       - "Standard_D8s_v3"
       - "Standard_D16s_v3"

@@ -140,4 +140,4 @@ resource "rhcs_cluster_dedicated" "{clean_name}" {{
             return machine_type
         
         # Use OpenShift-optimized flavor lookup
-        return self.get_openshift_machine_type(cloud_provider, size, 'master') 
+        return self.get_openshift_machine_type(cloud_provider, size, 'controlplane') 

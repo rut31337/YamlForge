@@ -194,8 +194,8 @@ guid: "dist1"
 
 yamlforge:
   instances:
-    # Master node
-    - name: "master-{guid}"
+    # Control plane node
+    - name: "controlplane-{guid}"
       provider: "cheapest-gpu"
       flavor: "large"
       image: "RHEL9-latest"
