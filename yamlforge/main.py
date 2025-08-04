@@ -30,7 +30,7 @@ from datetime import datetime
 from .core.converter import YamlForgeConverter
 
 # Version information
-__version__ = "0.99.0b1"
+__version__ = "1.0.0b1"
 
 def run_command(command, cwd=None, description=""):
     """Run a shell command and return success status."""

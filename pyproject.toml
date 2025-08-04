@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yamlforge"
-version = "0.99.0a1"
-description = "Multi-Cloud Infrastructure as Code and PaaS Management Suite (ALPHA - Work in Progress)"
+version = "1.0.0b1"
+description = "Multi-Cloud Infrastructure as Code and PaaS Management Suite (BETA - Feature Complete)"
 authors = [{name = "Patrick T. Rutledge III"}]
 license = {text = "Apache-2.0"}
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: System Administrators",
     "License :: OSI Approved :: Apache Software License",

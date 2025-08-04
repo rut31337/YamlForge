@@ -25,8 +25,8 @@ def read_readme():
 
 setup(
     name="yamlforge",
-    version="0.99.0a1",
-    description="Multi-Cloud Infrastructure as Code and PaaS Management Suite (ALPHA - Work in Progress)",
+    version="1.0.0b1",
+    description="Multi-Cloud Infrastructure as Code and PaaS Management Suite (BETA - Feature Complete)",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
     author="Patrick T. Rutledge III",

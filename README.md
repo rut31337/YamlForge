@@ -23,13 +23,13 @@ YamlForge breaks down the barriers between cloud providers. Define your infrastr
 - **Production Hardened**: Built-in security, compliance, and operational best practices
 - **Developer Experience**: Intuitive YAML syntax that abstracts away cloud complexity
 
-⚠️  ALPHA SOFTWARE WARNING ⚠️
+⚠️  BETA SOFTWARE WARNING ⚠️
 
-This is v0.99 ALPHA - Work in Progress
+This is v1.0 BETA - Feature Complete with Testing Needed
 
-This software may not work as expected and could break at any time.
+This software is feature complete but requires thorough testing in various environments.
 
-Use at your own risk ($$$). Not yet recommended for production environments.
+Use with caution in production. Extensive testing recommended before critical deployments.
 
 ## Quick Start
 
