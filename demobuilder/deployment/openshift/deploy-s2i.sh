@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # DemoBuilder S2I Deployment with Optional Keycloak Authentication
 # Usage: ./deploy-s2i.sh [options]
 # 
@@ -174,7 +177,7 @@ if [ "$ENABLE_AUTH" = "true" ]; then
     echo "Deploying OAuth2 Proxy for authentication..."
     
     # Apply OAuth2 Proxy deployment - namespace will be overridden by -n flag
-    oc apply -f oauth2-proxy.yaml -n "$NAMESPACE"
+    oc apply -f "$SCRIPT_DIR/oauth2-proxy.yaml" -n "$NAMESPACE"
     
     # Generate cookie secret using Python instead of openssl (32 hex characters for AES)
     COOKIE_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(16))")
