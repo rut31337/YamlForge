@@ -41,8 +41,6 @@ class AuthConfig:
         # Check if user info is already cached in session state
         if 'auth_user' in st.session_state:
             cached_user = st.session_state.auth_user
-            if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
-                st.write(f"Debug: Using cached user: {cached_user.username}")
             return cached_user
             
         # Try to extract user from headers
@@ -51,12 +49,9 @@ class AuthConfig:
             if user_info:
                 # Cache the user info in session state
                 st.session_state.auth_user = user_info
-                if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
-                    st.write(f"Debug: Cached new user: {user_info.username}")
                 return user_info
         except Exception as e:
-            if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
-                st.error(f"Debug: get_current_user failed: {e}")
+            pass
                 
         return None
     
@@ -65,10 +60,6 @@ class AuthConfig:
         try:
             # Use official Streamlit context API (as shown in docs)
             headers = st.context.headers
-            
-            # Debug logging if enabled
-            if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
-                st.write(f"Debug: Attempting to extract user from {len(headers)} headers")
             
             # OAuth2 Proxy sets these headers after successful authentication
             # Try common OAuth2 Proxy header formats
@@ -92,9 +83,6 @@ class AuthConfig:
                 username = os.getenv('AUTH_DEV_USER', 'dev-user')
                 email = os.getenv('AUTH_DEV_EMAIL', 'dev@example.com')
                 display_name = os.getenv('AUTH_DEV_DISPLAY_NAME', 'Development User')
-                
-                if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
-                    st.write(f"Debug: Using dev mode user: {username}")
             
             if username:
                 # Parse roles and groups from headers if available
@@ -104,9 +92,6 @@ class AuthConfig:
                                headers.get('x-forwarded-groups', ''))
                 roles = [role.strip() for role in roles_header.split(',') if role.strip()] if roles_header else []
                 
-                if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
-                    st.write(f"Debug: Extracted user - username: {username}, email: {email}, roles: {roles}")
-                
                 return UserInfo(
                     username=username,
                     email=email,
@@ -115,15 +100,9 @@ class AuthConfig:
                     groups=roles,  # Using roles as groups for simplicity
                     is_authenticated=True
                 )
-            else:
-                if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
-                    st.write("Debug: No username found in headers")
                     
         except Exception as e:
-            # Enhanced error logging for debugging
-            if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
-                st.error(f"Debug: Error extracting user info: {e}")
-                st.error(f"Debug: Exception type: {type(e).__name__}")
+            pass
             
         return None
     
@@ -206,12 +185,11 @@ def show_auth_info():
             if st.button("🚪 Logout", key="auth_logout"):
                 # Clear session state
                 auth_config.clear_session()
-                # Use JavaScript redirect for better reliability
+                # Use meta refresh for more reliable redirect
                 logout_url = auth_config.logout_url()
                 st.markdown(f"""
-                <script>
-                window.location.href = "{logout_url}";
-                </script>
+                <meta http-equiv="refresh" content="0; url={logout_url}">
+                <p>Logging out... If you are not redirected, <a href="{logout_url}">click here</a>.</p>
                 """, unsafe_allow_html=True)
                 st.stop()
     else:
@@ -243,10 +221,15 @@ def get_display_username() -> Optional[str]:
     
     if not auth_config.enabled:
         return None
+    
+    # Force refresh of user data to ensure we get latest info
+    if 'auth_user' in st.session_state:
+        del st.session_state.auth_user
         
     user = auth_config.get_current_user()
     if user:
-        return user.display_name or user.username
+        # Prefer email for display, fallback to display_name, then username
+        return user.email or user.display_name or user.username
     
     return None
 

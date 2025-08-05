@@ -85,27 +85,31 @@ def display_header():
         }
     )
     
-    # Header with username and logout button in top right corner if authenticated
+    # Header with user email and logout button in top right corner if authenticated
     username = get_display_username()
     if username:
-        col1, col2 = st.columns([4, 1])
+        col1, col2 = st.columns([3, 2])
         with col1:
             st.title("🏗️ DemoBuilder")
             st.caption("AI-Powered Multi-Cloud Infrastructure Assistant")
         with col2:
-            st.markdown(f"<div style='text-align: right; padding-top: 10px;'>👤 {username}</div>", unsafe_allow_html=True)
+            # Show email address
+            st.markdown(f"<div style='text-align: right; padding-top: 10px; margin-bottom: 5px;'>👤 {username}</div>", unsafe_allow_html=True)
+            # Show logout button right-justified underneath
             auth_config = get_auth_config()
-            if auth_config.enabled and st.button("🚪 Logout", key="header_logout", help="Sign out of DemoBuilder"):
-                # Clear session state
-                auth_config.clear_session()
-                # Use JavaScript to redirect to logout URL
-                logout_url = auth_config.logout_url()
-                st.markdown(f"""
-                <script>
-                window.location.href = "{logout_url}";
-                </script>
-                """, unsafe_allow_html=True)
-                st.stop()
+            if auth_config.enabled:
+                col_empty, col_logout = st.columns([1, 1])
+                with col_logout:
+                    if st.button("🚪 Logout", key="header_logout", help="Sign out of DemoBuilder", use_container_width=True):
+                        # Clear session state
+                        auth_config.clear_session()
+                        # Use meta refresh for more reliable redirect
+                        logout_url = auth_config.logout_url()
+                        st.markdown(f"""
+                        <meta http-equiv="refresh" content="0; url={logout_url}">
+                        <p>Logging out... If you are not redirected, <a href="{logout_url}">click here</a>.</p>
+                        """, unsafe_allow_html=True)
+                        st.stop()
     else:
         st.title("🏗️ DemoBuilder")
         st.caption("AI-Powered Multi-Cloud Infrastructure Assistant")
@@ -205,43 +209,8 @@ def display_share_link_section():
 
 
 def display_provider_controls():
-    # Show authentication info first
-    show_auth_info()
+    # Authentication info moved to header - no sidebar auth section needed
     
-    # Debug authentication headers (temporary)
-    if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
-        st.sidebar.header("🔍 Auth Debug")
-        st.sidebar.write("**Environment:**")
-        st.sidebar.write(f"KEYCLOAK_ENABLED: {os.getenv('KEYCLOAK_ENABLED', 'false')}")
-        st.sidebar.write(f"AUTH_DEV_MODE: {os.getenv('AUTH_DEV_MODE', 'false')}")
-        
-        auth_config = get_auth_config()
-        st.sidebar.write(f"**Auth Config:**")
-        st.sidebar.write(f"Enabled: {auth_config.enabled}")
-        st.sidebar.write(f"Is Authenticated: {auth_config.is_authenticated()}")
-        
-        st.sidebar.write("**Headers:**")
-        try:
-            headers = st.context.headers
-            auth_headers = {k: v for k, v in headers.items() 
-                          if any(term in k.lower() for term in ['auth', 'user', 'email', 'request'])}
-            if auth_headers:
-                for k, v in auth_headers.items():
-                    st.sidebar.write(f"  {k}: {v}")
-            else:
-                st.sidebar.write("  No auth headers found")
-                st.sidebar.write(f"  Total headers: {len(headers)}")
-        except Exception as e:
-            st.sidebar.write(f"  Header error: {e}")
-        
-        user = auth_config.get_current_user()
-        st.sidebar.write(f"**User Object:**")
-        if user:
-            st.sidebar.write(f"  Username: {user.username}")
-            st.sidebar.write(f"  Email: {user.email}")
-            st.sidebar.write(f"  Display: {user.display_name}")
-        else:
-            st.sidebar.write("  No user detected")
     
     # Start Over and Share buttons - only show if user has conversation history
     if st.session_state.conversation_history:
