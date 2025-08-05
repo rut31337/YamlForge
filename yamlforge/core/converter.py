@@ -343,8 +343,12 @@ class YamlForgeConverter:
         """Load flavor mappings from directory."""
         flavors = {}
         flavor_dir = Path(directory_path)
+        print(f"DEBUG: Loading flavors from directory: {directory_path}")
+        print(f"DEBUG: Directory exists: {flavor_dir.exists()}")
         if flavor_dir.exists():
-            for file_path in flavor_dir.glob("*.yaml"):
+            yaml_files = list(flavor_dir.glob("*.yaml"))
+            print(f"DEBUG: Found {len(yaml_files)} YAML files: {[f.name for f in yaml_files]}")
+            for file_path in yaml_files:
                 try:
                     with open(file_path, 'r') as f:
                         data = yaml.safe_load(f)
@@ -352,10 +356,17 @@ class YamlForgeConverter:
                             cloud_name = file_path.stem
                             if cloud_name == 'generic':
                                 flavors.update(data)
+                                print(f"DEBUG: Loaded generic flavors from {file_path.name}")
                             else:
                                 flavors[cloud_name] = data
+                                print(f"DEBUG: Loaded {cloud_name} flavors from {file_path.name}")
+                        else:
+                            print(f"DEBUG: No data in {file_path.name}")
                 except Exception as e:
                     print(f"Warning: Could not load {file_path}: {e}")
+        else:
+            print(f"DEBUG: Flavor directory {directory_path} does not exist")
+        print(f"DEBUG: Total flavors loaded: {list(flavors.keys())}")
         return flavors
 
 
