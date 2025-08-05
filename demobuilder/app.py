@@ -85,40 +85,26 @@ def display_header():
         }
     )
     
-    # Remove top padding and header space using CSS injection
+    # Remove space above title
     st.markdown("""
     <style>
-        /* Remove top padding from main content area */
         .block-container {
-            padding-top: 1rem !important;
-            padding-bottom: 0rem;
-        }
-        
-        /* Remove header margins and padding */
-        .main > div {
-            padding-top: 0rem !important;
-        }
-        
-        /* Reduce space above the first element */
-        .main .block-container {
             padding-top: 1rem !important;
         }
     </style>
     """, unsafe_allow_html=True)
     
-    # Header with user email and logout button in top right corner if authenticated
+    # Header with user authentication status
     username = get_display_username()
-    if username:
-        col1, col2 = st.columns([3, 2])
-        with col1:
-            st.title("🏗️ DemoBuilder")
-            st.caption("AI-Powered Multi-Cloud Infrastructure Assistant")
-        with col2:
-            # Show email address only
-            st.markdown(f"<div style='text-align: right; padding-top: 10px; margin-bottom: 5px;'>👤 {username}</div>", unsafe_allow_html=True)
-    else:
+    col1, col2 = st.columns([4, 1])
+    with col1:
         st.title("🏗️ DemoBuilder")
         st.caption("AI-Powered Multi-Cloud Infrastructure Assistant")
+    with col2:
+        if username:
+            st.markdown(f"<div style='text-align: right; padding-top: 20px; font-size: 14px;'>👤 {username}</div>", unsafe_allow_html=True)
+        else:
+            st.markdown("<div style='text-align: right; padding-top: 20px; font-size: 14px;'>Not Authenticated</div>", unsafe_allow_html=True)
 
 
 def display_workflow_stage():
