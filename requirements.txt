@@ -48,3 +48,6 @@ mypy>=1.5.0
 python-keycloak>=3.0.0
 aiohttp>=3.8.0
 # Mermaid diagrams are rendered via CDN in browser
+
+# Kubernetes client for RHDP integration
+kubernetes>=24.2.0

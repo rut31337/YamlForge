@@ -20,6 +20,7 @@ from core.sharing import (
     restore_state_from_url_params,
     get_shareable_summary
 )
+from core.rhdp_integration import get_rhdp_integration
 
 
 def validate_essential_files():
@@ -297,6 +298,9 @@ def display_provider_controls():
         display_share_link_section()
         
         st.sidebar.divider()
+    
+    # Add RHDP refresh credentials section for complete stage
+    display_rhdp_refresh_section()
     
     # Add diagram toggle control
     st.sidebar.header("Diagram Settings")
@@ -1114,6 +1118,13 @@ def generate_credentials_section(providers_used: List[str]) -> str:
     if not providers_used:
         return "No cloud credentials needed for this configuration."
     
+    # Try to get RHDP credentials first
+    rhdp = get_rhdp_integration()
+    rhdp_credentials = {}
+    
+    if rhdp.enabled:
+        rhdp_credentials = rhdp.get_all_available_credentials()
+    
     credentials_info = {
         "aws": {
             "name": "Amazon Web Services (AWS)",
@@ -1194,13 +1205,49 @@ export KUBECONFIG="/path/to/kubeconfig"
         }
     }
     
+    def generate_provider_example(provider: str, info: dict) -> str:
+        """Generate example with actual values if available from RHDP."""
+        # Check if we have RHDP credentials for this provider
+        if provider in rhdp_credentials:
+            creds = rhdp_credentials[provider]
+            example_lines = []
+            
+            # Build example with actual values
+            for env_var in info['env_vars']:
+                if env_var in creds:
+                    # Use actual value from RHDP
+                    value = creds[env_var]
+                    example_lines.append(f'export {env_var}="{value}"')
+                else:
+                    # Fall back to placeholder
+                    placeholder = env_var.lower().replace('_', '-')
+                    example_lines.append(f'export {env_var}="your-{placeholder}"')
+            
+            example = "```bash\n" + "\n".join(example_lines) + "\n```"
+            return example
+        else:
+            # Use default placeholder example
+            return info['example']
+    
     if len(providers_used) == 1:
         provider = providers_used[0]
         info = credentials_info.get(provider)
         if info:
+            example = generate_provider_example(provider, info)
+            rhdp_note = ""
+            if provider in rhdp_credentials:
+                rhdp_note = f"\n**Note:** These credentials were automatically extracted from your RHDP ResourceClaim.\n"
+            
+            # Add refresh credentials button for RHDP users
+            refresh_section = ""
+            if rhdp.enabled:
+                refresh_section = f"""
+
+**Refresh Credentials**: If you just ordered an OPEN environment, use the refresh section below to update credentials while preserving your current configuration."""
+
             return f"""Set up your {info['name']} credentials:
 
-{info['example']}
+{example}{rhdp_note}{refresh_section}
 
 For detailed setup instructions, check the [YamlForge envvars.sh example](https://github.com/rut31337/YamlForge/blob/master/envvars.example.sh)."""
         else:
@@ -1211,21 +1258,152 @@ For detailed setup instructions, check the [YamlForge envvars.sh example](https:
         for provider in providers_used:
             info = credentials_info.get(provider)
             if info:
-                sections.append(f"**{info['name']}:**\n{info['example']}")
+                example = generate_provider_example(provider, info)
+                rhdp_note = ""
+                if provider in rhdp_credentials:
+                    rhdp_note = " *(values from RHDP ResourceClaim)*"
+                
+                sections.append(f"**{info['name']}:{rhdp_note}**\n{example}")
             else:
                 sections.append(f"**{provider.upper()}:** Set up credentials for {provider}")
         
         credentials_text = "\n\n".join(sections)
+        has_rhdp_creds = any(p in rhdp_credentials for p in providers_used)
+        rhdp_footer = ""
+        if has_rhdp_creds:
+            rhdp_footer = "\n**Note:** Some credentials were automatically extracted from your RHDP ResourceClaims."
+        
+        # Add refresh credentials button for RHDP users
+        refresh_section = ""
+        if rhdp.enabled:
+            refresh_section = f"""
+
+**Refresh Credentials**: If you just ordered OPEN environments, use the refresh section below to update credentials while preserving your current configuration."""
+
         return f"""Set up credentials for your selected cloud providers:
 
-{credentials_text}
+{credentials_text}{rhdp_footer}{refresh_section}
 
 For detailed setup instructions, check the [YamlForge envvars.sh example](https://github.com/rut31337/YamlForge/blob/master/envvars.example.sh)."""
 
 
+def display_rhdp_refresh_section():
+    """Display RHDP refresh credentials section in sidebar when appropriate."""
+    rhdp = get_rhdp_integration()
+    
+    # Only show for RHDP enabled users in complete stage
+    if not rhdp.enabled or st.session_state.workflow_stage != "complete":
+        return
+    
+    # Check if current config uses supported providers
+    providers_used = get_providers_from_current_yaml()
+    supported_providers = {'aws', 'azure', 'gcp'}
+    rhdp_providers = [p for p in providers_used if p in supported_providers]
+    
+    if not rhdp_providers:
+        return
+    
+    st.sidebar.header("🔄 RHDP Credentials")
+    
+    st.sidebar.write("If you just ordered OPEN environments:")
+    
+    if st.sidebar.button(
+        "🔄 Refresh Credentials",
+        help="Clear credential cache and reload from ResourceClaims",
+        use_container_width=True
+    ):
+        # Clear RHDP integration cache to force re-query
+        if 'rhdp_integration' in st.session_state:
+            del st.session_state.rhdp_integration
+        
+        # Regenerate the final instructions with fresh credentials
+        providers_used = get_providers_from_current_yaml()
+        credentials_section = generate_credentials_section(providers_used)
+        
+        # Update the last assistant message with refreshed credentials
+        if st.session_state.conversation_history and st.session_state.conversation_history[-1]["role"] == "assistant":
+            st.session_state.conversation_history[-1]["content"] = generate_final_instructions()
+        
+        st.sidebar.success("✅ Credentials refreshed!")
+        st.rerun()
+    
+    st.sidebar.caption("💡 Refresh after OPEN environment provisioning completes")
+    st.sidebar.divider()
+
+
+def generate_refresh_credentials_button() -> str:
+    """Generate instructions for refreshing credentials."""
+    return """
+**To refresh credentials after ordering OPEN environments:**
+1. Wait for your OPEN environment(s) to be provisioned (check email for completion)
+2. Use the "🔄 Refresh Credentials" button in the sidebar
+3. Your configuration will be preserved and credentials will be automatically detected
+"""
+
+
+def generate_open_environment_section(providers_used: List[str]) -> str:
+    """Generate OPEN environment ordering instructions for RHDP users."""
+    rhdp = get_rhdp_integration()
+    
+    if not rhdp.enabled:
+        return ""
+    
+    # Only show for supported providers that need OPEN environments
+    supported_providers = {'aws', 'azure', 'gcp'}
+    rhdp_providers = [p for p in providers_used if p in supported_providers]
+    
+    if not rhdp_providers:
+        return ""
+    
+    # Deep links for ordering OPEN environments
+    open_environment_links = {
+        'aws': 'https://catalog.demo.redhat.com/catalog?item=babylon-catalog-prod/sandboxes-gpte.sandbox-open.prod&utm_source=webapp&utm_medium=share-link',
+        'azure': 'https://catalog.demo.redhat.com/catalog?item=babylon-catalog-prod/azure-gpte.open-environment-azure-subscription.prod&utm_source=webapp&utm_medium=share-link',
+        'gcp': 'https://catalog.demo.redhat.com/catalog?item=babylon-catalog-prod/gcp-gpte.open-environment-gcp.prod&utm_source=webapp&utm_medium=share-link'
+    }
+    
+    provider_names = {
+        'aws': 'Amazon Web Services (AWS)',
+        'azure': 'Microsoft Azure', 
+        'gcp': 'Google Cloud Platform (GCP)'
+    }
+    
+    if len(rhdp_providers) == 1:
+        provider = rhdp_providers[0]
+        link = open_environment_links[provider]
+        name = provider_names[provider]
+        return f"""If you haven't already, you can order a Blank OPEN environment for:
+
+**{name}**: [Order Environment]({link})
+
+*Note: Environment provisioning may take several minutes. You can refresh credentials below once your environment is ready.*
+
+---
+
+"""
+    else:
+        links_text = []
+        for provider in rhdp_providers:
+            name = provider_names[provider]
+            link = open_environment_links[provider]
+            links_text.append(f"**{name}**: [Order Environment]({link})")
+        
+        return f"""If you haven't already, you can order Blank OPEN environments for:
+
+{chr(10).join(links_text)}
+
+*Note: Environment provisioning may take several minutes. You can refresh credentials below once your environments are ready.*
+
+---
+
+"""
+
 def generate_final_instructions() -> str:
     # Get current YAML to determine which providers are actually used
     providers_used = get_providers_from_current_yaml()
+    
+    # Generate OPEN environment ordering section
+    open_env_section = generate_open_environment_section(providers_used)
     
     # Generate dynamic credential instructions based on used providers
     credentials_section = generate_credentials_section(providers_used)
@@ -1234,7 +1412,7 @@ def generate_final_instructions() -> str:
 
 Your YamlForge configuration is ready for deployment. Here's what to do next:
 
-### 1. Save the Configuration
+{open_env_section}### 1. Save the Configuration
 The configuration file is available for download to the right of the page.
 
 ### 2. Set up Cloud Credentials

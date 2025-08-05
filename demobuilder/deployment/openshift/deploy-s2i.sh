@@ -16,6 +16,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #   --client-secret SECRET   Keycloak client secret (required if --enable-auth)
 #   --route-host HOST        Custom route hostname (optional)
 #   --app-port PORT          Application port (default: 8501)
+#   --enable-rhdp            Enable RHDP functionality for ResourceClaim integration
+#   --rhdp-kubeconfig PATH   Path to kubeconfig file for RHDP OpenShift cluster (required if --enable-rhdp)
 #   --help                   Show this help message
 
 # Default values
@@ -28,6 +30,8 @@ KEYCLOAK_CLIENT_ID="demobuilder"
 KEYCLOAK_CLIENT_SECRET=""
 ROUTE_HOST=""
 APP_PORT="8501"
+ENABLE_RHDP="false"
+RHDP_KUBECONFIG_PATH=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -60,6 +64,14 @@ while [[ $# -gt 0 ]]; do
             APP_PORT="$2"
             shift 2
             ;;
+        --enable-rhdp)
+            ENABLE_RHDP="true"
+            shift
+            ;;
+        --rhdp-kubeconfig)
+            RHDP_KUBECONFIG_PATH="$2"
+            shift 2
+            ;;
         --help)
             echo "Usage: $0 [options]"
             echo "Deploy DemoBuilder with S2I build and optional Keycloak authentication"
@@ -73,6 +85,8 @@ while [[ $# -gt 0 ]]; do
             echo "  --client-secret SECRET   Keycloak client secret (required if --enable-auth)"
             echo "  --route-host HOST        Custom route hostname (optional)"
             echo "  --app-port PORT          Application port (default: 8501)"
+            echo "  --enable-rhdp            Enable RHDP functionality for ResourceClaim integration"
+            echo "  --rhdp-kubeconfig PATH   Path to kubeconfig file for RHDP OpenShift cluster (required if --enable-rhdp)"
             echo "  --help                   Show this help message"
             echo ""
             echo "Environment Variables:"
@@ -86,6 +100,10 @@ while [[ $# -gt 0 ]]; do
             echo "  $0 --namespace demobuilder-dev --enable-auth \\"
             echo "     --keycloak-realm-url https://keycloak.example.com/auth/realms/master \\"
             echo "     --client-secret your-secret-here"
+            echo ""
+            echo "  # Deploy with RHDP functionality"
+            echo "  $0 --namespace demobuilder-dev --enable-rhdp \\"
+            echo "     --rhdp-kubeconfig /path/to/rhdp-cluster.kubeconfig"
             exit 0
             ;;
         *)
@@ -99,6 +117,7 @@ done
 echo "=== DemoBuilder S2I Deployment ==="
 echo "Namespace: $NAMESPACE"
 echo "Authentication: $ENABLE_AUTH"
+echo "RHDP Integration: $ENABLE_RHDP"
 
 # Validate required parameters
 if [ -z "$ANTHROPIC_API_KEY" ]; then
@@ -134,6 +153,21 @@ if [ "$ENABLE_AUTH" = "true" ]; then
     echo "Keycloak Client ID: $KEYCLOAK_CLIENT_ID"
 fi
 
+if [ "$ENABLE_RHDP" = "true" ]; then
+    if [ -z "$RHDP_KUBECONFIG_PATH" ]; then
+        echo "Error: --rhdp-kubeconfig is required when --enable-rhdp is specified"
+        echo "Example: --rhdp-kubeconfig /path/to/rhdp-cluster.kubeconfig"
+        exit 1
+    fi
+    
+    if [ ! -f "$RHDP_KUBECONFIG_PATH" ]; then
+        echo "Error: RHDP kubeconfig file not found: $RHDP_KUBECONFIG_PATH"
+        exit 1
+    fi
+    
+    echo "RHDP Kubeconfig: $RHDP_KUBECONFIG_PATH"
+fi
+
 # 0. Create namespace if it doesn't exist
 echo "Creating namespace $NAMESPACE..."
 oc new-project "$NAMESPACE" 2>/dev/null || oc project "$NAMESPACE"
@@ -161,8 +195,18 @@ oc create configmap demobuilder-config \
   --from-literal=anthropic_model="claude-3-5-sonnet-20241022" \
   --from-literal=ai_enabled="true" \
   --from-literal=keycloak_enabled="$ENABLE_AUTH" \
+  --from-literal=rhdp_func_enabled="$ENABLE_RHDP" \
   --namespace="$NAMESPACE" \
   --dry-run=client -o yaml | oc apply -f -
+
+# Create RHDP kubeconfig secret if RHDP is enabled
+if [ "$ENABLE_RHDP" = "true" ]; then
+    echo "Creating RHDP kubeconfig secret..."
+    oc create secret generic rhdp-kubeconfig \
+      --from-file=kubeconfig="$RHDP_KUBECONFIG_PATH" \
+      --namespace="$NAMESPACE" \
+      --dry-run=client -o yaml | oc apply -f -
+fi
 
 # 3. Configure deployment
 echo "Configuring deployment..."
