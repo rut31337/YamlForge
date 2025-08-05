@@ -66,11 +66,15 @@ class RHDPIntegration:
         Returns:
             The kubeconfig content as string, or None if not available
         """
+        print(f"[RHDP DEBUG] _get_kubeconfig_from_secret called")
+        
         if not self.enabled or not K8S_AVAILABLE:
+            print(f"[RHDP DEBUG] Not enabled or K8S not available")
             return None
             
         try:
             # Load in-cluster config (when running in OpenShift)
+            print(f"[RHDP DEBUG] Loading in-cluster config...")
             config.load_incluster_config()
             
             # Create API client
@@ -78,24 +82,33 @@ class RHDPIntegration:
             
             # Get the current namespace from service account
             namespace = self._get_current_namespace()
+            print(f"[RHDP DEBUG] Current namespace: {namespace}")
             
             # Get the secret
+            print(f"[RHDP DEBUG] Reading secret {self.kubeconfig_secret_name} from namespace {namespace}")
             secret = v1.read_namespaced_secret(
                 name=self.kubeconfig_secret_name,
                 namespace=namespace
             )
             
+            print(f"[RHDP DEBUG] Secret found, checking for key {self.kubeconfig_secret_key}")
+            
             # Extract kubeconfig data
             if self.kubeconfig_secret_key in secret.data:
                 kubeconfig_b64 = secret.data[self.kubeconfig_secret_key]
                 kubeconfig_content = base64.b64decode(kubeconfig_b64).decode('utf-8')
+                print(f"[RHDP DEBUG] Successfully decoded kubeconfig, length: {len(kubeconfig_content)}")
                 return kubeconfig_content
+            else:
+                print(f"[RHDP DEBUG] Key {self.kubeconfig_secret_key} not found in secret")
             
             return None
             
         except ApiException as e:
+            print(f"[RHDP DEBUG] ApiException getting kubeconfig: {e}")
             return None
         except Exception as e:
+            print(f"[RHDP DEBUG] Exception getting kubeconfig: {e}")
             return None
     
     def transform_email_to_username(self, email: str) -> str:
@@ -131,24 +144,36 @@ class RHDPIntegration:
         Returns:
             CustomObjectsApi client for ResourceClaims, or None if not available
         """
+        print(f"[RHDP DEBUG] _get_rhdp_client called, enabled: {self.enabled}, K8S_AVAILABLE: {K8S_AVAILABLE}")
+        
         if not self.enabled or not K8S_AVAILABLE:
+            print(f"[RHDP DEBUG] Returning None - not enabled or K8S not available")
             return None
             
         try:
             # Get kubeconfig from secret
+            print(f"[RHDP DEBUG] Getting kubeconfig from secret...")
             kubeconfig_content = self._get_kubeconfig_from_secret()
             if not kubeconfig_content:
+                print(f"[RHDP DEBUG] No kubeconfig content found")
                 return None
             
+            print(f"[RHDP DEBUG] Got kubeconfig content, length: {len(kubeconfig_content)}")
+            
             # Parse kubeconfig
+            print(f"[RHDP DEBUG] Parsing kubeconfig YAML...")
             kubeconfig_dict = yaml.safe_load(kubeconfig_content)
+            print(f"[RHDP DEBUG] Successfully parsed kubeconfig")
             
             # Create configuration from kubeconfig
+            print(f"[RHDP DEBUG] Creating Kubernetes configuration...")
             rhdp_config = client.Configuration()
             
             # Extract cluster info
+            print(f"[RHDP DEBUG] Extracting cluster info...")
             cluster = kubeconfig_dict['clusters'][0]['cluster']
             rhdp_config.host = cluster['server']
+            print(f"[RHDP DEBUG] Set cluster host: {cluster['server']}")
             
             # Handle certificate authority
             if 'certificate-authority-data' in cluster:
@@ -179,10 +204,14 @@ class RHDPIntegration:
                 rhdp_config.api_key = {'authorization': f"Bearer {user['token']}"}
             
             # Create API client
+            print(f"[RHDP DEBUG] Creating API client...")
             rhdp_api_client = client.ApiClient(rhdp_config)
-            return client.CustomObjectsApi(rhdp_api_client)
+            custom_objects_api = client.CustomObjectsApi(rhdp_api_client)
+            print(f"[RHDP DEBUG] Successfully created CustomObjectsApi client")
+            return custom_objects_api
             
         except Exception as e:
+            print(f"[RHDP DEBUG] Exception in _get_rhdp_client: {e}")
             return None
 
     def query_resource_claims(self, namespace: str, provider_patterns: List[str]) -> List[Dict[str, Any]]:
@@ -196,16 +225,24 @@ class RHDPIntegration:
         Returns:
             List of ResourceClaim objects as dictionaries
         """
+        print(f"[RHDP DEBUG] query_resource_claims called for namespace: {namespace}")
+        print(f"[RHDP DEBUG] K8S_AVAILABLE: {K8S_AVAILABLE}, enabled: {self.enabled}")
+        
         if not self.enabled or not K8S_AVAILABLE:
+            print(f"[RHDP DEBUG] Returning empty - not enabled or K8S not available")
             return []
             
         resource_claims = []
         
         try:
             # Get RHDP cluster client
+            print(f"[RHDP DEBUG] Getting RHDP client...")
             rhdp_client = self._get_rhdp_client()
             if not rhdp_client:
+                print(f"[RHDP DEBUG] Failed to get RHDP client")
                 return []
+            
+            print(f"[RHDP DEBUG] Successfully got RHDP client, querying ResourceClaims...")
             
             # Query ResourceClaims using Custom Resource API
             # ResourceClaims are custom resources in the poolboy.gpte.redhat.com group
@@ -217,23 +254,27 @@ class RHDPIntegration:
                 timeout_seconds=30
             )
             
+            total_claims = len(claims_response.get('items', []))
+            print(f"[RHDP DEBUG] Got {total_claims} total ResourceClaims from API")
+            
             # Filter claims by patterns
             for claim in claims_response.get('items', []):
                 claim_name = claim.get('metadata', {}).get('name', '')
+                print(f"[RHDP DEBUG] Checking claim: {claim_name}")
                 
                 # Check if claim name starts with any of the provider patterns
                 for pattern in provider_patterns:
                     if claim_name.startswith(pattern):
+                        print(f"[RHDP DEBUG] Claim {claim_name} matches pattern {pattern}")
                         resource_claims.append(claim)
                         break
                         
         except ApiException as e:
-            # Log error but don't fail completely
-            pass
+            print(f"[RHDP DEBUG] ApiException in query_resource_claims: {e}")
         except Exception as e:
-            # Log error but don't fail completely
-            pass
+            print(f"[RHDP DEBUG] Exception in query_resource_claims: {e}")
             
+        print(f"[RHDP DEBUG] Returning {len(resource_claims)} filtered claims")
         return resource_claims
     
     def extract_credentials_from_claim(self, claim: Dict[str, Any], provider: str) -> Dict[str, str]:

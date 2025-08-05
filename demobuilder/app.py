@@ -1115,6 +1115,8 @@ def get_providers_from_current_yaml() -> List[str]:
 
 def generate_credentials_section(providers_used: List[str]) -> str:
     """Generate credential setup instructions for specific providers."""
+    print(f"[RHDP DEBUG] generate_credentials_section called with providers: {providers_used}")
+    
     if not providers_used:
         return "No cloud credentials needed for this configuration."
     
@@ -1122,8 +1124,11 @@ def generate_credentials_section(providers_used: List[str]) -> str:
     rhdp = get_rhdp_integration()
     rhdp_credentials = {}
     
+    print(f"[RHDP DEBUG] RHDP enabled in generate_credentials_section: {rhdp.enabled}")
+    
     if rhdp.enabled:
         rhdp_credentials = rhdp.get_all_available_credentials()
+        print(f"[RHDP DEBUG] Got RHDP credentials for providers: {list(rhdp_credentials.keys())}")
     
     credentials_info = {
         "aws": {
@@ -1207,9 +1212,13 @@ export KUBECONFIG="/path/to/kubeconfig"
     
     def generate_provider_example(provider: str, info: dict) -> str:
         """Generate example with actual values if available from RHDP."""
+        print(f"[RHDP DEBUG] generate_provider_example called for {provider}")
+        print(f"[RHDP DEBUG] Provider in rhdp_credentials: {provider in rhdp_credentials}")
+        
         # Check if we have RHDP credentials for this provider
         if provider in rhdp_credentials:
             creds = rhdp_credentials[provider]
+            print(f"[RHDP DEBUG] Using RHDP credentials for {provider}: {list(creds.keys())}")
             example_lines = []
             
             # Build example with actual values
@@ -1218,14 +1227,17 @@ export KUBECONFIG="/path/to/kubeconfig"
                     # Use actual value from RHDP
                     value = creds[env_var]
                     example_lines.append(f'export {env_var}="{value}"')
+                    print(f"[RHDP DEBUG] Set {env_var} from RHDP")
                 else:
                     # Fall back to placeholder
                     placeholder = env_var.lower().replace('_', '-')
                     example_lines.append(f'export {env_var}="your-{placeholder}"')
+                    print(f"[RHDP DEBUG] Using placeholder for {env_var}")
             
             example = "```bash\n" + "\n".join(example_lines) + "\n```"
             return example
         else:
+            print(f"[RHDP DEBUG] No RHDP credentials for {provider}, using default example")
             # Use default placeholder example
             return info['example']
     
