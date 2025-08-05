@@ -248,11 +248,16 @@ class RHDPIntegration:
         credentials = {}
         
         try:
+            # Try the path we found in manual testing
             provision_data = claim.get('status', {}).get('summary', {}).get('provision_data', {})
+            print(f"[RHDP DEBUG] Primary provision_data path: {bool(provision_data)}")
             
             if not provision_data:
                 # Try alternative path
                 provision_data = claim.get('status', {}).get('provision_data', {})
+                print(f"[RHDP DEBUG] Alternative provision_data path: {bool(provision_data)}")
+            
+            print(f"[RHDP DEBUG] Available provision_data keys: {list(provision_data.keys()) if provision_data else 'None'}")
             
             if provider == 'aws':
                 credentials = self._map_aws_credentials(provision_data)
@@ -262,7 +267,7 @@ class RHDPIntegration:
                 credentials = self._map_gcp_credentials(provision_data)
                 
         except Exception as e:
-            pass
+            print(f"[RHDP DEBUG] Exception in extract_credentials_from_claim: {e}")
             
         return credentials
     
@@ -341,26 +346,37 @@ class RHDPIntegration:
             Dictionary of environment variables for the provider
         """
         if not self.enabled:
+            print(f"[RHDP DEBUG] RHDP not enabled for {provider}")
             return {}
             
         user_namespace = self.get_user_namespace()
         if not user_namespace:
+            print(f"[RHDP DEBUG] No user namespace found for {provider}")
             return {}
+        
+        print(f"[RHDP DEBUG] Looking for {provider} credentials in namespace: {user_namespace}")
         
         # Get the pattern for this provider
         pattern = self.claim_patterns.get(provider)
         if not pattern:
+            print(f"[RHDP DEBUG] No pattern found for provider: {provider}")
             return {}
+        
+        print(f"[RHDP DEBUG] Using pattern: {pattern}")
         
         # Query ResourceClaims
         claims = self.query_resource_claims(user_namespace, [pattern])
+        print(f"[RHDP DEBUG] Found {len(claims)} claims for {provider}")
         
         # Extract credentials from the first matching claim
         for claim in claims:
             credentials = self.extract_credentials_from_claim(claim, provider)
+            print(f"[RHDP DEBUG] Extracted credentials for {provider}: {bool(credentials)}")
             if credentials:
+                print(f"[RHDP DEBUG] Credential keys: {list(credentials.keys())}")
                 return credentials
         
+        print(f"[RHDP DEBUG] No credentials found for {provider}")
         return {}
     
     def get_all_available_credentials(self) -> Dict[str, Dict[str, str]]:
