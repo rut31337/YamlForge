@@ -1311,7 +1311,7 @@ def display_rhdp_refresh_section():
     
     if has_multiple_services:
         st.sidebar.header("🔧 RHDP Service Selection")
-        st.sidebar.write("Select which services to use:")
+        st.sidebar.write("We have detected multiple candidates to put your infrastructure, select which services to use:")
         
         # Initialize selected services in session state if not present
         if 'rhdp_selected_claims' not in st.session_state:
