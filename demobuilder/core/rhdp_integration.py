@@ -32,8 +32,6 @@ class RHDPIntegration:
         self.kubeconfig_secret_name = "rhdp-kubeconfig"
         self.kubeconfig_secret_key = "kubeconfig"
         
-        print(f"[RHDP DEBUG] RHDPIntegration initialized, enabled: {self.enabled}")
-        
         # ResourceClaim patterns for different cloud providers
         self.claim_patterns = {
             'aws': 'sandboxes-gpte.sandbox-open.prod',
@@ -66,15 +64,11 @@ class RHDPIntegration:
         Returns:
             The kubeconfig content as string, or None if not available
         """
-        print(f"[RHDP DEBUG] _get_kubeconfig_from_secret called")
-        
         if not self.enabled or not K8S_AVAILABLE:
-            print(f"[RHDP DEBUG] Not enabled or K8S not available")
             return None
             
         try:
             # Load in-cluster config (when running in OpenShift)
-            print(f"[RHDP DEBUG] Loading in-cluster config...")
             config.load_incluster_config()
             
             # Create API client
@@ -82,33 +76,24 @@ class RHDPIntegration:
             
             # Get the current namespace from service account
             namespace = self._get_current_namespace()
-            print(f"[RHDP DEBUG] Current namespace: {namespace}")
             
             # Get the secret
-            print(f"[RHDP DEBUG] Reading secret {self.kubeconfig_secret_name} from namespace {namespace}")
             secret = v1.read_namespaced_secret(
                 name=self.kubeconfig_secret_name,
                 namespace=namespace
             )
             
-            print(f"[RHDP DEBUG] Secret found, checking for key {self.kubeconfig_secret_key}")
-            
             # Extract kubeconfig data
             if self.kubeconfig_secret_key in secret.data:
                 kubeconfig_b64 = secret.data[self.kubeconfig_secret_key]
                 kubeconfig_content = base64.b64decode(kubeconfig_b64).decode('utf-8')
-                print(f"[RHDP DEBUG] Successfully decoded kubeconfig, length: {len(kubeconfig_content)}")
                 return kubeconfig_content
-            else:
-                print(f"[RHDP DEBUG] Key {self.kubeconfig_secret_key} not found in secret")
             
             return None
             
         except ApiException as e:
-            print(f"[RHDP DEBUG] ApiException getting kubeconfig: {e}")
             return None
         except Exception as e:
-            print(f"[RHDP DEBUG] Exception getting kubeconfig: {e}")
             return None
     
     def transform_email_to_username(self, email: str) -> str:
@@ -144,36 +129,24 @@ class RHDPIntegration:
         Returns:
             CustomObjectsApi client for ResourceClaims, or None if not available
         """
-        print(f"[RHDP DEBUG] _get_rhdp_client called, enabled: {self.enabled}, K8S_AVAILABLE: {K8S_AVAILABLE}")
-        
         if not self.enabled or not K8S_AVAILABLE:
-            print(f"[RHDP DEBUG] Returning None - not enabled or K8S not available")
             return None
             
         try:
             # Get kubeconfig from secret
-            print(f"[RHDP DEBUG] Getting kubeconfig from secret...")
             kubeconfig_content = self._get_kubeconfig_from_secret()
             if not kubeconfig_content:
-                print(f"[RHDP DEBUG] No kubeconfig content found")
                 return None
             
-            print(f"[RHDP DEBUG] Got kubeconfig content, length: {len(kubeconfig_content)}")
-            
             # Parse kubeconfig
-            print(f"[RHDP DEBUG] Parsing kubeconfig YAML...")
             kubeconfig_dict = yaml.safe_load(kubeconfig_content)
-            print(f"[RHDP DEBUG] Successfully parsed kubeconfig")
             
             # Create configuration from kubeconfig
-            print(f"[RHDP DEBUG] Creating Kubernetes configuration...")
             rhdp_config = client.Configuration()
             
             # Extract cluster info
-            print(f"[RHDP DEBUG] Extracting cluster info...")
             cluster = kubeconfig_dict['clusters'][0]['cluster']
             rhdp_config.host = cluster['server']
-            print(f"[RHDP DEBUG] Set cluster host: {cluster['server']}")
             
             # Handle certificate authority
             if 'certificate-authority-data' in cluster:
@@ -204,14 +177,10 @@ class RHDPIntegration:
                 rhdp_config.api_key = {'authorization': f"Bearer {user['token']}"}
             
             # Create API client
-            print(f"[RHDP DEBUG] Creating API client...")
             rhdp_api_client = client.ApiClient(rhdp_config)
-            custom_objects_api = client.CustomObjectsApi(rhdp_api_client)
-            print(f"[RHDP DEBUG] Successfully created CustomObjectsApi client")
-            return custom_objects_api
+            return client.CustomObjectsApi(rhdp_api_client)
             
         except Exception as e:
-            print(f"[RHDP DEBUG] Exception in _get_rhdp_client: {e}")
             return None
 
     def query_resource_claims(self, namespace: str, provider_patterns: List[str]) -> List[Dict[str, Any]]:
@@ -225,24 +194,16 @@ class RHDPIntegration:
         Returns:
             List of ResourceClaim objects as dictionaries
         """
-        print(f"[RHDP DEBUG] query_resource_claims called for namespace: {namespace}")
-        print(f"[RHDP DEBUG] K8S_AVAILABLE: {K8S_AVAILABLE}, enabled: {self.enabled}")
-        
         if not self.enabled or not K8S_AVAILABLE:
-            print(f"[RHDP DEBUG] Returning empty - not enabled or K8S not available")
             return []
             
         resource_claims = []
         
         try:
             # Get RHDP cluster client
-            print(f"[RHDP DEBUG] Getting RHDP client...")
             rhdp_client = self._get_rhdp_client()
             if not rhdp_client:
-                print(f"[RHDP DEBUG] Failed to get RHDP client")
                 return []
-            
-            print(f"[RHDP DEBUG] Successfully got RHDP client, querying ResourceClaims...")
             
             # Query ResourceClaims using Custom Resource API
             # ResourceClaims are custom resources in the poolboy.gpte.redhat.com group
@@ -254,27 +215,23 @@ class RHDPIntegration:
                 timeout_seconds=30
             )
             
-            total_claims = len(claims_response.get('items', []))
-            print(f"[RHDP DEBUG] Got {total_claims} total ResourceClaims from API")
-            
             # Filter claims by patterns
             for claim in claims_response.get('items', []):
                 claim_name = claim.get('metadata', {}).get('name', '')
-                print(f"[RHDP DEBUG] Checking claim: {claim_name}")
                 
                 # Check if claim name starts with any of the provider patterns
                 for pattern in provider_patterns:
                     if claim_name.startswith(pattern):
-                        print(f"[RHDP DEBUG] Claim {claim_name} matches pattern {pattern}")
                         resource_claims.append(claim)
                         break
                         
         except ApiException as e:
-            print(f"[RHDP DEBUG] ApiException in query_resource_claims: {e}")
+            # Log error but don't fail completely
+            pass
         except Exception as e:
-            print(f"[RHDP DEBUG] Exception in query_resource_claims: {e}")
+            # Log error but don't fail completely
+            pass
             
-        print(f"[RHDP DEBUG] Returning {len(resource_claims)} filtered claims")
         return resource_claims
     
     def extract_credentials_from_claim(self, claim: Dict[str, Any], provider: str) -> Dict[str, str]:
@@ -291,16 +248,11 @@ class RHDPIntegration:
         credentials = {}
         
         try:
-            # Try the path we found in manual testing
             provision_data = claim.get('status', {}).get('summary', {}).get('provision_data', {})
-            print(f"[RHDP DEBUG] Primary provision_data path: {bool(provision_data)}")
             
             if not provision_data:
                 # Try alternative path
                 provision_data = claim.get('status', {}).get('provision_data', {})
-                print(f"[RHDP DEBUG] Alternative provision_data path: {bool(provision_data)}")
-            
-            print(f"[RHDP DEBUG] Available provision_data keys: {list(provision_data.keys()) if provision_data else 'None'}")
             
             if provider == 'aws':
                 credentials = self._map_aws_credentials(provision_data)
@@ -310,7 +262,7 @@ class RHDPIntegration:
                 credentials = self._map_gcp_credentials(provision_data)
                 
         except Exception as e:
-            print(f"[RHDP DEBUG] Exception in extract_credentials_from_claim: {e}")
+            pass
             
         return credentials
     
@@ -389,80 +341,146 @@ class RHDPIntegration:
             Dictionary of environment variables for the provider
         """
         if not self.enabled:
-            print(f"[RHDP DEBUG] RHDP not enabled for {provider}")
             return {}
             
         user_namespace = self.get_user_namespace()
         if not user_namespace:
-            print(f"[RHDP DEBUG] No user namespace found for {provider}")
             return {}
-        
-        print(f"[RHDP DEBUG] Looking for {provider} credentials in namespace: {user_namespace}")
         
         # Get the pattern for this provider
         pattern = self.claim_patterns.get(provider)
         if not pattern:
-            print(f"[RHDP DEBUG] No pattern found for provider: {provider}")
             return {}
-        
-        print(f"[RHDP DEBUG] Using pattern: {pattern}")
         
         # Query ResourceClaims
         claims = self.query_resource_claims(user_namespace, [pattern])
-        print(f"[RHDP DEBUG] Found {len(claims)} claims for {provider}")
         
         # Extract credentials from the first matching claim
         for claim in claims:
             credentials = self.extract_credentials_from_claim(claim, provider)
-            print(f"[RHDP DEBUG] Extracted credentials for {provider}: {bool(credentials)}")
             if credentials:
-                print(f"[RHDP DEBUG] Credential keys: {list(credentials.keys())}")
                 return credentials
         
-        print(f"[RHDP DEBUG] No credentials found for {provider}")
         return {}
     
     def get_all_available_credentials(self) -> Dict[str, Dict[str, str]]:
         """
         Get all available credentials from RHDP ResourceClaims.
+        Uses selected claims from session state if available, otherwise defaults to first claim per provider.
         
         Returns:
             Dictionary with provider names as keys and credential dictionaries as values
         """
-        print(f"[RHDP DEBUG] get_all_available_credentials called, enabled: {self.enabled}")
-        
         if not self.enabled:
-            print(f"[RHDP DEBUG] RHDP not enabled, returning empty credentials")
             return {}
             
         user_namespace = self.get_user_namespace()
         if not user_namespace:
-            print(f"[RHDP DEBUG] No user namespace found, returning empty credentials")
             return {}
         
-        print(f"[RHDP DEBUG] Getting all credentials for namespace: {user_namespace}")
+        # Get all services grouped by provider
+        all_claims = self.get_all_resource_claims_grouped()
         
         all_credentials = {}
+        
+        # Check for user selections in session state
+        import streamlit as st
+        selected_services = getattr(st.session_state, 'rhdp_selected_claims', {})
+        
+        # Extract credentials from selected or first service per provider
+        for provider, services in all_claims.items():
+            if not services:
+                continue
+                
+            # Use selected service if available, otherwise first service
+            selected_service_name = selected_services.get(provider)
+            service_to_use = None
+            
+            if selected_service_name:
+                # Find the selected service by name
+                for service in services:
+                    if service.get('metadata', {}).get('name') == selected_service_name:
+                        service_to_use = service
+                        break
+            
+            # Fall back to first service if no selection or selected service not found
+            if not service_to_use and services:
+                service_to_use = services[0]
+            
+            if service_to_use:
+                credentials = self.extract_credentials_from_claim(service_to_use, provider)
+                if credentials:
+                    all_credentials[provider] = credentials
+        
+        return all_credentials
+    
+    def get_all_resource_claims_grouped(self) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Get all RHDP Services (ResourceClaims) grouped by provider.
+        
+        Returns:
+            Dictionary with provider names as keys and lists of service objects as values
+        """
+        if not self.enabled:
+            return {}
+            
+        user_namespace = self.get_user_namespace()
+        if not user_namespace:
+            return {}
         
         # Query for all provider patterns
         all_patterns = list(self.claim_patterns.values())
         claims = self.query_resource_claims(user_namespace, all_patterns)
-        print(f"[RHDP DEBUG] Found {len(claims)} total claims")
         
-        # Group claims by provider and extract credentials
+        # Group services by provider
+        grouped_services = {}
         for provider, pattern in self.claim_patterns.items():
-            provider_claims = [c for c in claims if c.get('metadata', {}).get('name', '').startswith(pattern)]
-            print(f"[RHDP DEBUG] Found {len(provider_claims)} claims for {provider}")
-            
-            for claim in provider_claims:
-                credentials = self.extract_credentials_from_claim(claim, provider)
-                if credentials:
-                    all_credentials[provider] = credentials
-                    print(f"[RHDP DEBUG] Added credentials for {provider}")
-                    break  # Use first successful match per provider
+            provider_services = [c for c in claims if c.get('metadata', {}).get('name', '').startswith(pattern)]
+            if provider_services:
+                grouped_services[provider] = provider_services
         
-        print(f"[RHDP DEBUG] Returning credentials for providers: {list(all_credentials.keys())}")
-        return all_credentials
+        return grouped_services
+    
+    def get_claim_display_info(self, claim: Dict[str, Any]) -> Dict[str, str]:
+        """
+        Extract display information from a ResourceClaim (RHDP Service).
+        
+        Args:
+            claim: ResourceClaim object as dictionary
+            
+        Returns:
+            Dictionary with display information (name, status, creation_time)
+        """
+        metadata = claim.get('metadata', {})
+        status = claim.get('status', {})
+        
+        # Extract creation timestamp
+        creation_timestamp = metadata.get('creationTimestamp', '')
+        creation_time = 'Unknown'
+        if creation_timestamp:
+            try:
+                from datetime import datetime
+                dt = datetime.fromisoformat(creation_timestamp.replace('Z', '+00:00'))
+                creation_time = dt.strftime('%Y-%m-%d %H:%M')
+            except:
+                creation_time = creation_timestamp
+        
+        # Extract status
+        service_status = 'Unknown'
+        if 'summary' in status and 'provision_data' in status['summary']:
+            service_status = 'Ready'
+        elif 'provision_data' in status:
+            service_status = 'Ready'
+        elif status.get('phase') == 'Bound':
+            service_status = 'Provisioning'
+        else:
+            service_status = status.get('phase', 'Unknown')
+        
+        return {
+            'name': metadata.get('name', 'Unknown'),
+            'status': service_status,
+            'creation_time': creation_time
+        }
 
 
 def get_rhdp_integration() -> RHDPIntegration:

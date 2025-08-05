@@ -1115,8 +1115,6 @@ def get_providers_from_current_yaml() -> List[str]:
 
 def generate_credentials_section(providers_used: List[str]) -> str:
     """Generate credential setup instructions for specific providers."""
-    print(f"[RHDP DEBUG] generate_credentials_section called with providers: {providers_used}")
-    
     if not providers_used:
         return "No cloud credentials needed for this configuration."
     
@@ -1124,11 +1122,8 @@ def generate_credentials_section(providers_used: List[str]) -> str:
     rhdp = get_rhdp_integration()
     rhdp_credentials = {}
     
-    print(f"[RHDP DEBUG] RHDP enabled in generate_credentials_section: {rhdp.enabled}")
-    
     if rhdp.enabled:
         rhdp_credentials = rhdp.get_all_available_credentials()
-        print(f"[RHDP DEBUG] Got RHDP credentials for providers: {list(rhdp_credentials.keys())}")
     
     credentials_info = {
         "aws": {
@@ -1212,13 +1207,9 @@ export KUBECONFIG="/path/to/kubeconfig"
     
     def generate_provider_example(provider: str, info: dict) -> str:
         """Generate example with actual values if available from RHDP."""
-        print(f"[RHDP DEBUG] generate_provider_example called for {provider}")
-        print(f"[RHDP DEBUG] Provider in rhdp_credentials: {provider in rhdp_credentials}")
-        
         # Check if we have RHDP credentials for this provider
         if provider in rhdp_credentials:
             creds = rhdp_credentials[provider]
-            print(f"[RHDP DEBUG] Using RHDP credentials for {provider}: {list(creds.keys())}")
             example_lines = []
             
             # Build example with actual values
@@ -1227,17 +1218,14 @@ export KUBECONFIG="/path/to/kubeconfig"
                     # Use actual value from RHDP
                     value = creds[env_var]
                     example_lines.append(f'export {env_var}="{value}"')
-                    print(f"[RHDP DEBUG] Set {env_var} from RHDP")
                 else:
                     # Fall back to placeholder
                     placeholder = env_var.lower().replace('_', '-')
                     example_lines.append(f'export {env_var}="your-{placeholder}"')
-                    print(f"[RHDP DEBUG] Using placeholder for {env_var}")
             
             example = "```bash\n" + "\n".join(example_lines) + "\n```"
             return example
         else:
-            print(f"[RHDP DEBUG] No RHDP credentials for {provider}, using default example")
             # Use default placeholder example
             return info['example']
     
@@ -1248,7 +1236,7 @@ export KUBECONFIG="/path/to/kubeconfig"
             example = generate_provider_example(provider, info)
             rhdp_note = ""
             if provider in rhdp_credentials:
-                rhdp_note = f"\n**Note:** These credentials were automatically extracted from your RHDP ResourceClaim.\n"
+                rhdp_note = f"\n**Note:** These credentials were automatically extracted from RHDP.\n"
             
             # Add refresh credentials button for RHDP users
             refresh_section = ""
@@ -1273,7 +1261,7 @@ For detailed setup instructions, check the [YamlForge envvars.sh example](https:
                 example = generate_provider_example(provider, info)
                 rhdp_note = ""
                 if provider in rhdp_credentials:
-                    rhdp_note = " *(values from RHDP ResourceClaim)*"
+                    rhdp_note = " *(values from RHDP)*"
                 
                 sections.append(f"**{info['name']}:{rhdp_note}**\n{example}")
             else:
@@ -1283,7 +1271,7 @@ For detailed setup instructions, check the [YamlForge envvars.sh example](https:
         has_rhdp_creds = any(p in rhdp_credentials for p in providers_used)
         rhdp_footer = ""
         if has_rhdp_creds:
-            rhdp_footer = "\n**Note:** Some credentials were automatically extracted from your RHDP ResourceClaims."
+            rhdp_footer = "\n**Note:** Some credentials were automatically extracted from RHDP."
         
         # Add refresh credentials button for RHDP users
         refresh_section = ""
@@ -1315,18 +1303,92 @@ def display_rhdp_refresh_section():
     if not rhdp_providers:
         return
     
+    # Get all available services grouped by provider for selection interface
+    all_services = rhdp.get_all_resource_claims_grouped()
+    
+    # Show service selection interface if multiple services per provider
+    has_multiple_services = any(len(services) > 1 for services in all_services.values())
+    
+    if has_multiple_services:
+        st.sidebar.header("🔧 RHDP Service Selection")
+        st.sidebar.write("Select which services to use:")
+        
+        # Initialize selected services in session state if not present
+        if 'rhdp_selected_claims' not in st.session_state:
+            st.session_state.rhdp_selected_claims = {}
+        
+        # Provider display names
+        provider_names = {
+            'aws': 'AWS',
+            'azure': 'Azure', 
+            'gcp': 'GCP'
+        }
+        
+        # Show selection interface for each provider with multiple services
+        selection_changed = False
+        for provider in rhdp_providers:
+            if provider in all_services and len(all_services[provider]) > 1:
+                services = all_services[provider]
+                
+                # Get current selection or default to first service
+                current_selection = st.session_state.rhdp_selected_claims.get(provider)
+                if not current_selection:
+                    current_selection = services[0].get('metadata', {}).get('name', '')
+                
+                # Create options for dropdown
+                options = []
+                for service in services:
+                    service_info = rhdp.get_claim_display_info(service)
+                    display_name = f"{service_info['name']} ({service_info['status']}, {service_info['creation_time']})"
+                    options.append((service_info['name'], display_name))
+                
+                # Find current selection index
+                current_index = 0
+                for i, (name, _) in enumerate(options):
+                    if name == current_selection:
+                        current_index = i
+                        break
+                
+                # Show selection dropdown
+                selected_option = st.sidebar.selectbox(
+                    f"{provider_names.get(provider, provider.upper())} Service:",
+                    options,
+                    index=current_index,
+                    format_func=lambda x: x[1],  # Display the formatted name
+                    key=f"rhdp_service_select_{provider}"
+                )
+                
+                # Update selection if changed
+                new_selection = selected_option[0]
+                if new_selection != st.session_state.rhdp_selected_claims.get(provider):
+                    st.session_state.rhdp_selected_claims[provider] = new_selection
+                    selection_changed = True
+        
+        # If selection changed, update credentials automatically
+        if selection_changed:
+            # Update the last assistant message with new credentials
+            if st.session_state.conversation_history and st.session_state.conversation_history[-1]["role"] == "assistant":
+                st.session_state.conversation_history[-1]["content"] = generate_final_instructions()
+            st.rerun()
+        
+        st.sidebar.divider()
+    
     st.sidebar.header("🔄 RHDP Credentials")
     
     st.sidebar.write("If you just ordered OPEN environments:")
     
     if st.sidebar.button(
         "🔄 Refresh Credentials",
-        help="Clear credential cache and reload from ResourceClaims",
+        help="Clear credential cache and reload from RHDP services",
         use_container_width=True
     ):
         # Clear RHDP integration cache to force re-query
         if 'rhdp_integration' in st.session_state:
             del st.session_state.rhdp_integration
+        
+        # Clear service selections to force re-detection
+        if 'rhdp_selected_claims' in st.session_state:
+            del st.session_state.rhdp_selected_claims
         
         # Regenerate the final instructions with fresh credentials
         providers_used = get_providers_from_current_yaml()
@@ -1350,6 +1412,7 @@ def generate_refresh_credentials_button() -> str:
 1. Wait for your OPEN environment(s) to be provisioned (check email for completion)
 2. Use the "🔄 Refresh Credentials" button in the sidebar
 3. Your configuration will be preserved and credentials will be automatically detected
+4. If you have multiple services per provider, use the service selection dropdown to choose which one to use
 """
 
 
@@ -1367,6 +1430,9 @@ def generate_open_environment_section(providers_used: List[str]) -> str:
     if not rhdp_providers:
         return ""
     
+    # Get current RHDP credentials to check what's already available
+    rhdp_credentials = rhdp.get_all_available_credentials()
+    
     # Deep links for ordering OPEN environments
     open_environment_links = {
         'aws': 'https://catalog.demo.redhat.com/catalog?item=babylon-catalog-prod/sandboxes-gpte.sandbox-open.prod&utm_source=webapp&utm_medium=share-link',
@@ -1380,29 +1446,23 @@ def generate_open_environment_section(providers_used: List[str]) -> str:
         'gcp': 'Google Cloud Platform (GCP)'
     }
     
-    if len(rhdp_providers) == 1:
-        provider = rhdp_providers[0]
-        link = open_environment_links[provider]
+    # Build provider list with checkmarks for existing credentials or links to order
+    provider_items = []
+    for provider in rhdp_providers:
         name = provider_names[provider]
-        return f"""If you haven't already, you can order a Blank OPEN environment for:
-
-**{name}**: [Order Environment]({link})
-
-*Note: Environment provisioning may take several minutes. You can refresh credentials below once your environment is ready.*
-
----
-
-"""
-    else:
-        links_text = []
-        for provider in rhdp_providers:
-            name = provider_names[provider]
+        if provider in rhdp_credentials:
+            # Show checkmark if credentials are available
+            provider_items.append(f"• **{name}**: ✅ Ready (RHDP)")
+        else:
+            # Show link to order environment
             link = open_environment_links[provider]
-            links_text.append(f"**{name}**: [Order Environment]({link})")
-        
-        return f"""If you haven't already, you can order Blank OPEN environments for:
+            provider_items.append(f"• **{name}**: [Order Environment]({link})")
+    
+    provider_list = "\n".join(provider_items)
+    
+    return f"""If you haven't already, you can order Blank OPEN environments for:
 
-{chr(10).join(links_text)}
+{provider_list}
 
 *Note: Environment provisioning may take several minutes. You can refresh credentials below once your environments are ready.*
 
