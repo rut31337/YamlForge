@@ -32,6 +32,8 @@ class RHDPIntegration:
         self.kubeconfig_secret_name = "rhdp-kubeconfig"
         self.kubeconfig_secret_key = "kubeconfig"
         
+        print(f"[RHDP DEBUG] RHDPIntegration initialized, enabled: {self.enabled}")
+        
         # ResourceClaim patterns for different cloud providers
         self.claim_patterns = {
             'aws': 'sandboxes-gpte.sandbox-open.prod',
@@ -386,29 +388,39 @@ class RHDPIntegration:
         Returns:
             Dictionary with provider names as keys and credential dictionaries as values
         """
+        print(f"[RHDP DEBUG] get_all_available_credentials called, enabled: {self.enabled}")
+        
         if not self.enabled:
+            print(f"[RHDP DEBUG] RHDP not enabled, returning empty credentials")
             return {}
             
         user_namespace = self.get_user_namespace()
         if not user_namespace:
+            print(f"[RHDP DEBUG] No user namespace found, returning empty credentials")
             return {}
+        
+        print(f"[RHDP DEBUG] Getting all credentials for namespace: {user_namespace}")
         
         all_credentials = {}
         
         # Query for all provider patterns
         all_patterns = list(self.claim_patterns.values())
         claims = self.query_resource_claims(user_namespace, all_patterns)
+        print(f"[RHDP DEBUG] Found {len(claims)} total claims")
         
         # Group claims by provider and extract credentials
         for provider, pattern in self.claim_patterns.items():
             provider_claims = [c for c in claims if c.get('metadata', {}).get('name', '').startswith(pattern)]
+            print(f"[RHDP DEBUG] Found {len(provider_claims)} claims for {provider}")
             
             for claim in provider_claims:
                 credentials = self.extract_credentials_from_claim(claim, provider)
                 if credentials:
                     all_credentials[provider] = credentials
+                    print(f"[RHDP DEBUG] Added credentials for {provider}")
                     break  # Use first successful match per provider
         
+        print(f"[RHDP DEBUG] Returning credentials for providers: {list(all_credentials.keys())}")
         return all_credentials
 
 
