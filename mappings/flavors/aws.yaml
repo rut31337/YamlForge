@@ -1,0 +1,313 @@
+# AWS Instance Type Mappings
+# Maps agnosticd abstract sizes to AWS EC2 instance types
+# Reference: https://aws.amazon.com/ec2/instance-types/
+
+flavor_mappings:
+  # Nano instances (ultra-small for minimal workloads)
+  nano:
+    t3.nano:
+      vcpus: 2
+      memory_gb: 0.5
+      cost_factor: 0.1
+      hourly_cost: 0.0052
+
+  # Micro instances
+  micro:
+    t3.nano:
+      vcpus: 2
+      memory_gb: 0.5
+      cost_factor: 0.1
+      hourly_cost: 0.0052
+    t3.micro:
+      vcpus: 2
+      memory_gb: 1
+      cost_factor: 0.15
+      hourly_cost: 0.0104
+
+  # Small instances  
+  small:
+    t3.small:
+      vcpus: 2
+      memory_gb: 2
+      cost_factor: 0.3
+      hourly_cost: 0.0208
+    t3a.small:
+      vcpus: 2
+      memory_gb: 2
+      cost_factor: 0.25
+      hourly_cost: 0.0187
+    m5.large:
+      vcpus: 2
+      memory_gb: 8
+      cost_factor: 0.4
+      hourly_cost: 0.096
+
+  # Medium instances
+  medium:
+    t3.medium:
+      vcpus: 2
+      memory_gb: 4
+      cost_factor: 0.5
+      hourly_cost: 0.0416
+    t3a.medium:
+      vcpus: 2
+      memory_gb: 4
+      cost_factor: 0.45
+      hourly_cost: 0.0374
+    m5.large:
+      vcpus: 2
+      memory_gb: 8
+      cost_factor: 0.6
+      hourly_cost: 0.096
+    m5a.large:
+      vcpus: 2
+      memory_gb: 8
+      cost_factor: 0.55
+      hourly_cost: 0.086
+
+  # Large instances
+  large:
+    t3.large:
+      vcpus: 2
+      memory_gb: 8
+      cost_factor: 0.8
+      hourly_cost: 0.0832
+    m5.xlarge:
+      vcpus: 4
+      memory_gb: 16
+      cost_factor: 1.0
+      hourly_cost: 0.192
+    m5a.xlarge:
+      vcpus: 4
+      memory_gb: 16
+      cost_factor: 0.9
+      hourly_cost: 0.173
+    c5.xlarge:
+      vcpus: 4
+      memory_gb: 8
+      cost_factor: 0.85
+      hourly_cost: 0.17
+
+  # XLarge instances
+  xlarge:
+    m5.2xlarge:
+      vcpus: 8
+      memory_gb: 32
+      cost_factor: 1.5
+      hourly_cost: 0.384
+    m5a.2xlarge:
+      vcpus: 8
+      memory_gb: 32
+      cost_factor: 1.35
+      hourly_cost: 0.346
+    c5.2xlarge:
+      vcpus: 8
+      memory_gb: 16
+      cost_factor: 1.4
+      hourly_cost: 0.34
+
+  # 2XLarge instances
+  2xlarge:
+    m5.4xlarge:
+      vcpus: 16
+      memory_gb: 64
+      cost_factor: 2.0
+      hourly_cost: 0.768
+    m5a.4xlarge:
+      vcpus: 16
+      memory_gb: 64
+      cost_factor: 1.8
+      hourly_cost: 0.691
+    c5.4xlarge:
+      vcpus: 16
+      memory_gb: 32
+      cost_factor: 1.9
+      hourly_cost: 0.68
+
+  # Compute optimized instances
+  compute_small:
+    c5.large:
+      vcpus: 2
+      memory_gb: 4
+      cost_factor: 0.5
+      hourly_cost: 0.085
+    c5n.large:
+      vcpus: 2
+      memory_gb: 5.25
+      cost_factor: 0.6
+      hourly_cost: 0.108
+
+  compute_medium:
+    c5.xlarge:
+      vcpus: 4
+      memory_gb: 8
+      cost_factor: 0.85
+      hourly_cost: 0.17
+    c5n.xlarge:
+      vcpus: 4
+      memory_gb: 10.5
+      cost_factor: 1.0
+      hourly_cost: 0.216
+
+  compute_large:
+    c5.2xlarge:
+      vcpus: 8
+      memory_gb: 16
+      cost_factor: 1.4
+      hourly_cost: 0.34
+    c5n.2xlarge:
+      vcpus: 8
+      memory_gb: 21
+      cost_factor: 1.7
+      hourly_cost: 0.432
+
+  # Memory optimized instances
+  memory_medium:
+    r5.large:
+      vcpus: 2
+      memory_gb: 16
+      cost_factor: 0.7
+      hourly_cost: 0.126
+    r5a.large:
+      vcpus: 2
+      memory_gb: 16
+      cost_factor: 0.65
+      hourly_cost: 0.113
+
+  memory_large:
+    r5.xlarge:
+      vcpus: 4
+      memory_gb: 32
+      cost_factor: 1.2
+      hourly_cost: 0.252
+    r5a.xlarge:
+      vcpus: 4
+      memory_gb: 32
+      cost_factor: 1.1
+      hourly_cost: 0.226
+
+  memory_xlarge:
+    r5.2xlarge:
+      vcpus: 8
+      memory_gb: 64
+      cost_factor: 2.0
+      hourly_cost: 0.504
+    r5a.2xlarge:
+      vcpus: 8
+      memory_gb: 64
+      cost_factor: 1.8
+      hourly_cost: 0.453
+
+  # High memory instances  
+  high_memory:
+    r5.4xlarge:
+      vcpus: 16
+      memory_gb: 128
+      cost_factor: 2.5
+      hourly_cost: 1.008
+    x1e.xlarge:
+      vcpus: 4
+      memory_gb: 122
+      cost_factor: 2.3
+      hourly_cost: 0.834
+
+  # GPU instances
+  gpu_small:
+    g4dn.xlarge:
+      vcpus: 4
+      memory_gb: 16
+      gpu_count: 1
+      gpu_type: "NVIDIA T4"
+      gpu_memory_gb: 16
+      cost_factor: 1.5
+      hourly_cost: 0.526
+    g4ad.xlarge:
+      vcpus: 4
+      memory_gb: 16
+      gpu_count: 1
+      gpu_type: "AMD Radeon Pro V520"
+      gpu_memory_gb: 8
+      cost_factor: 1.4
+      hourly_cost: 0.379
+
+  gpu_medium:
+    g4dn.2xlarge:
+      vcpus: 8
+      memory_gb: 32
+      gpu_count: 1
+      gpu_type: "NVIDIA T4"
+      gpu_memory_gb: 16
+      cost_factor: 2.0
+      hourly_cost: 0.752
+    g4ad.2xlarge:
+      vcpus: 8
+      memory_gb: 32
+      gpu_count: 1
+      gpu_type: "AMD Radeon Pro V520"
+      gpu_memory_gb: 8
+      cost_factor: 1.8
+      hourly_cost: 0.689
+
+  gpu_large:
+    g4dn.4xlarge:
+      vcpus: 16
+      memory_gb: 64
+      gpu_count: 1
+      gpu_type: "NVIDIA T4"
+      gpu_memory_gb: 16
+      cost_factor: 3.0
+      hourly_cost: 1.204
+    p3.2xlarge:
+      vcpus: 8
+      memory_gb: 61
+      gpu_count: 1
+      gpu_type: "NVIDIA V100"
+      gpu_memory_gb: 16
+      cost_factor: 4.0
+      hourly_cost: 3.06
+
+  gpu_xlarge:
+    g4dn.8xlarge:
+      vcpus: 32
+      memory_gb: 128
+      gpu_count: 1
+      gpu_type: "NVIDIA T4"
+      gpu_memory_gb: 16
+      cost_factor: 4.0
+      hourly_cost: 2.176
+    p3.8xlarge:
+      vcpus: 32
+      memory_gb: 244
+      gpu_count: 4
+      gpu_type: "NVIDIA V100"
+      gpu_memory_gb: 64
+      cost_factor: 8.0
+      hourly_cost: 12.24
+
+  gpu_multi:
+    g4dn.12xlarge:
+      vcpus: 48
+      memory_gb: 192
+      gpu_count: 4
+      gpu_type: "NVIDIA T4"
+      gpu_memory_gb: 64
+      cost_factor: 6.0
+      hourly_cost: 3.912
+    p3.16xlarge:
+      vcpus: 64
+      memory_gb: 488
+      gpu_count: 8
+      gpu_type: "NVIDIA V100"
+      gpu_memory_gb: 128
+      cost_factor: 12.0
+      hourly_cost: 24.48
+    p4d.24xlarge:
+      vcpus: 96
+      memory_gb: 1152
+      gpu_count: 8
+      gpu_type: "NVIDIA A100"
+      gpu_memory_gb: 320
+      cost_factor: 15.0
+      hourly_cost: 32.77
+
+ 

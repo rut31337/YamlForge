@@ -1,0 +1,341 @@
+# IBM Cloud VPC Instance Profile Mappings
+# Maps agnosticd abstract sizes to IBM Cloud VPC instance profiles
+# Reference: https://cloud.ibm.com/docs/vpc?topic=vpc-profiles
+# 
+# Note: This file is specifically for IBM Cloud VPC Infrastructure (Generation 2)
+# For IBM Cloud Classic Infrastructure, see ibm_classic.yaml
+
+flavor_mappings:
+  # Micro instances
+  micro:
+    bx2-2x8:
+      vcpus: 2
+      memory_gb: 8
+      cost_factor: 0.15
+      hourly_cost: 0.0376
+
+  # Small instances  
+  small:
+    bx2-2x8:
+      vcpus: 2
+      memory_gb: 8
+      cost_factor: 0.3
+      hourly_cost: 0.0376
+    bx2-4x16:
+      vcpus: 4
+      memory_gb: 16
+      cost_factor: 0.35
+      hourly_cost: 0.0752
+    cx2-2x4:
+      vcpus: 2
+      memory_gb: 4
+      cost_factor: 0.25
+      hourly_cost: 0.0404
+
+  # Medium instances
+  medium:
+    bx2-4x16:
+      vcpus: 4
+      memory_gb: 16
+      cost_factor: 0.5
+      hourly_cost: 0.0752
+    bx2-8x32:
+      vcpus: 8
+      memory_gb: 32
+      cost_factor: 0.6
+      hourly_cost: 0.1504
+    cx2-4x8:
+      vcpus: 4
+      memory_gb: 8
+      cost_factor: 0.45
+      hourly_cost: 0.0808
+    mx2-4x32:
+      vcpus: 4
+      memory_gb: 32
+      cost_factor: 0.7
+      hourly_cost: 0.1204
+
+  # Large instances
+  large:
+    bx2-8x32:
+      vcpus: 8
+      memory_gb: 32
+      cost_factor: 0.9
+      hourly_cost: 0.1504
+    bx2-16x64:
+      vcpus: 16
+      memory_gb: 64
+      cost_factor: 1.0
+      hourly_cost: 0.3008
+    cx2-8x16:
+      vcpus: 8
+      memory_gb: 16
+      cost_factor: 0.8
+      hourly_cost: 0.1616
+    mx2-8x64:
+      vcpus: 8
+      memory_gb: 64
+      cost_factor: 1.1
+      hourly_cost: 0.2408
+
+  # XLarge instances
+  xlarge:
+    bx2-16x64:
+      vcpus: 16
+      memory_gb: 64
+      cost_factor: 1.4
+      hourly_cost: 0.3008
+    bx2-32x128:
+      vcpus: 32
+      memory_gb: 128
+      cost_factor: 1.6
+      hourly_cost: 0.6016
+    cx2-16x32:
+      vcpus: 16
+      memory_gb: 32
+      cost_factor: 1.3
+      hourly_cost: 0.3232
+    mx2-16x128:
+      vcpus: 16
+      memory_gb: 128
+      cost_factor: 1.7
+      hourly_cost: 0.4816
+
+  # 2XLarge instances
+  2xlarge:
+    bx2-32x128:
+      vcpus: 32
+      memory_gb: 128
+      cost_factor: 2.0
+      hourly_cost: 0.6016
+    bx2-48x192:
+      vcpus: 48
+      memory_gb: 192
+      cost_factor: 2.2
+      hourly_cost: 0.9024
+    cx2-32x64:
+      vcpus: 32
+      memory_gb: 64
+      cost_factor: 1.9
+      hourly_cost: 0.6464
+    mx2-32x256:
+      vcpus: 32
+      memory_gb: 256
+      cost_factor: 2.3
+      hourly_cost: 0.9632
+
+  # Compute optimized
+  compute_large:
+    cx2-8x16:
+      vcpus: 8
+      memory_gb: 16
+      cost_factor: 1.1
+      hourly_cost: 0.1616
+    cx2-16x32:
+      vcpus: 16
+      memory_gb: 32
+      cost_factor: 1.3
+      hourly_cost: 0.3232
+    cx2-32x64:
+      vcpus: 32
+      memory_gb: 64
+      cost_factor: 1.5
+      hourly_cost: 0.6464
+
+  # Memory optimized
+  memory_large:
+    mx2-8x64:
+      vcpus: 8
+      memory_gb: 64
+      cost_factor: 1.3
+      hourly_cost: 0.2408
+    mx2-16x128:
+      vcpus: 16
+      memory_gb: 128
+      cost_factor: 1.6
+      hourly_cost: 0.4816
+    vx2d-16x224:
+      vcpus: 16
+      memory_gb: 224
+      cost_factor: 2.0
+      hourly_cost: 0.8432
+
+  # General purpose optimized sizes
+  general_micro:
+    bx2-2x8:
+      vcpus: 2
+      memory_gb: 8
+      cost_factor: 0.15
+      hourly_cost: 0.0376
+
+  general_small:
+    bx2-4x16:
+      vcpus: 4
+      memory_gb: 16
+      cost_factor: 0.3
+      hourly_cost: 0.0752
+    bx2-8x32:
+      vcpus: 8
+      memory_gb: 32
+      cost_factor: 0.35
+      hourly_cost: 0.1504
+
+  general_medium:
+    bx2-8x32:
+      vcpus: 8
+      memory_gb: 32
+      cost_factor: 0.6
+      hourly_cost: 0.1504
+    bx2-16x64:
+      vcpus: 16
+      memory_gb: 64
+      cost_factor: 0.65
+      hourly_cost: 0.3008
+
+  general_large:
+    bx2-16x64:
+      vcpus: 16
+      memory_gb: 64
+      cost_factor: 1.0
+      hourly_cost: 0.3008
+    bx2-32x128:
+      vcpus: 32
+      memory_gb: 128
+      cost_factor: 1.2
+      hourly_cost: 0.6016
+
+  # Nano instances
+  nano:
+    bx2-2x8:
+      vcpus: 2
+      memory_gb: 8
+      cost_factor: 0.1
+      hourly_cost: 0.0376
+
+  # Balanced instances (additional options)
+  balanced_small:
+    bx2-2x8:
+      vcpus: 2
+      memory_gb: 8
+      cost_factor: 0.2
+      hourly_cost: 0.0376
+    bx2-4x16:
+      vcpus: 4
+      memory_gb: 16
+      cost_factor: 0.3
+      hourly_cost: 0.0752
+
+  balanced_medium:
+    bx2-8x32:
+      vcpus: 8
+      memory_gb: 32
+      cost_factor: 0.5
+      hourly_cost: 0.1504
+    bx2-16x64:
+      vcpus: 16
+      memory_gb: 64
+      cost_factor: 0.6
+      hourly_cost: 0.3008
+
+  # Very high memory profiles  
+  very_high_memory:
+    vx2d-8x112:
+      vcpus: 8
+      memory_gb: 112
+      cost_factor: 1.8
+      hourly_cost: 0.4216
+    vx2d-16x224:
+      vcpus: 16
+      memory_gb: 224
+      cost_factor: 2.2
+      hourly_cost: 0.8432
+    vx2d-32x448:
+      vcpus: 32
+      memory_gb: 448
+      cost_factor: 3.0
+      hourly_cost: 1.6864
+
+  # GPU instances
+  gpu_small:
+    gx2-8x64x1v100:
+      vcpus: 8
+      memory_gb: 64
+      gpu_count: 1
+      gpu_type: "NVIDIA V100"
+      gpu_memory_gb: 16
+      cost_factor: 3.0
+      hourly_cost: 1.89
+    gx3-8x64x1l4:
+      vcpus: 8
+      memory_gb: 64
+      gpu_count: 1
+      gpu_type: "NVIDIA L4"
+      gpu_memory_gb: 24
+      cost_factor: 2.5
+      hourly_cost: 1.42
+
+  gpu_medium:
+    gx2-16x128x1v100:
+      vcpus: 16
+      memory_gb: 128
+      gpu_count: 1
+      gpu_type: "NVIDIA V100"
+      gpu_memory_gb: 16
+      cost_factor: 4.0
+      hourly_cost: 2.87
+    gx3-16x128x1l4:
+      vcpus: 16
+      memory_gb: 128
+      gpu_count: 1
+      gpu_type: "NVIDIA L4"
+      gpu_memory_gb: 24
+      cost_factor: 3.5
+      hourly_cost: 2.34
+
+  gpu_large:
+    gx2-32x256x2v100:
+      vcpus: 32
+      memory_gb: 256
+      gpu_count: 2
+      gpu_type: "NVIDIA V100"
+      gpu_memory_gb: 32
+      cost_factor: 6.0
+      hourly_cost: 4.78
+    gx3-32x256x1l40s:
+      vcpus: 32
+      memory_gb: 256
+      gpu_count: 1
+      gpu_type: "NVIDIA L40S"
+      gpu_memory_gb: 48
+      cost_factor: 5.5
+      hourly_cost: 4.12
+
+  gpu_xlarge:
+    gx2-64x512x4v100:
+      vcpus: 64
+      memory_gb: 512
+      gpu_count: 4
+      gpu_type: "NVIDIA V100"
+      gpu_memory_gb: 64
+      cost_factor: 10.0
+      hourly_cost: 8.56
+    gx3-64x512x2l40s:
+      vcpus: 64
+      memory_gb: 512
+      gpu_count: 2
+      gpu_type: "NVIDIA L40S"
+      gpu_memory_gb: 96
+      cost_factor: 9.0
+      hourly_cost: 7.24
+
+  gpu_multi:
+    gx3-128x1024x4l40s:
+      vcpus: 128
+      memory_gb: 1024
+      gpu_count: 4
+      gpu_type: "NVIDIA L40S"
+      gpu_memory_gb: 192
+      cost_factor: 15.0
+      hourly_cost: 12.48
+
+ 

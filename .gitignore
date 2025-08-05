@@ -37,11 +37,6 @@ tmp_*.py
 *_temp.*
 *_tmp.*
 
-# Redundant cloud-specific flavor files (not the patterns file!)
-mappings/flavors/aws.yaml
-mappings/flavors/azure.yaml
-mappings/flavors/ibm_*.yaml
-# Note: mappings/cloud_patterns.yaml is NEEDED and should be committed
 
 # IDE
 .vscode/

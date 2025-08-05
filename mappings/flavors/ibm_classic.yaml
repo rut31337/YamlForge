@@ -1,0 +1,297 @@
+# IBM Cloud Classic Infrastructure Instance Type Mappings
+# Maps agnosticd abstract sizes to IBM Cloud Classic Infrastructure instance types
+# Reference: https://cloud.ibm.com/docs/bare-metal
+# 
+# Note: This file is specifically for IBM Cloud Classic Infrastructure (Generation 1)
+# For IBM Cloud VPC Infrastructure, see ibm_vpc.yaml
+#
+# Instance Type Format: [FAMILY].[CPU]x[RAM]x[DISK]
+# - B1 = Balanced
+# - BL1 = Balanced Local Storage
+# - BL2 = Balanced Local Storage v2  
+# - C1 = Compute Optimized
+# - AC1 = Compute Optimized with GPU
+# - M1 = Memory Optimized
+
+flavor_mappings:
+  # Micro instances
+  micro:
+    B1.1x2x25:
+      vcpus: 1
+      memory_gb: 2
+      disk_gb: 25
+      cost_factor: 0.15
+      hourly_cost: 0.0695
+
+  # Small instances  
+  small:
+    B1.1x2x25:
+      vcpus: 1
+      memory_gb: 2
+      disk_gb: 25
+      cost_factor: 0.3
+      hourly_cost: 0.0695
+    B1.2x4x100:
+      vcpus: 2
+      memory_gb: 4
+      disk_gb: 100
+      cost_factor: 0.35
+      hourly_cost: 0.1389
+    BL1.1x2x25:
+      vcpus: 1
+      memory_gb: 2
+      disk_gb: 25
+      cost_factor: 0.25
+      hourly_cost: 0.0765
+
+  # Medium instances
+  medium:
+    B1.2x4x100:
+      vcpus: 2
+      memory_gb: 4
+      disk_gb: 100
+      cost_factor: 0.5
+      hourly_cost: 0.1389
+    B1.4x8x100:
+      vcpus: 4
+      memory_gb: 8
+      disk_gb: 100
+      cost_factor: 0.6
+      hourly_cost: 0.2778
+    BL1.2x4x100:
+      vcpus: 2
+      memory_gb: 4
+      disk_gb: 100
+      cost_factor: 0.45
+      hourly_cost: 0.1529
+    C1.2x2x25:
+      vcpus: 2
+      memory_gb: 2
+      disk_gb: 25
+      cost_factor: 0.4
+      hourly_cost: 0.1322
+
+  # Large instances
+  large:
+    B1.4x8x100:
+      vcpus: 4
+      memory_gb: 8
+      disk_gb: 100
+      cost_factor: 0.9
+      hourly_cost: 0.2778
+    B1.8x16x100:
+      vcpus: 8
+      memory_gb: 16
+      disk_gb: 100
+      cost_factor: 1.0
+      hourly_cost: 0.5556
+    BL1.4x8x100:
+      vcpus: 4
+      memory_gb: 8
+      disk_gb: 100
+      cost_factor: 0.8
+      hourly_cost: 0.3058
+    C1.4x4x25:
+      vcpus: 4
+      memory_gb: 4
+      disk_gb: 25
+      cost_factor: 0.75
+      hourly_cost: 0.2644
+
+  # XLarge instances
+  xlarge:
+    B1.8x16x100:
+      vcpus: 8
+      memory_gb: 16
+      disk_gb: 100
+      cost_factor: 1.4
+      hourly_cost: 0.5556
+    B1.16x32x100:
+      vcpus: 16
+      memory_gb: 32
+      disk_gb: 100
+      cost_factor: 1.6
+      hourly_cost: 1.1111
+    BL1.8x16x100:
+      vcpus: 8
+      memory_gb: 16
+      disk_gb: 100
+      cost_factor: 1.3
+      hourly_cost: 0.6116
+    C1.8x8x25:
+      vcpus: 8
+      memory_gb: 8
+      disk_gb: 25
+      cost_factor: 1.2
+      hourly_cost: 0.5289
+
+  # 2XLarge instances
+  2xlarge:
+    B1.16x32x100:
+      vcpus: 16
+      memory_gb: 32
+      disk_gb: 100
+      cost_factor: 2.0
+      hourly_cost: 1.1111
+    B1.32x64x100:
+      vcpus: 32
+      memory_gb: 64
+      disk_gb: 100
+      cost_factor: 2.2
+      hourly_cost: 2.2222
+    BL1.16x32x100:
+      vcpus: 16
+      memory_gb: 32
+      disk_gb: 100
+      cost_factor: 1.9
+      hourly_cost: 1.2233
+    C1.16x16x25:
+      vcpus: 16
+      memory_gb: 16
+      disk_gb: 25
+      cost_factor: 1.8
+      hourly_cost: 1.0578
+
+  # Compute optimized
+  compute_large:
+    C1.4x4x25:
+      vcpus: 4
+      memory_gb: 4
+      disk_gb: 25
+      cost_factor: 1.1
+      hourly_cost: 0.2644
+    C1.8x8x25:
+      vcpus: 8
+      memory_gb: 8
+      disk_gb: 25
+      cost_factor: 1.3
+      hourly_cost: 0.5289
+    C1.16x16x25:
+      vcpus: 16
+      memory_gb: 16
+      disk_gb: 25
+      cost_factor: 1.5
+      hourly_cost: 1.0578
+
+  # Memory optimized
+  memory_large:
+    M1.4x32x100:
+      vcpus: 4
+      memory_gb: 32
+      disk_gb: 100
+      cost_factor: 1.3
+      hourly_cost: 0.4444
+    M1.8x64x100:
+      vcpus: 8
+      memory_gb: 64
+      disk_gb: 100
+      cost_factor: 1.6
+      hourly_cost: 0.8889
+    M1.16x128x100:
+      vcpus: 16
+      memory_gb: 128
+      disk_gb: 100
+      cost_factor: 2.0
+      hourly_cost: 1.7778
+
+  # General purpose optimized sizes
+  general_micro:
+    B1.1x2x25:
+      vcpus: 1
+      memory_gb: 2
+      disk_gb: 25
+      cost_factor: 0.15
+      hourly_cost: 0.0695
+
+  general_small:
+    B1.2x4x100:
+      vcpus: 2
+      memory_gb: 4
+      disk_gb: 100
+      cost_factor: 0.3
+      hourly_cost: 0.1389
+    B1.4x8x100:
+      vcpus: 4
+      memory_gb: 8
+      disk_gb: 100
+      cost_factor: 0.35
+      hourly_cost: 0.2778
+
+  general_medium:
+    B1.4x8x100:
+      vcpus: 4
+      memory_gb: 8
+      disk_gb: 100
+      cost_factor: 0.6
+      hourly_cost: 0.2778
+    B1.8x16x100:
+      vcpus: 8
+      memory_gb: 16
+      disk_gb: 100
+      cost_factor: 0.65
+      hourly_cost: 0.5556
+
+  general_large:
+    B1.8x16x100:
+      vcpus: 8
+      memory_gb: 16
+      disk_gb: 100
+      cost_factor: 1.0
+      hourly_cost: 0.5556
+    B1.16x32x100:
+      vcpus: 16
+      memory_gb: 32
+      disk_gb: 100
+      cost_factor: 1.2
+      hourly_cost: 1.1111
+
+  # Nano instances
+  nano:
+    B1.1x2x25:
+      vcpus: 1
+      memory_gb: 2
+      disk_gb: 25
+      cost_factor: 0.1
+      hourly_cost: 0.0695
+
+  # Local storage optimized instances
+  local_storage_small:
+    BL1.2x4x100:
+      vcpus: 2
+      memory_gb: 4
+      disk_gb: 100
+      cost_factor: 0.2
+      hourly_cost: 0.1529
+    BL2.2x4x200:
+      vcpus: 2
+      memory_gb: 4
+      disk_gb: 200
+      cost_factor: 0.3
+      hourly_cost: 0.1667
+
+  local_storage_medium:
+    BL1.4x8x100:
+      vcpus: 4
+      memory_gb: 8
+      disk_gb: 100
+      cost_factor: 0.5
+      hourly_cost: 0.3058
+    BL2.4x8x400:
+      vcpus: 4
+      memory_gb: 8
+      disk_gb: 400
+      cost_factor: 0.6
+      hourly_cost: 0.3333
+
+  # GPU instances
+  gpu_compute:
+    AC1.8x60x100:
+      vcpus: 8
+      memory_gb: 60
+      disk_gb: 100
+      cost_factor: 3.0
+      hourly_cost: 2.8889
+      gpu_count: 1
+      gpu_type: "NVIDIA"
+
+ 
