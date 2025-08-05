@@ -1463,7 +1463,7 @@ def generate_open_environment_section(providers_used: List[str]) -> str:
     
     provider_list = "\n\n".join(provider_items)
     
-    return f"""If you haven't already, you can order Blank OPEN environments for:
+    return f"""If you haven't already, you can order Blank OPEN environments for:  
 
 {provider_list}
 
