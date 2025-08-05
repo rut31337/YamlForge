@@ -199,11 +199,26 @@ oc create configmap demobuilder-config \
   --namespace="$NAMESPACE" \
   --dry-run=client -o yaml | oc apply -f -
 
-# Create RHDP kubeconfig secret if RHDP is enabled
+# Create RHDP kubeconfig secret and RBAC if RHDP is enabled
 if [ "$ENABLE_RHDP" = "true" ]; then
     echo "Creating RHDP kubeconfig secret..."
     oc create secret generic rhdp-kubeconfig \
       --from-file=kubeconfig="$RHDP_KUBECONFIG_PATH" \
+      --namespace="$NAMESPACE" \
+      --dry-run=client -o yaml | oc apply -f -
+    
+    echo "Creating RBAC permissions for secret access..."
+    # Create role to read secrets
+    oc create role secret-reader \
+      --verb=get,list \
+      --resource=secrets \
+      --namespace="$NAMESPACE" \
+      --dry-run=client -o yaml | oc apply -f -
+    
+    # Bind role to default service account
+    oc create rolebinding secret-reader-binding \
+      --role=secret-reader \
+      --serviceaccount="$NAMESPACE:default" \
       --namespace="$NAMESPACE" \
       --dry-run=client -o yaml | oc apply -f -
 fi
