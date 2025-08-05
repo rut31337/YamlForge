@@ -95,21 +95,27 @@ def display_header():
         with col2:
             # Show email address
             st.markdown(f"<div style='text-align: right; padding-top: 10px; margin-bottom: 5px;'>👤 {username}</div>", unsafe_allow_html=True)
-            # Show logout button right-justified underneath
+            # Show small logout button right-justified underneath
             auth_config = get_auth_config()
             if auth_config.enabled:
-                col_empty, col_logout = st.columns([1, 1])
-                with col_logout:
-                    if st.button("🚪 Logout", key="header_logout", help="Sign out of DemoBuilder", use_container_width=True):
-                        # Clear session state
-                        auth_config.clear_session()
-                        # Use meta refresh for more reliable redirect
-                        logout_url = auth_config.logout_url()
-                        st.markdown(f"""
-                        <meta http-equiv="refresh" content="0; url={logout_url}">
-                        <p>Logging out... If you are not redirected, <a href="{logout_url}">click here</a>.</p>
-                        """, unsafe_allow_html=True)
-                        st.stop()
+                # Create a custom small logout button using HTML
+                logout_url = auth_config.logout_url()
+                st.markdown(f"""
+                <div style='text-align: right; margin-top: -5px;'>
+                    <a href="{logout_url}" style='
+                        background-color: #ff4b4b; 
+                        color: white; 
+                        padding: 2px 8px; 
+                        border-radius: 4px; 
+                        text-decoration: none; 
+                        font-size: 12px;
+                        display: inline-block;
+                        border: 1px solid #ff4b4b;
+                    ' onmouseover="this.style.backgroundColor='#ff6b6b'" onmouseout="this.style.backgroundColor='#ff4b4b'">
+                        🚪 Logout
+                    </a>
+                </div>
+                """, unsafe_allow_html=True)
     else:
         st.title("🏗️ DemoBuilder")
         st.caption("AI-Powered Multi-Cloud Infrastructure Assistant")
