@@ -84,7 +84,7 @@ def display_header():
         }
     )
     
-    # Header with username in top right corner if authenticated
+    # Header with username and logout button in top right corner if authenticated
     username = get_display_username()
     if username:
         col1, col2 = st.columns([4, 1])
@@ -92,7 +92,19 @@ def display_header():
             st.title("🏗️ DemoBuilder")
             st.caption("AI-Powered Multi-Cloud Infrastructure Assistant")
         with col2:
-            st.markdown(f"<div style='text-align: right; padding-top: 20px;'>👤 {username}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='text-align: right; padding-top: 10px;'>👤 {username}</div>", unsafe_allow_html=True)
+            auth_config = get_auth_config()
+            if auth_config.enabled and st.button("🚪 Logout", key="header_logout", help="Sign out of DemoBuilder"):
+                # Clear session state
+                auth_config.clear_session()
+                # Use JavaScript to redirect to logout URL
+                logout_url = auth_config.logout_url()
+                st.markdown(f"""
+                <script>
+                window.location.href = "{logout_url}";
+                </script>
+                """, unsafe_allow_html=True)
+                st.stop()
     else:
         st.title("🏗️ DemoBuilder")
         st.caption("AI-Powered Multi-Cloud Infrastructure Assistant")

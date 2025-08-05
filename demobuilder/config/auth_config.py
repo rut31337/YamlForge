@@ -129,9 +129,12 @@ class AuthConfig:
         return "/oauth2/sign_out"
     
     def clear_session(self):
-        """Clear authentication session state"""
+        """Clear authentication session state and optionally all session data"""
         if 'auth_user' in st.session_state:
             del st.session_state.auth_user
+        # Also clear auth config to force re-initialization
+        if 'auth_config' in st.session_state:
+            del st.session_state.auth_config
 
 
 def get_auth_config() -> AuthConfig:
@@ -170,9 +173,16 @@ def show_auth_info():
             
             # Logout button
             if st.button("🚪 Logout", key="auth_logout"):
-                # Redirect to logout URL
+                # Clear session state
+                auth_config.clear_session()
+                # Use JavaScript redirect for better reliability
                 logout_url = auth_config.logout_url()
-                st.markdown(f'<meta http-equiv="refresh" content="0; url={logout_url}">', unsafe_allow_html=True)
+                st.markdown(f"""
+                <script>
+                window.location.href = "{logout_url}";
+                </script>
+                """, unsafe_allow_html=True)
+                st.stop()
     else:
         st.sidebar.error("🔒 Not authenticated")
 
