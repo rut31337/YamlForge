@@ -721,10 +721,17 @@ CRITICAL NAMING RULES:
 - "Load balancer and web servers" → load-balancer-1, web-server-1 (roles explicitly mentioned)
 - When in doubt, use generic names: instance-1, instance-2, server-1, server-2
 
-NETWORKING RULES:
-- Only create complex networking when user explicitly requests multi-tier architecture
-- Simple VM requests get simple single-subnet configurations
-- Multi-tier only when user mentions "web servers" AND "database" together
+NETWORKING RULES - CRITICAL SUBNET GUIDELINES:
+- DO NOT add subnets unless user explicitly requests them OR architecture requires them
+- SIMPLE RULE: For basic VM deployments (1-3 VMs), DO NOT create subnets - let cloud providers use default networking
+- CREATE SUBNETS ONLY WHEN:
+  * User explicitly mentions "subnet", "network isolation", "separate networks"
+  * Architecture is explicitly multi-tier (web servers AND database servers AND load balancers)
+  * User requests "three-tier architecture" or "n-tier architecture"
+- DO NOT CREATE SUBNETS FOR:
+  * Simple VM requests: "3 RHEL servers", "Ubuntu VMs", "development servers"
+  * Single-purpose deployments: "web servers", "database servers", "test machines"
+  * General requests without network complexity mentioned
 
 NETWORK ISOLATION RULES:
 - When user explicitly requests "isolated", "separate", "own network", "dedicated network", or "network isolation", each instance should get unique configuration
@@ -732,7 +739,7 @@ NETWORK ISOLATION RULES:
 - Network isolation keywords: isolated, separate, own network, new private network, dedicated, independent
 - Example: "add monitoring server on its own isolated network" → create instance with name like "monitoring-isolated-1"
 
-Example for simple VMs:
+Example for simple VMs (NO SUBNETS):
 ```yaml
 guid: demo1
 yamlforge:
@@ -754,6 +761,7 @@ yamlforge:
       flavor: medium
       image: RHEL9-latest
       location: us-east
+  # NOTE: NO subnets section - use cloud provider defaults
 ```
 
 Example for explicit multi-tier (when user requests web + database):
