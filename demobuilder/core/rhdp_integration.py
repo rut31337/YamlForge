@@ -270,12 +270,12 @@ class RHDPIntegration:
         """Map AWS provision_data to environment variables."""
         credentials = {}
         
-        # Common AWS credential field mappings
+        # RHDP AWS credential field mappings based on actual provision_data structure
         field_mappings = {
-            'AWS_ACCESS_KEY_ID': ['aws_access_key_id', 'access_key_id', 'AccessKeyId', 'access_key'],
-            'AWS_SECRET_ACCESS_KEY': ['aws_secret_access_key', 'secret_access_key', 'SecretAccessKey', 'secret_key'],
-            'AWS_DEFAULT_REGION': ['aws_region', 'region', 'aws_default_region', 'default_region'],
-            'AWS_SESSION_TOKEN': ['aws_session_token', 'session_token', 'SessionToken', 'token']
+            'AWS_ACCESS_KEY_ID': ['aws_access_key_id'],
+            'AWS_SECRET_ACCESS_KEY': ['aws_secret_access_key'],
+            'AWS_DEFAULT_REGION': ['aws_default_region'],
+            'AWS_SESSION_TOKEN': ['aws_session_token', 'session_token']
         }
         
         for env_var, possible_fields in field_mappings.items():
@@ -290,12 +290,12 @@ class RHDPIntegration:
         """Map Azure provision_data to environment variables."""
         credentials = {}
         
-        # Common Azure credential field mappings
+        # RHDP Azure credential field mappings based on actual provision_data structure
         field_mappings = {
-            'ARM_CLIENT_ID': ['client_id', 'azure_client_id', 'application_id', 'app_id'],
-            'ARM_CLIENT_SECRET': ['client_secret', 'azure_client_secret', 'application_secret', 'app_secret'],
-            'ARM_SUBSCRIPTION_ID': ['subscription_id', 'azure_subscription_id', 'subscription'],
-            'ARM_TENANT_ID': ['tenant_id', 'azure_tenant_id', 'tenant', 'directory_id']
+            'ARM_CLIENT_ID': ['azure_service_principal_id'],
+            'ARM_CLIENT_SECRET': ['azure_service_principal_password'],
+            'ARM_SUBSCRIPTION_ID': ['azure_subscription'],
+            'ARM_TENANT_ID': ['azure_tenant_id', 'azure_tenant']
         }
         
         for env_var, possible_fields in field_mappings.items():
@@ -310,13 +310,17 @@ class RHDPIntegration:
         """Map GCP provision_data to environment variables."""
         credentials = {}
         
-        # Common GCP credential field mappings
+        # RHDP GCP credential field mappings based on actual provision_data structure
         field_mappings = {
-            'GOOGLE_PROJECT': ['project_id', 'gcp_project_id', 'project', 'gcp_project'],
-            'GOOGLE_CREDENTIALS': ['service_account_key', 'gcp_service_account_key', 'credentials', 'key_file'],
-            'GCP_REGION': ['region', 'gcp_region', 'default_region'],
-            'GCP_ZONE': ['zone', 'gcp_zone', 'default_zone']
+            'GOOGLE_PROJECT': ['gcp_project_id', 'project_id'],
+            'GCP_REGION': ['gcp_region', 'region'],
+            'GCP_ZONE': ['gcp_zone', 'zone']
         }
+        
+        # Handle GCP credentials file separately (it's a nested object)
+        if 'gcp_credentials_file' in provision_data:
+            import json
+            credentials['GOOGLE_CREDENTIALS'] = json.dumps(provision_data['gcp_credentials_file'])
         
         for env_var, possible_fields in field_mappings.items():
             for field in possible_fields:
