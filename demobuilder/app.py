@@ -1339,7 +1339,10 @@ def display_rhdp_refresh_section():
                 options = []
                 for service in services:
                     service_info = rhdp.get_claim_display_info(service)
-                    display_name = f"{service_info['name']} ({service_info['status']}, {service_info['creation_time']})"
+                    # Extract just the GUID (last part after final dash)
+                    full_name = service_info['name']
+                    guid = full_name.split('-')[-1] if '-' in full_name else full_name
+                    display_name = f"{guid} ({service_info['status']}, {service_info['creation_time']})"
                     options.append((service_info['name'], display_name))
                 
                 # Find current selection index
