@@ -21,6 +21,7 @@ from core.sharing import (
     get_shareable_summary
 )
 from core.rhdp_integration import get_rhdp_integration
+from core.openshift_logging import app_logger, metrics, log_execution_time
 
 
 def validate_essential_files():
@@ -349,8 +350,15 @@ def display_provider_controls():
             for provider, enabled in provider_updates.items():
                 if enabled and provider not in st.session_state.enabled_providers:
                     st.session_state.enabled_providers.append(provider)
+                    app_logger.log_user_action("provider_enabled", provider=provider)
                 elif not enabled and provider in st.session_state.enabled_providers:
                     st.session_state.enabled_providers.remove(provider)
+                    app_logger.log_user_action("provider_disabled", provider=provider)
+            
+            # Log the current provider selection
+            enabled_providers = list(st.session_state.enabled_providers)
+            disabled_providers = [p for p in config.providers.keys() if p not in enabled_providers]
+            metrics.track_provider_selection(enabled_providers, disabled_providers)
     
     # Cost optimization section removed as requested
     
@@ -412,6 +420,13 @@ def display_chat_interface():
     
     # Process user input
     if user_input:
+        # Log user interaction
+        turn_number = len([msg for msg in st.session_state.conversation_history if msg["role"] == "user"]) + 1
+        app_logger.log_user_action("chat_input", 
+                                 turn_number=turn_number,
+                                 input_length=len(user_input),
+                                 workflow_stage=st.session_state.workflow_stage)
+        
         st.session_state.conversation_history.append({"role": "user", "content": user_input})
         
         with st.chat_message("user"):
@@ -421,6 +436,13 @@ def display_chat_interface():
             with st.spinner("Processing your requirements..."):
                 response = process_user_input(user_input)
                 render_chat_message_with_diagrams(response)
+        
+        # Log conversation turn metrics
+        metrics.track_conversation_turn(
+            turn_number=turn_number,
+            user_input_length=len(user_input),
+            ai_response_length=len(response)
+        )
         
         st.session_state.conversation_history.append({"role": "assistant", "content": response})
         # Force rerun to ensure sidebar updates properly
@@ -464,7 +486,13 @@ def process_user_input(user_input: str) -> str:
         return "I'm currently processing your request. Please wait for the analysis to complete."
 
 
+@log_execution_time("requirements_processing")
 def handle_requirements_stage(user_input: str) -> str:
+    # Log workflow stage transition
+    metrics.track_workflow_stage("generation")
+    app_logger.log_user_action("requirements_processing_started", 
+                             requirements_length=len(user_input))
+    
     st.session_state.workflow_stage = "generation"
     
     # Store original requirements for potential cheapest regeneration
@@ -479,6 +507,12 @@ def handle_requirements_stage(user_input: str) -> str:
         )
         
         if is_valid:
+            # Log successful YAML generation
+            providers = get_providers_from_current_yaml() if yaml_config else []
+            app_logger.log_yaml_generation(True, providers, 
+                                         config_size=len(yaml_config))
+            metrics.track_workflow_stage("analysis")
+            
             st.session_state.current_yaml = yaml_config
             st.session_state.workflow_stage = "analysis"
             
@@ -492,16 +526,25 @@ def handle_requirements_stage(user_input: str) -> str:
                 if analysis_message:
                     response = analysis_message
                 st.session_state.workflow_stage = "refinement"
+                metrics.track_workflow_stage("refinement")
             else:
                 response += "\n\n⚠️ I generated the YAML but had trouble analyzing it. You can still review the configuration on the right."
                 st.session_state.workflow_stage = "refinement"
+                metrics.track_workflow_stage("refinement")
             
             return response
         else:
+            # Log failed YAML generation
+            app_logger.log_yaml_generation(False, [], 
+                                         error=', '.join(messages))
             st.session_state.workflow_stage = "requirements"
             return f"I had trouble generating the configuration. Issues found: {', '.join(messages)}. Could you please clarify your requirements?"
     
     except Exception as e:
+        # Log the error
+        app_logger.log_error("requirements_processing_error", str(e))
+        app_logger.log_yaml_generation(False, [], error=str(e))
+        
         st.session_state.workflow_stage = "requirements"
         return f"Sorry, I encountered an error processing your request: {str(e)}. Could you please try rephrasing your requirements?"
 
@@ -661,13 +704,22 @@ def display_yaml_preview():
         st.markdown("---")
         st.subheader("📄 Configuration Approved")
         # Download button to replace the text
-        st.download_button(
+        if st.download_button(
             label="📄 Download YamlForge Configuration",
             data=st.session_state.current_yaml,
             file_name="yamlforge-config.yaml",
             mime="text/yaml",
             type="primary"
-        )
+        ):
+            # Log the download event
+            providers = get_providers_from_current_yaml()
+            config_size = len(st.session_state.current_yaml)
+            
+            app_logger.log_user_action("yaml_downloaded", 
+                                     providers=providers,
+                                     config_size_bytes=config_size)
+            
+            metrics.track_yaml_download(config_size, providers)
     
     # Generated configuration section below examples
     if st.session_state.current_yaml:
@@ -1064,6 +1116,16 @@ def display_examples_in_chat():
 def handle_approval():
     """Handle user approval of the current configuration"""
     if st.session_state.workflow_stage == "refinement":
+        # Log the approval action
+        providers = get_providers_from_current_yaml()
+        config_size = len(st.session_state.current_yaml) if st.session_state.current_yaml else 0
+        
+        app_logger.log_user_action("configuration_approved", 
+                                 providers=providers,
+                                 config_size_bytes=config_size)
+        
+        metrics.track_workflow_stage("complete")
+        
         st.session_state.workflow_stage = "complete"
         # Add approval message to conversation history
         st.session_state.conversation_history.append({"role": "user", "content": "approve"})
@@ -1554,11 +1616,30 @@ Need help with specific cloud provider setup? Check the [YamlForge documentation
     return instructions
 
 
+@log_execution_time("main_app_execution")
 def main():
-    validate_essential_files()
-    init_session_state()
-    display_header()
-    display_workflow_stage()
+    # Initialize logging and track session start
+    try:
+        app_logger.log_event("application_start", 
+                           streamlit_version=st.__version__,
+                           python_version=sys.version,
+                           environment="openshift")
+        
+        # Track session initiation
+        if 'logging_initialized' not in st.session_state:
+            user_agent = st.context.headers.get("User-Agent", "unknown")
+            metrics.track_session_start(user_agent=user_agent)
+            st.session_state.logging_initialized = True
+            app_logger.log_user_action("session_initialized")
+        
+        validate_essential_files()
+        init_session_state()
+        display_header()
+        display_workflow_stage()
+    except Exception as e:
+        app_logger.log_error("main_function_error", str(e))
+        st.error(f"Application initialization error: {str(e)}")
+        raise
     
     display_provider_controls()
     

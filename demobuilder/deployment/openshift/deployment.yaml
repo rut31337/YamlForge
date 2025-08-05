@@ -7,6 +7,7 @@ metadata:
     app: demobuilder
     component: web-app
     version: v1.0.0
+    logging: enabled
 spec:
   replicas: 2
   strategy:
@@ -24,8 +25,11 @@ spec:
         app: demobuilder
         component: web-app
         version: v1.0.0
+        logging: enabled
       annotations:
         prometheus.io/scrape: "false"
+        fluentd.io/log-driver: "json-file"
+        logging.openshift.io/collect: "true"
     spec:
       serviceAccountName: demobuilder
       securityContext:
@@ -70,6 +74,30 @@ spec:
             configMapKeyRef:
               name: demobuilder-config
               key: log_level
+        
+        # OpenShift environment variables for logging context
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: DEPLOYMENT_NAME
+          value: "demobuilder"
+        - name: APP_VERSION
+          value: "v1.0.0"
+        - name: CLUSTER_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: demobuilder-config
+              key: cluster_name
+              optional: true
         
         # Secrets
         - name: ANTHROPIC_API_KEY

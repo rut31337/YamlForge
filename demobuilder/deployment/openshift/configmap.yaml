@@ -23,5 +23,9 @@ data:
   streamlit_server_enable_cors: "false"
   streamlit_server_enable_xsrf_protection: "false"
   
-  # Logging
+  # Logging configuration
   log_level: "INFO"
+  log_format: "json"
+  metrics_enabled: "true"
+  log_retention_days: "30"
+  cluster_name: "openshift-cluster"
