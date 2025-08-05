@@ -18,7 +18,7 @@ export ANTHROPIC_API_KEY="your-api-key"
 ./deploy-s2i.sh \
   --namespace my-demobuilder \
   --enable-auth \
-  --keycloak-realm-url https://auth.redhat.com/auth/realms/GPTEInternal \
+  --keycloak-realm-url https://keycloak.example.com/auth/realms/master \
   --client-secret 48f673b0-2d03-4fcf-b59c-153c823109d8
 ```
 
@@ -167,7 +167,7 @@ oc describe deployment oauth2-proxy -n your-namespace
 ### 3. Enhanced Keycloak URL Handling
 - New `--keycloak-realm-url` parameter accepts full realm URL
 - Automatic parsing to extract base URL and realm name
-- Example: `https://auth.redhat.com/auth/realms/GPTEInternal`
+- Example: `https://keycloak.example.com/auth/realms/master`
 
 ### 4. Parameterized Port Configuration
 - Added `APP_PORT` variable with default value `8501`
