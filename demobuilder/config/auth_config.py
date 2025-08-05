@@ -34,7 +34,7 @@ class AuthConfig:
         return os.getenv('KEYCLOAK_ENABLED', 'false').lower() in ['true', '1', 'yes']
     
     def get_current_user(self) -> Optional[UserInfo]:
-        """Get current authenticated user from headers or session state"""
+        """Get current authenticated user with lazy loading and session safety"""
         if not self.enabled:
             return None
             
@@ -42,22 +42,30 @@ class AuthConfig:
         if 'auth_user' in st.session_state:
             return st.session_state.auth_user
             
-        # Extract user info from OAuth2 Proxy headers
-        user_info = self._extract_user_from_headers()
-        if user_info:
-            st.session_state.auth_user = user_info
-            return user_info
-            
+        # Only try to extract headers if we have a session context
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+        if get_script_run_ctx() is not None:
+            user_info = self._extract_user_from_headers()
+            if user_info:
+                st.session_state.auth_user = user_info
+                return user_info
+                
         return None
     
     def _extract_user_from_headers(self) -> Optional[UserInfo]:
-        """Extract user information from OAuth2 Proxy headers"""
+        """Extract user information from OAuth2 Proxy headers with session safety"""
         try:
-            # OAuth2 Proxy sets these headers after successful authentication
-            headers = st.context.headers if hasattr(st.context, 'headers') else {}
+            from streamlit.runtime.scriptrunner import get_script_run_ctx
             
-            # Try to get headers from Streamlit request context
-            # In practice, these would be set by OAuth2 Proxy
+            # Only try to access headers if we have a valid session context
+            ctx = get_script_run_ctx()
+            if ctx is None:
+                # No session context available yet - return None and let session state handle it
+                return None
+                
+            headers = st.context.headers
+            
+            # OAuth2 Proxy sets these headers after successful authentication
             username = headers.get('X-Auth-Request-User') or headers.get('x-auth-request-user')
             email = headers.get('X-Auth-Request-Email') or headers.get('x-auth-request-email')
             display_name = headers.get('X-Auth-Request-Preferred-Username') or headers.get('x-auth-request-preferred-username')
@@ -82,7 +90,9 @@ class AuthConfig:
                     is_authenticated=True
                 )
         except Exception as e:
-            st.error(f"Error extracting user info: {e}")
+            # Log but don't error - authentication will be retried on next session interaction
+            if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
+                st.error(f"Debug: Error extracting user info: {e}")
             
         return None
     
