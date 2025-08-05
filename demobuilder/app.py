@@ -85,7 +85,7 @@ def display_header():
         }
     )
     
-    # Remove space above title
+    # Remove space above content
     st.markdown("""
     <style>
         .block-container {
@@ -94,7 +94,7 @@ def display_header():
     </style>
     """, unsafe_allow_html=True)
     
-    # Header with user authentication status
+    # Header with title and user authentication status
     username = get_display_username()
     col1, col2 = st.columns([4, 1])
     with col1:
