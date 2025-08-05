@@ -1,5 +1,6 @@
 import streamlit as st
 import asyncio
+import os
 from typing import Dict, Any, List
 import yaml
 
@@ -206,6 +207,41 @@ def display_share_link_section():
 def display_provider_controls():
     # Show authentication info first
     show_auth_info()
+    
+    # Debug authentication headers (temporary)
+    if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
+        st.sidebar.header("🔍 Auth Debug")
+        st.sidebar.write("**Environment:**")
+        st.sidebar.write(f"KEYCLOAK_ENABLED: {os.getenv('KEYCLOAK_ENABLED', 'false')}")
+        st.sidebar.write(f"AUTH_DEV_MODE: {os.getenv('AUTH_DEV_MODE', 'false')}")
+        
+        auth_config = get_auth_config()
+        st.sidebar.write(f"**Auth Config:**")
+        st.sidebar.write(f"Enabled: {auth_config.enabled}")
+        st.sidebar.write(f"Is Authenticated: {auth_config.is_authenticated()}")
+        
+        st.sidebar.write("**Headers:**")
+        try:
+            headers = st.context.headers
+            auth_headers = {k: v for k, v in headers.items() 
+                          if any(term in k.lower() for term in ['auth', 'user', 'email', 'request'])}
+            if auth_headers:
+                for k, v in auth_headers.items():
+                    st.sidebar.write(f"  {k}: {v}")
+            else:
+                st.sidebar.write("  No auth headers found")
+                st.sidebar.write(f"  Total headers: {len(headers)}")
+        except Exception as e:
+            st.sidebar.write(f"  Header error: {e}")
+        
+        user = auth_config.get_current_user()
+        st.sidebar.write(f"**User Object:**")
+        if user:
+            st.sidebar.write(f"  Username: {user.username}")
+            st.sidebar.write(f"  Email: {user.email}")
+            st.sidebar.write(f"  Display: {user.display_name}")
+        else:
+            st.sidebar.write("  No user detected")
     
     # Start Over and Share buttons - only show if user has conversation history
     if st.session_state.conversation_history:

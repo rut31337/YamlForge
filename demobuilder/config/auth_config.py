@@ -34,52 +34,78 @@ class AuthConfig:
         return os.getenv('KEYCLOAK_ENABLED', 'false').lower() in ['true', '1', 'yes']
     
     def get_current_user(self) -> Optional[UserInfo]:
-        """Get current authenticated user with lazy loading and session safety"""
+        """Get current authenticated user using official Streamlit patterns"""
         if not self.enabled:
             return None
             
-        # Check if user info is already in session state
+        # Check if user info is already cached in session state
         if 'auth_user' in st.session_state:
-            return st.session_state.auth_user
+            cached_user = st.session_state.auth_user
+            if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
+                st.write(f"Debug: Using cached user: {cached_user.username}")
+            return cached_user
             
-        # Only try to extract headers if we have a session context
-        from streamlit.runtime.scriptrunner import get_script_run_ctx
-        if get_script_run_ctx() is not None:
+        # Try to extract user from headers
+        try:
             user_info = self._extract_user_from_headers()
             if user_info:
+                # Cache the user info in session state
                 st.session_state.auth_user = user_info
+                if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
+                    st.write(f"Debug: Cached new user: {user_info.username}")
                 return user_info
+        except Exception as e:
+            if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
+                st.error(f"Debug: get_current_user failed: {e}")
                 
         return None
     
     def _extract_user_from_headers(self) -> Optional[UserInfo]:
-        """Extract user information from OAuth2 Proxy headers with session safety"""
+        """Extract user information from OAuth2 Proxy headers using official st.context.headers"""
         try:
-            from streamlit.runtime.scriptrunner import get_script_run_ctx
-            
-            # Only try to access headers if we have a valid session context
-            ctx = get_script_run_ctx()
-            if ctx is None:
-                # No session context available yet - return None and let session state handle it
-                return None
-                
+            # Use official Streamlit context API (as shown in docs)
             headers = st.context.headers
             
+            # Debug logging if enabled
+            if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
+                st.write(f"Debug: Attempting to extract user from {len(headers)} headers")
+            
             # OAuth2 Proxy sets these headers after successful authentication
-            username = headers.get('X-Auth-Request-User') or headers.get('x-auth-request-user')
-            email = headers.get('X-Auth-Request-Email') or headers.get('x-auth-request-email')
-            display_name = headers.get('X-Auth-Request-Preferred-Username') or headers.get('x-auth-request-preferred-username')
+            # Try common OAuth2 Proxy header formats
+            username = (headers.get('X-Auth-Request-User') or 
+                       headers.get('x-auth-request-user') or
+                       headers.get('X-Forwarded-User') or
+                       headers.get('x-forwarded-user'))
+            
+            email = (headers.get('X-Auth-Request-Email') or 
+                    headers.get('x-auth-request-email') or
+                    headers.get('X-Forwarded-Email') or
+                    headers.get('x-forwarded-email'))
+            
+            display_name = (headers.get('X-Auth-Request-Preferred-Username') or 
+                           headers.get('x-auth-request-preferred-username') or
+                           headers.get('X-Auth-Request-Name') or
+                           headers.get('x-auth-request-name'))
             
             # For development/testing, allow override via environment
             if not username and os.getenv('AUTH_DEV_MODE', 'false').lower() == 'true':
                 username = os.getenv('AUTH_DEV_USER', 'dev-user')
                 email = os.getenv('AUTH_DEV_EMAIL', 'dev@example.com')
                 display_name = os.getenv('AUTH_DEV_DISPLAY_NAME', 'Development User')
+                
+                if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
+                    st.write(f"Debug: Using dev mode user: {username}")
             
             if username:
                 # Parse roles and groups from headers if available
-                roles_header = headers.get('X-Auth-Request-Groups', '')
+                roles_header = (headers.get('X-Auth-Request-Groups', '') or 
+                               headers.get('x-auth-request-groups', '') or
+                               headers.get('X-Forwarded-Groups', '') or
+                               headers.get('x-forwarded-groups', ''))
                 roles = [role.strip() for role in roles_header.split(',') if role.strip()] if roles_header else []
+                
+                if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
+                    st.write(f"Debug: Extracted user - username: {username}, email: {email}, roles: {roles}")
                 
                 return UserInfo(
                     username=username,
@@ -89,10 +115,15 @@ class AuthConfig:
                     groups=roles,  # Using roles as groups for simplicity
                     is_authenticated=True
                 )
+            else:
+                if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
+                    st.write("Debug: No username found in headers")
+                    
         except Exception as e:
-            # Log but don't error - authentication will be retried on next session interaction
+            # Enhanced error logging for debugging
             if os.getenv('AUTH_DEBUG', 'false').lower() == 'true':
                 st.error(f"Debug: Error extracting user info: {e}")
+                st.error(f"Debug: Exception type: {type(e).__name__}")
             
         return None
     
