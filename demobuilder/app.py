@@ -1461,9 +1461,9 @@ def generate_open_environment_section(providers_used: List[str]) -> str:
             link = open_environment_links[provider]
             provider_items.append(f"• **{name}**: [Order Environment]({link})")
     
-    provider_list = "\n".join(provider_items)
+    provider_list = "\n\n".join(provider_items)
     
-    return f"""If you haven't already, you can order Blank OPEN environments for:  
+    return f"""If you haven't already, you can order Blank OPEN environments for:
 
 {provider_list}
 
