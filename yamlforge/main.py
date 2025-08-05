@@ -449,13 +449,11 @@ def analyze_configuration(converter, config, raw_yaml_data):
             # Calculate and display cluster cost
             try:
                 cluster_cost = converter.calculate_openshift_cluster_cost(cluster, cluster_type)
-                print(f"   DEBUG: cluster_cost = {cluster_cost}")
                 if cluster_cost is not None and cluster_cost > 0:
                     print(f"   Cluster Nodes:")
                     
                     # Get detailed node breakdown from cluster size configuration
                     size_config = converter.openshift_provider.get_cluster_size_config(size, cluster_type)
-                    print(f"   DEBUG: size_config = {size_config}")
                     
                     # Determine provider based on cluster type (handle all deployment methods)
                     provider = None
@@ -469,36 +467,24 @@ def analyze_configuration(converter, config, raw_yaml_data):
                         provider = cluster.get('provider', 'aws')
                     elif cluster_type == 'hypershift':
                         provider = cluster.get('provider', 'aws')
-                    print(f"   DEBUG: provider = {provider}")
                     
                     # Extract node counts and types from size config or cluster config
                     controlplane_count = cluster.get('controlplane_count') or size_config.get('controlplane_count', 3)  # Default 3 control plane nodes for HA
                     worker_count = cluster.get('worker_count') or size_config.get('worker_count', 3)
-                    print(f"   DEBUG: controlplane_count = {controlplane_count}, worker_count = {worker_count}")
                     
                     # Get machine types from OpenShift mappings if provider is available
                     controlplane_machine_type = ''
                     worker_machine_type = ''
                     if provider:
-                        controlplane_size = size_config.get('controlplane_size', 'medium')
-                        worker_size = size_config.get('worker_size', 'medium')
-                        print(f"   DEBUG: controlplane_size = {controlplane_size}, worker_size = {worker_size}")
-                        
                         controlplane_machine_type = converter.openshift_provider.get_openshift_machine_type(
-                            provider, controlplane_size, 'controlplane'
+                            provider, size_config.get('controlplane_size', 'medium'), 'controlplane'
                         )
                         worker_machine_type = converter.openshift_provider.get_openshift_machine_type(
-                            provider, worker_size, 'worker'
+                            provider, size_config.get('worker_size', 'medium'), 'worker'
                         )
-                        print(f"   DEBUG: controlplane_machine_type = {controlplane_machine_type}, worker_machine_type = {worker_machine_type}")
                     
                     if provider:
                         provider_flavors = converter.flavors.get(provider, {})
-                        print(f"   DEBUG: provider_flavors keys = {list(provider_flavors.keys())}")
-                        if 'flavor_mappings' in provider_flavors:
-                            print(f"   DEBUG: flavor_mappings keys = {list(provider_flavors['flavor_mappings'].keys())}")
-                        else:
-                            print("   DEBUG: No flavor_mappings found in provider_flavors")
                         
                         # Track all node types and their costs
                         node_breakdown = []

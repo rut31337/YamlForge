@@ -1,6 +1,8 @@
 import streamlit as st
 import asyncio
 import os
+import sys
+from pathlib import Path
 from typing import Dict, Any, List
 import yaml
 
@@ -18,6 +20,72 @@ from core.sharing import (
     restore_state_from_url_params,
     get_shareable_summary
 )
+
+
+def validate_essential_files():
+    """Validate that all required YamlForge mapping files are present."""
+    # Complete list of all mapping files that should exist
+    required_files = [
+        'mappings/cloud_patterns.yaml',
+        'mappings/flavors/alibaba.yaml',
+        'mappings/flavors/aro.yaml',
+        'mappings/flavors/aws.yaml',
+        'mappings/flavors/azure.yaml',
+        'mappings/flavors/cheapest.yaml',
+        'mappings/flavors/cnv.yaml',
+        'mappings/flavors/gcp.yaml',
+        'mappings/flavors/generic.yaml',
+        'mappings/flavors/ibm_classic.yaml',
+        'mappings/flavors/ibm_vpc.yaml',
+        'mappings/flavors/oci.yaml',
+        'mappings/flavors/vmware.yaml',
+        'mappings/flavors_openshift/openshift_alibaba.yaml',
+        'mappings/flavors_openshift/openshift_aws.yaml',
+        'mappings/flavors_openshift/openshift_azure.yaml',
+        'mappings/flavors_openshift/openshift_gcp.yaml',
+        'mappings/flavors_openshift/openshift_generic.yaml',
+        'mappings/flavors_openshift/openshift_ibm_classic.yaml',
+        'mappings/flavors_openshift/openshift_ibm_vpc.yaml',
+        'mappings/flavors_openshift/openshift_oci.yaml',
+        'mappings/flavors_openshift/openshift_vmware.yaml',
+        'mappings/gcp/machine-type-availability.yaml',
+        'mappings/images.yaml',
+        'mappings/locations.yaml'
+    ]
+    
+    # Find the correct base path
+    possible_paths = [
+        Path('.'),
+        Path('..'),
+        Path('/opt/app-root/src'),
+        Path('/app')
+    ]
+    
+    base_path = None
+    for path in possible_paths:
+        if (path / 'mappings').exists():
+            base_path = path
+            break
+    
+    if not base_path:
+        st.error("❌ **DemoBuilder Startup Failed**")
+        st.error("Could not locate YamlForge mappings directory.")
+        st.stop()
+    
+    # Check each required file
+    missing_files = []
+    for file_path in required_files:
+        full_path = base_path / file_path
+        if not full_path.exists():
+            missing_files.append(file_path)
+    
+    if missing_files:
+        st.error("❌ **DemoBuilder Startup Failed**")
+        st.error("Required YamlForge mapping files are missing:")
+        for file_path in missing_files:
+            st.code(file_path)
+        st.error("These files are required for infrastructure analysis. Please ensure all mapping files are included in the build.")
+        st.stop()
 
 
 def init_session_state():
@@ -1234,6 +1302,7 @@ Need help with specific cloud provider setup? Check the [YamlForge documentation
 
 
 def main():
+    validate_essential_files()
     init_session_state()
     display_header()
     display_workflow_stage()
