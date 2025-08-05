@@ -85,6 +85,27 @@ def display_header():
         }
     )
     
+    # Remove top padding and header space using CSS injection
+    st.markdown("""
+    <style>
+        /* Remove top padding from main content area */
+        .block-container {
+            padding-top: 1rem !important;
+            padding-bottom: 0rem;
+        }
+        
+        /* Remove header margins and padding */
+        .main > div {
+            padding-top: 0rem !important;
+        }
+        
+        /* Reduce space above the first element */
+        .main .block-container {
+            padding-top: 1rem !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
     # Header with user email and logout button in top right corner if authenticated
     username = get_display_username()
     if username:
