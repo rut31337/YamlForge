@@ -1,182 +1,141 @@
-# OpenShift Logging Guide for DemoBuilder
+# OpenShift Logging and Analytics Guide for DemoBuilder
 
-This guide demonstrates how to analyze DemoBuilder logs using native OpenShift logging capabilities.
+This guide demonstrates how to set up modern logging infrastructure and create analytics dashboards for DemoBuilder using Vector, LokiStack, and Grafana.
 
 ## Log Structure
 
-DemoBuilder outputs structured JSON logs to stdout, automatically collected by OpenShift's logging infrastructure. Each log entry includes:
+DemoBuilder logs are captured through the OpenShift logging pipeline using OAuth2 proxy logs and Streamlit application logs. The modern logging stack consists of:
 
-### Standard Fields
-- `timestamp`: ISO 8601 formatted timestamp
-- `component`: Application component (app, metrics, performance)
-- `session_id`: Unique session identifier for tracking user interactions
-- `openshift`: OpenShift context (pod, namespace, node, cluster)
-- `app`: Always "demobuilder"
-- `version`: Application version
+- **Vector**: Log collection and forwarding (replaces deprecated Fluentd)
+- **LokiStack**: Log storage and querying (replaces deprecated Elasticsearch)  
+- **Grafana**: Visualization and dashboards (replaces deprecated Kibana)
 
-### Event-Specific Fields
-- `event_type`: Type of event (user_action, infrastructure_request, yaml_generation, etc.)
-- `event_data`: Event-specific data payload
-
-## Log Analysis Examples
-
-### 1. View All DemoBuilder Logs
-
-```bash
-# View all logs from DemoBuilder deployment
-oc logs -l app=demobuilder -n demobuilder
-
-# Follow logs in real-time
-oc logs -f deployment/demobuilder -n demobuilder
-
-# View logs from last hour
-oc logs -l app=demobuilder -n demobuilder --since=1h
+### OAuth2 Proxy Log Format
+User authentication logs containing email addresses and session information:
+```
+[2025/01/01 12:00:00] [app.go:123] GET /path HTTP/1.1 "user@example.com" 1.234.567.890:12345
 ```
 
-### 2. User Session Tracking
-
-```bash
-# Find session start events
-oc logs -l app=demobuilder -n demobuilder | grep '"event_type":"session_start"'
-
-# Track a specific user session (replace SESSION_ID)
-oc logs -l app=demobuilder -n demobuilder | grep '"session_id":"SESSION_ID"'
+### Streamlit Application Logs
+Active session tracking through `_stcore/stream` endpoints:
+```
+GET /_stcore/stream HTTP/1.1 200 1234 5.678 "user@example.com"
 ```
 
-### 3. Infrastructure Request Analysis
+## User Analytics with LogQL Queries
 
-```bash
-# Find all infrastructure requests
-oc logs -l app=demobuilder -n demobuilder | grep '"event_type":"infrastructure_request"'
+Modern log analysis uses LogQL queries through Grafana's Explore interface to analyze user behavior patterns.
 
-# Count requests by provider
-oc logs -l app=demobuilder -n demobuilder | \
-  grep '"event_type":"infrastructure_request"' | \
-  jq -r '.event_data.providers[]' | sort | uniq -c
+### 1. Active Users Analysis
+
+```logql
+# Current active users (last 30 minutes)
+count by () (count by (user) (rate({kubernetes_namespace_name="demobuilder", kubernetes_container_name="oauth2-proxy"} |= "@" != "kube-probe" != "ready" != "ping" != "health" [30m])))
+
+# Most active users (last 2 hours)
+topk(10, count by (user) (count_over_time({kubernetes_namespace_name="demobuilder"} |= "@" != "kube-probe" != "ready" != "ping" != "health" | regexp "(?P<user>[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})" [2h])))
 ```
 
-### 4. YAML Generation Metrics
+### 2. Session Tracking
 
-```bash
-# Track YAML generation success/failure rates
-oc logs -l app=demobuilder -n demobuilder | \
-  grep '"event_type":"yaml_generation"' | \
-  jq -r '.event_data.success' | sort | uniq -c
+```logql
+# Active Streamlit sessions (live connections)
+count_over_time({kubernetes_namespace_name="demobuilder"} |= "_stcore/stream" [5m])
 
-# Find failed YAML generations with errors
-oc logs -l app=demobuilder -n demobuilder | \
-  grep '"event_type":"yaml_generation"' | \
-  jq 'select(.event_data.success == false) | .event_data.error'
+# Session duration analysis
+avg_over_time({kubernetes_namespace_name="demobuilder"} |= "_stcore/stream" | regexp "HTTP/1\\.1\" (?P<status>\\d+) (?P<size>\\d+) (?P<duration>\\d+\\.\\d+)" | unwrap duration [1h])
 ```
 
-### 5. User Interaction Patterns
+### 3. User Interaction Patterns
 
-```bash
-# Track provider enablement/disablement
-oc logs -l app=demobuilder -n demobuilder | \
-  grep -E '"action":"provider_(enabled|disabled)"'
+```logql
+# Real-time user activity (excludes all automated traffic)
+{kubernetes_namespace_name="demobuilder"} |= "@" != "kube-probe" != "ready" != "ping" != "/_stcore/health" != "/_stcore/host-config"
 
-# Analyze conversation patterns
-oc logs -l app=demobuilder -n demobuilder | \
-  grep '"event_type":"conversation_turn"' | \
-  jq '.event_data.turn_number' | sort -n | tail -10
+# User request patterns by path
+sum by (path) (count_over_time({kubernetes_namespace_name="demobuilder"} |= "@" != "kube-probe" | regexp "GET\\s+(?P<path>/[^\\s\\?]*)" [2h]))
 ```
 
-### 6. Performance Monitoring
+### 4. Performance Monitoring
 
-```bash
-# Find slow operations (> 5 seconds)
-oc logs -l app=demobuilder -n demobuilder | \
-  grep '"event_type":"performance_metric"' | \
-  jq 'select(.event_data.duration_ms > 5000)'
+```logql
+# Response time analysis (95th percentile)
+quantile_over_time(0.95, ({kubernetes_namespace_name="demobuilder"} |= "HTTP/1.1" != "kube-probe" | regexp "HTTP/1\\.1\" (?P<status>\\d+) (?P<size>\\d+) (?P<duration>\\d+\\.\\d+)" | unwrap duration) [1h])
 
-# Average response times by operation
-oc logs -l app=demobuilder -n demobuilder | \
-  grep '"event_type":"performance_metric"' | \
-  jq -r '"\(.event_data.operation),\(.event_data.duration_ms)"' | \
-  awk -F, '{sum[$1]+=$2; count[$1]++} END {for(op in sum) print op": "sum[op]/count[op]"ms"}'
+# User interaction rate over time
+sum(rate({kubernetes_namespace_name="demobuilder"} |= "@" != "kube-probe" != "ready" != "ping" != "health" [5m]))
 ```
 
-### 7. Error Analysis
+## Grafana Dashboard Creation
+
+Create analytics dashboards using the Grafana API and LogQL queries.
+
+### 1. Data Source Setup
+
+Configure LokiStack as a Grafana data source with OAuth authentication:
 
 ```bash
-# Find all application errors
-oc logs -l app=demobuilder -n demobuilder | \
-  grep '"event_type":"application_error"'
+# Create service account for Loki access
+oc create serviceaccount loki-reader -n openshift-logging
+oc adm policy add-cluster-role-to-user cluster-admin system:serviceaccount:openshift-logging:loki-reader
 
-# Group errors by type
-oc logs -l app=demobuilder -n demobuilder | \
-  grep '"event_type":"application_error"' | \
-  jq -r '.event_data.error_type' | sort | uniq -c
+# Generate authentication token
+oc create token loki-reader -n openshift-logging --duration=24h
 ```
 
-## Elasticsearch Queries (If Cluster Logging Enabled)
+### 2. Dashboard Panels
 
-If your OpenShift cluster has the cluster logging operator installed, you can use these Elasticsearch queries in Kibana:
+Key dashboard panels for DemoBuilder analytics:
 
-### 1. User Session Analysis
+**Active Users Panel:**
 ```json
 {
-  "query": {
-    "bool": {
-      "must": [
-        {"match": {"kubernetes.labels.app": "demobuilder"}},
-        {"match": {"message.event_type": "session_start"}},
-        {"range": {"@timestamp": {"gte": "now-24h"}}}
-      ]
-    }
-  }
+  "title": "Active Users (Last 30min)",
+  "type": "stat",
+  "targets": [{
+    "expr": "count by () (count by (user) (rate({kubernetes_namespace_name=\"demobuilder\", kubernetes_container_name=\"oauth2-proxy\"} |= \"@\" != \"kube-probe\" != \"ready\" != \"ping\" != \"health\" [30m])))"
+  }]
 }
 ```
 
-### 2. Provider Usage Trends
+**Session Timeline Panel:**
 ```json
 {
-  "query": {
-    "bool": {
-      "must": [
-        {"match": {"kubernetes.labels.app": "demobuilder"}},
-        {"match": {"message.event_type": "provider_selection"}}
-      ]
-    }
-  },
-  "aggs": {
-    "providers": {
-      "terms": {
-        "field": "message.event_data.enabled_providers"
-      }
-    }
-  }
+  "title": "User Activity Timeline", 
+  "type": "timeseries",
+  "targets": [{
+    "expr": "sum(rate({kubernetes_namespace_name=\"demobuilder\"} |= \"@\" != \"kube-probe\" != \"ready\" != \"ping\" != \"health\" [5m]))",
+    "legendFormat": "User Activity"
+  }]
 }
 ```
 
-### 3. Infrastructure Request Patterns
-```json
-{
-  "query": {
-    "bool": {
-      "must": [
-        {"match": {"kubernetes.labels.app": "demobuilder"}},
-        {"match": {"message.event_type": "infrastructure_request"}}
-      ]
-    }
-  },
-  "aggs": {
-    "instance_counts": {
-      "histogram": {
-        "field": "message.event_data.instance_count",
-        "interval": 1
-      }
-    }
-  }
-}
-```
+## Modern Logging Stack Configuration
 
-## Log Retention and Storage
+### LokiStack and Vector Setup
 
-### OpenShift Logging Configuration
 ```yaml
-# Example ClusterLogging configuration for DemoBuilder
+# LokiStack configuration for log storage
+apiVersion: loki.grafana.com/v1
+kind: LokiStack
+metadata:
+  name: logging-loki
+  namespace: openshift-logging
+spec:
+  size: 1x.medium  # Scaled for rate limiting performance
+  storage:
+    schemas:
+    - version: v12
+      effectiveDate: "2022-06-01"
+    secret:
+      name: logging-loki-s3
+      type: s3
+  tenants:
+    mode: openshift-logging
+```
+
+```yaml
+# ClusterLogging with Vector collector
 apiVersion: logging.coreos.com/v1
 kind: ClusterLogging
 metadata:
@@ -184,134 +143,107 @@ metadata:
   namespace: openshift-logging
 spec:
   collection:
-    logs:
-      type: fluentd
-      fluentd:
-        tolerations:
-        - operator: Exists
+    type: vector
   logStore:
-    type: elasticsearch
-    retentionPolicy:
-      application:
-        maxAge: 30d  # Retain DemoBuilder logs for 30 days
-  visualization:
-    type: kibana
+    type: lokistack
+    lokistack:
+      name: logging-loki
+  managementState: Managed
 ```
 
-### Log Export for Analysis
+### Complete Dashboard Import via API
+
 ```bash
-# Export logs to file for offline analysis
-oc logs -l app=demobuilder -n demobuilder --since=24h > demobuilder-logs.json
+# Setup authentication
+GRAFANA_URL="https://grafana-namespace.apps.cluster-domain.com"
+GRAFANA_AUTH="Basic $(echo -n 'admin:password' | base64)"
 
-# Export with specific time range
-oc logs -l app=demobuilder -n demobuilder \
-  --since-time="2025-01-01T00:00:00Z" \
-  --until-time="2025-01-02T00:00:00Z" > demobuilder-logs-jan1.json
+# Create complete user activity dashboard
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: $GRAFANA_AUTH" \
+  -d '{
+    "dashboard": {
+      "title": "DemoBuilder User Activity Dashboard",
+      "panels": [
+        {
+          "title": "Active Users (Last 30min)",
+          "type": "stat",
+          "targets": [{
+            "expr": "count by () (count by (user) (rate({kubernetes_namespace_name=\"demobuilder\", kubernetes_container_name=\"oauth2-proxy\"} |= \"@\" != \"kube-probe\" != \"ready\" != \"ping\" != \"health\" [30m])))"
+          }]
+        }
+      ]
+    }
+  }' \
+  "$GRAFANA_URL/api/dashboards/db"
 ```
 
-## Monitoring and Alerting
+## Key Metrics to Monitor
 
-### PrometheusRule for DemoBuilder Metrics
-```yaml
-apiVersion: monitoring.coreos.com/v1
-kind: PrometheusRule
-metadata:
-  name: demobuilder-logging-alerts
-  namespace: demobuilder
-spec:
-  groups:
-  - name: demobuilder.logging
-    rules:
-    - alert: DemoBuilderHighErrorRate
-      expr: |
-        (
-          rate(log_entries{app="demobuilder",level="ERROR"}[5m]) /
-          rate(log_entries{app="demobuilder"}[5m])
-        ) > 0.1
-      for: 5m
-      labels:
-        severity: warning
-      annotations:
-        summary: "High error rate in DemoBuilder"
-        description: "DemoBuilder error rate is {{ $value | humanizePercentage }}"
-    
-    - alert: DemoBuilderSlowResponse
-      expr: |
-        histogram_quantile(0.95, rate(demobuilder_operation_duration_seconds_bucket[5m])) > 10
-      for: 2m
-      labels:
-        severity: warning
-      annotations:
-        summary: "DemoBuilder slow response times"
-        description: "95th percentile response time is {{ $value }}s"
+### Primary Analytics KPIs
+1. **Active Users**: Users with activity in last 30 minutes
+2. **Active Sessions**: `_stcore/stream` connections in last 5 minutes  
+3. **Session Duration**: Average time users spend actively using the app
+4. **User Interaction Rate**: Requests per second (excluding health checks)
+5. **Feature Usage**: Static resource patterns showing which app features are used
+
+### Performance Monitoring
+- Response time analysis (95th percentile)
+- Peak usage identification
+- Long-running session detection
+- Geographic distribution analysis
+
+## Common LogQL Queries for Analytics
+
+### User Activity Analysis
+```logql
+# Daily active users pattern
+count by () (count by (user) (count_over_time({kubernetes_namespace_name="demobuilder"} |= "@" != "kube-probe" | regexp "(?P<user>[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})" [24h])))
+
+# Peak usage hours 
+sum by () (count_over_time({kubernetes_namespace_name="demobuilder"} |= "@" != "kube-probe" != "ready" != "ping" != "health" [1h]))
+
+# Feature usage patterns
+sum by (resource) (count_over_time({kubernetes_namespace_name="demobuilder"} |= "static/" | regexp "GET\\s+/static/(?P<resource>[^\\s]*)" [2h]))
 ```
 
-## Usage Analytics Examples
+### Session Analysis
+```logql
+# Session start detection
+{kubernetes_namespace_name="demobuilder"} |= "GET / \"/\"" |= "@" != "kube-probe"
 
-### Daily Active Users
+# Long-running sessions (over 60 seconds)
+{kubernetes_namespace_name="demobuilder"} |= "_stcore/stream" | regexp "HTTP/1\\.1\" (?P<status>\\d+) (?P<size>\\d+) (?P<duration>[6-9]\\d+\\.\\d+|\\d{3,}\\.\\d+)" | unwrap duration > 60
+
+# Geographic analysis from client IPs
+sum by (user, client_ip) (count_over_time({kubernetes_namespace_name="demobuilder"} |= "@" != "kube-probe" | regexp "(?P<client_ip>\\d+\\.\\d+\\.\\d+\\.\\d+)" | regexp "(?P<user>[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})" [2h]))
+```
+
+## Troubleshooting
+
+### 1. Loki Data Source Issues
 ```bash
-# Count unique sessions per day
-oc logs -l app=demobuilder -n demobuilder --since=7d | \
-  grep '"event_type":"session_start"' | \
-  jq -r '.timestamp[0:10]' | sort | uniq -c
+# Test Loki connectivity
+oc run loki-test --image=curlimages/curl:latest --rm -it --restart=Never -- \
+  curl -k -H "Authorization: Bearer $(cat /tmp/loki-token.txt)" \
+  "https://logging-loki-gateway-http.openshift-logging.svc.cluster.local:8080/api/logs/v1/application/loki/api/v1/labels"
+
+# Check available namespaces in logs
+oc run query-test --image=curlimages/curl:latest --rm -it --restart=Never -- \
+  curl -k -H "Authorization: Bearer $(cat /tmp/loki-token.txt)" \
+  "https://logging-loki-gateway-http.openshift-logging.svc.cluster.local:8080/api/logs/v1/application/loki/api/v1/label/kubernetes_namespace_name/values"
 ```
 
-### Popular Provider Combinations
-```bash
-# Find most common provider selections
-oc logs -l app=demobuilder -n demobuilder --since=7d | \
-  grep '"event_type":"provider_selection"' | \
-  jq -r '.event_data.enabled_providers | sort | join(",")' | \
-  sort | uniq -c | sort -nr | head -10
-```
+### 2. Dashboard Panel Issues
+- Ensure LogQL syntax is properly escaped in JSON (use `\\\\d+` instead of `\\d+`)
+- Test queries in Grafana Explore before adding to dashboards  
+- Verify data source UID matches in panel configurations
+- Check time ranges align with available log data
 
-### Average Session Duration
-```bash
-# Calculate session durations (requires custom processing)
-oc logs -l app=demobuilder -n demobuilder --since=24h | \
-  grep -E '"event_type":"(session_start|yaml_downloaded)"' | \
-  jq -r '"\(.session_id),\(.event_type),\(.timestamp)"' | \
-  sort | # Process with custom script to calculate durations
-```
+### 3. Performance Optimization
+- Scale LokiStack from `1x.small` to `1x.medium` for higher query loads
+- Use rate limiting exclusion filters: `!= "kube-probe" != "ready" != "ping" != "health"`
+- Optimize query time ranges for responsiveness
 
-### Configuration Complexity Trends
-```bash
-# Track instance counts in configurations
-oc logs -l app=demobuilder -n demobuilder --since=7d | \
-  grep '"event_type":"infrastructure_request"' | \
-  jq -r '.event_data.instance_count' | \
-  awk '{sum+=$1; count++} END {print "Average instances per config:", sum/count}'
-```
-
-## Troubleshooting Common Issues
-
-### 1. Missing Logs
-```bash
-# Check if pods are running
-oc get pods -l app=demobuilder -n demobuilder
-
-# Check pod events
-oc get events -n demobuilder --field-selector involvedObject.name=demobuilder-xxx
-
-# Verify logging configuration
-oc get configmap demobuilder-config -n demobuilder -o yaml
-```
-
-### 2. Log Format Issues
-```bash
-# Check for malformed JSON logs
-oc logs -l app=demobuilder -n demobuilder | head -100 | jq empty
-
-# Validate log structure
-oc logs -l app=demobuilder -n demobuilder | head -10 | jq '.timestamp, .component, .event_type'
-```
-
-### 3. Performance Issues
-```bash
-# Check for performance bottlenecks
-oc logs -l app=demobuilder -n demobuilder | \
-  grep '"event_type":"performance_metric"' | \
-  jq 'select(.event_data.duration_ms > 3000)' | head -5
-```
-
-This logging implementation provides comprehensive visibility into DemoBuilder usage patterns, performance characteristics, and user behavior while maintaining security and privacy through structured, anonymized logging.
+This modern logging approach provides real-time user analytics and behavioral insights using the Vector/LokiStack/Grafana stack, replacing deprecated Elasticsearch/Fluentd/Kibana components.
