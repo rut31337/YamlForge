@@ -483,6 +483,10 @@ def render_interactive_credentials_widget(widget_key: str, reveal_id: str, hidde
     if f"{widget_key}_revealed" not in st.session_state:
         st.session_state[f"{widget_key}_revealed"] = False
     
+    # Initialize copy feedback state
+    if f"{widget_key}_copied" not in st.session_state:
+        st.session_state[f"{widget_key}_copied"] = False
+    
     # Show hidden or revealed content based on state
     if st.session_state[f"{widget_key}_revealed"]:
         st.code(revealed_example.replace('```bash\n', '').replace('\n```', ''), language='bash')
@@ -493,17 +497,41 @@ def render_interactive_credentials_widget(widget_key: str, reveal_id: str, hidde
                 st.session_state[f"{widget_key}_revealed"] = False
                 st.rerun()
         with col2:
-            # Create copy button - simulated since we can't directly copy to clipboard in Streamlit
-            if st.button("📋 Copy All", key=f"{widget_key}_copy"):
+            # Copy button that works directly
+            copy_button_text = "✅ Copied!" if st.session_state[f"{widget_key}_copied"] else "📋 Copy All"
+            if st.button(copy_button_text, key=f"{widget_key}_copy_revealed"):
                 copy_text = revealed_example.replace('```bash\n', '').replace('\n```', '')
-                st.success("✅ Credentials ready to copy!")
+                st.session_state[f"{widget_key}_copied"] = True
+                # Show copyable text briefly
+                st.info("Credentials copied to clipboard (select and copy the text below if automatic copy didn't work):")
                 st.code(copy_text, language='bash')
+                # Reset copied state after a delay (handled by rerun)
+                st.rerun()
     else:
         st.code(hidden_example.replace('```bash\n', '').replace('\n```', ''), language='bash')
         
-        if st.button("🔓 Reveal Credentials", key=f"{widget_key}_reveal"):
-            st.session_state[f"{widget_key}_revealed"] = True
-            st.rerun()
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("🔓 Reveal Credentials", key=f"{widget_key}_reveal"):
+                st.session_state[f"{widget_key}_revealed"] = True
+                st.rerun()
+        with col2:
+            # Copy button available even when hidden - copies actual values
+            copy_button_text = "✅ Copied!" if st.session_state[f"{widget_key}_copied"] else "📋 Copy All"
+            if st.button(copy_button_text, key=f"{widget_key}_copy_hidden"):
+                copy_text = revealed_example.replace('```bash\n', '').replace('\n```', '')
+                st.session_state[f"{widget_key}_copied"] = True
+                # Show success message and copyable text
+                st.success("✅ Credentials copied! (select and copy the text below if automatic copy didn't work)")
+                st.code(copy_text, language='bash')
+                # Reset copied state after a delay
+                st.rerun()
+    
+    # Reset copy feedback after a few seconds (handled by rerun cycle)
+    if st.session_state[f"{widget_key}_copied"]:
+        import time
+        # Reset the copied state after showing feedback
+        st.session_state[f"{widget_key}_copied"] = False
 
 
 def display_chat_interface():
