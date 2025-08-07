@@ -483,10 +483,6 @@ def render_interactive_credentials_widget(widget_key: str, reveal_id: str, hidde
     if f"{widget_key}_revealed" not in st.session_state:
         st.session_state[f"{widget_key}_revealed"] = False
     
-    # Initialize copy section state
-    if f"{widget_key}_show_copy" not in st.session_state:
-        st.session_state[f"{widget_key}_show_copy"] = False
-    
     # Show hidden or revealed content based on state
     if st.session_state[f"{widget_key}_revealed"]:
         # Show actual credentials when revealed
@@ -499,23 +495,9 @@ def render_interactive_credentials_widget(widget_key: str, reveal_id: str, hidde
         # Show hidden credentials visually
         st.code(hidden_example.replace('```bash\n', '').replace('\n```', ''), language='bash')
         
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            if st.button("🔓 Reveal Credentials", key=f"{widget_key}_reveal"):
-                st.session_state[f"{widget_key}_revealed"] = True
-                st.rerun()
-        with col2:
-            copy_button_text = "📋 Show Copy Block" if not st.session_state[f"{widget_key}_show_copy"] else "🔒 Hide Copy Block"
-            if st.button(copy_button_text, key=f"{widget_key}_toggle_copy"):
-                st.session_state[f"{widget_key}_show_copy"] = not st.session_state[f"{widget_key}_show_copy"]
-                st.rerun()
-        
-        # Show copyable credentials block if requested
-        if st.session_state[f"{widget_key}_show_copy"]:
-            st.markdown("**📋 Copy the credentials below:**")
-            actual_credentials = revealed_example.replace('```bash\n', '').replace('\n```', '')
-            st.code(actual_credentials, language='bash')
-            st.caption("Use the copy icon in the top-right corner of the code block above.")
+        if st.button("🔓 Reveal Credentials (For Copy)", key=f"{widget_key}_reveal"):
+            st.session_state[f"{widget_key}_revealed"] = True
+            st.rerun()
 
 
 def display_chat_interface():
