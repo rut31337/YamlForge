@@ -367,8 +367,90 @@ def display_provider_controls():
     return False  # Cost optimization disabled
 
 
+def render_credentials_widgets(content: str) -> str:
+    """Render credentials widgets with reveal/copy functionality"""
+    import re
+    import base64
+    
+    # Find credentials widget placeholders using a simpler approach
+    # Look for the specific pattern we generate
+    pattern = r'\[CREDENTIALS_WIDGET:([^:]+):(.*?)\]'
+    
+    matches = []
+    start = 0
+    while True:
+        match = re.search(r'\[CREDENTIALS_WIDGET:([^:]+):(.*?)\]', content[start:], re.DOTALL)
+        if not match:
+            break
+        
+        # Extract reveal_id and the rest of the content
+        reveal_id = match.group(1)
+        rest_content = match.group(2)
+        
+        # Split the rest by the first occurrence of ':' to separate hidden and revealed
+        if ':' in rest_content:
+            parts = rest_content.split(':', 1)
+            if len(parts) == 2:
+                hidden_example = parts[0]
+                revealed_example = parts[1]
+                matches.append((reveal_id, hidden_example, revealed_example))
+        
+        start += match.end()
+    
+    # Process matches in reverse order to avoid position shifting
+    for reveal_id, hidden_example, revealed_example in reversed(matches):
+        # Create widget placeholder
+        widget_placeholder = f'[CREDENTIALS_WIDGET:{reveal_id}:{hidden_example}:{revealed_example}]'
+        
+        # Create a container for this widget
+        widget_key = f"creds_{reveal_id}"
+        
+        # Replace the placeholder with a marker for later processing
+        # Use base64 encoding to avoid issues with special characters
+        hidden_b64 = base64.b64encode(hidden_example.encode()).decode()
+        revealed_b64 = base64.b64encode(revealed_example.encode()).decode()
+        
+        content = content.replace(widget_placeholder, f'[RENDER_CREDENTIALS_WIDGET:{widget_key}:{reveal_id}:{hidden_b64}:{revealed_b64}]')
+    
+    return content
+
+
 def render_chat_message_with_diagrams(content: str):
-    """Render a chat message that may contain Mermaid diagrams"""
+    """Render a chat message that may contain Mermaid diagrams or credentials widgets"""
+    # Handle credentials widgets first
+    if '[CREDENTIALS_WIDGET:' in content:
+        content = render_credentials_widgets(content)
+    
+    # Check for credentials widgets to render as interactive components
+    if '[RENDER_CREDENTIALS_WIDGET:' in content:
+        import re
+        import base64
+        pattern = r'\[RENDER_CREDENTIALS_WIDGET:([^:]+):([^:]+):([^:]+):([^\]]+)\]'
+        
+        # Split content around widgets
+        parts = re.split(pattern, content)
+        
+        for i in range(0, len(parts)):
+            if i % 5 == 0:  # Text parts (non-widget)
+                if parts[i].strip():
+                    st.write(parts[i].strip())
+            elif i % 5 == 1:  # Widget parameters start
+                widget_key = parts[i]
+                reveal_id = parts[i+1] 
+                hidden_b64 = parts[i+2]
+                revealed_b64 = parts[i+3]
+                
+                # Decode base64 content
+                try:
+                    hidden_example = base64.b64decode(hidden_b64).decode()
+                    revealed_example = base64.b64decode(revealed_b64).decode()
+                    
+                    # Render the interactive credentials widget
+                    render_interactive_credentials_widget(widget_key, reveal_id, hidden_example, revealed_example)
+                except Exception as e:
+                    st.error(f"Error rendering credentials widget: {e}")
+        return
+    
     # Check if the message contains a Mermaid diagram
     if '[MERMAID_DIAGRAM]:' in content and '[/MERMAID_DIAGRAM]' in content:
         # Split the content around the diagram
@@ -393,6 +475,35 @@ def render_chat_message_with_diagrams(content: str):
     else:
         # No diagram, render normally
         st.write(content)
+
+
+def render_interactive_credentials_widget(widget_key: str, reveal_id: str, hidden_example: str, revealed_example: str):
+    """Render an interactive credentials widget with reveal/copy functionality"""
+    # Initialize widget state
+    if f"{widget_key}_revealed" not in st.session_state:
+        st.session_state[f"{widget_key}_revealed"] = False
+    
+    # Show hidden or revealed content based on state
+    if st.session_state[f"{widget_key}_revealed"]:
+        st.code(revealed_example.replace('```bash\n', '').replace('\n```', ''), language='bash')
+        
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("🔒 Hide Credentials", key=f"{widget_key}_hide"):
+                st.session_state[f"{widget_key}_revealed"] = False
+                st.rerun()
+        with col2:
+            # Create copy button - simulated since we can't directly copy to clipboard in Streamlit
+            if st.button("📋 Copy All", key=f"{widget_key}_copy"):
+                copy_text = revealed_example.replace('```bash\n', '').replace('\n```', '')
+                st.success("✅ Credentials ready to copy!")
+                st.code(copy_text, language='bash')
+    else:
+        st.code(hidden_example.replace('```bash\n', '').replace('\n```', ''), language='bash')
+        
+        if st.button("🔓 Reveal Credentials", key=f"{widget_key}_reveal"):
+            st.session_state[f"{widget_key}_revealed"] = True
+            st.rerun()
 
 
 def display_chat_interface():
@@ -1273,20 +1384,29 @@ export KUBECONFIG="/path/to/kubeconfig"
         if provider in rhdp_credentials:
             creds = rhdp_credentials[provider]
             example_lines = []
+            hidden_lines = []
+            reveal_id = f"reveal_{provider}_{hash(str(creds)) % 10000}"
             
             # Build example with actual values
             for env_var in info['env_vars']:
                 if env_var in creds:
-                    # Use actual value from RHDP
+                    # Use actual value from RHDP - create hidden version
                     value = creds[env_var]
-                    example_lines.append(f'export {env_var}="{value}"')
+                    hidden_value = "•" * min(len(value), 20)  # Show dots instead of value
+                    example_lines.append(f'export {env_var}="{hidden_value}"')
+                    hidden_lines.append(f'export {env_var}="{value}"')
                 else:
                     # Fall back to placeholder
                     placeholder = env_var.lower().replace('_', '-')
                     example_lines.append(f'export {env_var}="your-{placeholder}"')
+                    hidden_lines.append(f'export {env_var}="your-{placeholder}"')
             
-            example = "```bash\n" + "\n".join(example_lines) + "\n```"
-            return example
+            # Create hidden and revealed versions
+            hidden_example = "```bash\n" + "\n".join(example_lines) + "\n```"
+            revealed_example = "```bash\n" + "\n".join(hidden_lines) + "\n```"
+            
+            # Use a placeholder that will be replaced with interactive content in render function
+            return f"[CREDENTIALS_WIDGET:{reveal_id}:{hidden_example}:{revealed_example}]"
         else:
             # Use default placeholder example
             return info['example']
