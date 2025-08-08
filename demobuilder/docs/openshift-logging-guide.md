@@ -68,20 +68,59 @@ sum(rate({kubernetes_namespace_name="demobuilder"} |= "@" != "kube-probe" != "re
 
 ## Grafana Dashboard Creation
 
-Create analytics dashboards using the Grafana API and LogQL queries.
+Create analytics dashboards using OAuth authentication and ConfigMap provisioning for persistent dashboard storage.
 
-### 1. Data Source Setup
+### 1. OAuth Authentication Setup
 
-Configure LokiStack as a Grafana data source with OAuth authentication:
+Configure Grafana with OpenShift OAuth for seamless authentication and token forwarding to LokiStack:
 
 ```bash
-# Create service account for Loki access
-oc create serviceaccount loki-reader -n openshift-logging
-oc adm policy add-cluster-role-to-user cluster-admin system:serviceaccount:openshift-logging:loki-reader
+# Create dedicated service account with proper RBAC
+oc create serviceaccount grafana-loki-reader -n openshift-logging
+oc create clusterrole grafana-loki-reader --verb=get,list --resource=pods,pods/log,users,projects
+oc create clusterrolebinding grafana-loki-reader --clusterrole=grafana-loki-reader --serviceaccount=openshift-logging:grafana-loki-reader
 
-# Generate authentication token
-oc create token loki-reader -n openshift-logging --duration=24h
+# Create OAuth client for Grafana
+oc create -f - <<EOF
+apiVersion: oauth.openshift.io/v1
+kind: OAuthClient
+metadata:
+  name: grafana-oauth
+grantMethod: auto
+redirectURIs:
+- https://grafana-openshift-logging.apps.cluster-domain.com/login/generic_oauth
+secret: grafana-oauth-secret
+EOF
 ```
+
+### 2. Critical OAuth Configuration Requirements
+
+**Grafana OAuth Configuration** (grafana.ini):
+```ini
+[auth.generic_oauth]
+enabled = true
+name = OpenShift
+client_id = grafana-oauth
+client_secret = grafana-oauth-secret
+# CRITICAL: Use broader scopes for LokiStack authorization
+scopes = user:full user:list-projects
+auth_url = https://oauth-openshift.apps.cluster-domain.com/oauth/authorize
+token_url = https://oauth-openshift.apps.cluster-domain.com/oauth/token
+api_url = https://api.cluster-domain.com:6443/apis/user.openshift.io/v1/users/~
+# CRITICAL: Proper attribute mapping for OpenShift
+email_attribute_path = metadata.name
+login_attribute_path = metadata.name
+name_attribute_path = fullName
+# CRITICAL: Skip TLS verification for self-signed certificates
+tls_skip_verify_insecure = true
+auto_assign_org_role = Admin
+```
+
+**Key Lessons Learned:**
+- **OAuth Scopes**: `user:info user:check-access` are insufficient. LokiStack requires `user:full user:list-projects` for proper authorization
+- **API Endpoint**: Use `/apis/user.openshift.io/v1/users/~` not `/oauth/userinfo` for OpenShift user data
+- **TLS Configuration**: `tls_skip_verify_insecure = true` required for self-signed OpenShift certificates
+- **Database Reset**: If switching from local admin to OAuth, delete Grafana PVC to force OAuth user creation
 
 ### 2. Dashboard Panels
 
@@ -151,33 +190,111 @@ spec:
   managementState: Managed
 ```
 
-### Complete Dashboard Import via API
+### 3. Dashboard Provisioning via ConfigMaps (Recommended)
+
+Use ConfigMaps for persistent dashboard storage that survives Grafana restarts and database resets:
 
 ```bash
-# Setup authentication
-GRAFANA_URL="https://grafana-namespace.apps.cluster-domain.com"
-GRAFANA_AUTH="Basic $(echo -n 'admin:password' | base64)"
-
-# Create complete user activity dashboard
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -H "Authorization: $GRAFANA_AUTH" \
-  -d '{
-    "dashboard": {
-      "title": "DemoBuilder User Activity Dashboard",
-      "panels": [
+# Create dashboard JSON file
+cat > demobuilder-dashboard.json << 'EOF'
+{
+  "title": "DemoBuilder User Activity Dashboard",
+  "uid": "demobuilder-activity",
+  "tags": ["demobuilder", "analytics"],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Active Users (Last 30min)",
+      "type": "stat",
+      "targets": [
         {
-          "title": "Active Users (Last 30min)",
-          "type": "stat",
-          "targets": [{
-            "expr": "count by () (count by (user) (rate({kubernetes_namespace_name=\"demobuilder\", kubernetes_container_name=\"oauth2-proxy\"} |= \"@\" != \"kube-probe\" != \"ready\" != \"ping\" != \"health\" [30m])))"
-          }]
+          "expr": "count by () (count by (user) (rate({kubernetes_namespace_name=\"demobuilder\", kubernetes_container_name=\"oauth2-proxy\"} |= \"@\" != \"kube-probe\" != \"ready\" != \"ping\" != \"health\" [30m])))",
+          "datasource": {"type": "loki", "uid": "P8CA42C45B3683B87"}
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "User Activity Timeline",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate({kubernetes_namespace_name=\"demobuilder\"} |= \"@\" != \"kube-probe\" != \"ready\" != \"ping\" != \"health\" [5m]))",
+          "datasource": {"type": "loki", "uid": "P8CA42C45B3683B87"}
         }
       ]
     }
-  }' \
-  "$GRAFANA_URL/api/dashboards/db"
+  ],
+  "time": {"from": "now-2h", "to": "now"},
+  "refresh": "30s"
+}
+EOF
+
+# Create ConfigMaps for dashboard provisioning
+oc create configmap grafana-dashboard-demobuilder \
+  --from-file=demobuilder-dashboard.json \
+  -n openshift-logging
+
+# Create dashboard provisioning configuration
+cat > dashboard-config.yaml << 'EOF'
+apiVersion: 1
+providers:
+- name: 'demobuilder-dashboards'
+  orgId: 1
+  folder: ''
+  type: file
+  disableDeletion: false
+  updateIntervalSeconds: 10
+  allowUiUpdates: true
+  options:
+    path: /etc/grafana/provisioning/dashboards/demobuilder
+EOF
+
+oc create configmap grafana-dashboard-config \
+  --from-file=dashboards.yaml=dashboard-config.yaml \
+  -n openshift-logging
+
+# Update Grafana deployment to mount dashboard ConfigMaps
+oc patch deployment grafana -n openshift-logging --patch '{
+  "spec": {
+    "template": {
+      "spec": {
+        "volumes": [
+          {
+            "name": "grafana-dashboard-config",
+            "configMap": {"name": "grafana-dashboard-config"}
+          },
+          {
+            "name": "grafana-dashboard-demobuilder", 
+            "configMap": {"name": "grafana-dashboard-demobuilder"}
+          }
+        ],
+        "containers": [
+          {
+            "name": "grafana",
+            "volumeMounts": [
+              {
+                "name": "grafana-dashboard-config",
+                "mountPath": "/etc/grafana/provisioning/dashboards"
+              },
+              {
+                "name": "grafana-dashboard-demobuilder",
+                "mountPath": "/etc/grafana/provisioning/dashboards/demobuilder"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}'
 ```
+
+**Benefits of ConfigMap Provisioning:**
+- **Persistent**: Dashboards survive database resets and pod restarts
+- **Version Control**: Dashboard JSON can be stored in Git
+- **Automated**: No manual API calls or UI recreation needed
+- **Consistent**: Same dashboard across environments
 
 ## Key Metrics to Monitor
 
@@ -222,16 +339,80 @@ sum by (user, client_ip) (count_over_time({kubernetes_namespace_name="demobuilde
 
 ## Troubleshooting
 
-### 1. Loki Data Source Issues
+### 1. OAuth Authentication Issues
+
+**Symptom**: Datasource test fails with "Unable to connect with Loki"
+**Solution**: Check OAuth scopes and user authentication
+
 ```bash
-# Test Loki connectivity
+# Check LokiStack gateway logs for authentication errors
+oc logs deployment/logging-loki-gateway -n openshift-logging | grep -E "(error|401|403)"
+
+# Common error: insufficient OAuth scopes
+# Error: "scopes [user:info user:check-access] prevent this action"
+# Fix: Update Grafana OAuth scopes to "user:full user:list-projects"
+
+# Check if user is properly authenticated via OAuth
+oc logs deployment/grafana -n openshift-logging | grep "uname="
+# Should show OAuth username (e.g., "uname=user@domain.com") not "uname=admin"
+```
+
+**Symptom**: "The specified user's auth provider is not oauth"
+**Solution**: Force OAuth user creation by resetting database
+
+```bash
+# Scale down Grafana, delete PVC, and restart
+oc scale deployment grafana --replicas=0 -n openshift-logging
+oc delete pvc grafana-storage -n openshift-logging
+oc scale deployment grafana --replicas=1 -n openshift-logging
+
+# This forces new OAuth user creation instead of local admin
+```
+
+### 2. OAuth Configuration Errors
+
+**Symptom**: "tls: failed to verify certificate: x509: certificate signed by unknown authority"
+**Solution**: Add TLS skip verification to Grafana OAuth config
+
+```ini
+[auth.generic_oauth]
+tls_skip_verify_insecure = true
+```
+
+**Symptom**: "token is not in JWT format"
+**Solution**: OpenShift tokens are not JWT - this is expected and can be ignored
+
+**Symptom**: OAuth login redirects to wrong URL
+**Solution**: Check OAuth client redirect URIs match Grafana route
+
+```bash
+oc get oauthclient grafana-oauth -o yaml
+# redirectURIs should match: https://grafana-route/login/generic_oauth
+```
+
+### 3. Datasource Provisioning Issues
+
+**Symptom**: Datasource not appearing despite ConfigMap being mounted
+**Solution**: Check datasource UID and restart Grafana
+
+```bash
+# Verify datasource UID in ConfigMap matches panel references
+oc get configmap grafana-datasources -n openshift-logging -o yaml
+
+# Restart Grafana to reload provisioned datasources
+oc rollout restart deployment/grafana -n openshift-logging
+```
+
+### 4. Loki Data Source Connectivity
+```bash
+# Test Loki connectivity with OAuth token
 oc run loki-test --image=curlimages/curl:latest --rm -it --restart=Never -- \
-  curl -k -H "Authorization: Bearer $(cat /tmp/loki-token.txt)" \
+  curl -k -H "Authorization: Bearer $(oc whoami -t)" \
   "https://logging-loki-gateway-http.openshift-logging.svc.cluster.local:8080/api/logs/v1/application/loki/api/v1/labels"
 
 # Check available namespaces in logs
 oc run query-test --image=curlimages/curl:latest --rm -it --restart=Never -- \
-  curl -k -H "Authorization: Bearer $(cat /tmp/loki-token.txt)" \
+  curl -k -H "Authorization: Bearer $(oc whoami -t)" \
   "https://logging-loki-gateway-http.openshift-logging.svc.cluster.local:8080/api/logs/v1/application/loki/api/v1/label/kubernetes_namespace_name/values"
 ```
 

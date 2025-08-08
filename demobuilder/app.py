@@ -467,7 +467,17 @@ def render_chat_message_with_diagrams(content: str):
             
             # Render the Mermaid diagram
             if diagram_part.strip():
-                display_mermaid_diagram(diagram_part.strip(), f"chat_{hash(diagram_part)%10000}")
+                diagram_key = f"chat_{hash(diagram_part)%10000}"
+                display_mermaid_diagram(diagram_part.strip(), diagram_key)
+                
+                # Add source toggle outside diagram with minimal spacing
+                source_key = f"show_source_{diagram_key}"
+                if source_key not in st.session_state:
+                    st.session_state[source_key] = False
+                
+                # Use an expander for the source code to minimize space
+                with st.expander("📝 Show Mermaid Source", expanded=st.session_state[source_key]):
+                    st.code(diagram_part.strip(), language="mermaid")
             
             # Render any remaining content after the diagram
             if remaining_content.strip():

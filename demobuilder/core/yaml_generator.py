@@ -681,6 +681,12 @@ MULTI-CLOUD (ONLY when explicitly requested):
 - If request mentions "multi-cloud" → Use multiple providers
 - If request mentions "GCP load balancers" → Use gcp for those specific instances
 
+MULTI-CLOUD SECURITY REQUIREMENTS:
+- When components connect across clouds, ALL subnets MUST be public for inter-cloud connectivity
+- ALWAYS generate security groups for multi-cloud deployments to protect public subnets
+- Security groups should restrict access to only the other cloud provider CIDR ranges
+- Example: AWS subnet (10.0.0.0/16) allows access from Azure subnet (10.1.0.0/16) and GCP subnet (10.2.0.0/16)
+
 MANDATORY INSTANCE FIELDS:
 - name: descriptive name based on user request (e.g., "rhel-server-1", "ubuntu-vm-2", "instance-1"). Only use role-based names when user explicitly specifies roles
 - provider: aws, azure, gcp, oci, ibm_vpc, ibm_classic, vmware, alibaba, cheapest, cheapest-gpu, cnv

@@ -273,7 +273,7 @@ graph TD
     style B fill:#fff2cc,stroke:#d6b656
 """
     
-    # Try AI-driven diagram generation with improved syntax teaching
+    # AI-only diagram generation
     try:
         ai_diagram = _generate_ai_mermaid_diagram(diagram_data, mini)
         if ai_diagram and len(ai_diagram.strip()) > 50:
@@ -285,13 +285,26 @@ graph TD
                 ai_diagram = _add_generation_source_indicator(ai_diagram, "AI Generated")
                 return ai_diagram
             else:
-                print("AI diagram has syntax issues, using fallback")
+                print("AI diagram has syntax issues")
+                return _create_ai_unavailable_diagram()
     except Exception as e:
         print(f"AI diagram generation failed: {e}")
     
-    # Fallback to reliable diagram generation
-    fallback_diagram = _create_fallback_diagram(diagram_data, mini)
-    return _add_generation_source_indicator(fallback_diagram, "Fallback")
+    # AI unavailable - return error diagram
+    return _create_ai_unavailable_diagram()
+
+
+def _create_ai_unavailable_diagram() -> str:
+    """Create an error diagram when AI is unavailable"""
+    return """
+graph TD
+    A[❌ Diagram Generation Unavailable]
+    A --> B[AI service is not available]
+    A --> C[Please check your API configuration]
+    style A fill:#ffebee,stroke:#f44336,color:#000
+    style B fill:#fff3e0,stroke:#ff9800,color:#000
+    style C fill:#fff3e0,stroke:#ff9800,color:#000
+"""
 
 
 def _add_generation_source_indicator(mermaid_code: str, source: str) -> str:
@@ -473,7 +486,7 @@ graph LR
     
     subgraph Azure["🔷 Azure Cloud"]
         subgraph AzureVNet["VNet (10.1.0.0/16)"]
-            subgraph AzureSubnet["Database Subnet (10.1.1.0/24)"]
+            subgraph AzureSubnet["Public Subnet (10.1.1.0/24)"]
                 database[🗄️ database]
             end
         end
@@ -481,13 +494,15 @@ graph LR
     
     subgraph GCP["🟢 GCP Cloud"]
         subgraph GCPVPC["VPC (10.2.0.0/16)"]
-            subgraph GCPSubnet["Private Subnet (10.2.1.0/24)"]
+            subgraph GCPSubnet["Public Subnet (10.2.1.0/24)"]
                 apiServer[⚡ api-server]
             end
         end
     end
     
-    Internet --> webServer
+    Internet --> AWSSubnet
+    Internet --> AzureSubnet  
+    Internet --> GCPSubnet
     webServer --> apiServer
     apiServer --> database
     
@@ -509,7 +524,7 @@ graph LR
         end
     end
     
-    Internet --> vm1
+    Internet --> Subnet
 ```
 
 COMMON SYNTAX ERRORS TO AVOID:
@@ -534,6 +549,10 @@ MANDATORY NETWORK STRUCTURE:
 - For multi-cloud: Each provider gets its own separate subgraph container
 - NEVER put instances from different providers in the same cloud container
 - Use format: subgraph ProviderSubnet["Subnet Name (CIDR)"]
+- CRITICAL: Each instance should appear ONLY ONCE in the diagram - never create duplicate instances outside subnets
+- MULTI-CLOUD NETWORKING: If components connect across clouds, ALL subnets must be PUBLIC for inter-cloud connectivity
+- DO NOT assume private subnets unless explicitly mentioned - use public subnets for general VMs with internet access
+- SECURITY: Multi-cloud deployments require public subnets with security groups restricting access to specific cloud sources
 
 OPENSHIFT CLUSTER COMPONENTS:
 When you see instances with purpose='openshift' or 'control-plane' or 'worker' or 'loadbalancer', these are OpenShift cluster components:
@@ -591,7 +610,12 @@ YOUR TASK:
 - ALWAYS use nested subgraphs - never put instances directly in cloud containers
 - ONLY include instances that actually exist in the data - DO NOT invent components
 - Use actual instance names from the data
-- Connect instances logically based on their purposes (web → app → database, Internet → loadbalancer → workers)
+- INTERNET CONNECTION RULES: 
+  * SINGLE-CLOUD: Internet → LoadBalancer (if exists), OR Internet → PublicSubnet (if no LB)
+  * MULTI-CLOUD: Internet → EACH PublicSubnet in EACH cloud provider separately
+  * NEVER Internet → individual instances
+- Connect instances logically based on their purposes (web → app → database, loadbalancer → workers)
+- CRITICAL: NO FLOATING INSTANCES - every instance must be inside a subnet, connections go to subnets or load balancers, NOT individual VMs
 - ALWAYS include provider styling at the end using the brand colors above
 - For {diagram_type} style
 - NO explanations, ONLY the graph code
@@ -786,323 +810,8 @@ def _format_mermaid_indentation(mermaid_code: str) -> str:
     return '\n'.join(formatted_lines)
 
 
-def _create_fallback_diagram(diagram_data: Dict, mini: bool = False) -> str:
-    """Create a simple fallback diagram when AI fails"""
-    instances = diagram_data.get('instances', [])
-    networks = diagram_data.get('networks', [])
-    providers = diagram_data.get('providers', [])
-    
-    # Check if this has three-tier architecture
-    has_three_tier = any(inst.get('purpose') in ['loadbalancer', 'web', 'application', 'database'] for inst in instances)
-    
-    if has_three_tier and len(instances) > 2:
-        return _create_three_tier_diagram(diagram_data, mini)
-    else:
-        return _create_simple_diagram(diagram_data, mini)
 
 
-def _create_simple_diagram(diagram_data: Dict, mini: bool = False) -> str:
-    """Create a simple single-subnet diagram"""
-    instances = diagram_data.get('instances', [])
-    providers = diagram_data.get('providers', [])
-    
-    primary_provider = providers[0] if providers else 'aws'
-    provider_name = primary_provider.upper().replace('_', ' ')
-    
-    mermaid = "graph LR\n"
-    mermaid += f"    subgraph {provider_name}\n"
-    
-    for instance in instances:
-        inst_id = instance['id']
-        inst_name = instance['name']
-        purpose = instance.get('purpose', 'compute')
-        
-        if purpose == 'web':
-            icon = "🌐"
-        elif purpose == 'database':
-            icon = "🗄️"
-        elif purpose == 'loadbalancer':
-            icon = "🔄"
-        else:
-            icon = "💻"
-        
-        label = f"{icon} {inst_name}"
-        mermaid += f"        {inst_id}[\"{label}\"]\n"
-    
-    mermaid += "    end\n"
-    return mermaid
-
-
-def _create_three_tier_diagram(diagram_data: Dict, mini: bool = False) -> str:
-    """Create a network-based three-tier diagram showing subnets and network connectivity"""
-    instances = diagram_data.get('instances', [])
-    networks = diagram_data.get('networks', [])
-    providers = diagram_data.get('providers', [])
-    
-    # Check if this is multi-cloud (more than one provider)
-    is_multi_cloud = len(providers) > 1
-    
-    # Use graph for network representation (left to right)
-    mermaid = "graph LR\n"
-    
-    # Add Internet node
-    mermaid += "    Internet((\"🌐 Internet\"))\n\n"
-    
-    # For multi-cloud, create separate provider containers
-    if is_multi_cloud:
-        return _create_multi_cloud_diagram(diagram_data, mini)
-    
-    # Single cloud provider - original logic
-    primary_provider = providers[0] if providers else 'aws'
-    provider_name = primary_provider.upper().replace('_', ' ')
-    
-    # Create main cloud provider container
-    mermaid += f"    subgraph Cloud[\"{provider_name} Cloud\"]\n"
-    
-    # Group instances by subnet/network based on purpose and networks
-    public_instances = [inst for inst in instances if inst.get('purpose') in ['web', 'loadbalancer']]
-    app_instances = [inst for inst in instances if inst.get('purpose') == 'application']
-    db_instances = [inst for inst in instances if inst.get('purpose') == 'database']
-    other_instances = [inst for inst in instances if inst.get('purpose') not in ['web', 'loadbalancer', 'application', 'database']]
-    
-    # If we have actual network data, use it; otherwise create logical subnets
-    if networks:
-        # Use actual network data
-        public_nets = [net for net in networks if 'public' in net.get('type', '').lower() or 'public' in net.get('name', '').lower()]
-        app_nets = [net for net in networks if 'app' in net.get('type', '').lower() or 'app' in net.get('name', '').lower()]
-        db_nets = [net for net in networks if 'db' in net.get('type', '').lower() or 'database' in net.get('name', '').lower()]
-        vpc_nets = [net for net in networks if net.get('type') == 'vpc']
-        
-        # Create subnets based on actual network data
-        for net in public_nets:
-            mermaid += f"        subgraph {net['id']}[\"{net['name']} ({net.get('cidr', '10.0.1.0/24')})\"]\n"
-            for instance in public_instances:
-                if instance['provider'] == net['provider']:
-                    inst_id = instance['id']
-                    inst_name = instance['name']
-                    purpose = instance.get('purpose', '')
-                    icon = "🔄" if purpose == 'loadbalancer' else "🌐"
-                    mermaid += f"            {inst_id}[{icon} {inst_name}]\n"
-            mermaid += "        end\n\n"
-        
-        for net in app_nets:
-            mermaid += f"        subgraph {net['id']}[\"{net['name']} ({net.get('cidr', '10.0.2.0/24')})\"]\n"
-            for instance in app_instances:
-                if instance['provider'] == net['provider']:
-                    inst_id = instance['id']
-                    inst_name = instance['name']
-                    icon = "⚡"
-                    mermaid += f"            {inst_id}[{icon} {inst_name}]\n"
-            mermaid += "        end\n\n"
-        
-        for net in db_nets:
-            mermaid += f"        subgraph {net['id']}[\"{net['name']} ({net.get('cidr', '10.0.3.0/24')})\"]\n"
-            for instance in db_instances:
-                if instance['provider'] == net['provider']:
-                    inst_id = instance['id']
-                    inst_name = instance['name']
-                    icon = "🗄️"
-                    mermaid += f"            {inst_id}[{icon} {inst_name}]\n"
-            mermaid += "        end\n\n"
-    else:
-        # Create logical subnets when no network data is available
-        if public_instances:
-            mermaid += f"        subgraph PublicSubnet[\"Public Subnet (10.0.1.0/24)\"]\n"
-            for instance in public_instances:
-                inst_id = instance['id']
-                inst_name = instance['name']
-                purpose = instance.get('purpose', '')
-                icon = "🔄" if purpose == 'loadbalancer' else "🌐"
-                mermaid += f"            {inst_id}[{icon} {inst_name}]\n"
-            mermaid += "        end\n\n"
-        
-        if app_instances:
-            mermaid += f"        subgraph AppSubnet[\"Application Subnet (10.0.2.0/24)\"]\n"
-            for instance in app_instances:
-                inst_id = instance['id']
-                inst_name = instance['name']
-                icon = "⚡"
-                mermaid += f"            {inst_id}[{icon} {inst_name}]\n"
-            mermaid += "        end\n\n"
-        
-        if db_instances:
-            mermaid += f"        subgraph DatabaseSubnet[\"Database Subnet (10.0.3.0/24)\"]\n"
-            for instance in db_instances:
-                inst_id = instance['id']
-                inst_name = instance['name']
-                icon = "🗄️"
-                mermaid += f"            {inst_id}[{icon} {inst_name}]\n"
-            mermaid += "        end\n\n"
-        
-        # Handle other instances in a general subnet
-        if other_instances:
-            mermaid += f"        subgraph GeneralSubnet[\"General Subnet (10.0.4.0/24)\"]\n"
-            for instance in other_instances:
-                inst_id = instance['id']
-                inst_name = instance['name']
-                icon = "💻"
-                mermaid += f"            {inst_id}[{icon} {inst_name}]\n"
-            mermaid += "        end\n\n"
-    
-    # Close cloud provider container
-    mermaid += "    end\n\n"
-    
-    # Add network flow connections
-    mermaid += "    %% Network Flow\n"
-    
-    # Internet to public subnet/load balancers
-    if public_instances:
-        # Find load balancers and web servers separately
-        load_balancers = [inst for inst in public_instances if inst.get('purpose') == 'loadbalancer']
-        web_servers = [inst for inst in public_instances if inst.get('purpose') == 'web']
-        
-        if load_balancers:
-            # Internet connects to load balancer
-            first_lb = load_balancers[0]['id']
-            mermaid += f"    Internet --> {first_lb}\n"
-            
-            if web_servers:
-                # Load balancer distributes to web servers
-                for web_server in web_servers:
-                    mermaid += f"    {first_lb} --> {web_server['id']}\n"
-                
-                # Web servers connect to app tier
-                if app_instances:
-                    first_app = app_instances[0]['id']
-                    for web_server in web_servers:
-                        mermaid += f"    {web_server['id']} --> {first_app}\n"
-                elif db_instances:
-                    # Direct web to db if no app tier
-                    first_db = db_instances[0]['id']
-                    for web_server in web_servers:
-                        mermaid += f"    {web_server['id']} --> {first_db}\n"
-            elif app_instances:
-                # No web servers, load balancer goes directly to app (edge case)
-                first_app = app_instances[0]['id']
-                mermaid += f"    {first_lb} --> {first_app}\n"
-        elif web_servers:
-            # No load balancer, Internet connects directly to web servers
-            first_web = web_servers[0]['id']
-            mermaid += f"    Internet --> {first_web}\n"
-            
-            # Web servers connect to app tier
-            if app_instances:
-                first_app = app_instances[0]['id']
-                for web_server in web_servers:
-                    mermaid += f"    {web_server['id']} --> {first_app}\n"
-            elif db_instances:
-                # Direct web to db if no app tier
-                first_db = db_instances[0]['id']
-                for web_server in web_servers:
-                    mermaid += f"    {web_server['id']} --> {first_db}\n"
-        else:
-            # No load balancers or web servers, connect to first public instance
-            first_public = public_instances[0]['id']
-            mermaid += f"    Internet --> {first_public}\n"
-            
-            if app_instances:
-                first_app = app_instances[0]['id']
-                mermaid += f"    {first_public} --> {first_app}\n"
-            elif db_instances:
-                first_db = db_instances[0]['id']
-                mermaid += f"    {first_public} --> {first_db}\n"
-        
-        # App tier to database tier
-        if app_instances and db_instances:
-            first_db = db_instances[0]['id']
-            for app_instance in app_instances:
-                mermaid += f"    {app_instance['id']} --> {first_db}\n"
-    
-    # Add network-focused styling
-    mermaid += "\n    %% Network Styling\n"
-    mermaid += "    style Internet fill:#e3f2fd,stroke:#1976d2,color:#000\n"
-    mermaid += "    style Cloud fill:#f5f5f5,stroke:#666,color:#000\n"
-    
-    # Style subnets with network colors
-    if networks:
-        for net in networks:
-            net_type = net.get('type', '')
-            if 'public' in net_type:
-                mermaid += f"    style {net['id']} fill:#fff3e0,stroke:#f57c00,color:#000\n"
-            elif 'app' in net_type:
-                mermaid += f"    style {net['id']} fill:#e8f5e8,stroke:#388e3c,color:#000\n"
-            elif 'db' in net_type or 'database' in net_type:
-                mermaid += f"    style {net['id']} fill:#fce4ec,stroke:#c2185b,color:#000\n"
-            else:
-                mermaid += f"    style {net['id']} fill:#f3e5f5,stroke:#8e24aa,color:#000\n"
-    else:
-        # Style logical subnets
-        if public_instances:
-            mermaid += "    style PublicSubnet fill:#fff3e0,stroke:#f57c00,color:#000\n"
-        if app_instances:
-            mermaid += "    style AppSubnet fill:#e8f5e8,stroke:#388e3c,color:#000\n"
-        if db_instances:
-            mermaid += "    style DatabaseSubnet fill:#fce4ec,stroke:#c2185b,color:#000\n"
-        if other_instances:
-            mermaid += "    style GeneralSubnet fill:#f3e5f5,stroke:#8e24aa,color:#000\n"
-    
-    return mermaid
-
-
-def _create_provider_diagram(diagram_data: Dict, mini: bool = False) -> str:
-    """Create a simplified provider-based diagram for non-three-tier architectures"""
-    instances = diagram_data.get('instances', [])
-    networks = diagram_data.get('networks', [])
-    providers = diagram_data.get('providers', [])
-    
-    # Provider styling - brand colors
-    provider_styles = {
-        'aws': 'fill:#FF9900,stroke:#e47911,color:#000',        # AWS Orange/Yellow
-        'azure': 'fill:#00BCF2,stroke:#0078D4,color:#000',      # Azure Light Blue  
-        'gcp': 'fill:#4285F4,stroke:#1a73e8,color:#fff',        # GCP Blue (keeping current)
-        'ibm_vpc': 'fill:#054ADA,stroke:#003d82,color:#fff',     # IBM Dark Blue
-        'ibm_classic': 'fill:#054ADA,stroke:#003d82,color:#fff', # IBM Dark Blue
-        'oci': 'fill:#F80000,stroke:#c60000,color:#fff',        # Oracle Red
-        'alibaba': 'fill:#FF6A00,stroke:#e65100,color:#fff',    # Alibaba Orange
-        'vmware': 'fill:#607078,stroke:#455a64,color:#fff',     # VMware Gray
-        'cnv': 'fill:#EE0000,stroke:#c62828,color:#fff',        # Red Hat Red
-        'cheapest': 'fill:#28A745,stroke:#1e7e34,color:#fff',   # Green for cost optimization
-        'cheapest-gpu': 'fill:#17A2B8,stroke:#138496,color:#fff' # Teal for GPU cost optimization
-    }
-    
-    mermaid = "graph LR\n"
-    
-    # Simple instance listing by provider
-    for provider in providers:
-        provider_instances = [inst for inst in instances if inst['provider'] == provider]
-        
-        if provider_instances:
-            mermaid += f"    subgraph {provider.upper().replace('_', ' ')}\n"
-            
-            for instance in provider_instances:
-                inst_id = instance['id']
-                inst_name = instance['name']
-                purpose = instance.get('purpose', 'compute')
-                
-                # Choose icon
-                if purpose == 'web':
-                    icon = "🌐"
-                elif purpose == 'database':
-                    icon = "🗄️"
-                elif purpose == 'loadbalancer':
-                    icon = "🔄"
-                else:
-                    icon = "💻"
-                
-                label = f"{icon} {inst_name}"
-                mermaid += f"        {inst_id}[\"{label}\"]\n"
-            
-            mermaid += "    end\n"
-    
-    # Add basic styling
-    for provider in providers:
-        style = provider_styles.get(provider, 'fill:#666666,stroke:#333333,color:#fff')
-        provider_instances = [inst for inst in instances if inst['provider'] == provider]
-        
-        for instance in provider_instances:
-            mermaid += f"    style {instance['id']} {style}\n"
-    
-    return mermaid
 
 
 def create_mini_infrastructure_diagram(diagram_data: Dict) -> str:
@@ -1150,12 +859,21 @@ def display_mermaid_diagram(mermaid_code: str, key: str = "diagram"):
     # Use larger height to give more space for proper rendering
     base_height = 300 if key == "mini" else 500
     
-    # For chat diagrams, use scrollable container with max height
+    # For chat diagrams, remove height restrictions to span full chat width
     is_chat_diagram = key.startswith("chat_")
-    max_height = 400 if is_chat_diagram else base_height
+    max_height = "none" if is_chat_diagram else f"{base_height}px"
+    
+    # Build container style based on diagram type
+    container_style = f"width: 100%; border: 1px solid #e0e0e0; border-radius: 8px; background: #fafafa; margin: 10px 0; position: relative;"
+    if is_chat_diagram:
+        # For chat diagrams, use scrollable container with reasonable max height
+        container_style += " max-height: 500px; overflow: auto; height: auto;"
+    else:
+        # For other diagrams, maintain scrollable behavior
+        container_style += f" max-height: {max_height}; overflow: auto;"
     
     st.components.v1.html(f"""
-    <div id="mermaid-container-{key}" style="width: 100%; max-height: {max_height}px; overflow: auto; border: 1px solid #e0e0e0; border-radius: 8px; background: #fafafa; margin: 10px 0; position: relative;">
+    <div id="mermaid-container-{key}" style="{container_style}">
         <!-- Expand button -->
         <button id="expand-btn-{key}" 
                 onclick="expandDiagram('{key}')" 
@@ -1167,7 +885,9 @@ def display_mermaid_diagram(mermaid_code: str, key: str = "diagram"):
             🔍 Expand
         </button>
         
-        <div id="mermaid-{key}" style="width: 100%; min-height: {base_height}px; text-align: center; margin: 0; padding: 15px;">
+        
+        
+        <div id="mermaid-{key}" style="width: 100%; {f'height: auto;' if is_chat_diagram else f'min-height: {base_height}px;'} text-align: center; margin: 0; padding: {8 if is_chat_diagram else 15}px;">
             <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
             <script>
                 // Clear any previous mermaid content
@@ -1185,15 +905,15 @@ def display_mermaid_diagram(mermaid_code: str, key: str = "diagram"):
                         clusterBorder: '#333'
                     }},
                     flowchart: {{
-                        useMaxWidth: false,
+                        useMaxWidth: {str(is_chat_diagram).lower()},
                         htmlLabels: true,
                         subgraphTitleMargin: {{
-                            top: 5,
-                            bottom: 25
+                            top: {3 if is_chat_diagram else 5},
+                            bottom: {10 if is_chat_diagram else 25}
                         }},
-                        padding: 15,
-                        nodeSpacing: 30,
-                        rankSpacing: 30
+                        padding: {8 if is_chat_diagram else 15},
+                        nodeSpacing: {20 if is_chat_diagram else 30},
+                        rankSpacing: {20 if is_chat_diagram else 30}
                     }}
                 }});
                 
@@ -1365,12 +1085,12 @@ def display_mermaid_diagram(mermaid_code: str, key: str = "diagram"):
                 // Render the diagram
                 const diagramDiv = document.createElement('div');
                 diagramDiv.className = 'mermaid';
-                diagramDiv.style.width = 'fit-content';
+                diagramDiv.style.width = {'\"100%\"' if is_chat_diagram else '\"fit-content\"'};
                 diagramDiv.style.minWidth = '100%';
                 diagramDiv.style.minHeight = '150px';
                 diagramDiv.style.display = 'block';
                 diagramDiv.style.margin = '0 auto';
-                diagramDiv.style.padding = '20px';
+                diagramDiv.style.padding = {'\"5px\"' if is_chat_diagram else '\"20px\"'};
                 diagramDiv.textContent = `{mermaid_code}`;
                 
                 document.getElementById('mermaid-{key}').appendChild(diagramDiv);
@@ -1405,7 +1125,7 @@ def display_mermaid_diagram(mermaid_code: str, key: str = "diagram"):
             </script>
         </div>
     </div>
-    """, height=max_height + 50)
+    """, height=250 if is_chat_diagram else (base_height + 50))
 
 
 def test_mermaid_html_structure():
