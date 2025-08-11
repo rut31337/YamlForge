@@ -887,7 +887,7 @@ def display_mermaid_diagram(mermaid_code: str, key: str = "diagram"):
         
         
         
-        <div id="mermaid-{key}" style="width: 100%; {f'height: auto;' if is_chat_diagram else f'min-height: {base_height}px;'} text-align: center; margin: 0; padding: {8 if is_chat_diagram else 15}px;">
+        <div id="mermaid-{key}" style="width: 100%; {'height: auto;' if is_chat_diagram else f'min-height: {base_height}px;'} text-align: center; margin: 0; padding: {8 if is_chat_diagram else 15}px;">
             <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
             <script>
                 // Clear any previous mermaid content
@@ -1085,12 +1085,12 @@ def display_mermaid_diagram(mermaid_code: str, key: str = "diagram"):
                 // Render the diagram
                 const diagramDiv = document.createElement('div');
                 diagramDiv.className = 'mermaid';
-                diagramDiv.style.width = {'\"100%\"' if is_chat_diagram else '\"fit-content\"'};
+                diagramDiv.style.width = "{'100%' if is_chat_diagram else 'fit-content'}";
                 diagramDiv.style.minWidth = '100%';
                 diagramDiv.style.minHeight = '150px';
                 diagramDiv.style.display = 'block';
                 diagramDiv.style.margin = '0 auto';
-                diagramDiv.style.padding = {'\"5px\"' if is_chat_diagram else '\"20px\"'};
+                diagramDiv.style.padding = "{'5px' if is_chat_diagram else '20px'}";
                 diagramDiv.textContent = `{mermaid_code}`;
                 
                 document.getElementById('mermaid-{key}').appendChild(diagramDiv);
