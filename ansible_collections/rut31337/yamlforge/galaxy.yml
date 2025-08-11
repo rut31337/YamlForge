@@ -1,0 +1,47 @@
+---
+namespace: rut31337
+name: yamlforge
+version: 1.0.4
+readme: README.md
+authors:
+  - Patrick T. Rutledge III
+
+description: >-
+  YamlForge Ansible Collection - Multi-Cloud Infrastructure as Code and PaaS Management Suite.
+  Convert unified YAML configurations into provider-specific Terraform with intelligent optimization.
+  Requires 'pip install yamlforge-infra' for the core YamlForge package.
+
+license_file: LICENSE
+
+tags:
+  - terraform
+  - multicloud
+  - infrastructure
+  - aws
+  - azure
+  - gcp
+  - openshift
+  - kubernetes
+  - cloud
+  - iaas
+  - paas
+
+dependencies: {}
+
+repository: https://github.com/rut31337/YamlForge
+documentation: https://github.com/rut31337/YamlForge/tree/master/docs
+homepage: https://github.com/rut31337/YamlForge
+issues: https://github.com/rut31337/YamlForge/issues
+
+build_ignore:
+  - "*.pyc"
+  - "*.pyo"
+  - "*.pyd"
+  - "__pycache__"
+  - ".git"
+  - ".gitignore"
+  - ".DS_Store"
+  - "*.tar.gz"
+  - "tests/"
+  - ".pytest_cache"
+  - "*.egg-info"

@@ -1,0 +1,21 @@
+guid: "test1"
+
+yamlforge:
+  cloud_workspace:
+    name: "ansible-collection-test"
+    description: "Test configuration for YamlForge Ansible collection"
+  
+  instances:
+    - name: "web-server"
+      provider: aws
+      count: 1
+      flavor: "t3.micro"
+      image: "RHEL9-latest"
+      location: "us-east"
+    
+    - name: "database"
+      provider: azure
+      count: 1
+      flavor: "Standard_B1s"
+      image: "RHEL9-latest"
+      location: "us-east"

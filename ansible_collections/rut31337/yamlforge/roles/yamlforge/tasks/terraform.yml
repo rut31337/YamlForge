@@ -1,0 +1,91 @@
+---
+# Terraform installation tasks
+
+- name: Check if Terraform is already installed
+  command: terraform version
+  register: terraform_check
+  changed_when: false
+  failed_when: false
+
+- name: Set terraform installation needed fact
+  set_fact:
+    terraform_needs_install: >-
+      {{
+        terraform_check.rc != 0 or
+        terraform_version not in terraform_check.stdout
+      }}
+
+- name: Install Terraform via package manager
+  block:
+    - name: Add HashiCorp GPG key (RHEL/Fedora)
+      rpm_key:
+        state: present
+        key: https://rpm.releases.hashicorp.com/gpg
+      become: true
+      when: ansible_os_family == "RedHat"
+
+    - name: Add HashiCorp repository (RHEL/Fedora)
+      yum_repository:
+        name: hashicorp
+        description: HashiCorp Stable
+        baseurl: https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
+        gpgcheck: true
+        enabled: true
+      become: true
+      when: ansible_os_family == "RedHat"
+
+    - name: Install Terraform package
+      package:
+        name: terraform
+        state: present
+      become: true
+
+  when: 
+    - terraform_needs_install
+    - terraform_install_method == "package"
+
+- name: Install Terraform binary
+  block:
+    - name: Create temporary directory
+      tempfile:
+        state: directory
+        suffix: terraform
+      register: terraform_temp_dir
+
+    - name: Download Terraform binary
+      get_url:
+        url: "https://releases.hashicorp.com/terraform/{{ terraform_version }}/terraform_{{ terraform_version }}_linux_amd64.zip"
+        dest: "{{ terraform_temp_dir.path }}/terraform.zip"
+        mode: '0644'
+
+    - name: Unzip Terraform binary
+      unarchive:
+        src: "{{ terraform_temp_dir.path }}/terraform.zip"
+        dest: "{{ terraform_temp_dir.path }}"
+        remote_src: true
+
+    - name: Install Terraform binary
+      copy:
+        src: "{{ terraform_temp_dir.path }}/terraform"
+        dest: /usr/local/bin/terraform
+        mode: '0755'
+        remote_src: true
+      become: true
+
+    - name: Clean up temporary directory
+      file:
+        path: "{{ terraform_temp_dir.path }}"
+        state: absent
+
+  when: 
+    - terraform_needs_install
+    - terraform_install_method == "binary"
+
+- name: Verify Terraform installation
+  command: terraform version
+  register: terraform_verify
+  changed_when: false
+
+- name: Display Terraform version
+  debug:
+    msg: "Terraform installed: {{ terraform_verify.stdout_lines[0] }}"

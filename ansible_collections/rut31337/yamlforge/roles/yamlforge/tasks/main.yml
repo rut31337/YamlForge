@@ -1,0 +1,68 @@
+---
+# YamlForge role main tasks
+
+- name: Include OS-specific variables
+  include_vars: "{{ ansible_os_family }}.yml"
+  ignore_errors: true
+
+- name: Install prerequisites
+  package:
+    name: "{{ prerequisite_packages }}"
+    state: present
+  become: true
+  when: install_prerequisites
+
+- name: Install Terraform
+  include_tasks: terraform.yml
+  when: terraform_install
+
+- name: Install YamlForge package
+  pip:
+    name: "{{ yamlforge_package_name }}"
+    state: present
+    executable: "{{ yamlforge_python_executable }}-pip"
+  become: true
+  when: yamlforge_install_package
+
+- name: Install cloud CLI tools
+  include_tasks: cloud_clis.yml
+  when: install_cloud_clis
+
+- name: Validate YamlForge configuration file
+  stat:
+    path: "{{ yamlforge_config_file }}"
+  register: config_file_stat
+  when: yamlforge_config_file != ""
+
+- name: Fail if config file doesn't exist
+  fail:
+    msg: "YamlForge configuration file not found: {{ yamlforge_config_file }}"
+  when: 
+    - yamlforge_config_file != ""
+    - not config_file_stat.stat.exists
+
+- name: Create output directory
+  file:
+    path: "{{ yamlforge_output_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Execute YamlForge
+  rut31337.yamlforge.infrastructure:
+    config_file: "{{ yamlforge_config_file }}"
+    output_dir: "{{ yamlforge_output_dir }}"
+    auto_deploy: "{{ yamlforge_auto_deploy }}"
+    no_credentials: "{{ yamlforge_no_credentials }}"
+    verbose: "{{ yamlforge_verbose }}"
+    exclude_providers: "{{ yamlforge_exclude_providers }}"
+    guid: "{{ yamlforge_guid }}"
+  environment: "{{ yamlforge_env_vars }}"
+  register: yamlforge_result
+  when: yamlforge_config_file != ""
+
+- name: Display YamlForge results
+  debug:
+    var: yamlforge_result
+  when: 
+    - yamlforge_config_file != ""
+    - yamlforge_verbose

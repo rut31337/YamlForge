@@ -25,12 +25,96 @@ import os
 import sys
 import yaml
 import subprocess
+import json
 from datetime import datetime
 
 from .core.converter import YamlForgeConverter
 
+# Optional jsonschema for validation
+try:
+    import jsonschema
+    HAS_JSONSCHEMA = True
+except ImportError:
+    HAS_JSONSCHEMA = False
+
 # Version information
 __version__ = "1.0.0b1"
+
+def validate_yaml_against_schema(yaml_data, input_file_path, ansible_mode=False):
+    """Validate YAML configuration against YamlForge schema"""
+    
+    if not HAS_JSONSCHEMA:
+        # Skip validation if jsonschema is not available
+        if not ansible_mode:
+            print("INFO: jsonschema library not found, skipping schema validation")
+            print("      Install with: pip install jsonschema")
+        return True
+    
+    # Find the schema file
+    script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    schema_path = os.path.join(script_dir, 'docs', 'yamlforge-schema.json')
+    
+    if not os.path.exists(schema_path):
+        # Schema not found, skip validation
+        if not ansible_mode:
+            print(f"INFO: Schema file not found at {schema_path}, skipping validation")
+        return True
+    
+    # Load the schema
+    try:
+        with open(schema_path, 'r') as f:
+            schema = json.load(f)
+    except Exception as e:
+        # Schema loading failed, skip validation
+        if not ansible_mode:
+            print(f"INFO: Could not load schema file: {e}")
+        return True
+    
+    # Validate the configuration
+    try:
+        jsonschema.validate(yaml_data, schema)
+        return True
+    except jsonschema.ValidationError as e:
+        # Format the validation error nicely
+        error_msg = f"YAML configuration validation failed in '{input_file_path}':\n\n"
+        error_msg += f"Error: {e.message}\n"
+        
+        if e.path:
+            path_str = '.'.join(str(p) for p in e.path)
+            error_msg += f"Location: {path_str}\n"
+        
+        if e.schema_path:
+            schema_path_str = '.'.join(str(p) for p in e.schema_path)
+            error_msg += f"Schema rule: {schema_path_str}\n"
+        
+        # Add helpful hints for common errors
+        if "instances" in str(e.path) and "not of type 'array'" in e.message:
+            error_msg += "\nHint: 'instances' should be an array (list) of objects, not a dictionary.\n"
+            error_msg += "Correct format:\n"
+            error_msg += "yamlforge:\n"
+            error_msg += "  instances:\n"
+            error_msg += "    - name: \"my-instance\"\n"
+            error_msg += "      provider: aws\n"
+            error_msg += "      # ... other properties\n"
+        elif "'yamlforge' is a required property" in e.message:
+            error_msg += "\nHint: YAML file must have a 'yamlforge' root element.\n"
+            error_msg += "Correct format:\n"
+            error_msg += "yamlforge:\n"
+            error_msg += "  cloud_workspace:\n"
+            error_msg += "    name: \"my-workspace\"\n"
+            error_msg += "  instances:\n"
+            error_msg += "    - name: \"my-instance\"\n"
+            error_msg += "      provider: aws\n"
+        elif "guid" in str(e.path) and "pattern" in str(e.schema_path):
+            error_msg += "\nHint: GUID must be exactly 5 characters (lowercase letters and numbers only).\n"
+            error_msg += "Examples: test1, web01, app42, dev99\n"
+        
+        raise ValueError(error_msg)
+    except Exception as e:
+        # Other validation errors, skip validation
+        if not ansible_mode:
+            print(f"INFO: Schema validation error: {e}")
+        return True
 
 def run_command(command, cwd=None, description=""):
     """Run a shell command and return success status."""
@@ -996,6 +1080,7 @@ def main():
     parser.add_argument('--auto-deploy', action='store_true', help='Automatically execute Terraform and ROSA deployment after generation. WARNING: This will provision REAL cloud infrastructure and incur ACTUAL costs on your cloud provider accounts (VMs, storage, networking, OpenShift clusters can cost $100s+ per month). Use only when you understand the financial implications.')
     parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output (show generated files, detailed AMI search info, etc.)')
     parser.add_argument('--no-credentials', action='store_true', help='Skip credential-dependent operations (dynamic image lookup, zone lookup, ROSA version lookup, etc.). WARNING: Generated Terraform will likely not work without manual updates to placeholders.')
+    parser.add_argument('--ansible', action='store_true', help='Output structured JSON for Ansible module consumption instead of human-readable text')
     
     args = parser.parse_args()
     
@@ -1007,12 +1092,22 @@ def main():
         print("  Use one or the other, not both")
         sys.exit(1)
     
-    # Print startup message
+    # Initialize Ansible output structure
+    ansible_output = {
+        'terraform_files': [],
+        'deployment_status': 'not_attempted',
+        'providers_detected': [],
+        'warnings': [],
+        'errors': []
+    }
+    
+    # Print startup message (suppress if ansible mode)
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"YamlForge {__version__} begins at {current_time}")
+    if not args.ansible:
+        print(f"YamlForge {__version__} begins at {current_time}")
     
     # Show warning if no-credentials mode is enabled
-    if args.no_credentials:
+    if args.no_credentials and not args.ansible:
         print("\n" + "="*80)
         print("  NO-CREDENTIALS MODE ENABLED")
         print("="*80)
@@ -1030,7 +1125,12 @@ def main():
     
     # Validate that the input file exists
     if not os.path.exists(args.input_file):
-        print(f"ERROR: Input file '{args.input_file}' does not exist")
+        error_msg = f"Input file '{args.input_file}' does not exist"
+        if args.ansible:
+            ansible_output['errors'].append(error_msg)
+            print(json.dumps(ansible_output))
+        else:
+            print(f"ERROR: {error_msg}")
         sys.exit(1)
     
     # Validate output directory (not required for analyze mode)
@@ -1048,9 +1148,7 @@ def main():
             sys.exit(1)
     
     try:
-        # Create converter instance (skip Terraform validation in analyze mode)
-        converter = YamlForgeConverter(analyze_mode=args.analyze)
-        # Load and validate the YAML configuration
+        # Load the YAML configuration
         with open(args.input_file, 'r') as f:
             raw_yaml_data = yaml.safe_load(f)
     except FileNotFoundError:
@@ -1060,58 +1158,64 @@ def main():
         print(f"ERROR: Invalid YAML syntax in '{args.input_file}': {e}")
         sys.exit(1)
     
-    # Check for root-level instances (old format) and warn
-    root_instances = raw_yaml_data.get('instances', [])
-    if root_instances:
-        print("WARNING: Found 'instances' at root level. This is deprecated and will be ignored.")
-        print("Move 'instances' under 'yamlforge' section:")
-        print("yamlforge:")
-        print("  cloud_workspace:")
-        print("    name: \"your-workspace-name\"")
-        print("  instances:")
-        print("    # ... your instances here")
-        print()
-    
-    # Extract yamlforge configuration from root and merge defaults
-    if 'yamlforge' not in raw_yaml_data:
-        print("ERROR: YAML file must have a 'yamlforge' root element")
-        print("Example structure:")
-        print("yamlforge:")
-        print("  providers:")
-        print("    - aws")
-        print("  instances:")
-        print("    - name: my-instance")
-        print("      provider: aws")
-        sys.exit(1)
-    
-    config = raw_yaml_data['yamlforge']
-    
-    # Merge OpenShift defaults if OpenShift clusters are present but defaults are missing
-    if 'openshift_clusters' in config and not config.get('rosa_deployment'):
-        # Load OpenShift defaults
-        try:
-            import yaml as yaml_loader
-            openshift_defaults_path = os.path.join(os.path.dirname(__file__), '..', 'defaults', 'openshift.yaml')
-            with open(openshift_defaults_path, 'r') as f:
-                openshift_defaults = yaml_loader.safe_load(f)
-            
-            # Merge OpenShift defaults at root level (not under 'openshift' key)
-            openshift_config = openshift_defaults.get('openshift', {})
-            for key, value in openshift_config.items():
-                if key not in config:
-                    config[key] = value
-                    if args.verbose:
-                        print(f"Merged OpenShift default: {key}")
-        except Exception as e:
-            if args.verbose:
-                print(f"Could not load OpenShift defaults: {e}")
-    
-    # Set flags on converter so providers can access them
-    converter.verbose = args.verbose
-    converter.no_credentials = args.no_credentials
-    
-    # Import and run the converter
     try:
+        # Validate YAML against schema
+        validate_yaml_against_schema(raw_yaml_data, args.input_file, args.ansible)
+        
+        # Create converter instance (skip Terraform validation in analyze mode)
+        converter = YamlForgeConverter(analyze_mode=args.analyze, ansible_mode=args.ansible)
+        
+        # Check for root-level instances (old format) and warn
+        root_instances = raw_yaml_data.get('instances', [])
+        if root_instances:
+            print("WARNING: Found 'instances' at root level. This is deprecated and will be ignored.")
+            print("Move 'instances' under 'yamlforge' section:")
+            print("yamlforge:")
+            print("  cloud_workspace:")
+            print("    name: \"your-workspace-name\"")
+            print("  instances:")
+            print("    # ... your instances here")
+            print()
+        
+        # Extract yamlforge configuration from root and merge defaults
+        if 'yamlforge' not in raw_yaml_data:
+            print("ERROR: YAML file must have a 'yamlforge' root element")
+            print("Example structure:")
+            print("yamlforge:")
+            print("  providers:")
+            print("    - aws")
+            print("  instances:")
+            print("    - name: my-instance")
+            print("      provider: aws")
+            sys.exit(1)
+        
+        config = raw_yaml_data['yamlforge']
+        
+        # Merge OpenShift defaults if OpenShift clusters are present but defaults are missing
+        if 'openshift_clusters' in config and not config.get('rosa_deployment'):
+            # Load OpenShift defaults
+            try:
+                import yaml as yaml_loader
+                openshift_defaults_path = os.path.join(os.path.dirname(__file__), '..', 'defaults', 'openshift.yaml')
+                with open(openshift_defaults_path, 'r') as f:
+                    openshift_defaults = yaml_loader.safe_load(f)
+                
+                # Merge OpenShift defaults at root level (not under 'openshift' key)
+                openshift_config = openshift_defaults.get('openshift', {})
+                for key, value in openshift_config.items():
+                    if key not in config:
+                        config[key] = value
+                        if args.verbose:
+                            print(f"Merged OpenShift default: {key}")
+            except Exception as e:
+                if args.verbose:
+                    print(f"Could not load OpenShift defaults: {e}")
+        
+        # Set flags on converter so providers can access them
+        converter.verbose = args.verbose
+        converter.no_credentials = args.no_credentials
+        
+        # Import and run the converter
         if args.analyze:
             # Set analysis mode flag to suppress duplicate output
             # Run analysis mode
@@ -1120,31 +1224,70 @@ def main():
             # Pass the full YAML data so GUID can be extracted from root level
             converter.convert(config, args.output_dir, verbose=args.verbose, full_yaml_data=raw_yaml_data)
             
+            # Collect generated Terraform files for Ansible output
+            if args.ansible:
+                for root, _, files in os.walk(args.output_dir):
+                    for file in files:
+                        if file.endswith('.tf'):
+                            ansible_output['terraform_files'].append(os.path.join(root, file))
+                
+                # Get detected providers from converter
+                if hasattr(converter, 'detected_providers'):
+                    ansible_output['providers_detected'] = list(converter.detected_providers)
+            
             if args.auto_deploy:
-                auto_deploy_infrastructure(args.output_dir, raw_yaml_data)
+                if args.ansible:
+                    ansible_output['deployment_status'] = 'attempting'
+                try:
+                    auto_deploy_infrastructure(args.output_dir, raw_yaml_data)
+                    if args.ansible:
+                        ansible_output['deployment_status'] = 'deployed'
+                except Exception as deploy_error:
+                    if args.ansible:
+                        ansible_output['deployment_status'] = 'failed'
+                        ansible_output['errors'].append(f"Deployment failed: {str(deploy_error)}")
+                    else:
+                        raise
             else:
-                deployment_instructions = generate_deployment_instructions(config, args.output_dir, converter, raw_yaml_data)
-                print(deployment_instructions)
+                if not args.ansible:
+                    deployment_instructions = generate_deployment_instructions(config, args.output_dir, converter, raw_yaml_data)
+                    print(deployment_instructions)
+        
+        # Output JSON for Ansible if requested
+        if args.ansible:
+            print(json.dumps(ansible_output))
 
     except ValueError as e:
         # Handle user-friendly errors (like GUID validation) without stack trace
         error_msg = str(e)
-        if "GUID is required" in error_msg or "GUID must be exactly" in error_msg or "Invalid GUID format" in error_msg:
-            print(f"\nERROR: {e}\n")
-            sys.exit(1)
-        elif error_msg.startswith("ERROR:"):
-            # Error message is already well-formatted (e.g., AWS smart errors), print as-is
-            print(f"\n{e}\n")
-            sys.exit(1)
+        if args.ansible:
+            ansible_output['errors'].append(error_msg)
+            print(json.dumps(ansible_output))
         else:
-            # Other ValueError - add generic formatting
-            print(f"\nERROR: Configuration Error: {e}\n")
-            sys.exit(1)
+            if "GUID is required" in error_msg or "GUID must be exactly" in error_msg or "Invalid GUID format" in error_msg:
+                print(f"\nERROR: {e}\n")
+            elif error_msg.startswith("ERROR:"):
+                # Error message is already well-formatted (e.g., AWS smart errors), print as-is
+                print(f"\n{e}\n")
+            else:
+                # Other ValueError - add generic formatting
+                print(f"\nERROR: Configuration Error: {e}\n")
+        sys.exit(1)
     except FileNotFoundError as e:
-        print(f"ERROR: File Error: {e}")
+        error_msg = f"File Error: {e}"
+        if args.ansible:
+            ansible_output['errors'].append(error_msg)
+            print(json.dumps(ansible_output))
+        else:
+            print(f"ERROR: {error_msg}")
         sys.exit(1)
     except Exception as e:
-        print(f"ERROR: Unexpected Error: {e}")
+        error_msg = f"Unexpected Error: {e}"
+        if args.ansible:
+            ansible_output['errors'].append(error_msg)
+            print(json.dumps(ansible_output))
+        else:
+            print(f"ERROR: {error_msg}")
         sys.exit(1)
 
 if __name__ == "__main__":

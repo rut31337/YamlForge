@@ -1,0 +1,48 @@
+---
+# YamlForge role default variables
+
+# Core configuration
+yamlforge_config_file: ""
+yamlforge_output_dir: "/tmp/yamlforge-output"
+yamlforge_auto_deploy: false
+yamlforge_no_credentials: false
+yamlforge_verbose: false
+
+# Optional parameters
+yamlforge_exclude_providers: []
+yamlforge_guid: ""
+
+# Installation options
+yamlforge_install_package: true
+yamlforge_package_name: "yamlforge"
+yamlforge_python_executable: "python3"
+
+# Terraform configuration
+terraform_install: true
+terraform_version: "1.12.0"
+terraform_install_method: "binary"  # binary, package
+
+# Prerequisites
+install_prerequisites: true
+prerequisite_packages:
+  - python3
+  - python3-pip
+  - git
+  - curl
+
+# Cloud CLI tools (optional)
+install_cloud_clis: false
+cloud_cli_tools:
+  aws_cli: false
+  azure_cli: false
+  gcloud_cli: false
+  ibmcloud_cli: false
+  oci_cli: false
+
+# Environment variables for cloud credentials
+yamlforge_env_vars: {}
+# Example:
+# yamlforge_env_vars:
+#   AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+#   AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+#   AZURE_SUBSCRIPTION_ID: "{{ azure_subscription_id }}"

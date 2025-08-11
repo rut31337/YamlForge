@@ -27,8 +27,9 @@ from ..providers.cnv import CNVProvider
 class YamlForgeConverter:
     """Main converter class that orchestrates multi-cloud infrastructure generation."""
 
-    def __init__(self, images_file="mappings/images.yaml", analyze_mode=False):
+    def __init__(self, images_file="mappings/images.yaml", analyze_mode=False, ansible_mode=False):
         """Initialize the converter with mappings and provider modules."""
+        self.ansible_mode = ansible_mode
         # Check Terraform version early (skip if in analyze mode)
         if not analyze_mode:
             self.validate_terraform_version()
@@ -173,7 +174,8 @@ class YamlForgeConverter:
             
             # Success - version is acceptable
             current_version_str = f"{major}.{minor}.{patch}"
-            print(f"Detected Terraform version {current_version_str} (meets minimum requirement)")
+            if not getattr(self, 'ansible_mode', False):
+                print(f"Detected Terraform version {current_version_str} (meets minimum requirement)")
             
         except subprocess.TimeoutExpired:
             raise ValueError(
@@ -1874,13 +1876,15 @@ output "external_ips" {
 
     def start_global_section(self):
         """Start the global section for setup operations."""
-        print()
-        print("[GLOBAL]")
+        if not getattr(self, 'ansible_mode', False):
+            print()
+            print("[GLOBAL]")
 
     def print_global_output(self, message, indent_level=1):
         """Print global output with proper indentation."""
-        indent = "  " * indent_level
-        print(f"{indent}{message}")
+        if not getattr(self, 'ansible_mode', False):
+            indent = "  " * indent_level
+            print(f"{indent}{message}")
 
     def start_instance_section(self, instance_name, provider):
         """Start a new instance section in the output."""

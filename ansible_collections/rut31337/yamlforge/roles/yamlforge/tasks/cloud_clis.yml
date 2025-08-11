@@ -1,0 +1,131 @@
+---
+# Cloud CLI installation tasks
+
+- name: Install AWS CLI
+  block:
+    - name: Download AWS CLI installer
+      get_url:
+        url: "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+        dest: "/tmp/awscliv2.zip"
+        mode: '0644'
+
+    - name: Unzip AWS CLI installer
+      unarchive:
+        src: "/tmp/awscliv2.zip"
+        dest: "/tmp"
+        remote_src: true
+
+    - name: Install AWS CLI
+      command: /tmp/aws/install
+      become: true
+      args:
+        creates: /usr/local/bin/aws
+
+    - name: Clean up AWS CLI installer
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/awscliv2.zip"
+        - "/tmp/aws"
+
+  when: cloud_cli_tools.aws_cli | default(false)
+
+- name: Install Azure CLI (RHEL/Fedora)
+  block:
+    - name: Import Microsoft GPG key
+      rpm_key:
+        state: present
+        key: https://packages.microsoft.com/keys/microsoft.asc
+      become: true
+
+    - name: Add Azure CLI repository
+      yum_repository:
+        name: azure-cli
+        description: Azure CLI
+        baseurl: https://packages.microsoft.com/yumrepos/azure-cli
+        gpgcheck: true
+        enabled: true
+      become: true
+
+    - name: Install Azure CLI
+      package:
+        name: azure-cli
+        state: present
+      become: true
+
+  when: 
+    - cloud_cli_tools.azure_cli | default(false)
+    - ansible_os_family == "RedHat"
+
+- name: Install Google Cloud CLI
+  block:
+    - name: Add Google Cloud GPG key
+      rpm_key:
+        state: present
+        key: https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+      become: true
+
+    - name: Add Google Cloud repository
+      yum_repository:
+        name: google-cloud-cli
+        description: Google Cloud CLI
+        baseurl: https://packages.cloud.google.com/yum/repos/cloud-sdk-el8-x86_64
+        gpgcheck: true
+        enabled: true
+      become: true
+
+    - name: Install Google Cloud CLI
+      package:
+        name: google-cloud-cli
+        state: present
+      become: true
+
+  when: 
+    - cloud_cli_tools.gcloud_cli | default(false)
+    - ansible_os_family == "RedHat"
+
+- name: Install IBM Cloud CLI
+  block:
+    - name: Download IBM Cloud CLI installer
+      get_url:
+        url: "https://download.clis.cloud.ibm.com/ibm-cloud-cli/2.23.0/ibm-cloud-cli_2.23.0_linux_amd64.tar.gz"
+        dest: "/tmp/ibm-cloud-cli.tar.gz"
+        mode: '0644'
+
+    - name: Create IBM Cloud CLI directory
+      file:
+        path: "/opt/ibm-cloud-cli"
+        state: directory
+        mode: '0755'
+      become: true
+
+    - name: Extract IBM Cloud CLI
+      unarchive:
+        src: "/tmp/ibm-cloud-cli.tar.gz"
+        dest: "/opt/ibm-cloud-cli"
+        remote_src: true
+        extra_opts: [--strip-components=1]
+      become: true
+
+    - name: Create IBM Cloud CLI symlink
+      file:
+        src: "/opt/ibm-cloud-cli/ibmcloud"
+        dest: "/usr/local/bin/ibmcloud"
+        state: link
+      become: true
+
+    - name: Clean up IBM Cloud CLI installer
+      file:
+        path: "/tmp/ibm-cloud-cli.tar.gz"
+        state: absent
+
+  when: cloud_cli_tools.ibmcloud_cli | default(false)
+
+- name: Install OCI CLI
+  pip:
+    name: oci-cli
+    state: present
+    executable: "{{ yamlforge_python_executable }}-pip"
+  become: true
+  when: cloud_cli_tools.oci_cli | default(false)

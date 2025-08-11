@@ -1,0 +1,30 @@
+---
+galaxy_info:
+  author: Patrick T. Rutledge III
+  description: YamlForge role for multi-cloud infrastructure generation
+  company: 
+  license: Apache-2.0
+  min_ansible_version: "2.10"
+  
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+    - name: Fedora
+      versions:
+        - "38"
+        - "39"
+        - "40"
+
+  galaxy_tags:
+    - terraform
+    - cloud
+    - infrastructure
+    - aws
+    - azure
+    - gcp
+    - openshift
+    - multi-cloud
+
+dependencies: []

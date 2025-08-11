@@ -1,0 +1,13 @@
+---
+# RedHat/RHEL/Fedora specific variables
+
+prerequisite_packages:
+  - python3
+  - python3-pip
+  - git
+  - curl
+  - unzip
+  - dnf-plugins-core
+
+# Package manager specific settings
+package_manager: dnf

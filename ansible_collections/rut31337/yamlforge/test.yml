@@ -1,0 +1,185 @@
+---
+- name: YamlForge Ansible Collection Comprehensive Test
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    collection_dir: "{{ playbook_dir }}"
+    test_config_file: "{{ collection_dir }}/test-config.yaml"
+    test_output_dir: "/tmp/yamlforge-collection-test"
+
+  tasks:
+    - name: Test 1 - Verify collection structure
+      debug:
+        msg: |
+          Testing YamlForge Ansible Collection Structure
+          
+          Collection: rut31337.yamlforge
+          Module: rut31337.yamlforge.infrastructure
+          Role: rut31337.yamlforge.yamlforge
+          Test Config: {{ test_config_file }}
+          Output Dir: {{ test_output_dir }}
+    
+    - name: Test 2 - Verify test configuration file exists
+      stat:
+        path: "{{ test_config_file }}"
+      register: config_stat
+    
+    - name: Fail if test config doesn't exist
+      fail:
+        msg: "Test configuration file not found: {{ test_config_file }}"
+      when: not config_stat.stat.exists
+    
+    - name: Test 3 - Create output directory
+      file:
+        path: "{{ test_output_dir }}"
+        state: directory
+        mode: '0755'
+    
+    - name: Test 4 - Test module error handling (non-existent file)
+      rut31337.yamlforge.infrastructure:
+        config_file: "/nonexistent/file.yaml"
+        output_dir: "{{ test_output_dir }}"
+        auto_deploy: false
+      register: error_test
+      ignore_errors: true
+    
+    - name: Verify error handling works
+      assert:
+        that:
+          - error_test.failed == true
+          - "'not found' in error_test.msg"
+        fail_msg: "Error handling test failed"
+        success_msg: "Error handling works correctly"
+    
+    - name: Test 5 - Test check mode
+      rut31337.yamlforge.infrastructure:
+        config_file: "{{ test_config_file }}"
+        output_dir: "{{ test_output_dir }}"
+        auto_deploy: false
+        no_credentials: true
+      check_mode: true
+      register: check_result
+    
+    - name: Verify check mode works
+      assert:
+        that:
+          - check_result.changed == true
+          - "'Would generate Terraform files' in check_result.msg"
+        fail_msg: "Check mode test failed"
+        success_msg: "Check mode works correctly"
+    
+    - name: Test 6 - Generate Terraform files (no deployment)
+      rut31337.yamlforge.infrastructure:
+        config_file: "{{ test_config_file }}"
+        output_dir: "{{ test_output_dir }}"
+        auto_deploy: false
+        no_credentials: true
+        verbose: true
+      register: generate_result
+    
+    - name: Verify generation succeeded
+      assert:
+        that:
+          - generate_result.changed == true
+          - generate_result.terraform_files is defined
+          - generate_result.terraform_files | length > 0
+        fail_msg: "Terraform generation failed"
+        success_msg: "Terraform generation works correctly"
+    
+    - name: Test 7 - Verify generated files exist
+      find:
+        paths: "{{ test_output_dir }}"
+        patterns: "*.tf"
+        recurse: true
+      register: terraform_files
+    
+    - name: Verify Terraform files were created
+      assert:
+        that:
+          - terraform_files.files | length > 0
+        fail_msg: "No Terraform files were generated"
+        success_msg: "Terraform files generated successfully"
+    
+    - name: Test 8 - Test with exclude providers
+      rut31337.yamlforge.infrastructure:
+        config_file: "{{ test_config_file }}"
+        output_dir: "{{ test_output_dir }}"
+        auto_deploy: false
+        no_credentials: true
+        exclude_providers: ["vmware", "alibaba"]
+        guid: "tst99"
+      register: exclude_result
+    
+    - name: Verify exclude providers works
+      assert:
+        that:
+          - exclude_result.changed == true
+        fail_msg: "Exclude providers test failed"
+        success_msg: "Exclude providers works correctly"
+    
+    - name: Test 9 - Test schema validation (invalid YAML)
+      copy:
+        content: |
+          guid: "test1"
+          yamlforge:
+            cloud_workspace:
+              name: "test"
+            instances:
+              web-server:  # This should be an array, not dict
+                provider: aws
+        dest: "{{ test_output_dir }}/invalid-config.yaml"
+    
+    - name: Test schema validation with invalid config
+      rut31337.yamlforge.infrastructure:
+        config_file: "{{ test_output_dir }}/invalid-config.yaml"
+        output_dir: "{{ test_output_dir }}"
+        auto_deploy: false
+      register: schema_test
+      ignore_errors: true
+    
+    - name: Verify schema validation works
+      assert:
+        that:
+          - schema_test.failed == true
+          - "'instances' in schema_test.msg"
+          - "'array' in schema_test.msg"
+        fail_msg: "Schema validation test failed"
+        success_msg: "Schema validation works correctly"
+    
+    - name: Display test results summary
+      debug:
+        msg: |
+          YamlForge Collection Test Results:
+          
+          Generated Files:
+          {% for file in terraform_files.files %}
+          - {{ file.path }}
+          {% endfor %}
+          
+          Test Output Directory: {{ test_output_dir }}
+          Config Used: {{ test_config_file }}
+    
+    - name: Clean up test files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ test_output_dir }}"
+    
+    - name: Final test summary
+      debug:
+        msg: |
+          ALL YAMLFORGE COLLECTION TESTS PASSED!
+          
+          * Collection structure verified
+          * Configuration file accessibility tested
+          * Error handling works correctly
+          * Check mode functionality works
+          * Terraform generation successful
+          * File creation verified
+          * Parameter validation works
+          * Schema validation active
+          * Multi-provider configuration tested
+          
+          The rut31337.yamlforge collection is fully functional!

@@ -9,11 +9,20 @@ provider-specific Terraform configurations with intelligent optimization.
 from setuptools import setup, find_packages
 import os
 
-# Read the requirements file
-def read_requirements():
-    requirements_path = os.path.join(os.path.dirname(__file__), 'requirements.txt')
-    with open(requirements_path, 'r') as f:
-        return [line.strip() for line in f if line.strip() and not line.startswith('#')]
+# Define requirements directly (avoiding external file dependency in package builds)
+def get_requirements():
+    return [
+        "PyYAML>=6.0.2",
+        "boto3>=1.39.0",
+        "google-cloud-compute>=1.32.0",
+        "google-cloud-dns>=0.35.0",
+        "oci>=2.155.0",
+        "alibabacloud-ecs20140526>=7.0.0",
+        "alibabacloud-tea-openapi>=0.3.0",
+        "ibm-cloud-sdk-core>=3.16.7",
+        "ibm-vpc>=0.10.0",
+        "requests>=2.32.0",
+    ]
 
 # Read the README file for long description
 def read_readme():
@@ -24,7 +33,7 @@ def read_readme():
     return "YamlForge - Enterprise Multi-Cloud Infrastructure Converter"
 
 setup(
-    name="yamlforge",
+    name="yamlforge-infra",
     version="1.0.0b1",
     description="Multi-Cloud Infrastructure as Code and PaaS Management Suite (BETA - Feature Complete)",
     long_description=read_readme(),
@@ -40,7 +49,7 @@ setup(
     python_requires=">=3.8",
     
     # Dependencies
-    install_requires=read_requirements(),
+    install_requires=get_requirements(),
     
     # Optional dependencies
     extras_require={
@@ -70,6 +79,7 @@ setup(
             "defaults/**/*.yaml", 
             "mappings/*.yaml",
             "mappings/**/*.yaml",
+            "yamlforge-schema.json",
         ]
     },
     
