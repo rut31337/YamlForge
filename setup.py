@@ -34,7 +34,7 @@ def read_readme():
 
 setup(
     name="yamlforge-infra",
-    version="1.0.0b1",
+    version="1.0.0b2",
     description="Multi-Cloud Infrastructure as Code and PaaS Management Suite (BETA - Feature Complete)",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
@@ -72,16 +72,6 @@ setup(
         ],
     },
     
-    # Package data
-    package_data={
-        "yamlforge": [
-            "defaults/*.yaml",
-            "defaults/**/*.yaml", 
-            "mappings/*.yaml",
-            "mappings/**/*.yaml",
-            "yamlforge-schema.json",
-        ]
-    },
     
     # Classifiers for PyPI
     classifiers=[

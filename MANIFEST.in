@@ -1,0 +1,5 @@
+include README.md
+include LICENSE
+recursive-include defaults *.yaml
+recursive-include mappings *.yaml
+include docs/yamlforge-schema.json
