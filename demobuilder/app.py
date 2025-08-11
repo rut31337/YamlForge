@@ -1735,6 +1735,76 @@ terraform apply
 - Set up monitoring and backup procedures
 - Configure any additional security settings
 
+⚠️ **IMPORTANT: Preserve Your Terraform State**
+If you want to cleanly delete your infrastructure later, you MUST preserve the `terraform.tfstate` file and the entire output directory. Without it, Terraform cannot manage or destroy the resources it created.
+
+**To cleanly destroy your infrastructure:**
+```bash
+# Navigate to your output directory where you ran terraform apply
+cd output
+
+# Destroy all resources (requires terraform.tfstate file)
+terraform destroy
+
+# Confirm destruction when prompted
+# Type 'yes' to proceed with destroying all resources
+```
+
+**Best Practice: Store State in Cloud Storage**
+Instead of keeping state files locally, configure Terraform to use cloud storage backends:
+
+**AWS S3 Backend:**
+```hcl
+# Add to your main.tf or create backend.tf
+terraform {{
+  backend "s3" {{
+    bucket = "your-terraform-state-bucket"
+    key    = "yamlforge/terraform.tfstate"
+    region = "us-east-1"
+  }}
+}}
+
+# Initialize with backend (run before terraform apply)
+terraform init
+```
+
+**IBM Cloud Object Storage Backend:**
+```hcl
+# Add to your main.tf or create backend.tf
+terraform {{
+  backend "s3" {{
+    bucket                      = "your-terraform-state-bucket"
+    key                         = "yamlforge/terraform.tfstate"
+    region                      = "us-south"
+    endpoint                    = "s3.us-south.cloud-object-storage.appdomain.cloud"
+    skip_credentials_validation = true
+    skip_region_validation      = true
+  }}
+}}
+
+# Initialize with backend
+terraform init
+```
+
+**Azure Storage Backend:**
+```hcl
+# Add to your main.tf or create backend.tf
+terraform {{
+  backend "azurerm" {{
+    resource_group_name  = "terraform-state-rg"
+    storage_account_name = "terraformstatestorage"
+    container_name       = "tfstate"
+    key                  = "yamlforge.terraform.tfstate"
+  }}
+}}
+```
+
+**Local Backup (if not using cloud backend):**
+```bash
+# Only if you must keep state locally - create backup immediately
+cp terraform.tfstate terraform.tfstate.backup
+```
+
 Need help with specific cloud provider setup? Check the [YamlForge documentation](https://github.com/rut31337/YamlForge/blob/master/README.md)!
 """
     return instructions
