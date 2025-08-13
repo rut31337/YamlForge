@@ -4,17 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yamlforge-infra"
-version = "1.0.0b2"
+version = "1.0.0b3"
 description = "Multi-Cloud Infrastructure as Code and PaaS Management Suite (BETA - Feature Complete)"
 authors = [{name = "Patrick T. Rutledge III"}]
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
@@ -63,6 +62,9 @@ yamlforge-test-terraform = "yamlforge.tests.test_terraform_generation:main"
 
 [tool.setuptools]
 include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["yamlforge*"]
 
 [tool.setuptools.package-data]
 yamlforge = [
