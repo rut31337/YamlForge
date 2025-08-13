@@ -31,7 +31,7 @@ ansible-galaxy collection install ansible_collections/rut31337/yamlforge/
 - Python >= 3.8
 - Ansible >= 2.10
 - Terraform >= 1.12.0 (for OpenShift/ROSA support)
-- YamlForge Python package
+- yamlforge-infra >= 1.0.0b3 (`pip install yamlforge-infra`)
 
 ## Quick Start
 
@@ -108,7 +108,7 @@ Complete role for YamlForge installation and execution.
 | `yamlforge_output_dir` | str | "/tmp/yamlforge-output" | Output directory |
 | `yamlforge_auto_deploy` | bool | false | Auto-deploy infrastructure |
 | `yamlforge_verbose` | bool | false | Verbose output |
-| `yamlforge_install_package` | bool | true | Install YamlForge package |
+| `yamlforge_install_package` | bool | true | Install yamlforge-infra package |
 | `terraform_install` | bool | true | Install Terraform |
 | `terraform_version` | str | "1.12.0" | Terraform version |
 | `install_cloud_clis` | bool | false | Install cloud CLI tools |
