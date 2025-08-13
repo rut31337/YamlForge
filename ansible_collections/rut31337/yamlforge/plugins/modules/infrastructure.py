@@ -21,7 +21,7 @@ author:
     - Patrick T. Rutledge III
 requirements:
     - python >= 3.8
-    - yamlforge-infra >= 1.0.0b3
+    - yamlforge-infra >= 1.0.0b4
     - terraform >= 1.12.0 (for OpenShift/ROSA support)
 options:
     config_file:
@@ -273,7 +273,7 @@ def run_yamlforge_command(module, config_file, output_dir, **kwargs):
         
     except FileNotFoundError:
         module.fail_json(
-            msg="yamlforge command not found. Please install yamlforge-infra package: pip install yamlforge-infra>=1.0.0b3",
+            msg="yamlforge command not found. Please install yamlforge-infra package: pip install yamlforge-infra>=1.0.0b4",
             cmd=' '.join(cmd)
         )
     except Exception as e:

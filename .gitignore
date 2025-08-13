@@ -10,6 +10,15 @@ venv/
 pip-log.txt
 pip-delete-this-directory.txt
 
+# Python packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Ansible collection packaging
+*.tar.gz
+
 # Terraform
 *.tf
 *.tfstate

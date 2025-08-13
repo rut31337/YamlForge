@@ -28,7 +28,7 @@ from .providers.oci import OCIProvider
 from .providers.vmware import VMwareProvider
 from .providers.alibaba import AlibabaProvider
 
-__version__ = "1.0.0b2"
+__version__ = "1.0.0b4"
 __author__ = "Patrick T. Rutledge III"
 __copyright__ = "Copyright 2025 Patrick T. Rutledge III"
 

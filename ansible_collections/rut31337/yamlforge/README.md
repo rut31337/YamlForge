@@ -31,7 +31,7 @@ ansible-galaxy collection install ansible_collections/rut31337/yamlforge/
 - Python >= 3.8
 - Ansible >= 2.10
 - Terraform >= 1.12.0 (for OpenShift/ROSA support)
-- yamlforge-infra >= 1.0.0b3 (`pip install yamlforge-infra`)
+- yamlforge-infra >= 1.0.0b4 (`pip install yamlforge-infra`)
 
 ## Quick Start
 
