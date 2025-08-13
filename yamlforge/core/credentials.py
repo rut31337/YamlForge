@@ -7,6 +7,7 @@ All credential configuration moved to environment variables - no file loading.
 
 import os
 from pathlib import Path
+from ..utils import find_yamlforge_file
 
 
 class CredentialsManager:
@@ -296,38 +297,37 @@ class CredentialsManager:
         # Check core defaults configuration for auto-detection settings
         try:
             import yaml
-            core_defaults_path = Path('defaults/core.yaml')
-            if core_defaults_path.exists():
-                with open(core_defaults_path, 'r') as f:
-                    core_config = yaml.safe_load(f) or {}
+            core_defaults_path = find_yamlforge_file('defaults/core.yaml')
+            with open(core_defaults_path, 'r') as f:
+                core_config = yaml.safe_load(f) or {}
+                
+                # Check for configured default key in core config
+                default_key = core_config.get('security', {}).get('default_ssh_public_key', '')
+                if default_key and default_key.strip():
+                    return {
+                        'public_key': default_key.strip(),
+                        'source': 'defaults/core.yaml configuration',
+                        'available': True
+                    }
                     
-                    # Check for configured default key in core config
-                    default_key = core_config.get('security', {}).get('default_ssh_public_key', '')
-                    if default_key and default_key.strip():
-                        return {
-                            'public_key': default_key.strip(),
-                            'source': 'defaults/core.yaml configuration',
-                            'available': True
-                        }
-                    
-                    # Check if auto-detection is enabled
-                    auto_detect_enabled = core_config.get('security', {}).get('auto_detect_ssh_keys', False)
-                    if auto_detect_enabled:
-                        ssh_dir = Path.home() / '.ssh'
-                        for key_file in ['id_ed25519.pub', 'id_rsa.pub']:
-                            key_path = ssh_dir / key_file
-                            if key_path.exists():
-                                try:
-                                    with open(key_path, 'r') as f:
-                                        ssh_key = f.read().strip()
-                                        if ssh_key:
-                                            return {
-                                                'public_key': ssh_key,
-                                                'source': f'Auto-detected from {key_path}',
-                                                'available': True
-                                            }
-                                except Exception:
-                                    continue
+                # Check if auto-detection is enabled
+                auto_detect_enabled = core_config.get('security', {}).get('auto_detect_ssh_keys', False)
+                if auto_detect_enabled:
+                    ssh_dir = Path.home() / '.ssh'
+                    for key_file in ['id_ed25519.pub', 'id_rsa.pub']:
+                        key_path = ssh_dir / key_file
+                        if key_path.exists():
+                            try:
+                                with open(key_path, 'r') as f:
+                                    ssh_key = f.read().strip()
+                                    if ssh_key:
+                                        return {
+                                            'public_key': ssh_key,
+                                            'source': f'Auto-detected from {key_path}',
+                                            'available': True
+                                        }
+                            except Exception:
+                                continue
         except Exception:
             pass  # Silently continue
         

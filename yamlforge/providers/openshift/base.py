@@ -8,6 +8,7 @@ import json
 import re
 from typing import Dict, List, Optional, Any
 from pathlib import Path
+from ...utils import find_yamlforge_file
 
 
 class BaseOpenShiftProvider:
@@ -37,10 +38,10 @@ class BaseOpenShiftProvider:
     def _load_openshift_defaults(self):
         """Load OpenShift defaults configuration"""
         import yaml
-        import os
+        from ...utils import find_yamlforge_file
         
-        defaults_path = os.path.join(os.path.dirname(__file__), '../../..', 'defaults', 'openshift.yaml')
         try:
+            defaults_path = find_yamlforge_file('defaults/openshift.yaml')
             with open(defaults_path, 'r') as f:
                 return yaml.safe_load(f)
         except FileNotFoundError:
@@ -56,7 +57,7 @@ class BaseOpenShiftProvider:
         
     def load_config(self):
         """Load OpenShift configuration from defaults YAML file."""
-        defaults_file = Path("defaults/openshift.yaml")
+        defaults_file = find_yamlforge_file("defaults/openshift.yaml")
         if not defaults_file.exists():
             raise Exception(f"Required OpenShift defaults file not found: {defaults_file}")
 
@@ -78,7 +79,7 @@ class BaseOpenShiftProvider:
         
     def load_operator_config(self, operator_type: str) -> Dict:
         """Load operator-specific configuration from YAML file."""
-        config_file = Path(f"defaults/openshift_operators/{operator_type}.yaml")
+        config_file = find_yamlforge_file(f"defaults/openshift_operators/{operator_type}.yaml")
         if not config_file.exists():
             raise Exception(f"Required operator config file not found: {config_file}")
 

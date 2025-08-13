@@ -12,6 +12,7 @@ import subprocess
 from pathlib import Path
 
 from .credentials import CredentialsManager
+from ..utils import find_yamlforge_file
 from ..providers.aws import AWSProvider
 from ..providers.azure import AzureProvider
 from ..providers.gcp import GCPProvider
@@ -322,7 +323,8 @@ class YamlForgeConverter:
     def load_images(self, file_path):
         """Load image mappings from YAML file."""
         try:
-            with open(file_path, 'r') as f:
+            actual_path = find_yamlforge_file(file_path)
+            with open(actual_path, 'r') as f:
                 data = yaml.safe_load(f)
                 return data.get('images', {})
         except FileNotFoundError:
@@ -334,7 +336,8 @@ class YamlForgeConverter:
     def load_locations(self, file_path):
         """Load location mappings from YAML file."""
         try:
-            with open(file_path, 'r') as f:
+            actual_path = find_yamlforge_file(file_path)
+            with open(actual_path, 'r') as f:
                 data = yaml.safe_load(f)
                 return data or {}
         except FileNotFoundError:
@@ -344,20 +347,62 @@ class YamlForgeConverter:
     def load_flavors(self, directory_path):
         """Load flavor mappings from directory."""
         flavors = {}
-        flavor_dir = Path(directory_path)
-        if flavor_dir.exists():
-            for file_path in flavor_dir.glob("*.yaml"):
+        
+        # Try to find the directory using our path resolution
+        try:
+            # First try if it's an existing directory (development mode)
+            flavor_dir = Path(directory_path)
+            if not flavor_dir.exists():
+                # Try repository mode (relative to this module)
+                module_dir = Path(__file__).parent.parent
+                flavor_dir = module_dir / directory_path
+                
+            if flavor_dir.exists():
+                for file_path in flavor_dir.glob("*.yaml"):
+                    try:
+                        with open(file_path, 'r') as f:
+                            data = yaml.safe_load(f)
+                            if data:
+                                cloud_name = file_path.stem
+                                if cloud_name == 'generic':
+                                    flavors.update(data)
+                                else:
+                                    flavors[cloud_name] = data
+                    except Exception as e:
+                        print(f"Warning: Could not load {file_path}: {e}")
+            else:
+                # For pip installs, try to load individual files from the package
                 try:
-                    with open(file_path, 'r') as f:
-                        data = yaml.safe_load(f)
-                        if data:
-                            cloud_name = file_path.stem
-                            if cloud_name == 'generic':
-                                flavors.update(data)
-                            else:
-                                flavors[cloud_name] = data
-                except Exception as e:
-                    print(f"Warning: Could not load {file_path}: {e}")
+                    from importlib.resources import files
+                    package_files = files('yamlforge')
+                    
+                    # Common flavor files to try loading
+                    flavor_files = [
+                        'alibaba.yaml', 'aws.yaml', 'azure.yaml', 'cheapest.yaml',
+                        'cnv.yaml', 'gcp.yaml', 'generic.yaml', 'ibm_classic.yaml',
+                        'ibm_vpc.yaml', 'oci.yaml', 'vmware.yaml'
+                    ]
+                    
+                    for filename in flavor_files:
+                        try:
+                            file_path = f"{directory_path}/{filename}"
+                            data_content = package_files.joinpath(file_path).read_text()
+                            data = yaml.safe_load(data_content)
+                            if data:
+                                cloud_name = filename.replace('.yaml', '')
+                                if cloud_name == 'generic':
+                                    flavors.update(data)
+                                else:
+                                    flavors[cloud_name] = data
+                        except (FileNotFoundError, Exception):
+                            # Ignore missing flavor files
+                            pass
+                except (ImportError, Exception):
+                    pass
+                    
+        except Exception as e:
+            print(f"Warning: Could not load flavors from {directory_path}: {e}")
+            
         return flavors
 
 
@@ -365,7 +410,8 @@ class YamlForgeConverter:
     def load_core_config(self, file_path):
         """Load core yamlforge configuration from YAML file."""
         try:
-            with open(file_path, 'r') as f:
+            actual_path = find_yamlforge_file(file_path)
+            with open(actual_path, 'r') as f:
                 data = yaml.safe_load(f)
                 config = data or {}
         except FileNotFoundError:

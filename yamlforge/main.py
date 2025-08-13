@@ -27,6 +27,7 @@ import yaml
 import subprocess
 import json
 from datetime import datetime
+from .utils import find_yamlforge_file
 
 from .core.converter import YamlForgeConverter
 
@@ -51,10 +52,12 @@ def validate_yaml_against_schema(yaml_data, input_file_path, ansible_mode=False)
         return True
     
     # Find the schema file
-    script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    schema_path = os.path.join(script_dir, 'docs', 'yamlforge-schema.json')
+    try:
+        schema_path = find_yamlforge_file('docs/yamlforge-schema.json')
+    except FileNotFoundError:
+        schema_path = None
     
-    if not os.path.exists(schema_path):
+    if not schema_path or not os.path.exists(schema_path):
         # Schema not found, skip validation
         if not ansible_mode:
             print(f"INFO: Schema file not found at {schema_path}, skipping validation")
@@ -1196,7 +1199,8 @@ def main():
             # Load OpenShift defaults
             try:
                 import yaml as yaml_loader
-                openshift_defaults_path = os.path.join(os.path.dirname(__file__), '..', 'defaults', 'openshift.yaml')
+                from .utils import find_yamlforge_file
+                openshift_defaults_path = find_yamlforge_file('defaults/openshift.yaml')
                 with open(openshift_defaults_path, 'r') as f:
                     openshift_defaults = yaml_loader.safe_load(f)
                 

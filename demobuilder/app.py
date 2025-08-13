@@ -6,6 +6,54 @@ from pathlib import Path
 from typing import Dict, Any, List
 import yaml
 
+# Add YamlForge to path and import utilities
+def find_yamlforge_root():
+    """Find YamlForge root directory using multiple strategies"""
+    current_file = Path(__file__).resolve()
+    
+    # Strategy 1: Standard relative path from demobuilder/app.py
+    yamlforge_root = current_file.parent.parent
+    if (yamlforge_root / 'yamlforge' / 'utils.py').exists():
+        return str(yamlforge_root)
+    
+    # Strategy 2: Look for yamlforge directory in current working directory
+    if Path.cwd().name == "demobuilder":
+        parent_dir = Path.cwd().parent
+        if (parent_dir / 'yamlforge' / 'utils.py').exists():
+            return str(parent_dir)
+    
+    # Strategy 3: Search upward from current file location
+    search_path = current_file.parent
+    for _ in range(5):  # Limit search to 5 levels up
+        if (search_path / 'yamlforge' / 'utils.py').exists():
+            return str(search_path)
+        search_path = search_path.parent
+        if search_path == search_path.parent:  # Reached filesystem root
+            break
+    
+    # Strategy 4: Check if yamlforge is already importable (pip installed)
+    try:
+        import yamlforge.utils
+        return None  # Already available in path
+    except ImportError:
+        pass
+    
+    raise ImportError("Could not find YamlForge installation")
+
+yamlforge_root = find_yamlforge_root()
+if yamlforge_root and yamlforge_root not in sys.path:
+    sys.path.insert(0, yamlforge_root)
+
+try:
+    from yamlforge.utils import find_yamlforge_file
+except ImportError as e:
+    print(f"Failed to import yamlforge.utils: {e}")
+    print(f"Python path: {sys.path}")
+    print(f"YamlForge root: {yamlforge_root}")
+    if yamlforge_root:
+        print(f"YamlForge utils file exists: {os.path.exists(os.path.join(yamlforge_root, 'yamlforge', 'utils.py'))}")
+    raise
+
 from core.yaml_generator import YamlForgeGenerator
 from core.validation import validate_and_fix_yaml
 from core.yamlforge_integration import YamlForgeAnalyzer
@@ -55,30 +103,12 @@ def validate_essential_files():
         'mappings/locations.yaml'
     ]
     
-    # Find the correct base path
-    possible_paths = [
-        Path('.'),
-        Path('..'),
-        Path('/opt/app-root/src'),
-        Path('/app')
-    ]
-    
-    base_path = None
-    for path in possible_paths:
-        if (path / 'mappings').exists():
-            base_path = path
-            break
-    
-    if not base_path:
-        st.error("❌ **DemoBuilder Startup Failed**")
-        st.error("Could not locate YamlForge mappings directory.")
-        st.stop()
-    
-    # Check each required file
+    # Check each required file using centralized path resolution
     missing_files = []
     for file_path in required_files:
-        full_path = base_path / file_path
-        if not full_path.exists():
+        try:
+            find_yamlforge_file(file_path)
+        except FileNotFoundError:
             missing_files.append(file_path)
     
     if missing_files:

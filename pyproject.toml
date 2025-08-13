@@ -58,6 +58,22 @@ Issues = "https://github.com/rut31337/YamlForge/issues"
 
 [project.scripts]
 yamlforge = "yamlforge.main:main"
+yamlforge-test-providers = "yamlforge.tests.test_provider_initialization:main"
+yamlforge-test-terraform = "yamlforge.tests.test_terraform_generation:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+yamlforge = [
+    "../defaults/*.yaml",
+    "../defaults/**/*.yaml",
+    "../mappings/*.yaml",
+    "../mappings/**/*.yaml",
+    "../docs/yamlforge-schema.json",
+    "tests/*.py",
+    "tests/*.md"
+]
 
 [tool.vulture]
 min_confidence = 70

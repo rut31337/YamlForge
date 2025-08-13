@@ -6,6 +6,42 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 from .validation import validate_and_fix_yaml
+
+# Import YamlForge utilities
+import sys
+
+def find_yamlforge_root():
+    """Find YamlForge root directory using multiple strategies"""
+    current_file = Path(__file__).resolve()
+    
+    # Strategy 1: Standard relative path from demobuilder/core/yaml_generator.py
+    yamlforge_root = current_file.parent.parent.parent
+    if (yamlforge_root / 'yamlforge' / 'utils.py').exists():
+        return str(yamlforge_root)
+    
+    # Strategy 2: Search upward from current file location
+    search_path = current_file.parent
+    for _ in range(5):  # Limit search to 5 levels up
+        if (search_path / 'yamlforge' / 'utils.py').exists():
+            return str(search_path)
+        search_path = search_path.parent
+        if search_path == search_path.parent:  # Reached filesystem root
+            break
+    
+    # Strategy 3: Check if yamlforge is already importable (pip installed)
+    try:
+        import yamlforge.utils
+        return None  # Already available in path
+    except ImportError:
+        pass
+    
+    raise ImportError("Could not find YamlForge installation")
+
+yamlforge_path = find_yamlforge_root()
+if yamlforge_path and str(yamlforge_path) not in sys.path:
+    sys.path.insert(0, str(yamlforge_path))
+
+from yamlforge.utils import find_yamlforge_file
 try:
     from anthropic import Anthropic
     ANTHROPIC_DIRECT = True
@@ -129,15 +165,11 @@ class YamlForgeGenerator:
     def _load_yamlforge_mappings(self) -> Dict[str, Any]:
         """Load YamlForge mapping files for AI context."""
         try:
-            # Get parent directory (YamlForge root)
-            yamlforge_root = Path(__file__).parent.parent.parent
-            mappings_dir = yamlforge_root / "mappings"
-            
             mappings = {}
             
-            # Load images mapping
-            images_file = mappings_dir / "images.yaml"
-            if images_file.exists():
+            # Load images mapping using centralized path resolution
+            try:
+                images_file = find_yamlforge_file("mappings/images.yaml")
                 with open(images_file, 'r') as f:
                     images_yaml = yaml.safe_load(f)
                     # Extract the actual images dict from the nested structure
@@ -145,18 +177,24 @@ class YamlForgeGenerator:
                         mappings['images'] = images_yaml['images']
                     else:
                         mappings['images'] = images_yaml
+            except FileNotFoundError:
+                mappings['images'] = {}
             
-            # Load locations mapping  
-            locations_file = mappings_dir / "locations.yaml"
-            if locations_file.exists():
+            # Load locations mapping using centralized path resolution
+            try:
+                locations_file = find_yamlforge_file("mappings/locations.yaml")
                 with open(locations_file, 'r') as f:
                     mappings['locations'] = yaml.safe_load(f)
+            except FileNotFoundError:
+                mappings['locations'] = {}
             
             # Load generic flavors (most commonly used)
-            flavors_file = mappings_dir / "flavors" / "generic.yaml"
-            if flavors_file.exists():
+            try:
+                flavors_file = find_yamlforge_file("mappings/flavors/generic.yaml")
                 with open(flavors_file, 'r') as f:
                     mappings['flavors'] = yaml.safe_load(f)
+            except FileNotFoundError:
+                mappings['flavors'] = {}
             
             return mappings
         except Exception as e:
@@ -635,25 +673,13 @@ class YamlForgeGenerator:
     def generate_yaml_with_ai(self, text: str, use_cheapest: bool = False) -> str:
         """Generate YamlForge YAML using AI with schema validation"""
         
-        # Load the schema
-        # Try multiple paths to find the schema file
-        schema_paths = [
-            "yamlforge-schema.json",  # S2I build copies it to working directory
-            "../docs/yamlforge-schema.json",  # Relative from demobuilder
-            "/opt/app-root/src/yamlforge-schema.json",  # S2I working directory
-            "docs/yamlforge-schema.json"  # If running from repo root
-        ]
-        schema_path = None
-        for path in schema_paths:
-            if os.path.exists(path):
-                schema_path = path
-                break
-        
-        if not schema_path:
-            raise FileNotFoundError(f"Could not find yamlforge-schema.json in any of: {schema_paths}")
+        # Load the schema using centralized path resolution
         try:
+            schema_path = find_yamlforge_file("docs/yamlforge-schema.json")
             with open(schema_path, 'r') as f:
                 schema_content = f.read()
+        except FileNotFoundError:
+            schema_content = "Schema not available"
         except Exception as e:
             schema_content = "Schema not available"
         

@@ -8,6 +8,7 @@ networking, security groups, and other AWS cloud resources.
 import yaml
 from pathlib import Path
 import os # Added for create_rosa_account_roles_via_cli
+from ..utils import find_yamlforge_file
 
 # AWS imports
 try:
@@ -37,9 +38,10 @@ class AWSImageResolver:
     def load_config(self):
         """Load AWS configuration from defaults and credentials system."""
         # Load defaults file directly
-        defaults_file = Path("defaults/aws.yaml")
-        if not defaults_file.exists():
-            raise Exception(f"Required AWS defaults file not found: {defaults_file}")
+        try:
+            defaults_file = find_yamlforge_file("defaults/aws.yaml")
+        except FileNotFoundError as e:
+            raise Exception(f"Required AWS defaults file not found: defaults/aws.yaml")
 
         try:
             with open(defaults_file, 'r') as f:

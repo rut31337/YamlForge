@@ -1,0 +1,47 @@
+# CNV (Container Native Virtualization) Default Configuration
+# This file contains default settings for CNV/KubeVirt virtual machines
+
+# Default namespace for CNV virtual machines
+default_namespace: default
+
+# Default network configuration for VMs
+default_network: pod
+
+# Default storage class for VM disks
+default_storage_class: local-path
+
+# Default container disk image for VMs
+default_image: kubevirt/fedora-cloud-container-disk-demo:latest
+
+# Default namespace for DataVolumes (container disk images)
+default_datavolume_namespace: cnv-images
+
+# Additional CNV configuration options
+vm_defaults:
+  # Default CPU cores for VMs
+  cores: 1
+  
+  # Default memory for VMs (in GB)
+  memory: 1Gi
+  
+  # Default disk size for VMs (in GB)  
+  disk_size: 10Gi
+  
+  # Default VM run strategy
+  run_strategy: Always
+
+# Network configuration
+network_defaults:
+  # Default network attachment definition
+  multus_network: default/nad-default
+  
+  # Default bridge network
+  bridge_network: br0
+
+# Storage configuration  
+storage_defaults:
+  # Default access mode for PVCs
+  access_mode: ReadWriteOnce
+  
+  # Default volume mode
+  volume_mode: Filesystem

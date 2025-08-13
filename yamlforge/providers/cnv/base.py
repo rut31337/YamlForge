@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import subprocess
 import json
+from ...utils import find_yamlforge_file
 
 # Import kubernetes client for direct API access
 try:
@@ -35,22 +36,13 @@ class BaseCNVProvider:
     def _load_cnv_defaults(self):
         """Load CNV defaults from configuration file"""
         try:
-            defaults_path = Path("mappings/cnv/defaults.yaml")
-            if defaults_path.exists():
-                with open(defaults_path, 'r') as f:
-                    return yaml.safe_load(f)
-            else:
-                # Return basic defaults if file doesn't exist
-                return {
-                    'default_namespace': 'default',
-                    'default_network': 'pod',
-                    'default_storage_class': 'local-path',
-                    'default_image': 'kubevirt/fedora-cloud-container-disk-demo:latest',
-                    'default_datavolume_namespace': 'cnv-images'
-                }
+            defaults_path = find_yamlforge_file("mappings/cnv/defaults.yaml")
+            with open(defaults_path, 'r') as f:
+                return yaml.safe_load(f)
+        except FileNotFoundError:
+            raise Exception("CNV defaults file not found: mappings/cnv/defaults.yaml")
         except Exception as e:
-            print(f"Warning: Could not load CNV defaults: {e}")
-            return {}
+            raise Exception(f"Could not load CNV defaults: {e}")
     
     def validate_cnv_operator(self) -> bool:
         """Validate that CNV/KubeVirt operator is installed and working using Kubernetes client"""
@@ -473,11 +465,9 @@ class BaseCNVProvider:
     def _load_cnv_image_patterns(self) -> Dict:
         """Load CNV image patterns from the main mappings file"""
         try:
-            # Use converter.base_path if available, otherwise use relative path
-            if self.converter and hasattr(self.converter, 'base_path'):
-                mappings_file = os.path.join(self.converter.base_path, 'mappings', 'images.yaml')
-            else:
-                mappings_file = 'mappings/images.yaml'
+            # Use centralized path resolution
+            from ...utils import find_yamlforge_file
+            mappings_file = find_yamlforge_file('mappings/images.yaml')
             
             with open(mappings_file, 'r') as f:
                 mappings = yaml.safe_load(f)
@@ -560,7 +550,7 @@ class BaseCNVProvider:
             
         # Load CNV flavors from mappings file
         try:
-            flavors_path = Path("mappings/flavors/cnv.yaml")
+            flavors_path = find_yamlforge_file("mappings/flavors/cnv.yaml")
             if flavors_path.exists():
                 with open(flavors_path, 'r') as f:
                     flavors = yaml.safe_load(f)

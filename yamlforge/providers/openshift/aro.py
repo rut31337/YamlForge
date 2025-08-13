@@ -9,6 +9,7 @@ import time
 import requests
 from typing import Dict, List
 from .base import BaseOpenShiftProvider
+from ...utils import find_yamlforge_file
 
 
 class AROProvider(BaseOpenShiftProvider):
@@ -182,7 +183,7 @@ class AROProvider(BaseOpenShiftProvider):
             import yaml
             from pathlib import Path
             
-            aro_flavors_path = Path("mappings/flavors/aro.yaml")
+            aro_flavors_path = find_yamlforge_file("mappings/flavors/aro.yaml")
             if aro_flavors_path.exists():
                 with open(aro_flavors_path, 'r') as f:
                     aro_flavors = yaml.safe_load(f)

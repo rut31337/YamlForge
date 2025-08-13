@@ -12,6 +12,7 @@ from pathlib import Path
 from datetime import datetime
 import re
 import subprocess
+from ..utils import find_yamlforge_file
 
 # GCP imports
 try:
@@ -110,10 +111,11 @@ class GCPProvider:
 
     def load_config(self):
         """Load GCP configuration from defaults and credentials system."""
-        # Load defaults file directly
-        defaults_file = Path("defaults/gcp.yaml")
-        if not defaults_file.exists():
-            raise Exception(f"Required GCP defaults file not found: {defaults_file}")
+        # Load defaults file using improved path detection
+        try:
+            defaults_file = find_yamlforge_file("defaults/gcp.yaml")
+        except FileNotFoundError as e:
+            raise Exception(f"Required GCP defaults file not found: defaults/gcp.yaml")
 
         try:
             with open(defaults_file, 'r') as f:
@@ -315,7 +317,7 @@ class GCPProvider:
             import yaml
             from pathlib import Path
             
-            availability_path = Path("mappings/gcp/machine-type-availability.yaml")
+            availability_path = find_yamlforge_file("mappings/gcp/machine-type-availability.yaml")
             if availability_path.exists():
                 with open(availability_path, 'r') as f:
                     availability_data = yaml.safe_load(f)
@@ -385,7 +387,7 @@ class GCPProvider:
             import yaml
             from pathlib import Path
             
-            availability_path = Path("mappings/gcp/machine-type-availability.yaml")
+            availability_path = find_yamlforge_file("mappings/gcp/machine-type-availability.yaml")
             if availability_path.exists():
                 with open(availability_path, 'r') as f:
                     availability_data = yaml.safe_load(f)
@@ -419,7 +421,7 @@ class GCPProvider:
             import yaml
             from pathlib import Path
             
-            availability_path = Path("mappings/gcp/machine-type-availability.yaml")
+            availability_path = find_yamlforge_file("mappings/gcp/machine-type-availability.yaml")
             if availability_path.exists():
                 with open(availability_path, 'r') as f:
                     availability_data = yaml.safe_load(f)
