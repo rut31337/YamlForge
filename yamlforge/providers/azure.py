@@ -562,3 +562,104 @@ resource "azurerm_subnet" "main_subnet_{clean_region}_{guid}" {{
 '''
         
         return networking_config
+
+    def generate_storage_account(self, bucket, yaml_data):
+        """Generate Azure Storage Account configuration."""
+        bucket_name = bucket.get('name', 'my-bucket')
+        region = self.converter.resolve_bucket_region(bucket, 'azure')
+        guid = self.converter.get_validated_guid(yaml_data)
+
+        # Replace GUID placeholders and clean for Azure naming requirements
+        final_bucket_name = self.converter.replace_guid_placeholders(bucket_name)
+        # Azure storage account names must be lowercase, no hyphens, 3-24 chars
+        clean_bucket_name = final_bucket_name.lower().replace('-', '').replace('_', '')[:24]
+        clean_tf_name, _ = self.converter.clean_name(final_bucket_name)
+        
+        # Bucket configuration
+        public = bucket.get('public', False)
+        versioning = bucket.get('versioning', False)
+        encryption = bucket.get('encryption', True)
+        tags = bucket.get('tags', {})
+
+        terraform_config = f'''
+# Azure Storage Account: {final_bucket_name}
+resource "azurerm_resource_group" "storage_{clean_tf_name}_{guid}" {{
+  name     = "rg-{final_bucket_name}"
+  location = "{region}"
+
+  tags = {{
+    Name = "{final_bucket_name}"
+    ManagedBy = "YamlForge"
+    GUID = "{guid}"'''
+
+        # Add custom tags
+        for key, value in tags.items():
+            terraform_config += f'''
+    {key} = "{value}"'''
+
+        terraform_config += f'''
+  }}
+}}
+
+resource "azurerm_storage_account" "{clean_tf_name}_{guid}" {{
+  name                     = "{clean_bucket_name}"
+  resource_group_name      = azurerm_resource_group.storage_{clean_tf_name}_{guid}.name
+  location                 = azurerm_resource_group.storage_{clean_tf_name}_{guid}.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+  
+  # Public access configuration
+  public_network_access_enabled = {str(public).lower()}
+  
+  # Encryption configuration
+  infrastructure_encryption_enabled = {str(encryption).lower()}
+  
+  tags = {{
+    Name = "{final_bucket_name}"
+    ManagedBy = "YamlForge"
+    GUID = "{guid}"'''
+
+        # Add custom tags
+        for key, value in tags.items():
+            terraform_config += f'''
+    {key} = "{value}"'''
+
+        terraform_config += '''
+  }
+}
+
+'''
+
+        # Create container (equivalent to S3 bucket)
+        terraform_config += f'''
+resource "azurerm_storage_container" "{clean_tf_name}_container_{guid}" {{
+  name                  = "data"
+  storage_account_name  = azurerm_storage_account.{clean_tf_name}_{guid}.name
+  container_access_type = "{"blob" if public else "private"}"
+}}
+
+'''
+
+        # Versioning configuration (blob versioning)
+        if versioning:
+            terraform_config += f'''
+resource "azurerm_storage_management_policy" "{clean_tf_name}_versioning_{guid}" {{
+  storage_account_id = azurerm_storage_account.{clean_tf_name}_{guid}.id
+
+  rule {{
+    name    = "versioning-rule"
+    enabled = true
+    filters {{
+      blob_types = ["blockBlob"]
+    }}
+    actions {{
+      version {{
+        delete_after_days_since_creation = 365
+      }}
+    }}
+  }}
+}}
+
+'''
+
+        return terraform_config

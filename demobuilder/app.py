@@ -60,7 +60,7 @@ from core.yamlforge_integration import YamlForgeAnalyzer
 from config.app_config import get_app_config, get_enabled_providers
 from config.auth_config import get_auth_config, show_auth_info, is_power_user, get_display_username
 from core.infrastructure_diagram import (
-    display_mermaid_diagram,
+    display_graphviz_diagram,
     display_diagram_in_chat
 )
 from core.sharing import (
@@ -495,10 +495,10 @@ def render_chat_message_with_diagrams(content: str):
             diagram_part = parts[1].split('[/MERMAID_DIAGRAM]')[0]
             remaining_content = parts[1].split('[/MERMAID_DIAGRAM]')[1] if '[/MERMAID_DIAGRAM]' in parts[1] else ''
             
-            # Render the Mermaid diagram
+            # Render the Graphviz diagram
             if diagram_part.strip():
                 diagram_key = f"chat_{hash(diagram_part)%10000}"
-                display_mermaid_diagram(diagram_part.strip(), diagram_key)
+                display_graphviz_diagram(diagram_part.strip(), diagram_key)
                 
                 # Add source toggle outside diagram with minimal spacing
                 source_key = f"show_source_{diagram_key}"
@@ -506,8 +506,8 @@ def render_chat_message_with_diagrams(content: str):
                     st.session_state[source_key] = False
                 
                 # Use an expander for the source code to minimize space
-                with st.expander("📝 Show Mermaid Source", expanded=st.session_state[source_key]):
-                    st.code(diagram_part.strip(), language="mermaid")
+                with st.expander("📝 Show Graphviz Source", expanded=st.session_state[source_key]):
+                    st.code(diagram_part.strip(), language="dot")
             
             # Render any remaining content after the diagram
             if remaining_content.strip():
@@ -665,15 +665,20 @@ def handle_requirements_stage(user_input: str) -> str:
             
             response = ""
             
+            # Include generator messages first (provider defaults, etc.)
+            generator_messages = [msg for msg in messages if msg != "Generated using AI"]
+            if generator_messages:
+                response += "\n".join(generator_messages) + "\n\n"
+            
             # Include analysis results in the chat response
             if st.session_state.analysis_result:
                 analysis_message = format_analysis_as_chat_message()
                 if analysis_message:
-                    response = analysis_message
+                    response += analysis_message
                 st.session_state.workflow_stage = "refinement"
                 metrics.track_workflow_stage("refinement")
             else:
-                response += "\n\n⚠️ I generated the YAML but had trouble analyzing it. You can still review the configuration on the right."
+                response += "⚠️ I generated the YAML but had trouble analyzing it. You can still review the configuration on the right."
                 st.session_state.workflow_stage = "refinement"
                 metrics.track_workflow_stage("refinement")
             
@@ -719,6 +724,11 @@ def handle_refinement_stage(user_input: str) -> str:
                     
                     response = "I've updated the configuration to use the cheapest providers. "
                     
+                    # Include generator messages (provider defaults, etc.)
+                    generator_messages = [msg for msg in messages if msg != "Generated using AI"]
+                    if generator_messages:
+                        response += "\n\n" + "\n".join(generator_messages)
+                    
                     # Include updated analysis results in the chat response
                     if st.session_state.analysis_result:
                         analysis_message = format_analysis_as_chat_message()
@@ -747,13 +757,18 @@ def handle_refinement_stage(user_input: str) -> str:
             
             response = "I've updated the configuration based on your feedback. "
             
+            # Include generator messages (provider defaults, etc.)
+            generator_messages = [msg for msg in messages if msg != "Generated using AI"]
+            if generator_messages:
+                response += "\n\n" + "\n".join(generator_messages)
+            
             # Include updated analysis results in the chat response
             if st.session_state.analysis_result:
                 analysis_message = format_analysis_as_chat_message()
                 if analysis_message:
                     response += "\n\n" + analysis_message
             else:
-                response += "Please review the updated configuration on the right."
+                response += "\n\nPlease review the updated configuration on the right."
             
             return response
         else:
@@ -987,6 +1002,7 @@ def format_analysis_as_chat_message() -> str:
     # Skip header and find relevant sections
     in_instances = False
     in_clusters = False
+    in_storage = False
     in_providers = False
     in_cost_summary = False
     
@@ -994,22 +1010,32 @@ def format_analysis_as_chat_message() -> str:
         if 'INSTANCES (' in line:
             in_instances = True
             in_clusters = False
+            in_storage = False
             relevant_lines.append(line)
             continue
         elif 'OPENSHIFT CLUSTERS (' in line or 'CLUSTERS (' in line:
             in_instances = False
             in_clusters = True
+            in_storage = False
+            relevant_lines.append(line)
+            continue
+        elif 'STORAGE BUCKETS (' in line:
+            in_instances = False
+            in_clusters = False
+            in_storage = True
             relevant_lines.append(line)
             continue
         elif 'REQUIRED PROVIDERS:' in line:
             in_instances = False
             in_clusters = False
+            in_storage = False
             in_providers = True
             relevant_lines.append(line)
             continue
         elif 'COST SUMMARY:' in line:
             in_instances = False
             in_clusters = False
+            in_storage = False
             in_providers = False
             in_cost_summary = True
             relevant_lines.append(line)
@@ -1019,7 +1045,7 @@ def format_analysis_as_chat_message() -> str:
         elif line.startswith('==='):
             continue
         
-        if (in_instances or in_clusters) and line.strip():
+        if (in_instances or in_clusters or in_storage) and line.strip():
             # Skip the dashes
             if line.strip() == '----------------------------------------':
                 continue

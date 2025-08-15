@@ -2,7 +2,7 @@
 
 **Universal Infrastructure as Code Across All Clouds**
 
-Write your infrastructure once in elegant YAML syntax and deploy it seamlessly across AWS, Azure, GCP, OCI, Alibaba Cloud, IBM Cloud, and VMware. YamlForge eliminates cloud lock-in by providing a universal interface that generates production-ready Terraform configurations with built-in AI assistance.
+Write your infrastructure once in elegant YAML syntax and deploy it seamlessly across AWS, Azure, GCP, OCI, Alibaba Cloud, IBM Cloud, and VMware. Deploy virtual machines, OpenShift clusters, and object storage buckets with universal configuration. YamlForge eliminates cloud lock-in by providing a universal interface that generates production-ready Terraform configurations with built-in AI assistance.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
@@ -114,6 +114,24 @@ yamlforge:
       region: "us-east"
       version: "latest"
       size: "medium"
+  
+  # Object storage buckets using universal locations  
+  storage:
+    - name: "app-data-{guid}"
+      provider: "aws"
+      location: "us-east"
+      public: false
+      versioning: true
+      encryption: true
+      tags:
+        Environment: "production"
+        
+    - name: "backup-storage-{guid}"
+      provider: "cheapest"  # Auto-select cheapest provider
+      location: "us-east"
+      public: false
+      versioning: false
+      encryption: true
   
   # Security configuration
   security_groups:
@@ -581,6 +599,74 @@ yamlforge:
 **Key Differences:**
 - **`cheapest`**: Requires `size` or `cores`/`memory`, optimizes for overall cost
 - **`cheapest-gpu`**: Only needs `gpu_type`/`gpu_count`, finds cheapest GPU regardless of CPU/memory
+
+### Object Storage
+Deploy native object storage buckets across all cloud providers with unified configuration:
+
+```yaml
+guid: "stor1"
+
+yamlforge:
+  cloud_workspace:
+    name: "multi-cloud-storage-{guid}"
+    description: "Object storage across multiple clouds"
+  
+  storage:
+    - name: "data-bucket-{guid}"
+      provider: "aws"
+      region: "us-east-1"
+      public: false
+      versioning: true
+      encryption: true
+      tags:
+        Environment: "production"
+        Project: "data-pipeline"
+    
+    - name: "backup-bucket-{guid}"
+      provider: "azure"
+      location: "us-east"  # Uses location mapping
+      public: false
+      versioning: false
+      encryption: true
+      tags:
+        Environment: "production"
+        Purpose: "backup"
+    
+    - name: "archive-bucket-{guid}"
+      provider: "gcp"
+      region: "us-central1"
+      public: false
+      versioning: true
+      tags:
+        Environment: "production"
+        Purpose: "archive"
+```
+
+**Cost-Optimized Storage:**
+```yaml
+guid: "cheap1"
+
+yamlforge:
+  cloud_workspace:
+    name: "cost-optimized-storage-{guid}"
+  
+  storage:
+    - name: "cheapest-bucket-{guid}"
+      provider: "cheapest"  # Automatically selects cheapest provider
+      location: "us-east"
+      public: false
+      versioning: true
+      encryption: true
+```
+
+**Storage Features:**
+- **Universal Configuration**: Same YAML works across AWS S3, Azure Blob Storage, GCP Cloud Storage, OCI, IBM COS, and Alibaba OSS
+- **Public/Private Access**: Simple boolean flag for public read access control
+- **Versioning Support**: Enable object versioning for data protection
+- **Encryption by Default**: Server-side encryption enabled automatically
+- **Cost Optimization**: Use `cheapest` provider for automatic cost optimization
+- **Tagging Support**: Consistent metadata across all providers
+- **Location Mapping**: Use universal locations or direct cloud regions
 
 ### Enterprise OpenShift
 Deploy OpenShift clusters optimized for each cloud's native capabilities:

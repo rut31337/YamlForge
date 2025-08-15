@@ -79,6 +79,9 @@
         "openshift_applications": {
           "$ref": "#/definitions/openshift_applications"
         },
+        "storage": {
+          "$ref": "#/definitions/storage"
+        },
         "security_groups": {
           "$ref": "#/definitions/security_groups"
         },
@@ -704,6 +707,87 @@
           "description": "Domain name for VMware instances (e.g., local, company.local)",
           "default": "local"
         }
+      }
+    },
+    "storage": {
+      "type": "array",
+      "description": "Array of object storage buckets to create",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "provider"
+        ],
+        "allOf": [
+          {
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Unique name for the storage bucket"
+              },
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "aws",
+                  "azure",
+                  "gcp",
+                  "oci",
+                  "ibm_vpc",
+                  "ibm_classic",
+                  "vmware",
+                  "alibaba",
+                  "cheapest"
+                ],
+                "description": "Cloud provider for the storage bucket, or 'cheapest' for automatic cost optimization"
+              },
+              "region": {
+                "type": "string",
+                "description": "Cloud region (e.g., us-east-1, eastus, us-central1)"
+              },
+              "location": {
+                "type": "string",
+                "description": "Universal location mapping (e.g., us-east, eu-west)"
+              },
+              "public": {
+                "type": "boolean",
+                "description": "Enable public read access to the bucket",
+                "default": false
+              },
+              "versioning": {
+                "type": "boolean",
+                "description": "Enable versioning for the bucket",
+                "default": false
+              },
+              "encryption": {
+                "type": "boolean",
+                "description": "Enable server-side encryption for the bucket",
+                "default": true
+              },
+              "tags": {
+                "type": "object",
+                "description": "Key-value tags for the bucket",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "anyOf": [
+              {
+                "required": [
+                  "region"
+                ]
+              },
+              {
+                "required": [
+                  "location"
+                ]
+              }
+            ],
+            "errorMessage": "Either 'region' or 'location' is required for storage buckets"
+          }
+        ]
       }
     },
     "cnv_config": {

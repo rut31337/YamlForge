@@ -77,12 +77,12 @@ YamlForge is a multi-cloud infrastructure converter that translates universal YA
 - Handles cost optimization via `cheapest` and `cheapest-gpu` providers
 
 **Provider Architecture**: Each cloud provider implements infrastructure generation:
-- `yamlforge/providers/aws.py` - EC2, VPC, security groups, ROSA clusters
-- `yamlforge/providers/azure.py` - VMs, VNets, NSGs, ARO clusters
-- `yamlforge/providers/gcp.py` - Compute Engine with dynamic image discovery
-- `yamlforge/providers/ibm_*.py` - VPC Gen 2 and Classic Infrastructure
-- `yamlforge/providers/oci.py` - Compute instances and networking
-- `yamlforge/providers/alibaba.py` - ECS instances and VPC
+- `yamlforge/providers/aws.py` - EC2, VPC, security groups, S3 buckets, ROSA clusters
+- `yamlforge/providers/azure.py` - VMs, VNets, NSGs, Storage Accounts, ARO clusters
+- `yamlforge/providers/gcp.py` - Compute Engine, Cloud Storage with dynamic image discovery
+- `yamlforge/providers/ibm_*.py` - VPC Gen 2 and Classic Infrastructure, Cloud Object Storage
+- `yamlforge/providers/oci.py` - Compute instances, networking, Object Storage
+- `yamlforge/providers/alibaba.py` - ECS instances, VPC, OSS buckets
 - `yamlforge/providers/vmware.py` - vSphere VMs and networking
 - `yamlforge/providers/cnv/` - Container Native Virtualization (KubeVirt/OpenShift CNV)
 

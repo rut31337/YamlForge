@@ -1630,3 +1630,101 @@ output "rosa_classic_master_role_arn" {
 '''
 
         return terraform_config
+
+    def generate_s3_bucket(self, bucket, yaml_data):
+        """Generate AWS S3 bucket configuration."""
+        bucket_name = bucket.get('name', 'my-bucket')
+        region = self.converter.resolve_bucket_region(bucket, 'aws')
+        guid = self.converter.get_validated_guid(yaml_data)
+
+        # Replace GUID placeholders
+        final_bucket_name = self.converter.replace_guid_placeholders(bucket_name)
+        clean_bucket_name, _ = self.converter.clean_name(final_bucket_name)
+        
+        # Bucket configuration
+        public = bucket.get('public', False)
+        versioning = bucket.get('versioning', False)
+        encryption = bucket.get('encryption', True)
+        tags = bucket.get('tags', {})
+
+        terraform_config = f'''
+# S3 Bucket: {final_bucket_name}
+resource "aws_s3_bucket" "{clean_bucket_name}_{guid}" {{
+  bucket = "{final_bucket_name}"
+
+  tags = {{
+    Name = "{final_bucket_name}"
+    ManagedBy = "YamlForge"
+    GUID = "{guid}"'''
+
+        # Add custom tags
+        for key, value in tags.items():
+            terraform_config += f'''
+    {key} = "{value}"'''
+
+        terraform_config += '''
+  }
+}
+
+'''
+
+        # Public access configuration
+        if public:
+            terraform_config += f'''
+resource "aws_s3_bucket_public_access_block" "{clean_bucket_name}_pab_{guid}" {{
+  bucket = aws_s3_bucket.{clean_bucket_name}_{guid}.id
+
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
+}}
+
+resource "aws_s3_bucket_acl" "{clean_bucket_name}_acl_{guid}" {{
+  depends_on = [aws_s3_bucket_public_access_block.{clean_bucket_name}_pab_{guid}]
+  bucket     = aws_s3_bucket.{clean_bucket_name}_{guid}.id
+  acl        = "public-read"
+}}
+
+'''
+        else:
+            terraform_config += f'''
+resource "aws_s3_bucket_public_access_block" "{clean_bucket_name}_pab_{guid}" {{
+  bucket = aws_s3_bucket.{clean_bucket_name}_{guid}.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}}
+
+'''
+
+        # Versioning configuration
+        if versioning:
+            terraform_config += f'''
+resource "aws_s3_bucket_versioning" "{clean_bucket_name}_versioning_{guid}" {{
+  bucket = aws_s3_bucket.{clean_bucket_name}_{guid}.id
+  versioning_configuration {{
+    status = "Enabled"
+  }}
+}}
+
+'''
+
+        # Encryption configuration
+        if encryption:
+            terraform_config += f'''
+resource "aws_s3_bucket_server_side_encryption_configuration" "{clean_bucket_name}_encryption_{guid}" {{
+  bucket = aws_s3_bucket.{clean_bucket_name}_{guid}.id
+
+  rule {{
+    apply_server_side_encryption_by_default {{
+      sse_algorithm = "AES256"
+    }}
+  }}
+}}
+
+'''
+
+        return terraform_config

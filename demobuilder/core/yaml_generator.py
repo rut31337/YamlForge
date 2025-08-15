@@ -68,6 +68,7 @@ class InfrastructureRequirement:
     instances: List[Dict[str, Any]]
     openshift_clusters: List[Dict[str, Any]]
     security_groups: List[Dict[str, Any]]
+    storage_buckets: List[Dict[str, Any]]
     workspace_name: str
     guid: Optional[str] = None
     tags: Dict[str, str] = None
@@ -208,12 +209,14 @@ class YamlForgeGenerator:
         instances = self._extract_instances(text, use_cheapest=use_cheapest)
         openshift_clusters = self._extract_openshift_clusters(text, use_cheapest=use_cheapest)
         security_groups = self._extract_security_groups(text)
+        storage_buckets = self._extract_storage_buckets(text, use_cheapest=use_cheapest)
         tags = self._extract_tags(text)
         
         return InfrastructureRequirement(
             instances=instances,
             openshift_clusters=openshift_clusters,
             security_groups=security_groups,
+            storage_buckets=storage_buckets,
             workspace_name=workspace_name,
             tags=tags
         )
@@ -393,6 +396,113 @@ class YamlForgeGenerator:
         
         return security_groups
     
+    def _extract_storage_buckets(self, text: str, use_cheapest: bool = False) -> List[Dict[str, Any]]:
+        storage_buckets = []
+        
+        if not any(keyword in text for keyword in ['storage', 'bucket', 's3', 'blob', 'object store', 'file storage']):
+            return storage_buckets
+        
+        bucket_patterns = [
+            r'(\\d+)\\s+(?:storage\\s+)?buckets?',
+            r'(\\d+)\\s+(?:s3\\s+)?buckets?',
+            r'(\\d+)\\s+(?:object\\s+)?storage\\s+buckets?',
+            r'create\\s+(\\d+)\\s+(?:storage\\s+)?buckets?',
+            r'need\\s+(\\d+)\\s+(?:storage\\s+)?buckets?'
+        ]
+        
+        count = 1
+        for pattern in bucket_patterns:
+            match = re.search(pattern, text)
+            if match:
+                count = int(match.group(1))
+                break
+        
+        # Check for single bucket patterns without count
+        if count == 1:
+            single_bucket_patterns = [
+                r'create\\s+(?:an?\\s+)?(?:storage\\s+)?bucket',
+                r'(?:deploy|need|want)\\s+(?:an?\\s+)?(?:storage\\s+)?bucket',
+                r'(?:s3|blob|object)\\s+storage',
+                r'file\\s+storage'
+            ]
+            for pattern in single_bucket_patterns:
+                if re.search(pattern, text):
+                    count = 1
+                    break
+        
+        provider = self._extract_provider(text, use_cheapest=use_cheapest)
+        region = self._extract_region(text)
+        
+        # Extract bucket names and access settings
+        bucket_names = self._extract_storage_bucket_names(text, count)
+        
+        for i in range(count):
+            bucket = {
+                'name': bucket_names[i] if i < len(bucket_names) else f'storage-bucket-{i+1}',
+                'provider': provider
+            }
+            
+            if region:
+                bucket['location'] = region
+            
+            # Determine access level
+            if any(keyword in text for keyword in ['public', 'public-read', 'publicly accessible']):
+                bucket['public'] = True
+            else:
+                bucket['public'] = False
+            
+            # Determine versioning
+            if any(keyword in text for keyword in ['versioning', 'version control', 'backup']):
+                bucket['versioning'] = True
+            else:
+                bucket['versioning'] = False
+            
+            # Determine encryption (default to enabled)
+            if any(keyword in text for keyword in ['no encryption', 'unencrypted']):
+                bucket['encryption'] = False
+            else:
+                bucket['encryption'] = True
+            
+            storage_buckets.append(bucket)
+        
+        return storage_buckets
+    
+    def _extract_storage_bucket_names(self, text: str, count: int) -> List[str]:
+        """Extract meaningful storage bucket names from text"""
+        text_lower = text.lower()
+        names = []
+        
+        # Specific storage patterns
+        if 'backup' in text_lower:
+            names.append('backup-storage')
+        if 'log' in text_lower or 'logs' in text_lower:
+            names.append('log-storage')
+        if 'data' in text_lower and 'lake' in text_lower:
+            names.append('data-lake')
+        if 'archive' in text_lower:
+            names.append('archive-storage')
+        if 'media' in text_lower or 'image' in text_lower or 'video' in text_lower:
+            names.append('media-storage')
+        if 'document' in text_lower or 'file' in text_lower:
+            names.append('document-storage')
+        if 'web' in text_lower and ('static' in text_lower or 'asset' in text_lower):
+            names.append('web-assets')
+        
+        # If no specific patterns found, use generic names
+        if len(names) == 0:
+            if 's3' in text_lower:
+                names.extend([f's3-bucket-{i+1}' for i in range(count)])
+            elif 'blob' in text_lower:
+                names.extend([f'blob-storage-{i+1}' for i in range(count)])
+            else:
+                names.extend([f'storage-bucket-{i+1}' for i in range(count)])
+        
+        # Ensure we have enough names
+        while len(names) < count:
+            names.append(f'storage-bucket-{len(names)+1}')
+        
+        return names[:count]
+    
     def _ai_extract_infrastructure_element(self, text: str, element_type: str, context: Dict[str, Any] = None) -> Any:
         """Use AI to extract infrastructure elements from natural language."""
         if not self.use_ai:
@@ -537,6 +647,12 @@ class YamlForgeGenerator:
             base_prompt += "IMPORTANT: For 'rhel gold', 'gold rhel', 'rhel byos', 'byos rhel' use 'RHEL10-GOLD-latest', 'RHEL-10-GOLD-latest', 'RHEL9-GOLD-latest', 'RHEL-9-GOLD-latest', 'RHEL8-GOLD-latest', or 'RHEL-8-GOLD-latest'. "
             base_prompt += "For regular RHEL use 'RHEL10-latest', 'RHEL-10-latest', 'RHEL9-latest', 'RHEL-9-latest', 'RHEL8-latest', or 'RHEL-8-latest'. "
             base_prompt += "For Ubuntu use 'Ubuntu22-latest' or 'Ubuntu20-latest'.\n"
+            
+        elif element_type == 'storage':
+            base_prompt += "Available storage providers: aws, azure, gcp, oci, ibm_vpc, alibaba, cheapest\n"
+            base_prompt += "Map 'aws', 'amazon', 's3' to 'aws'. Map 'azure', 'microsoft', 'blob' to 'azure'. "
+            base_prompt += "Map 'google', 'gcp', 'cloud storage' to 'gcp'. "
+            base_prompt += "For cost optimization, use 'cheapest' to select the most cost-effective provider.\n"
         
         if element_type == 'os':
             base_prompt += f"Return ONLY the exact {element_type} value. You can use images from the available list OR pattern-based RHEL images (RHEL10-GOLD-latest, RHEL-10-GOLD-latest, RHEL10-latest, RHEL-10-latest, etc.), no explanation."
@@ -562,6 +678,11 @@ class YamlForgeGenerator:
                 return response
             # Also allow RHEL pattern-based images (YamlForge handles these dynamically)
             elif re.match(r'^RHEL-?\d+(\.\d+)?(-GOLD)?-latest$', response, re.IGNORECASE):
+                return response
+        elif element_type == 'storage':
+            # Storage providers validation
+            valid_storage_providers = ['aws', 'azure', 'gcp', 'oci', 'ibm_vpc', 'alibaba', 'cheapest']
+            if response in valid_storage_providers:
                 return response
         
         # If exact match fails, try partial matching for some types
@@ -639,6 +760,9 @@ class YamlForgeGenerator:
         if requirements.security_groups:
             config['yamlforge']['security_groups'] = requirements.security_groups
         
+        if requirements.storage_buckets:
+            config['yamlforge']['storage'] = requirements.storage_buckets
+        
         if requirements.tags:
             config['yamlforge']['tags'] = requirements.tags
         
@@ -650,28 +774,56 @@ class YamlForgeGenerator:
                 # Modify existing configuration
                 return self.modify_existing_config(text, existing_yaml, auto_fix, use_cheapest)
             else:
-                # Try AI generation first, fall back to direct parsing if AI fails
+                # Use AI generation only - no fallback
                 if self.use_ai:
                     yaml_config = self.generate_yaml_with_ai(text, use_cheapest)
                     if yaml_config:
-                        # AI generation succeeded, return it
-                        return True, yaml_config, ["Generated using AI"]
-                
-                # AI failed or not available, fall back to direct parsing
-                requirements = self.parse_natural_language_requirements(text, use_cheapest=use_cheapest)
-                yaml_config = self.generate_yaml_config(requirements)
-                
-                if auto_fix:
-                    is_valid, fixed_yaml, messages = validate_and_fix_yaml(yaml_config, auto_fix=True)
-                    return is_valid, fixed_yaml, messages + ["Generated using direct parsing (AI unavailable)"]
+                        # AI generation succeeded, check for provider defaults and add informative messages
+                        messages = ["Generated using AI"]
+                        
+                        # Check if storage defaults to cheapest provider
+                        additional_messages = self._check_for_provider_defaults(text, yaml_config, use_cheapest)
+                        messages.extend(additional_messages)
+                        
+                        return True, yaml_config, messages
+                    else:
+                        return False, "", ["AI generation failed - no fallback available"]
                 else:
-                    return True, yaml_config, ["Generated using direct parsing (AI unavailable)"]
+                    return False, "", ["AI is not available and no fallback is configured"]
                 
         except Exception as e:
             return False, "", [f"Generation failed: {str(e)}"]
     
     def generate_yaml_with_ai(self, text: str, use_cheapest: bool = False) -> str:
         """Generate YamlForge YAML using AI with schema validation"""
+        
+        # Pre-analyze the request to set explicit flags
+        text_lower = text.lower().strip()
+        
+        # Check what user actually requested
+        requests_storage = any(keyword in text_lower for keyword in ['storage', 'bucket', 's3', 'blob', 'object store'])
+        requests_instances = any(keyword in text_lower for keyword in ['vm', 'instance', 'server', 'machine', 'node', 'host'])
+        requests_clusters = any(keyword in text_lower for keyword in ['cluster', 'openshift', 'rosa', 'aro', 'kubernetes'])
+        
+        # Check for multi-cloud complexity (multiple providers mentioned)
+        cloud_keywords = ['aws', 'azure', 'gcp', 'google', 'microsoft', 'amazon', 'oracle', 'oci', 'ibm', 'alibaba', 'vmware']
+        mentioned_clouds = [cloud for cloud in cloud_keywords if cloud in text_lower]
+        is_multi_cloud = len(mentioned_clouds) > 1
+        
+        # Check for complex architecture (multiple roles/tiers mentioned)
+        role_keywords = ['web', 'database', 'api', 'load balancer', 'frontend', 'backend', 'app server', 'db']
+        mentioned_roles = [role for role in role_keywords if role in text_lower]
+        is_multi_tier = len(mentioned_roles) > 1
+        
+        # Build explicit instruction based on analysis
+        if requests_storage and not requests_instances and not requests_clusters:
+            explicit_instruction = "CREATE ONLY STORAGE - NO INSTANCES, NO CLUSTERS!"
+        elif requests_instances and not requests_storage and not requests_clusters and not is_multi_cloud and not is_multi_tier:
+            explicit_instruction = "CREATE ONLY INSTANCES - NO STORAGE, NO CLUSTERS!"
+        elif requests_clusters and not requests_instances and not requests_storage:
+            explicit_instruction = "CREATE ONLY CLUSTERS - NO INSTANCES, NO STORAGE!"
+        else:
+            explicit_instruction = "CREATE WHAT WAS REQUESTED"
         
         # Load the schema using centralized path resolution
         try:
@@ -683,125 +835,220 @@ class YamlForgeGenerator:
         except Exception as e:
             schema_content = "Schema not available"
         
-        prompt = f"""Generate a YamlForge YAML configuration based on this infrastructure request: "{text}"
+        # Use specialized prompts based on what user requested
+        if "CREATE ONLY STORAGE" in explicit_instruction:
+            return self._generate_storage_only_yaml(text, use_cheapest)
+        elif "CREATE ONLY INSTANCES" in explicit_instruction:
+            return self._generate_instances_only_yaml(text, use_cheapest)
+        elif "CREATE ONLY CLUSTERS" in explicit_instruction:
+            return self._generate_clusters_only_yaml(text, use_cheapest)
+        else:
+            return self._generate_combined_yaml(text, use_cheapest, explicit_instruction)
+    
+    def _generate_storage_only_yaml(self, text: str, use_cheapest: bool = False) -> str:
+        """Generate YAML for storage-only requests with focused prompt"""
+        
+        # Extract bucket name from request
+        text_lower = text.lower()
+        bucket_name = "storage-bucket"
+        if "backup" in text_lower:
+            bucket_name = "backup-storage"
+        elif "data" in text_lower:
+            bucket_name = "data-storage"
+        elif "log" in text_lower:
+            bucket_name = "log-storage"
+        elif "media" in text_lower:
+            bucket_name = "media-storage"
+        
+        # Handle use_cheapest parameter and detect specific providers
+        text_lower = text.lower()
+        provider_setting = "cheapest"
+        
+        if use_cheapest:
+            provider_setting = "cheapest"
+        elif "aws" in text_lower or "amazon" in text_lower or "s3" in text_lower:
+            provider_setting = "aws"
+        elif "azure" in text_lower or "microsoft" in text_lower or "blob" in text_lower:
+            provider_setting = "azure"
+        elif "gcp" in text_lower or "google" in text_lower or "cloud storage" in text_lower:
+            provider_setting = "gcp"
+        elif "oracle" in text_lower or "oci" in text_lower:
+            provider_setting = "oci"
+        elif "ibm" in text_lower:
+            provider_setting = "ibm_vpc"
+        elif "alibaba" in text_lower:
+            provider_setting = "alibaba"
+        else:
+            provider_setting = "cheapest"
+        
+        prompt = f"""Generate YAML for storage request: "{text}"
 
-CRITICAL REQUIREMENTS - Your YAML MUST include these or it will FAIL validation:
+Create ONLY storage, NO instances, NO clusters.
+
+PROVIDER MAPPING RULES:
+- "aws", "amazon", "s3" → provider: aws
+- "azure", "microsoft", "blob" → provider: azure  
+- "gcp", "google", "cloud storage" → provider: gcp
+- "oracle", "oci" → provider: oci
+- "ibm" → provider: ibm_vpc
+- "alibaba" → provider: alibaba
+- If no specific provider mentioned → provider: cheapest
+
+Required structure:
+guid: demo1
+yamlforge:
+  cloud_workspace:
+    name: data-storage
+  storage:
+    - name: {bucket_name}
+      provider: {provider_setting}
+      location: us-east
+      public: false
+      versioning: false
+      encryption: true
+
+RULES:
+- Create ONLY the storage section
+- NO yamlforge.instances section
+- NO yamlforge.openshift_clusters section
+- Extract specific cloud provider from user request if mentioned
+- Return YAML only, no explanation
+
+Generate YAML:"""
+
+        return self._call_ai_for_generation(prompt)
+    
+    def _generate_instances_only_yaml(self, text: str, use_cheapest: bool = False) -> str:
+        """Generate YAML for instance-only requests with focused prompt"""
+        
+        # Handle use_cheapest parameter
+        provider_guidance = ""
+        if use_cheapest:
+            provider_guidance = """
+COST OPTIMIZATION MODE:
+- Use provider: cheapest for all instances (unless specific cloud providers are mentioned)
+- Use provider: cheapest-gpu for any GPU/AI/ML instances
+"""
+        
+        prompt = f"""Generate YAML for VM/instance request: "{text}"
+{provider_guidance}
+Create ONLY instances, NO storage, NO clusters.
+
+Required structure:
+guid: demo1
+yamlforge:
+  cloud_workspace:
+    name: vm-environment
+  instances:
+    - name: server-1
+      provider: cheapest
+      flavor: medium
+      image: RHEL9-latest
+      location: us-east
+
+RULES:
+- Create ONLY the instances section
+- NO yamlforge.storage section
+- NO yamlforge.openshift_clusters section
+- Extract count, size, OS from request
+- Map cost terms: "cheap"/"budget" → provider: cheapest, flavor: small
+- NEVER use "cheap" as a flavor - use valid flavors: nano, small, medium, large, xlarge
+- Return YAML only, no explanation
+
+Generate YAML:"""
+
+        return self._call_ai_for_generation(prompt)
+    
+    def _generate_clusters_only_yaml(self, text: str, use_cheapest: bool = False) -> str:
+        """Generate YAML for cluster-only requests with focused prompt"""
+        
+        prompt = f"""Generate YAML for OpenShift cluster request: "{text}"
+
+Create ONLY clusters, NO instances, NO storage.
+
+Required structure:
+guid: demo1
+yamlforge:
+  cloud_workspace:
+    name: cluster-environment
+  openshift_clusters:
+    - name: openshift-cluster
+      type: rosa-classic
+      size: medium
+      region: us-east-1
+
+RULES:
+- Create ONLY the openshift_clusters section
+- NO yamlforge.instances section
+- NO yamlforge.storage section
+- Return YAML only, no explanation
+
+Generate YAML:"""
+
+        return self._call_ai_for_generation(prompt)
+    
+    def _generate_combined_yaml(self, text: str, use_cheapest: bool = False, instruction: str = "") -> str:
+        """Generate YAML for mixed requests"""
+        
+        # Handle use_cheapest parameter
+        provider_guidance = ""
+        if use_cheapest:
+            provider_guidance = """
+COST OPTIMIZATION MODE:
+- Use provider: cheapest for all instances (unless specific cloud providers are mentioned)
+- Use provider: cheapest-gpu for any GPU/AI/ML instances
+- Prioritize cost-effective configurations
+"""
+        
+        prompt = f"""Generate YAML for mixed request: "{text}"
+
+Instruction: {instruction}
+{provider_guidance}
+CRITICAL REQUIREMENTS:
 1. 'guid' field at root level (exactly 5 lowercase alphanumeric chars like 'demo1')
 2. 'yamlforge' field at root level 
 3. 'yamlforge.cloud_workspace.name' field
-4. Either 'yamlforge.instances' OR 'yamlforge.openshift_clusters' (or both) - THIS IS MANDATORY
+4. Create what the user explicitly requested (instances AND/OR storage AND/OR clusters)
 
-CLOUD PROVIDER SELECTION RULES:
-- DEFAULT: Use a SINGLE cloud provider for all instances unless explicitly requested otherwise
-- For three-tier architectures, web applications, and general requests: Use ONE provider (aws, azure, or gcp)
-- ONLY use multiple providers when user explicitly mentions specific cloud names for different components
+MULTI-CLOUD PROVIDER MAPPING:
+- "AWS web servers" → provider: aws
+- "Azure database" → provider: azure  
+- "GCP API server" → provider: gcp
+- "Oracle storage" → provider: oci
+- "IBM servers" → provider: ibm_vpc
+- Map cloud names to exact provider codes
 
-SINGLE-CLOUD (DEFAULT BEHAVIOR):
-- "three-tier web application" → Use ONE provider for all instances
-- "web app with database" → Use ONE provider for all instances  
-- "frontend, backend, database" → Use ONE provider for all instances
-- Choose aws, azure, or gcp as the single provider
+INSTANCE NAMING RULES:
+- "web servers" → web-server-1, web-server-2
+- "database" → database-1
+- "API server" → api-server-1  
+- "load balancer" → load-balancer-1
+- Use role-based names when user specifies roles
 
-MULTI-CLOUD (ONLY when explicitly requested):
-- If request mentions "AWS web servers AND Azure database" → Use specific providers as requested
-- If request mentions "multi-cloud" → Use multiple providers
-- If request mentions "GCP load balancers" → Use gcp for those specific instances
+COST-RELATED TERMS MAPPING:
+- "cheap instances" → provider: cheapest, flavor: small
+- "cheap servers" → provider: cheapest, flavor: small  
+- "cost-effective" → provider: cheapest, flavor: small
+- "minimal cost" → provider: cheapest, flavor: nano
+- "budget servers" → provider: cheapest, flavor: small
+- NEVER use "cheap" as a flavor - it's not valid!
 
-MULTI-CLOUD SECURITY REQUIREMENTS:
-- When components connect across clouds, ALL subnets MUST be public for inter-cloud connectivity
-- ALWAYS generate security groups for multi-cloud deployments to protect public subnets
-- Security groups should restrict access to only the other cloud provider CIDR ranges
-- Example: AWS subnet (10.0.0.0/16) allows access from Azure subnet (10.1.0.0/16) and GCP subnet (10.2.0.0/16)
+LOCATION MAPPING (use universal locations):
+- All providers → location: us-east (YamlForge will map to provider-specific regions)
+- DO NOT use provider-specific regions like "eastus" or "us-east1"
+- Use universal locations: us-east, us-west, eu-west, ap-southeast
 
-MANDATORY INSTANCE FIELDS:
-- name: descriptive name based on user request (e.g., "rhel-server-1", "ubuntu-vm-2", "instance-1"). Only use role-based names when user explicitly specifies roles
-- provider: aws, azure, gcp, oci, ibm_vpc, ibm_classic, vmware, alibaba, cheapest, cheapest-gpu, cnv
-- Size specification (choose ONE):
-  * flavor: "small", "medium", "large", "xlarge" (string values only)
-  * OR cores: 2 AND memory: 2048 (both required as integers)
-- image: RHEL10-latest, RHEL10-GOLD-latest, RHEL9-latest, RHEL9-GOLD-latest, Ubuntu22-latest, Windows2022-latest, etc.
-- location: us-east, us-west, eu-west, ap-southeast, etc.
+MULTI-CLOUD SECURITY:
+- When components span multiple clouds, all instances need public connectivity
+- Generate security_groups section for multi-cloud deployments
+- Allow inter-cloud communication between CIDR ranges
 
-CRITICAL SIZING RULES:
-- NEVER mix flavor with cores/memory in the same instance
-- If user specifies cores/RAM/memory → use ONLY cores and memory fields (integers):
-  * "2 cores and 2GB RAM" → cores: 2, memory: 2048
-  * "4 cores and 8GB memory" → cores: 4, memory: 8192
-  * "2 cores 4GB RAM" → cores: 2, memory: 4096
-  * "4 vCPUs 8 gigs of RAM" → cores: 4, memory: 8192
-  * ALWAYS convert RAM/memory to MB: 2GB = 2048MB, 4GB = 4096MB, 8GB = 8192MB, 16GB = 16384MB
-- If user specifies size name → use ONLY flavor field (string):
-  * "medium instance" → flavor: "medium"
-  * "large instance" → flavor: "large"
-- NEVER create flavor as an object with cores/memory - flavor must be a string only
-- ALL instance types support both approaches (flavor OR cores/memory)
-- TERMINOLOGY: Treat "RAM", "memory", "RAM memory", "system memory" all as the same - use memory field in YAML
-
-CRITICAL IMAGE RULES:
-- For RHEL GOLD/BYOS images: Use "RHEL10-GOLD-latest", "RHEL9-GOLD-latest" or "RHEL8-GOLD-latest"
-- For regular RHEL: Use "RHEL10-latest", "RHEL9-latest" or "RHEL8-latest"  
-- For Ubuntu: Use "Ubuntu22-latest" or "Ubuntu20-latest"
-- IMPORTANT: When user requests "rhel gold", "gold rhel", "rhel byos", "byos rhel" → use GOLD images
-- IMPORTANT: When user specifies RHEL version (rhel 10, rhel10) → use that version (RHEL10-GOLD-latest, RHEL10-latest)
-- When user requests regular "rhel" without gold/byos → use standard RHEL images
-
-CRITICAL NAMING RULES:
-- CONSERVATIVE NAMING: Only assume instance roles when explicitly stated
-- "3 RHEL VMs" → rhel-server-1, rhel-server-2, rhel-server-3 (NOT web-server, app-server)
-- "Ubuntu servers" → ubuntu-server-1, ubuntu-server-2 (NOT web-server, database)
-- "VMs for testing" → test-vm-1, test-vm-2 (NOT app-server, web-server)
-- "Load balancer and web servers" → load-balancer-1, web-server-1 (roles explicitly mentioned)
-- When in doubt, use generic names: instance-1, instance-2, server-1, server-2
-
-NETWORKING RULES - CRITICAL SUBNET GUIDELINES:
-- DO NOT add subnets unless user explicitly requests them OR architecture requires them
-- SIMPLE RULE: For basic VM deployments (1-3 VMs), DO NOT create subnets - let cloud providers use default networking
-- CREATE SUBNETS ONLY WHEN:
-  * User explicitly mentions "subnet", "network isolation", "separate networks"
-  * Architecture is explicitly multi-tier (web servers AND database servers AND load balancers)
-  * User requests "three-tier architecture" or "n-tier architecture"
-- DO NOT CREATE SUBNETS FOR:
-  * Simple VM requests: "3 RHEL servers", "Ubuntu VMs", "development servers"
-  * Single-purpose deployments: "web servers", "database servers", "test machines"
-  * General requests without network complexity mentioned
-
-NETWORK ISOLATION RULES:
-- When user explicitly requests "isolated", "separate", "own network", "dedicated network", or "network isolation", each instance should get unique configuration
-- Use descriptive instance names that reflect isolation: "monitoring-isolated", "api-server-dedicated", "worker-separate"
-- Network isolation keywords: isolated, separate, own network, new private network, dedicated, independent
-- Example: "add monitoring server on its own isolated network" → create instance with name like "monitoring-isolated-1"
-
-Example for simple VMs (NO SUBNETS):
+Example for "AWS web servers with Azure database and GCP API server":
 ```yaml
 guid: demo1
 yamlforge:
   cloud_workspace:
-    name: simple-vms
-  instances:
-    - name: rhel-server-1
-      provider: aws
-      flavor: medium
-      image: RHEL9-latest
-      location: us-east
-    - name: rhel-server-2
-      provider: aws
-      flavor: medium
-      image: RHEL9-latest
-      location: us-east
-    - name: rhel-server-3
-      provider: aws
-      flavor: medium
-      image: RHEL9-latest
-      location: us-east
-  # NOTE: NO subnets section - use cloud provider defaults
-```
-
-Example for explicit multi-tier (when user requests web + database):
-```yaml
-guid: demo1
-yamlforge:
-  cloud_workspace:
-    name: web-application
+    name: multi-cloud-app
   instances:
     - name: web-server-1
       provider: aws
@@ -809,14 +1056,18 @@ yamlforge:
       image: RHEL9-latest
       location: us-east
     - name: database-1
-      provider: aws
+      provider: azure
       flavor: large
       image: RHEL9-latest
       location: us-east
+    - name: api-server-1
+      provider: gcp
+      flavor: medium
+      image: RHEL9-latest
       location: us-east
   security_groups:
-    - name: web-access
-      description: HTTP and SSH access
+    - name: multi-cloud-access
+      description: Inter-cloud connectivity
       rules:
         - direction: ingress
           protocol: tcp
@@ -824,31 +1075,46 @@ yamlforge:
           source: 0.0.0.0/0
         - direction: ingress
           protocol: tcp
+          port_range: "443"
+          source: 0.0.0.0/0
+        - direction: ingress
+          protocol: tcp
           port_range: "22"
           source: 0.0.0.0/0
 ```
 
-Generate YAML only, no explanation. Ensure it validates against the schema:"""
+RULES:
+- Extract exact provider names from user request
+- Use role-based naming when roles are specified
+- Use universal locations (us-east) not provider-specific ones
+- Add security groups for multi-cloud scenarios
+- Map cost terms: "cheap"/"budget" → provider: cheapest, flavor: small
+- NEVER use "cheap" as a flavor - use valid flavors: nano, small, medium, large, xlarge
+- Return YAML only, no explanation
 
+Generate YAML:"""
+
+        return self._call_ai_for_generation(prompt)
+    
+    def _call_ai_for_generation(self, prompt: str) -> str:
+        """Call AI with the given prompt and return YAML"""
+        
         max_attempts = 3
         for attempt in range(max_attempts):
             try:
                 if self.client_type == "direct":
                     response = self.anthropic.messages.create(
                         model="claude-3-haiku-20240307",
-                        max_tokens=2000,
+                        max_tokens=1000,
                         temperature=0.1,
                         messages=[{"role": "user", "content": prompt}]
                     )
                     yaml_content = response.content[0].text.strip()
-                elif self.client_type == "vertex":
+                elif self.client_type in ["vertex", "langchain"]:
                     response = self.llm.invoke(prompt)
-                    yaml_content = response.content.strip()
-                elif self.client_type == "langchain":
-                    response = self.llm.invoke(prompt)
-                    yaml_content = response.content.strip()
+                    yaml_content = response.content.strip() if hasattr(response, 'content') else str(response).strip()
                 else:
-                    raise Exception("No valid client type")
+                    return None
                 
                 # Extract YAML from code blocks if present
                 if "```yaml" in yaml_content:
@@ -857,6 +1123,7 @@ Generate YAML only, no explanation. Ensure it validates against the schema:"""
                     yaml_content = yaml_content.split("```")[1].split("```")[0].strip()
                 
                 # Validate and fix the YAML against schema
+                from .validation import validate_and_fix_yaml
                 is_valid, fixed_yaml, messages = validate_and_fix_yaml(yaml_content, auto_fix=True)
                 
                 if is_valid:
@@ -898,6 +1165,8 @@ ADDING RESOURCES:
 - If user says "add a database" → Add ONLY a database instance, nothing else
 - If user says "add monitoring" → Add ONLY a monitoring instance, nothing else
 - If user says "add a bastion" → Add ONLY a bastion instance, nothing else
+- If user says "add storage", "add bucket", "add s3 bucket" → Add ONLY storage bucket to yamlforge.storage section
+- Storage bucket rules: Use descriptive names like "backup-storage", "data-lake", same provider/location as instances unless specified
 - DO NOT add extra infrastructure that wasn't specifically requested
 
 REMOVAL REQUIREMENTS - EXACT INSTANCE NAMES ONLY:
@@ -1155,3 +1424,55 @@ OUTPUT FORMAT:
             names.append(f'instance-{len(names)+1}')
         
         return names[:count]
+    
+    def _check_for_provider_defaults(self, text: str, yaml_config: str, use_cheapest: bool) -> List[str]:
+        """Check if any providers were defaulted and return informative messages"""
+        messages = []
+        
+        try:
+            import yaml
+            config = yaml.safe_load(yaml_config)
+            
+            if not config or 'yamlforge' not in config:
+                return messages
+            
+            yamlforge_config = config['yamlforge']
+            text_lower = text.lower()
+            
+            # Check storage buckets for cheapest provider defaults
+            if 'storage' in yamlforge_config:
+                storage_buckets = yamlforge_config['storage']
+                for bucket in storage_buckets:
+                    if bucket.get('provider') == 'cheapest':
+                        # Check if user mentioned any specific provider
+                        mentioned_providers = []
+                        provider_keywords = {
+                            'aws': ['aws', 'amazon', 's3'],
+                            'azure': ['azure', 'microsoft', 'blob'],
+                            'gcp': ['gcp', 'google', 'cloud storage'],
+                            'oracle': ['oracle', 'oci'],
+                            'ibm': ['ibm'],
+                            'alibaba': ['alibaba']
+                        }
+                        
+                        for provider, keywords in provider_keywords.items():
+                            if any(keyword in text_lower for keyword in keywords):
+                                mentioned_providers.append(provider)
+                        
+                        # If no specific provider mentioned and not using use_cheapest flag
+                        if not mentioned_providers and not use_cheapest:
+                            bucket_name = bucket.get('name', 'storage bucket')
+                            messages.append(f"ℹ️  No cloud provider specified for '{bucket_name}' - defaulting to cheapest available provider for cost optimization")
+                        
+            # Check instances for cheapest provider defaults (similar logic can be added if needed)
+            if 'instances' in yamlforge_config and use_cheapest:
+                instances = yamlforge_config['instances']
+                cheapest_instances = [inst for inst in instances if inst.get('provider') == 'cheapest']
+                if cheapest_instances and len(cheapest_instances) > 0:
+                    messages.append(f"ℹ️  Using cheapest providers for cost optimization ({len(cheapest_instances)} instance(s))")
+                        
+        except Exception as e:
+            # Don't fail the generation if message checking fails
+            pass
+            
+        return messages

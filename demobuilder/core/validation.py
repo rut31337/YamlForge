@@ -38,7 +38,7 @@ class YamlForgeValidator:
             
             # Additional custom validation for YamlForge requirements
             if not self._validate_yamlforge_requirements(config):
-                errors.append("Configuration Error: Either 'instances' or 'openshift_clusters' (or both) are required in YamlForge configurations.")
+                errors.append("Configuration Error: At least one of 'instances', 'openshift_clusters', or 'storage' is required in YamlForge configurations.")
                 errors.append("")
                 errors.append("Add at least one of these to your YAML file:")
                 errors.append("")
@@ -63,6 +63,17 @@ class YamlForgeValidator:
                 errors.append("      type: \"rosa-classic\"")
                 errors.append("      region: \"us-east-1\"")
                 errors.append("      size: \"small\"")
+                errors.append("")
+                errors.append("For object storage:")
+                errors.append("yamlforge:")
+                errors.append("  cloud_workspace:")
+                errors.append("    name: \"your-workspace-name\"")
+                errors.append("  storage:")
+                errors.append("    - name: \"my-storage-bucket\"")
+                errors.append("      provider: \"aws\"")
+                errors.append("      location: \"us-east\"")
+                errors.append("      public: false")
+                errors.append("      encryption: true")
                 return False, errors
             
             return True, []
@@ -77,17 +88,18 @@ class YamlForgeValidator:
             return False, errors
     
     def _validate_yamlforge_requirements(self, config: Dict[str, Any]) -> bool:
-        """Check that yamlforge has either instances or openshift_clusters"""
+        """Check that yamlforge has either instances, openshift_clusters, or storage"""
         if 'yamlforge' not in config:
             return False
         
         yamlforge_config = config['yamlforge']
         
-        # Must have either instances or openshift_clusters (or both)
+        # Must have at least one of: instances, openshift_clusters, or storage
         has_instances = 'instances' in yamlforge_config and yamlforge_config['instances']
         has_openshift = 'openshift_clusters' in yamlforge_config and yamlforge_config['openshift_clusters']
+        has_storage = 'storage' in yamlforge_config and yamlforge_config['storage']
         
-        return has_instances or has_openshift
+        return has_instances or has_openshift or has_storage
     
     def validate_yaml_string(self, yaml_string: str) -> Tuple[bool, List[str], Optional[Dict[str, Any]]]:
         try:

@@ -1,0 +1,137 @@
+# Object Storage Cost Mappings
+# Current pricing as of January 2025 (USD per GB per month for standard storage)
+# Costs are approximate and may vary by region, usage patterns, and current pricing
+
+storage_costs:
+  aws:
+    # S3 Standard pricing (us-east-1)
+    standard_storage_gb_month: 0.023
+    # PUT/POST requests (per 1,000)
+    put_requests_per_1000: 0.0005
+    # GET requests (per 1,000) 
+    get_requests_per_1000: 0.0004
+    # Data transfer out (per GB)
+    data_transfer_out_gb: 0.09
+    # Average monthly cost for a typical small bucket (10GB, basic usage)
+    typical_monthly_cost: 0.50
+    
+  azure:
+    # Blob Storage Standard (LRS) pricing
+    standard_storage_gb_month: 0.018
+    # Write operations (per 10,000)
+    write_operations_per_10000: 0.055
+    # Read operations (per 10,000)
+    read_operations_per_10000: 0.0044
+    # Data transfer out (per GB)
+    data_transfer_out_gb: 0.087
+    # Average monthly cost for a typical small bucket (10GB, basic usage)
+    typical_monthly_cost: 0.42
+    
+  gcp:
+    # Cloud Storage Standard pricing
+    standard_storage_gb_month: 0.020
+    # Class A operations (per 1,000) - writes
+    class_a_operations_per_1000: 0.005
+    # Class B operations (per 1,000) - reads  
+    class_b_operations_per_1000: 0.0005
+    # Network egress (per GB)
+    network_egress_gb: 0.12
+    # Average monthly cost for a typical small bucket (10GB, basic usage)
+    typical_monthly_cost: 0.45
+    
+  oci:
+    # Object Storage Standard pricing
+    standard_storage_gb_month: 0.0255
+    # PUT/POST requests (per 1,000)
+    put_requests_per_1000: 0.0001
+    # GET requests (per 10,000)
+    get_requests_per_10000: 0.0004
+    # Data transfer out (per GB)
+    data_transfer_out_gb: 0.0085
+    # Average monthly cost for a typical small bucket (10GB, basic usage)
+    typical_monthly_cost: 0.40
+    
+  alibaba:
+    # Object Storage Service (OSS) Standard pricing
+    standard_storage_gb_month: 0.02
+    # PUT/POST requests (per 1,000)
+    put_requests_per_1000: 0.0001
+    # GET requests (per 1,000)
+    get_requests_per_1000: 0.0001
+    # Data transfer out (per GB)
+    data_transfer_out_gb: 0.12
+    # Average monthly cost for a typical small bucket (10GB, basic usage)
+    typical_monthly_cost: 0.38
+    
+  ibm_vpc:
+    # IBM Cloud Object Storage Standard pricing
+    standard_storage_gb_month: 0.022
+    # PUT/POST requests (per 1,000)
+    put_requests_per_1000: 0.0003
+    # GET requests (per 1,000)
+    get_requests_per_1000: 0.0002
+    # Data transfer out (per GB)
+    data_transfer_out_gb: 0.09
+    # Average monthly cost for a typical small bucket (10GB, basic usage)
+    typical_monthly_cost: 0.45
+    
+  ibm_classic:
+    # IBM Cloud Object Storage Standard pricing (same as VPC)
+    standard_storage_gb_month: 0.022
+    put_requests_per_1000: 0.0003
+    get_requests_per_1000: 0.0002
+    data_transfer_out_gb: 0.09
+    typical_monthly_cost: 0.45
+
+# Regional cost multipliers (some regions are more expensive)
+regional_multipliers:
+  # US regions (baseline)
+  us-east-1: 1.0
+  us-east-2: 1.0
+  us-west-1: 1.0
+  us-west-2: 1.0
+  eastus: 1.0
+  westus: 1.0
+  westus2: 1.0
+  us-central1: 1.0
+  us-east1: 1.0
+  us-west1: 1.0
+  
+  # EU regions (slightly higher)
+  eu-west-1: 1.1
+  eu-west-2: 1.1
+  eu-central-1: 1.1
+  northeurope: 1.1
+  westeurope: 1.1
+  europe-west1: 1.1
+  europe-west2: 1.1
+  
+  # Asia Pacific regions (varies)
+  ap-southeast-1: 1.15
+  ap-southeast-2: 1.2
+  ap-northeast-1: 1.1
+  eastasia: 1.15
+  southeastasia: 1.15
+  asia-southeast1: 1.15
+  asia-northeast1: 1.1
+  
+  # Default multiplier for unknown regions
+  default: 1.0
+
+# Storage type multipliers
+storage_type_multipliers:
+  standard: 1.0
+  # Infrequent access storage (cheaper for storage, more expensive for operations)
+  infrequent_access: 0.6
+  # Archive storage (much cheaper for storage, expensive for retrieval)
+  archive: 0.2
+  # Intelligent tiering
+  intelligent_tiering: 1.1
+
+# Cost calculation notes:
+# - Costs are for standard storage tier
+# - Includes base storage cost plus typical operation costs
+# - Does not include data transfer costs (varies greatly by usage)
+# - Versioning may increase costs 20-50% depending on change frequency
+# - Encryption typically has no additional cost
+# - Public buckets may have higher egress costs

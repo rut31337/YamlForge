@@ -1,0 +1,88 @@
+# Object Storage Example - Multi-Cloud Buckets
+# Demonstrates object storage deployment across multiple cloud providers
+# with unified configuration and cost optimization
+
+guid: "stor1"
+
+yamlforge:
+  cloud_workspace:
+    name: "storage-demo-{guid}"
+    description: "Multi-cloud object storage demonstration"
+  
+  # Object storage buckets across multiple providers
+  storage:
+    # AWS S3 Bucket - Production data storage
+    - name: "production-data-{guid}"
+      provider: "aws"
+      region: "us-east-1"
+      public: false                    # Private bucket
+      versioning: true                 # Enable object versioning
+      encryption: true                 # Server-side encryption (default)
+      tags:
+        Environment: "production"
+        Purpose: "application-data"
+        Team: "engineering"
+    
+    # Azure Blob Storage - Backup storage
+    - name: "backup-storage-{guid}"
+      provider: "azure"
+      location: "us-east"              # Universal location mapping
+      public: false
+      versioning: false                # No versioning for backups
+      encryption: true
+      tags:
+        Environment: "production"
+        Purpose: "backup"
+        Team: "operations"
+    
+    # GCP Cloud Storage - Archive storage
+    - name: "archive-bucket-{guid}"
+      provider: "gcp"
+      region: "us-central1"
+      public: false
+      versioning: true                 # Enable versioning for archives
+      tags:
+        Environment: "production"
+        Purpose: "long-term-archive"
+        Compliance: "sox-compliant"
+    
+    # Cost-optimized storage - Let YamlForge choose cheapest
+    - name: "temp-storage-{guid}"
+      provider: "cheapest"             # Auto-select cheapest provider
+      location: "us-east"
+      public: false
+      versioning: false                # Temporary data doesn't need versioning
+      encryption: true
+      tags:
+        Environment: "development"
+        Purpose: "temporary-processing"
+    
+    # Public storage for static assets
+    - name: "public-assets-{guid}"
+      provider: "aws"
+      region: "us-east-1"
+      public: true                     # Public read access
+      versioning: false
+      encryption: true
+      tags:
+        Environment: "production"
+        Purpose: "static-website-assets"
+        CDN: "cloudfront-enabled"
+
+# Deploy with:
+# python yamlforge.py examples/storage-example.yaml -d output/ --auto-deploy
+
+# This configuration creates:
+# 1. AWS S3 bucket for production data with versioning
+# 2. Azure Storage Account for backups
+# 3. GCP Cloud Storage bucket for archives
+# 4. Cost-optimized storage on cheapest provider
+# 5. Public S3 bucket for static assets
+
+# Each provider generates native resources:
+# - AWS: S3 buckets with ACLs, versioning, encryption
+# - Azure: Storage accounts with containers and access policies
+# - GCP: Cloud Storage buckets with IAM and versioning
+# - OCI: Object Storage buckets with access controls
+# - IBM: Cloud Object Storage instances and buckets
+# - Alibaba: OSS buckets with ACL configurations

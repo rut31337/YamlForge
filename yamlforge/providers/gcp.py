@@ -1342,3 +1342,84 @@ output "project_info" {{
             if instance_name:
                 self.converter.print_instance_output(instance_name, 'gcp', f"Selected zone '{available_zones[0]}' for region '{region}' (API unavailable)")
             return available_zones[0]
+
+    def generate_storage_bucket(self, bucket, yaml_data):
+        """Generate GCP Cloud Storage bucket configuration."""
+        bucket_name = bucket.get('name', 'my-bucket')
+        region = self.converter.resolve_bucket_region(bucket, 'gcp')
+        guid = self.converter.get_validated_guid(yaml_data)
+
+        # Replace GUID placeholders
+        final_bucket_name = self.converter.replace_guid_placeholders(bucket_name)
+        clean_bucket_name, _ = self.converter.clean_name(final_bucket_name)
+        
+        # Bucket configuration
+        public = bucket.get('public', False)
+        versioning = bucket.get('versioning', False)
+        encryption = bucket.get('encryption', True)
+        tags = bucket.get('tags', {})
+
+        terraform_config = f'''
+# GCP Cloud Storage Bucket: {final_bucket_name}
+resource "google_storage_bucket" "{clean_bucket_name}_{guid}" {{
+  name     = "{final_bucket_name}"
+  location = "{region}"
+
+  # Public access configuration
+  public_access_prevention = "{"inherited" if public else "enforced"}"
+  
+  # Encryption configuration
+  encryption {{
+    default_kms_key_name = null
+  }}
+
+  labels = {{
+    name = "{final_bucket_name.replace('-', '_').replace('.', '_')}"
+    managed_by = "yamlforge"
+    guid = "{guid}"'''
+
+        # Add custom labels (GCP tags are called labels)
+        for key, value in tags.items():
+            # GCP labels must be lowercase and use underscores
+            clean_key = key.lower().replace('-', '_').replace(' ', '_')
+            clean_value = value.lower().replace('-', '_').replace(' ', '_')
+            terraform_config += f'''
+    {clean_key} = "{clean_value}"'''
+
+        terraform_config += '''
+  }
+}
+
+'''
+
+        # Versioning configuration
+        if versioning:
+            terraform_config += f'''
+resource "google_storage_bucket" "{clean_bucket_name}_versioning_{guid}" {{
+  name     = "{final_bucket_name}"
+  location = "{region}"
+  
+  versioning {{
+    enabled = true
+  }}
+  
+  depends_on = [google_storage_bucket.{clean_bucket_name}_{guid}]
+}}
+
+'''
+
+        # Public access configuration
+        if public:
+            terraform_config += f'''
+resource "google_storage_bucket_iam_binding" "{clean_bucket_name}_public_{guid}" {{
+  bucket = google_storage_bucket.{clean_bucket_name}_{guid}.name
+  role   = "roles/storage.objectViewer"
+  
+  members = [
+    "allUsers",
+  ]
+}}
+
+'''
+
+        return terraform_config

@@ -362,6 +362,49 @@ resource "alicloud_security_group_rule" "{regional_sg_name}_rule_{i+1}_{self.con
 
         return security_group_config
 
+    def generate_oss_bucket(self, bucket, yaml_data):
+        """Generate Alibaba Cloud OSS bucket configuration."""
+        bucket_name = bucket.get('name', 'my-bucket')
+        region = self.converter.resolve_bucket_region(bucket, 'alibaba')
+        guid = self.converter.get_validated_guid(yaml_data)
+
+        # Replace GUID placeholders
+        final_bucket_name = self.converter.replace_guid_placeholders(bucket_name)
+        clean_bucket_name, _ = self.converter.clean_name(final_bucket_name)
+        
+        # Bucket configuration
+        public = bucket.get('public', False)
+        versioning = bucket.get('versioning', False)
+        tags = bucket.get('tags', {})
+
+        terraform_config = f'''
+# Alibaba Cloud OSS Bucket: {final_bucket_name}
+resource "alicloud_oss_bucket" "{clean_bucket_name}_{guid}" {{
+  bucket = "{final_bucket_name}"
+  acl    = "{"public-read" if public else "private"}"
+
+  versioning {{
+    status = "{"Enabled" if versioning else "Suspended"}"
+  }}
+
+  tags = {{
+    Name = "{final_bucket_name}"
+    ManagedBy = "YamlForge"
+    GUID = "{guid}"'''
+
+        # Add custom tags
+        for key, value in tags.items():
+            terraform_config += f'''
+    {key} = "{value}"'''
+
+        terraform_config += '''
+  }
+}
+
+'''
+
+        return terraform_config
+
 
 
  

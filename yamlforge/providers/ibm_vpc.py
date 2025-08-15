@@ -730,3 +730,59 @@ echo "User data script completed successfully"
 '''.format(ssh_username=ssh_username, public_key=public_key)
         
         return user_data_script
+
+    def generate_cos_bucket(self, bucket, yaml_data):
+        """Generate IBM Cloud Object Storage bucket configuration."""
+        bucket_name = bucket.get('name', 'my-bucket')
+        region = self.converter.resolve_bucket_region(bucket, 'ibm_vpc')
+        guid = self.converter.get_validated_guid(yaml_data)
+
+        # Replace GUID placeholders
+        final_bucket_name = self.converter.replace_guid_placeholders(bucket_name)
+        clean_bucket_name, _ = self.converter.clean_name(final_bucket_name)
+        
+        # Bucket configuration
+        public = bucket.get('public', False)
+        versioning = bucket.get('versioning', False)
+        tags = bucket.get('tags', {})
+
+        terraform_config = f'''
+# IBM Cloud Object Storage Instance (if not already exists)
+resource "ibm_resource_instance" "cos_instance_{clean_bucket_name}_{guid}" {{
+  name              = "cos-{final_bucket_name}"
+  service           = "cloud-object-storage"
+  plan              = "standard"
+  location          = "global"
+  resource_group_id = data.ibm_resource_group.default.id
+
+  tags = [
+    "Name:{final_bucket_name}",
+    "ManagedBy:YamlForge",
+    "GUID:{guid}"'''
+
+        # Add custom tags
+        for key, value in tags.items():
+            terraform_config += f''',
+    "{key}:{value}"'''
+
+        terraform_config += f'''
+  ]
+}}
+
+# IBM Cloud Object Storage Bucket: {final_bucket_name}
+resource "ibm_cos_bucket" "{clean_bucket_name}_{guid}" {{
+  bucket_name          = "{final_bucket_name}"
+  resource_instance_id = ibm_resource_instance.cos_instance_{clean_bucket_name}_{guid}.id
+  region_location      = "{region}"
+  storage_class        = "standard"
+  
+  # Versioning is not directly supported in IBM COS Terraform provider
+  # Enable through IBM Cloud CLI or console if needed
+}}
+
+'''
+
+        # Note: IBM COS doesn't have direct public/private access control like S3
+        # Access is controlled through IAM policies
+
+        return terraform_config

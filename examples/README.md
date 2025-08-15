@@ -7,6 +7,7 @@ This directory contains examples demonstrating how to use YamlForge for multi-cl
 ### Basic Examples
 - **[simple.yaml](simple.yaml)** - Basic single instance deployment
 - **[multi-cloud.yaml](multi-cloud.yaml)** - Multi-cloud deployment demonstration
+- **[storage-example.yaml](storage-example.yaml)** - Object storage buckets across multiple clouds
 - **[3tier.yaml](3tier.yaml)** - Classic 3-tier architecture
 - **[gpu-example.yaml](gpu-example.yaml)** - GPU workloads and AI/ML deployments
 - **[security-groups.yaml](security-groups.yaml)** - Security group configuration examples
@@ -80,6 +81,7 @@ yamlforge examples/advanced/enterprise.yaml
 
 ### Core Features
 - **Multi-cloud deployment** - Deploy across AWS, Azure, GCP, IBM Cloud
+- **Object storage** - Native buckets across all providers (S3, Blob Storage, Cloud Storage, etc.)
 - **Cost optimization** - Use `cheapest` provider for automatic cost optimization
 - **Security groups** - Define network security rules
 - **Resource tagging** - Organize resources with tags

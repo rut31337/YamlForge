@@ -230,3 +230,40 @@ yamlforge:
       image: "RHEL9-latest"
       region: "westus2"  # Creates separate resource group automatically
 ```
+
+## Object Storage Quick Start
+
+Deploy object storage buckets across multiple clouds:
+
+```yaml
+guid: "stor1"
+
+yamlforge:
+  cloud_workspace:
+    name: "storage-quickstart-{guid}"
+    description: "Multi-cloud object storage"
+  
+  storage:
+    - name: "data-bucket-{guid}"
+      provider: "aws"
+      region: "us-east-1"
+      public: false
+      versioning: true
+      encryption: true
+      tags:
+        Environment: "demo"
+    
+    - name: "backup-bucket-{guid}"
+      provider: "cheapest"  # Auto-select cheapest provider
+      location: "us-east"
+      public: false
+      versioning: false
+      encryption: true
+```
+
+**Deploy storage:**
+```bash
+python yamlforge.py storage-config.yaml -d output/ --auto-deploy
+```
+
+See [Storage Documentation](storage.md) for detailed configuration options.

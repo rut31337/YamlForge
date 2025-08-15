@@ -475,5 +475,55 @@ resource "oci_core_network_security_group_security_rule" "{regional_sg_name}_rul
 
         return security_group_config
 
+    def generate_object_storage(self, bucket, yaml_data):
+        """Generate OCI Object Storage bucket configuration."""
+        bucket_name = bucket.get('name', 'my-bucket')
+        region = self.converter.resolve_bucket_region(bucket, 'oci')
+        guid = self.converter.get_validated_guid(yaml_data)
+
+        # Replace GUID placeholders
+        final_bucket_name = self.converter.replace_guid_placeholders(bucket_name)
+        clean_bucket_name, _ = self.converter.clean_name(final_bucket_name)
+        
+        # Bucket configuration
+        public = bucket.get('public', False)
+        versioning = bucket.get('versioning', False)
+        tags = bucket.get('tags', {})
+
+        terraform_config = f'''
+# OCI Object Storage Bucket: {final_bucket_name}
+resource "oci_objectstorage_bucket" "{clean_bucket_name}_{guid}" {{
+  compartment_id = var.oci_compartment_id
+  name           = "{final_bucket_name}"
+  namespace      = data.oci_objectstorage_namespace.user_namespace.namespace
+
+  access_type = "{"ObjectRead" if public else "NoPublicAccess"}"
+  
+  versioning = "{"Enabled" if versioning else "Disabled"}"
+
+  defined_tags = {{}}
+  freeform_tags = {{
+    "Name" = "{final_bucket_name}"
+    "ManagedBy" = "YamlForge"
+    "GUID" = "{guid}"'''
+
+        # Add custom tags
+        for key, value in tags.items():
+            terraform_config += f'''
+    "{key}" = "{value}"'''
+
+        terraform_config += '''
+  }
+}
+
+# Data source for namespace
+data "oci_objectstorage_namespace" "user_namespace" {
+  compartment_id = var.oci_compartment_id
+}
+
+'''
+
+        return terraform_config
+
     # TODO: Implement OCI tag formatting if needed for future features
  
