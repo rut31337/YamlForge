@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yamlforge-infra"
-version = "1.0.0b4"
+version = "1.0.0b5"
 description = "Multi-Cloud Infrastructure as Code and PaaS Management Suite (BETA - Feature Complete)"
 authors = [{name = "Patrick T. Rutledge III"}]
 license = "Apache-2.0"

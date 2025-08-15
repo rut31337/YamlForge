@@ -10,6 +10,7 @@ import base64
 import urllib.parse
 from typing import Dict, Any, Optional, List
 import streamlit as st
+from ..version import __version__
 
 
 def capture_shareable_state() -> Dict[str, Any]:
@@ -20,7 +21,7 @@ def capture_shareable_state() -> Dict[str, Any]:
         Dict containing all shareable state information
     """
     state = {
-        'version': '1.0',  # For future compatibility
+        'version': __version__,  # For future compatibility
         'conversation_history': getattr(st.session_state, 'conversation_history', []),
         'current_yaml': getattr(st.session_state, 'current_yaml', ''),
         'workflow_stage': getattr(st.session_state, 'workflow_stage', 'requirements'),
@@ -202,7 +203,7 @@ def restore_state_from_url_params() -> bool:
             return False
         
         # Validate state version for compatibility
-        if state.get('version') != '1.0':
+        if state.get('version') != __version__:
             st.warning("This shared link uses an incompatible version. Please generate a new share link.")
             return False
         

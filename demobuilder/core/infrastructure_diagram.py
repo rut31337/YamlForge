@@ -1,7 +1,7 @@
 """
-Infrastructure diagram visualization using Mermaid for DemoBuilder.
+Infrastructure diagram visualization using Graphviz for DemoBuilder.
 
-This module creates Mermaid infrastructure diagrams from YamlForge analysis results.
+This module creates Graphviz infrastructure diagrams from YamlForge analysis results.
 """
 
 from typing import Dict, List, Tuple, Any
@@ -51,7 +51,7 @@ def extract_diagram_data(analysis_result: Dict, yaml_content: str = None, user_r
                     provider = instance.get('provider', 'unknown')
                     diagram_data['providers'].add(provider)
                     
-                    # Create safe ID for Mermaid
+                    # Create safe ID for Graphviz
                     instance_name = instance.get('name', 'instance')
                     safe_id = f"{provider}_{instance_name.replace('-', '_').replace('.', '_')}"
                     
@@ -227,98 +227,204 @@ def _generate_connections(diagram_data: Dict) -> List[Dict]:
                         'type': 'network'
                     })
     
-    # Connect instances to storage (same provider)
-    for instance in instances:
-        for storage_item in storage:
-            if instance['provider'] == storage_item['provider']:
-                connections.append({
-                    'from': instance['id'],
-                    'to': storage_item['id'],
-                    'type': 'storage'
-                })
+    # Storage is independent - no connections needed
+    # Storage buckets are provider-level services that don't connect to instances
     
-    # Connect instances across providers (multi-cloud connectivity)
-    providers = {}
-    for instance in instances:
-        provider = instance['provider']
-        if provider not in providers:
-            providers[provider] = []
-        providers[provider].append(instance)
+    # Connect instances across providers (multi-cloud connectivity) with realistic architecture
+    # Group instances by purpose and provider
+    web_servers = [inst for inst in instances if inst.get('purpose') in ['web', 'loadbalancer']]
+    app_servers = [inst for inst in instances if inst.get('purpose') in ['application', 'api', 'app']]
+    databases = [inst for inst in instances if inst.get('purpose') == 'database']
     
-    provider_list = list(providers.keys())
-    for i, provider1 in enumerate(provider_list):
-        for j, provider2 in enumerate(provider_list[i+1:], i+1):
-            # Connect one instance from each provider
-            if providers[provider1] and providers[provider2]:
-                inst1 = providers[provider1][0]
-                inst2 = providers[provider2][0]
+    # Web servers connect to app servers
+    for web in web_servers:
+        for app in app_servers:
+            if web['provider'] != app['provider']:  # Only inter-cloud connections
                 connections.append({
-                    'from': inst1['id'],
-                    'to': inst2['id'],
+                    'from': web['id'],
+                    'to': app['id'],
                     'type': 'inter-cloud'
                 })
+    
+    # App servers connect to databases
+    for app in app_servers:
+        for db in databases:
+            if app['provider'] != db['provider']:  # Only inter-cloud connections
+                connections.append({
+                    'from': app['id'],
+                    'to': db['id'],
+                    'type': 'inter-cloud'
+                })
+    
+    # Fallback: if no specific purposes found, use original logic
+    if not web_servers and not app_servers and not databases:
+        providers = {}
+        for instance in instances:
+            provider = instance['provider']
+            if provider not in providers:
+                providers[provider] = []
+            providers[provider].append(instance)
+        
+        provider_list = list(providers.keys())
+        for i, provider1 in enumerate(provider_list):
+            for j, provider2 in enumerate(provider_list[i+1:], i+1):
+                if providers[provider1] and providers[provider2]:
+                    inst1 = providers[provider1][0]
+                    inst2 = providers[provider2][0]
+                    connections.append({
+                        'from': inst1['id'],
+                        'to': inst2['id'],
+                        'type': 'inter-cloud'
+                    })
     
     return connections
 
 
-def create_mermaid_diagram(diagram_data: Dict, mini: bool = False) -> str:
-    """Create a Mermaid diagram using AI-driven generation"""
+def create_graphviz_diagram(diagram_data: Dict, mini: bool = False) -> str:
+    """Create a Graphviz DOT diagram using AI-driven generation
+    
+    This function includes enhanced error handling to distinguish between:
+    - Template formatting errors (f-string issues)
+    - AI service availability issues  
+    - DOT syntax validation errors
+    - Empty/invalid responses
+    
+    Returns appropriate error diagrams with specific messages for each failure type.
+    """
     
     if not diagram_data or not diagram_data.get('instances'):
         return """
-graph TD
-    A[No Infrastructure Data]
-    A --> B[Generate YAML First]
-    style A fill:#f9f9f9,stroke:#ccc
-    style B fill:#fff2cc,stroke:#d6b656
+digraph empty {
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.3;
+    ranksep=0.6;
+    overlap=false;
+    
+    node [shape=box, style=rounded, margin=0.2];
+    edge [color=gray, penwidth=1.5];
+    
+    nodata [label="No Infrastructure Data\\nGenerate YAML First", style=filled, fillcolor="#f9f9f9"];
+}
 """
     
     # AI-only diagram generation
     try:
-        ai_diagram = _generate_ai_mermaid_diagram(diagram_data, mini)
+        ai_diagram = _generate_ai_graphviz_diagram(diagram_data, mini)
         if ai_diagram and len(ai_diagram.strip()) > 50:
-            # Strict validation for proper Mermaid syntax
-            if ((ai_diagram.startswith('graph') or ai_diagram.startswith('flowchart')) and 
-                'subgraph' in ai_diagram and 
-                ai_diagram.count('subgraph') == ai_diagram.count('end')):
+            # Strict validation for proper DOT syntax
+            if (ai_diagram.strip().startswith('digraph') and 
+                ai_diagram.count('{') == ai_diagram.count('}')):
                 # Add generation source indicator
                 ai_diagram = _add_generation_source_indicator(ai_diagram, "AI Generated")
                 return ai_diagram
             else:
                 print("AI diagram has syntax issues")
-                return _create_ai_unavailable_diagram()
+                return _create_syntax_error_diagram()
+        else:
+            print("AI diagram generation returned empty or short result")
+            return _create_ai_unavailable_diagram()
+    except ValueError as e:
+        if "Invalid format specifier" in str(e) or "unmatched" in str(e).lower():
+            print(f"Prompt template formatting error: {e}")
+            return _create_template_error_diagram()
+        else:
+            print(f"AI diagram generation value error: {e}")
+            return _create_ai_unavailable_diagram()
     except Exception as e:
-        print(f"AI diagram generation failed: {e}")
+        error_msg = str(e).lower()
+        if "ai client" in error_msg or "anthropic" in error_msg or "api" in error_msg:
+            print(f"AI service error: {e}")
+            return _create_ai_unavailable_diagram()
+        else:
+            print(f"Unknown diagram generation error: {e}")
+            return _create_template_error_diagram()
     
-    # AI unavailable - return error diagram
+    # Fallback - should not reach here
     return _create_ai_unavailable_diagram()
 
 
 def _create_ai_unavailable_diagram() -> str:
     """Create an error diagram when AI is unavailable"""
     return """
-graph TD
-    A[❌ Diagram Generation Unavailable]
-    A --> B[AI service is not available]
-    A --> C[Please check your API configuration]
-    style A fill:#ffebee,stroke:#f44336,color:#000
-    style B fill:#fff3e0,stroke:#ff9800,color:#000
-    style C fill:#fff3e0,stroke:#ff9800,color:#000
+digraph error {
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.3;
+    ranksep=0.6;
+    overlap=false;
+    
+    node [shape=box, style=rounded, margin=0.2];
+    edge [color=gray, penwidth=1.5];
+    
+    error [label="❌ Diagram Generation Unavailable", style=filled, fillcolor="#ffebee"];
+    service [label="AI service is not available", style=filled, fillcolor="#fff3e0"];
+    config [label="Please check your API configuration", style=filled, fillcolor="#fff3e0"];
+    
+    error -> service;
+    error -> config;
+}
 """
 
 
-def _add_generation_source_indicator(mermaid_code: str, source: str) -> str:
+def _create_template_error_diagram() -> str:
+    """Create an error diagram when prompt template has formatting issues"""
+    return """
+digraph template_error {
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.3;
+    ranksep=0.6;
+    overlap=false;
+    
+    node [shape=box, style=rounded, margin=0.2];
+    edge [color=gray, penwidth=1.5];
+    
+    error [label="❌ Prompt Template Error", style=filled, fillcolor="#ffebee"];
+    fstring [label="F-string formatting issue detected", style=filled, fillcolor="#fff3e0"];
+    check [label="Check diagram template for unescaped braces", style=filled, fillcolor="#fff3e0"];
+    
+    error -> fstring;
+    error -> check;
+}
+"""
+
+
+def _create_syntax_error_diagram() -> str:
+    """Create an error diagram when AI generates invalid DOT syntax"""
+    return """
+digraph syntax_error {
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.3;
+    ranksep=0.6;
+    overlap=false;
+    
+    node [shape=box, style=rounded, margin=0.2];
+    edge [color=gray, penwidth=1.5];
+    
+    error [label="❌ Diagram Syntax Error", style=filled, fillcolor="#ffebee"];
+    invalid [label="AI generated invalid DOT code", style=filled, fillcolor="#fff3e0"];
+    retry [label="Please try regenerating the diagram", style=filled, fillcolor="#fff3e0"];
+    
+    error -> invalid;
+    error -> retry;
+}
+"""
+
+
+def _add_generation_source_indicator(dot_code: str, source: str) -> str:
     """Add a small text indicator showing whether diagram was AI generated or fallback"""
-    if not mermaid_code:
-        return mermaid_code
+    if not dot_code:
+        return dot_code
     
     # Just add it as a comment - don't add visual elements that affect layout
-    lines = mermaid_code.split('\n')
+    lines = dot_code.split('\n')
     if lines:
-        # Add it as a comment right after the graph declaration
-        indicator = f"    %% Generated by: {source}"
+        # Add it as a comment right after the digraph declaration
+        indicator = f"    // Generated by: {source}"
         
-        # Insert after the graph declaration
+        # Insert after the digraph declaration
         if len(lines) > 1:
             lines.insert(1, indicator)
         else:
@@ -327,8 +433,8 @@ def _add_generation_source_indicator(mermaid_code: str, source: str) -> str:
     return '\n'.join(lines)
 
 
-def _generate_ai_mermaid_diagram(diagram_data: Dict, mini: bool = False) -> str:
-    """Generate Mermaid diagram using AI"""
+def _generate_ai_graphviz_diagram(diagram_data: Dict, mini: bool = False) -> str:
+    """Generate Graphviz DOT diagram using AI"""
     
     # Initialize AI client
     ai_client = _get_ai_client()
@@ -358,16 +464,24 @@ def _generate_ai_mermaid_diagram(diagram_data: Dict, mini: bool = False) -> str:
     }
     
     # Create AI prompt for diagram generation
-    prompt = _create_mermaid_generation_prompt(infrastructure_summary, mini)
+    try:
+        prompt = _create_graphviz_generation_prompt(infrastructure_summary, mini)
+    except ValueError as e:
+        # Re-raise with more context for f-string formatting errors
+        raise ValueError(f"Prompt template formatting error: {e}")
     
     # Get AI response
-    mermaid_code = _call_ai_for_mermaid(ai_client, prompt)
+    try:
+        dot_code = _call_ai_for_graphviz(ai_client, prompt)
+    except Exception as e:
+        # Re-raise with more context for AI API errors
+        raise Exception(f"AI service call failed: {e}")
     
     # Clean and validate the response
-    cleaned_code = _clean_mermaid_response(mermaid_code)
+    cleaned_code = _clean_graphviz_response(dot_code)
     
     # Add proper indentation for better rendering
-    formatted_code = _format_mermaid_indentation(cleaned_code)
+    formatted_code = _format_graphviz_indentation(cleaned_code)
     
     return formatted_code
 
@@ -409,224 +523,293 @@ def _get_ai_client():
     return None
 
 
-def _create_mermaid_generation_prompt(infrastructure_summary: Dict, mini: bool = False) -> str:
-    """Create AI prompt for Mermaid diagram generation with proper syntax documentation"""
+def _create_graphviz_generation_prompt(infrastructure_summary: Dict, mini: bool = False) -> str:
+    """Create AI prompt for Graphviz DOT diagram generation with proper syntax documentation"""
     
     diagram_type = "compact" if mini else "detailed"
     
-    prompt = f"""Create a valid Mermaid graph diagram for this infrastructure showing network topology. Follow the EXACT syntax rules.
+    prompt = f"""Create a valid Graphviz DOT diagram for this infrastructure showing network topology with perfect hierarchy. Follow the EXACT syntax rules.
 
 INFRASTRUCTURE DATA:
 {json.dumps(infrastructure_summary, indent=2)}
 
-MERMAID GRAPH SYNTAX RULES (v10.9.3):
+🔍 DEBUGGING: Look at the "provider" field of each instance above! 
+- Count how many unique providers you see
+- Each unique provider needs its own cloud cluster
+- NEVER put instances with different providers in the same cloud!
+
+GRAPHVIZ DOT SYNTAX RULES:
 
 1. DIAGRAM DECLARATION:
-   - MUST start with: graph LR (left-right preferred for network flow)
-   - Use "graph" for network diagrams
+   - MUST start with: digraph infrastructure {{
+   - Use compound=true for cluster connections
+   - Use rankdir=TB for top-bottom layout with internet at top
+   - Use splines=ortho for angled arrows that avoid overlapping boxes
+   - Use nodesep=0.3 for compact node separation
+   - Use ranksep=0.6 for compact rank separation
+   - Use overlap=false to prevent node overlapping
 
 2. NODE SYNTAX:
-   - Simple: nodeId[Label Text]
-   - With icons: nodeId[🔄 Label Text]
-   - Circular: nodeId(("🌐 Internet"))
-   - NO quotes around node IDs
-   - Node IDs must be alphanumeric (web1, dbServer, apiGateway)
+   - Simple: nodeid [label="Node Label"];
+   - With styling: nodeid [label="🌐 Web Server", shape=box, style=filled, fillcolor=white];
+   - Node IDs must be alphanumeric (webserver1, dbserver, apigateway)
    - Labels can contain spaces and emojis
 
-3. SUBGRAPH SYNTAX:
-   - CORRECT: subgraph SubId["Label Text"]
-   - CORRECT: subgraph SubId[Label Text]  
-   - WRONG: subgraph "Label Text"
-   - MUST have unique ID followed by bracket notation
+3. CLUSTER SYNTAX (SUBGRAPHS):
+   - MUST use cluster_ prefix: subgraph cluster_aws {{
+   - Label with: label="☁️ AWS Cloud";
+   - Styling: style=filled; fillcolor="#FFF4E6"; color="#FF9900";
+   - End with: }}
 
 4. CONNECTION SYNTAX:
-   - CORRECT: nodeA --> nodeB
-   - CORRECT: nodeA -.-> nodeB (dotted)
-   - Connections go OUTSIDE subgraphs
-   - End subgraphs with: end
+   - Simple: nodeA -> nodeB;
+   - Internet to cloud: internet -> node [lhead=cluster_aws]; (every cloud needs this)
+   - Cluster connections: nodeA -> nodeB [lhead=cluster_subnet];
+   - For cross-cloud: nodeA -> nodeB [ltail=cluster_source, lhead=cluster_dest, style=dotted];
+   - Add minlen=2 for longer edges to avoid overlapping with boxes
+   - Use constraint=false for non-critical edges to improve layout
 
-VALID EXAMPLE FOR NETWORK-BASED THREE-TIER:
+PROVIDER COLORS AND STYLING:
+- AWS: fillcolor="#FFF4E6"; color="#FF9900";
+- Azure: fillcolor="#E6F3FF"; color="#00BCF2";
+- GCP: fillcolor="#E8F5E8"; color="#34A853";
+- IBM: fillcolor="#E6F0FF"; color="#054ADA";
+- Oracle: fillcolor="#FFE6E6"; color="#F80000";
+
+PERFECT HIERARCHY EXAMPLE (Multi-Cloud):
 ```
-graph LR
-    Internet(("🌐 Internet"))
+digraph infrastructure {{
+    compound=true;
+    rankdir=TB;
+    bgcolor=transparent;
+    splines=ortho;
+    nodesep=0.3;
+    ranksep=0.6;
+    overlap=false;
     
-    subgraph Cloud["AWS Cloud"]
-        subgraph PublicSubnet["Public Subnet (10.0.1.0/24)"]
-            lb[🔄 load-balancer]
-            web[🌐 web-server]
-        end
+    // Global styling
+    node [shape=box, style=rounded, margin=0.2];
+    edge [color=gray, penwidth=1.5];
+    
+    // Internet node at top
+    internet [label="🌐 Internet", shape=circle, style=filled, fillcolor=lightblue];
+    
+    // AWS Cloud
+    subgraph cluster_aws {{
+        label="☁️ AWS Cloud";
+        style=filled;
+        fillcolor="#FFF4E6";
+        color="#FF9900";
+        penwidth=2;
         
-        subgraph AppSubnet["Application Subnet (10.0.2.0/24)"]
-            app[⚡ app-server]
-        end
+        // AWS VPC
+        subgraph cluster_aws_vpc {{
+            label="VPC (10.0.0.0/16)";
+            style=filled;
+            fillcolor="#F0F8FF";
+            color="#4682B4";
+            
+            // AWS Subnet
+            subgraph cluster_aws_subnet {{
+                label="Public Subnet (10.0.1.0/24)";
+                style=filled;
+                fillcolor="#F5F5DC";
+                color="#8B4513";
+                
+                webserver [label="🌐 web-server-1", style=filled, fillcolor=white];
+            }}
+        }}
+    }}
+    
+    // Azure Cloud  
+    subgraph cluster_azure {{
+        label="🔷 Azure Cloud";
+        style=filled;
+        fillcolor="#E6F3FF";
+        color="#00BCF2";
+        penwidth=2;
         
-        subgraph DatabaseSubnet["Database Subnet (10.0.3.0/24)"]
-            db[🗄️ database]
-        end
-    end
-    
-    Internet --> lb
-    lb --> web
-    web --> app
-    app --> db
-```
-
-VALID EXAMPLE FOR MULTI-CLOUD:
-```
-graph LR
-    Internet(("🌐 Internet"))
-    
-    subgraph AWS["☁️ AWS Cloud"]
-        subgraph AWSVPC["VPC (10.0.0.0/16)"]
-            subgraph AWSSubnet["Public Subnet (10.0.1.0/24)"]
-                webServer[🌐 web-server]
-            end
-        end
-    end
-    
-    subgraph Azure["🔷 Azure Cloud"]
-        subgraph AzureVNet["VNet (10.1.0.0/16)"]
-            subgraph AzureSubnet["Public Subnet (10.1.1.0/24)"]
-                database[🗄️ database]
-            end
-        end
-    end
-    
-    subgraph GCP["🟢 GCP Cloud"]
-        subgraph GCPVPC["VPC (10.2.0.0/16)"]
-            subgraph GCPSubnet["Public Subnet (10.2.1.0/24)"]
-                apiServer[⚡ api-server]
-            end
-        end
-    end
-    
-    Internet --> AWSSubnet
-    Internet --> AzureSubnet  
-    Internet --> GCPSubnet
-    webServer --> apiServer
-    apiServer --> database
-    
-    style AWS fill:#FF9900,stroke:#e47911,color:#000
-    style Azure fill:#00BCF2,stroke:#0078D4,color:#000
-    style GCP fill:#34A853,stroke:#137333,color:#fff
-```
-
-VALID EXAMPLE FOR SIMPLE CASE:
-```
-graph LR
-    Internet(("🌐 Internet"))
-    
-    subgraph AWS["AWS Cloud"]
-        subgraph Subnet["Subnet (10.0.1.0/24)"]
-            vm1[💻 server-1]
-            vm2[💻 server-2]
-            vm3[💻 server-3]
-        end
-    end
-    
-    Internet --> Subnet
-```
-
-COMMON SYNTAX ERRORS TO AVOID:
-- ❌ flowchart TD (use graph TD for network diagrams)
-- ❌ subgraph "Web Tier" (needs ID: subgraph WebTier["Web Tier"])
-- ❌ nodeId["Label"] (use nodeId[Label] instead)
-- ❌ Connections inside subgraphs
-- ❌ Missing "end" statements
-
-PROVIDER ICONS AND COLORS (use these exact formats):
-- AWS: subgraph AWS["☁️ AWS Cloud"] + style AWS fill:#FF9900,stroke:#e47911,color:#000
-- Azure: subgraph Azure["🔷 Azure Cloud"] + style Azure fill:#00BCF2,stroke:#0078D4,color:#000  
-- GCP: subgraph GCP["🟢 GCP Cloud"] + style GCP fill:#34A853,stroke:#137333,color:#fff
-- IBM: subgraph IBM["🔵 IBM Cloud"] + style IBM fill:#054ADA,stroke:#003d82,color:#fff
-- Oracle: subgraph Oracle["🔴 Oracle Cloud"] + style Oracle fill:#F80000,stroke:#c60000,color:#fff
-- VMware: subgraph VMware["⚫ VMware Cloud"] + style VMware fill:#607078,stroke:#455a64,color:#fff
-
-MANDATORY NETWORK STRUCTURE:
-- ALWAYS use nested subgraphs: Cloud Provider → VPC/VNet → Subnet → Instances
-- Every instance MUST be inside a subnet subgraph with CIDR notation
-- Cloud providers MUST contain VPC/subnet containers, never bare instances
-- For multi-cloud: Each provider gets its own separate subgraph container
-- NEVER put instances from different providers in the same cloud container
-- Use format: subgraph ProviderSubnet["Subnet Name (CIDR)"]
-- CRITICAL: Each instance should appear ONLY ONCE in the diagram - never create duplicate instances outside subnets
-- MULTI-CLOUD NETWORKING: If components connect across clouds, ALL subnets must be PUBLIC for inter-cloud connectivity
-- DO NOT assume private subnets unless explicitly mentioned - use public subnets for general VMs with internet access
-- SECURITY: Multi-cloud deployments require public subnets with security groups restricting access to specific cloud sources
-
-OPENSHIFT CLUSTER COMPONENTS:
-When you see instances with purpose='openshift' or 'control-plane' or 'worker' or 'loadbalancer', these are OpenShift cluster components:
-
-- control-plane nodes: Use ⚙️ icon, group in "Control Plane" subnet
-- worker nodes: Use 🔧 icon, group in "Worker Nodes" subnet  
-- loadbalancer components: Use 🔄 icon, group in "Load Balancers" subnet
-- openshift (generic): Break into logical components if cluster details available
-
-OPENSHIFT EXAMPLE:
-```
-graph LR
-    Internet(("🌐 Internet"))
-    
-    subgraph AWS["☁️ AWS Cloud"]
-        subgraph ROSVPC["ROSA VPC (10.0.0.0/16)"]
-            subgraph ControlPlane["Control Plane Subnet (10.0.1.0/24)"]
-                controlplane1[⚙️ rosa-dev-controlplane-1]
-                controlplane2[⚙️ rosa-dev-controlplane-2] 
-                controlplane3[⚙️ rosa-dev-controlplane-3]
-            end
+        // Azure VNet
+        subgraph cluster_azure_vnet {{
+            label="VNet (10.1.0.0/16)";
+            style=filled;
+            fillcolor="#F0F8FF";
+            color="#4682B4";
             
-            subgraph WorkerNodes["Worker Nodes Subnet (10.0.2.0/24)"]
-                worker1[🔧 rosa-dev-worker-1]
-                worker2[🔧 rosa-dev-worker-2]
-                worker3[🔧 rosa-dev-worker-3]
-            end
+            // Azure Subnet
+            subgraph cluster_azure_subnet {{
+                label="App Subnet (10.1.1.0/24)";
+                style=filled;
+                fillcolor="#F5F5DC";
+                color="#8B4513";
+                
+                apiserver [label="🖥️ api-server-1", style=filled, fillcolor=white];
+            }}
+        }}
+    }}
+    
+    // GCP Cloud
+    subgraph cluster_gcp {{
+        label="🍃 GCP Cloud";
+        style=filled;
+        fillcolor="#E8F5E8";
+        color="#34A853";
+        penwidth=2;
+        
+        // GCP VPC
+        subgraph cluster_gcp_vpc {{
+            label="VPC (10.2.0.0/16)";
+            style=filled;
+            fillcolor="#F0F8FF";
+            color="#4682B4";
             
-            subgraph LoadBalancers["Load Balancers Subnet (10.0.3.0/24)"]
-                apilb[🔄 rosa-dev-api-lb]
-                ingresslb[🔄 rosa-dev-ingress-lb]
-            end
-        end
-    end
+            // GCP Subnet
+            subgraph cluster_gcp_subnet {{
+                label="DB Subnet (10.2.1.0/24)";
+                style=filled;
+                fillcolor="#F5F5DC";
+                color="#8B4513";
+                
+                database [label="🗄️ database-1", style=filled, fillcolor=white];
+            }}
+        }}
+    }}
     
-    Internet --> apilb
-    apilb --> controlplane1
-    Internet --> ingresslb
-    ingresslb --> worker1
-    
-    style AWS fill:#FF9900,stroke:#e47911,color:#000
-    style ControlPlane fill:#e3f2fd,stroke:#1976d2,color:#000
-    style WorkerNodes fill:#e8f5e8,stroke:#388e3c,color:#000
-    style LoadBalancers fill:#fff3e0,stroke:#f57c00,color:#000
+    // Connections with enhanced routing
+    internet -> webserver [lhead=cluster_aws, minlen=2];
+    internet -> apiserver [lhead=cluster_azure, minlen=2];
+    internet -> database [lhead=cluster_gcp, minlen=2];
+    webserver -> apiserver [ltail=cluster_aws_subnet, lhead=cluster_azure_subnet, style=dotted, minlen=3];
+    apiserver -> database [ltail=cluster_azure_subnet, lhead=cluster_gcp_subnet, style=dotted, minlen=3];
+}}
 ```
+
+SINGLE CLOUD EXAMPLE:
+```
+digraph infrastructure {{
+    compound=true;
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.3;
+    ranksep=0.6;
+    overlap=false;
+    
+    // Global styling
+    node [shape=box, style=rounded, margin=0.2];
+    edge [color=gray, penwidth=1.5];
+    
+    // Internet node at top
+    internet [label="🌐 Internet", shape=circle, style=filled, fillcolor=lightblue];
+    
+    subgraph cluster_aws {{
+        label="☁️ AWS Cloud";
+        style=filled;
+        fillcolor="#FFF4E6";
+        color="#FF9900";
+        
+        subgraph cluster_vpc {{
+            label="VPC (10.0.0.0/16)";
+            style=filled;
+            fillcolor="#F0F8FF";
+            color="#4682B4";
+            
+            subgraph cluster_subnet {{
+                label="Public Subnet (10.0.1.0/24)";
+                style=filled;
+                fillcolor="#F5F5DC";
+                color="#8B4513";
+                
+                server1 [label="💻 server-1"];
+                server2 [label="💻 server-2"];
+            }}
+        }}
+    }}
+    
+    internet -> server1 [lhead=cluster_aws, minlen=2];
+}}
+```
+
+STORAGE-ONLY EXAMPLE:
+```
+digraph infrastructure {{
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.3;
+    ranksep=0.6;
+    overlap=false;
+    
+    // Global styling
+    node [shape=box, style=rounded, margin=0.2];
+    edge [color=gray, penwidth=1.5];
+    
+    // Internet node at top
+    internet [label="🌐 Internet", shape=circle, style=filled, fillcolor=lightblue];
+    
+    subgraph cluster_aws {{
+        label="☁️ AWS Cloud";
+        style=filled;
+        fillcolor="#FFF4E6";
+        color="#FF9900";
+        
+        storage [label="🗄️ backup-storage", shape=cylinder];
+    }}
+    
+    internet -> storage [lhead=cluster_aws, style=dotted, minlen=2];
+}}
+```
+
+🚨🚨🚨 CRITICAL MULTI-CLOUD INSTANCE DISTRIBUTION 🚨🚨🚨:
+- READ THE PROVIDER FIELD OF EACH INSTANCE CAREFULLY! 
+- EACH instance MUST go in its own provider's cluster based on its "provider" field
+- web-server-1 (provider: aws) → cluster_aws ONLY
+- api-server-1 (provider: azure) → cluster_azure ONLY  
+- database-1 (provider: gcp) → cluster_gcp ONLY
+- NEVER put instances from different providers in the same cluster
+- DO NOT default all instances to AWS - CHECK EACH INSTANCE'S PROVIDER FIELD!
+
+STEP-BY-STEP MULTI-CLOUD ALGORITHM:
+1. READ each instance's provider field from the infrastructure data
+2. CREATE a list of unique providers (e.g., ["aws", "azure", "gcp"])
+3. For EACH unique provider, CREATE a separate cluster_provider subgraph
+4. PLACE each instance ONLY in its provider's cluster - never mix providers!
+
+CRITICAL RULES:
+- ALWAYS use nested clusters: Cloud Provider → VPC/VNet → Subnet → Instances
+- Every instance MUST be inside a subnet cluster with CIDR notation
+- For multi-cloud: Each provider gets its own separate cluster container
+- NEVER put instances from different providers in the same cloud cluster
+- Storage buckets go directly in cloud provider clusters, NOT in subnets
+- Use compound=true and lhead/ltail for cluster connections
+- Internet connections should target cloud clusters (lhead=cluster_aws) not internal subnets
+- EVERY cloud provider needs an internet connection for physical connectivity
+- Inter-cloud connections must use style=dotted to show they go over the internet
+- Follow realistic architecture: web servers → app/api servers → databases (not web → database directly)
+- Use splines=ortho for angled arrows that route around boxes
+- Use nodesep=0.3, ranksep=0.6, overlap=false for compact spacing
+- Add margin=0.2 to nodes for better arrow clearance
+- Use penwidth=1.5 for clearer arrow visibility
+- Perfect hierarchy is automatic with Graphviz clusters
 
 YOUR TASK:
-- Generate ONLY valid Mermaid code using graph syntax
-- Show network topology with subnets and CIDR blocks
+- Generate ONLY valid DOT code using digraph syntax
+- Use top to bottom layout (rankdir=TB) with Internet node at the top
+- Show network topology with clusters and CIDR blocks
 - Include Internet connectivity and cloud provider containers
-- ALWAYS include provider icons in cloud subgraph labels (☁️ AWS Cloud, 🔷 Azure Cloud, etc.)
-- For MULTI-CLOUD: Create separate subgraphs for each provider (AWS, Azure, GCP, etc.)
-- For SINGLE-CLOUD: Group instances by subnet based on purpose (web/public, app, database, control-plane, worker, loadbalancer)
-- For OPENSHIFT: Break cluster components into Control Plane, Worker Nodes, and Load Balancers subnets
-- ALWAYS use nested subgraphs - never put instances directly in cloud containers
-- ONLY include instances that actually exist in the data - DO NOT invent components
+- For MULTI-CLOUD: Create separate clusters for each provider with dotted inter-cloud connections
+- For SINGLE-CLOUD: Group instances by subnet based on purpose
+- ALWAYS use nested clusters - never put instances directly in cloud containers
 - Use actual instance names from the data
-- INTERNET CONNECTION RULES: 
-  * SINGLE-CLOUD: Internet → LoadBalancer (if exists), OR Internet → PublicSubnet (if no LB)
-  * MULTI-CLOUD: Internet → EACH PublicSubnet in EACH cloud provider separately
-  * NEVER Internet → individual instances
-- Connect instances logically based on their purposes (web → app → database, loadbalancer → workers)
-- CRITICAL: NO FLOATING INSTANCES - every instance must be inside a subnet, connections go to subnets or load balancers, NOT individual VMs
-- ALWAYS include provider styling at the end using the brand colors above
+- Connect to clusters using lhead parameter, not individual instances
 - For {diagram_type} style
-- NO explanations, ONLY the graph code
+- NO explanations, ONLY the DOT code
 
-Generate the Mermaid graph:"""
+Generate the Graphviz DOT diagram:"""
     
     return prompt
 
 
-def _call_ai_for_mermaid(ai_client, prompt: str) -> str:
-    """Call AI service to generate Mermaid diagram"""
+def _call_ai_for_graphviz(ai_client, prompt: str) -> str:
+    """Call AI service to generate Graphviz DOT diagram"""
     client_type, client = ai_client
     
     try:
@@ -649,124 +832,69 @@ def _call_ai_for_mermaid(ai_client, prompt: str) -> str:
     return ""
 
 
-def _clean_mermaid_response(mermaid_code: str) -> str:
-    """Clean and validate Mermaid response from AI with strict syntax checking"""
-    if not mermaid_code:
+def _clean_graphviz_response(dot_code: str) -> str:
+    """Clean and validate Graphviz DOT response from AI"""
+    if not dot_code:
         return ""
     
-    # Extract Mermaid code from markdown blocks if present
-    if "```mermaid" in mermaid_code:
-        mermaid_code = mermaid_code.split("```mermaid")[1].split("```")[0].strip()
-    elif "```" in mermaid_code:
-        mermaid_code = mermaid_code.split("```")[1].split("```")[0].strip()
+    # Extract DOT code from markdown blocks if present
+    if "```dot" in dot_code:
+        dot_code = dot_code.split("```dot")[1].split("```")[0].strip()
+    elif "```" in dot_code:
+        dot_code = dot_code.split("```")[1].split("```")[0].strip()
     
-    lines = mermaid_code.split('\n')
+    lines = dot_code.split('\n')
     cleaned_lines = []
-    in_subgraph = False
-    subgraph_stack = []
+    brace_count = 0
     
     for line in lines:
         line = line.strip()
-        if not line or line.startswith('%'):  # Skip empty lines and comments
+        if not line or line.startswith('//'):  # Skip empty lines and comments
             continue
         
-        # Ensure graph/flowchart declaration is first
+        # Ensure digraph declaration is first
         if not cleaned_lines:
-            if not line.startswith(('flowchart', 'graph')):
-                cleaned_lines.append("graph LR")  # Default to graph LR for network diagrams
+            if not line.startswith('digraph'):
+                cleaned_lines.append("digraph infrastructure {")
+                brace_count += 1
         
         # Skip duplicate declarations
-        if line.startswith(('flowchart', 'graph')) and cleaned_lines:
-            if any(cl.startswith(('flowchart', 'graph')) for cl in cleaned_lines):
+        if line.startswith('digraph') and cleaned_lines:
+            if any(cl.startswith('digraph') for cl in cleaned_lines):
                 continue
         
-        # Fix subgraph syntax - ensure proper ID and label format
-        if line.startswith('subgraph'):
-            in_subgraph = True
-            # Extract ID and label properly
-            rest = line[8:].strip()  # Remove 'subgraph'
-            
-            if '[' in rest and ']' in rest:
-                # Already properly formatted
-                subgraph_id = rest.split('[')[0].strip()
-                subgraph_stack.append(subgraph_id)
-                cleaned_lines.append(line)
-            elif '"' in rest:
-                # Has quotes but wrong format: subgraph "Label"
-                parts = rest.split('"')
-                if len(parts) >= 2:
-                    label = parts[1]
-                    # Create safe subgraph ID - remove special chars and ensure valid identifier
-                    subgraph_id = label.replace(' ', '').replace('🌐', 'Web').replace('⚡', 'App').replace('🗄️', 'Data')
-                    subgraph_id = ''.join(c for c in subgraph_id if c.isalnum())  # Only alphanumeric
-                    if not subgraph_id:
-                        subgraph_id = f'Cloud{len(subgraph_stack)}'  # Fallback ID
-                    line = f'subgraph {subgraph_id}["{label}"]'
-                    subgraph_stack.append(subgraph_id)
-                    cleaned_lines.append(line)
-            else:
-                # Plain text label - ensure safe ID
-                subgraph_id = rest.replace(' ', '').replace('-', '').replace('_', '')
-                subgraph_id = ''.join(c for c in subgraph_id if c.isalnum())  # Only alphanumeric
-                if not subgraph_id:
-                    subgraph_id = f'Container{len(subgraph_stack)}'  # Fallback ID
-                line = f'subgraph {subgraph_id}[{rest}]'
-                subgraph_stack.append(subgraph_id)
-                cleaned_lines.append(line)
-            continue
+        # Fix invalid node IDs with dashes - convert to underscores
+        import re
+        # Fix node IDs in declarations: node-id [attributes]
+        if '[' in line:
+            line = re.sub(r'\b([a-zA-Z][a-zA-Z0-9-]*)\s*(?=\[)', lambda m: m.group(1).replace('-', '_') + ' ', line)
+        # Fix node IDs in connections: node-id -> node-id
+        if '->' in line:
+            # Split on -> and fix node IDs on both sides
+            parts = line.split('->')
+            if len(parts) == 2:
+                left = re.sub(r'\b([a-zA-Z][a-zA-Z0-9-]*)\b', lambda m: m.group(1).replace('-', '_'), parts[0].strip())
+                right = re.sub(r'\b([a-zA-Z][a-zA-Z0-9-]*)\b', lambda m: m.group(1).replace('-', '_'), parts[1].strip())
+                line = f'{left} -> {right}'
         
-        # Handle 'end' statements
-        if line == 'end':
-            if subgraph_stack:
-                subgraph_stack.pop()
-                if not subgraph_stack:
-                    in_subgraph = False
-            cleaned_lines.append(line)
-            continue
-        
-        # Fix node syntax - remove extra quotes and ensure valid node IDs
-        if '[' in line and ']' in line and not line.startswith(('subgraph', 'flowchart', 'graph')):
-            # Fix node labels with extra quotes
-            line = line.replace('["', '[').replace('"]', ']')
-            
-            # Ensure node IDs are valid (start of line before '[')
-            if '-->' not in line and '---' not in line:  # Not a connection line
-                parts = line.split('[', 1)
-                if len(parts) == 2:
-                    node_id = parts[0].strip()
-                    node_label = '[' + parts[1]
-                    
-                    # Clean node ID - only alphanumeric and underscore
-                    clean_id = ''.join(c if c.isalnum() or c == '_' else '_' for c in node_id)
-                    if clean_id and clean_id[0].isdigit():
-                        clean_id = 'node_' + clean_id  # Ensure doesn't start with digit
-                    if not clean_id:
-                        clean_id = 'node'
-                    
-                    line = clean_id + node_label
-        
+        # Count braces for validation
+        brace_count += line.count('{') - line.count('}')
         cleaned_lines.append(line)
     
-    # Ensure all subgraphs are properly closed
-    while subgraph_stack:
-        cleaned_lines.append('end')
-        subgraph_stack.pop()
+    # Ensure proper closing
+    while brace_count > 0:
+        cleaned_lines.append('}')
+        brace_count -= 1
     
-    # Basic validation - must have graph/flowchart declaration and valid structure
-    result = '\n'.join(cleaned_lines)
-    if not (result.startswith('graph') or result.startswith('flowchart')) or result.count('subgraph') != result.count('end'):
-        # Invalid structure, return empty to force fallback
-        return ""
-    
-    return result
+    return '\n'.join(cleaned_lines)
 
 
-def _format_mermaid_indentation(mermaid_code: str) -> str:
-    """Add proper indentation to Mermaid code for better rendering"""
-    if not mermaid_code:
-        return mermaid_code
+def _format_graphviz_indentation(dot_code: str) -> str:
+    """Add proper indentation to DOT code for better rendering"""
+    if not dot_code:
+        return dot_code
     
-    lines = mermaid_code.split('\n')
+    lines = dot_code.split('\n')
     formatted_lines = []
     indent_level = 0
     
@@ -774,54 +902,36 @@ def _format_mermaid_indentation(mermaid_code: str) -> str:
         line = line.strip()
         if not line:
             continue
-            
-        # Decrease indent for 'end' statements
-        if line == 'end':
+        
+        # Decrease indent for closing braces
+        if line == '}':
             indent_level = max(0, indent_level - 1)
         
         # Add proper indentation
-        if line.startswith(('graph', 'flowchart')):
+        if line.startswith('digraph'):
             formatted_lines.append(line)
-        elif line.startswith('style ') or line.startswith('%'):
-            # Style statements and comments at root level
-            formatted_lines.append('    ' + line)
+        elif line.startswith('//'):
+            # Comments at current level
+            formatted_lines.append('    ' * indent_level + line)
         else:
             # Regular content with proper nesting
-            formatted_lines.append('    ' * (indent_level + 1) + line)
+            formatted_lines.append('    ' * indent_level + line)
         
-        # Increase indent for subgraph statements
-        if line.startswith('subgraph'):
+        # Increase indent for opening braces (but not digraph)
+        if '{' in line and not line.startswith('digraph'):
             indent_level += 1
-    
-    # Add empty line after graph declaration for spacing
-    if formatted_lines and formatted_lines[0].startswith(('graph', 'flowchart')):
-        formatted_lines.insert(1, '')
-    
-    # Add empty lines before style section
-    style_start = -1
-    for i, line in enumerate(formatted_lines):
-        if line.strip().startswith('style '):
-            style_start = i
-            break
-    
-    if style_start > 0:
-        formatted_lines.insert(style_start, '')
     
     return '\n'.join(formatted_lines)
 
 
-
-
-
-
 def create_mini_infrastructure_diagram(diagram_data: Dict) -> str:
-    """Create a mini Mermaid diagram for the sidebar"""
-    return create_mermaid_diagram(diagram_data, mini=True)
+    """Create a mini Graphviz diagram for the sidebar"""
+    return create_graphviz_diagram(diagram_data, mini=True)
 
 
 def create_full_infrastructure_diagram(diagram_data: Dict) -> str:
-    """Create a detailed Mermaid diagram for full view"""
-    return create_mermaid_diagram(diagram_data, mini=False)
+    """Create a detailed Graphviz diagram for full view"""
+    return create_graphviz_diagram(diagram_data, mini=False)
 
 
 def get_resource_summary(diagram_data: Dict) -> Dict[str, int]:
@@ -854,8 +964,8 @@ def get_resource_summary(diagram_data: Dict) -> Dict[str, int]:
     return summary
 
 
-def display_mermaid_diagram(mermaid_code: str, key: str = "diagram"):
-    """Display a Mermaid diagram in Streamlit with scrollable container and expand button"""
+def display_graphviz_diagram(dot_code: str, key: str = "diagram"):
+    """Display a Graphviz diagram in Streamlit with @hpcc-js/wasm for rendering"""
     # Use larger height to give more space for proper rendering
     base_height = 300 if key == "mini" else 500
     
@@ -873,7 +983,7 @@ def display_mermaid_diagram(mermaid_code: str, key: str = "diagram"):
         container_style += f" max-height: {max_height}; overflow: auto;"
     
     st.components.v1.html(f"""
-    <div id="mermaid-container-{key}" style="{container_style}">
+    <div id="graphviz-container-{key}" style="{container_style}">
         <!-- Expand button -->
         <button id="expand-btn-{key}" 
                 onclick="expandDiagram('{key}')" 
@@ -885,44 +995,17 @@ def display_mermaid_diagram(mermaid_code: str, key: str = "diagram"):
             🔍 Expand
         </button>
         
-        
-        
-        <div id="mermaid-{key}" style="width: 100%; {'height: auto;' if is_chat_diagram else f'min-height: {base_height}px;'} text-align: center; margin: 0; padding: {8 if is_chat_diagram else 15}px;">
-            <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+        <div id="graphviz-{key}" style="width: 100%; {'height: auto;' if is_chat_diagram else f'min-height: {base_height}px;'} text-align: center; margin: 0; padding: {8 if is_chat_diagram else 15}px;">
+            <script src="https://unpkg.com/@hpcc-js/wasm@2.13.0/dist/index.js"></script>
             <script>
-                // Clear any previous mermaid content
-                document.getElementById('mermaid-{key}').innerHTML = '';
-                
-                mermaid.initialize({{ 
-                    startOnLoad: false,
-                    theme: 'base',
-                    themeVariables: {{
-                        primaryColor: '#fff',
-                        primaryTextColor: '#333',
-                        primaryBorderColor: '#333',
-                        lineColor: '#666',
-                        clusterBkg: '#f9f9f9',
-                        clusterBorder: '#333'
-                    }},
-                    flowchart: {{
-                        useMaxWidth: {str(is_chat_diagram).lower()},
-                        htmlLabels: true,
-                        subgraphTitleMargin: {{
-                            top: {3 if is_chat_diagram else 5},
-                            bottom: {10 if is_chat_diagram else 25}
-                        }},
-                        padding: {8 if is_chat_diagram else 15},
-                        nodeSpacing: {20 if is_chat_diagram else 30},
-                        rankSpacing: {20 if is_chat_diagram else 30}
-                    }}
-                }});
+                // Clear any previous content
+                document.getElementById('graphviz-{key}').innerHTML = '<p>Loading Graphviz renderer...</p>';
                 
                 // Function to expand diagram to full size modal
                 function expandDiagram(diagramKey) {{
-                    const originalContainer = document.getElementById('mermaid-container-' + diagramKey);
-                    const originalContent = document.getElementById('mermaid-' + diagramKey);
+                    const originalContainer = document.getElementById('graphviz-container-' + diagramKey);
                     
-                    if (!originalContainer || !originalContent) return;
+                    if (!originalContainer) return;
                     
                     // Find the topmost document (break out of iframes)
                     let targetDocument = document;
@@ -933,11 +1016,10 @@ def display_mermaid_diagram(mermaid_code: str, key: str = "diagram"):
                             targetDocument = targetWindow.document;
                         }}
                     }} catch (e) {{
-                        // Cross-origin restriction, use current document
                         targetDocument = document;
                     }}
                     
-                    // Create modal overlay that covers the entire top-level viewport
+                    // Create modal overlay
                     const modal = targetDocument.createElement('div');
                     modal.id = 'diagram-modal-' + diagramKey;
                     modal.style.cssText = `
@@ -949,7 +1031,7 @@ def display_mermaid_diagram(mermaid_code: str, key: str = "diagram"):
                         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
                     `;
                     
-                    // Create modal content container
+                    // Create modal content
                     const modalContent = targetDocument.createElement('div');
                     modalContent.style.cssText = `
                         background: white !important; border-radius: 12px !important; 
@@ -959,7 +1041,7 @@ def display_mermaid_diagram(mermaid_code: str, key: str = "diagram"):
                         display: flex !important; flex-direction: column !important;
                     `;
                     
-                    // Create header with title and close button
+                    // Create header
                     const header = targetDocument.createElement('div');
                     header.style.cssText = `
                         background: #f8f9fa !important; border-bottom: 1px solid #dee2e6 !important;
@@ -969,10 +1051,7 @@ def display_mermaid_diagram(mermaid_code: str, key: str = "diagram"):
                     
                     const title = targetDocument.createElement('h3');
                     title.textContent = 'Infrastructure Diagram - Full Screen View';
-                    title.style.cssText = `
-                        margin: 0 !important; color: #333 !important; font-size: 18px !important;
-                        font-weight: 600 !important;
-                    `;
+                    title.style.cssText = `margin: 0 !important; color: #333 !important; font-size: 18px !important; font-weight: 600 !important;`;
                     
                     const closeButton = targetDocument.createElement('button');
                     closeButton.innerHTML = '✕ Close';
@@ -987,7 +1066,7 @@ def display_mermaid_diagram(mermaid_code: str, key: str = "diagram"):
                     header.appendChild(title);
                     header.appendChild(closeButton);
                     
-                    // Create diagram container that fills remaining space
+                    // Create diagram container
                     const diagramContainer = targetDocument.createElement('div');
                     diagramContainer.style.cssText = `
                         flex: 1 !important; overflow: auto !important; padding: 20px !important;
@@ -995,72 +1074,19 @@ def display_mermaid_diagram(mermaid_code: str, key: str = "diagram"):
                         align-items: center !important; justify-content: center !important;
                     `;
                     
-                    // Create new diagram div with original mermaid code
+                    // Create expanded diagram
                     const expandedDiagram = targetDocument.createElement('div');
-                    expandedDiagram.className = 'mermaid';
-                    expandedDiagram.style.cssText = `
-                        width: fit-content !important; min-width: 800px !important; 
-                        text-align: center !important; margin: 0 auto !important;
-                    `;
-                    expandedDiagram.textContent = `{mermaid_code}`;
+                    expandedDiagram.style.cssText = `width: fit-content !important; min-width: 800px !important; text-align: center !important; margin: 0 auto !important;`;
+                    expandedDiagram.innerHTML = '<p>Rendering expanded diagram...</p>';
                     
                     diagramContainer.appendChild(expandedDiagram);
-                    
-                    // Assemble modal
                     modalContent.appendChild(header);
                     modalContent.appendChild(diagramContainer);
                     modal.appendChild(modalContent);
                     targetDocument.body.appendChild(modal);
                     
-                    // Load Mermaid in the target document if not already loaded
-                    if (!targetDocument.querySelector('script[src*="mermaid"]')) {{
-                        const mermaidScript = targetDocument.createElement('script');
-                        mermaidScript.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
-                        targetDocument.head.appendChild(mermaidScript);
-                        
-                        mermaidScript.onload = () => {{
-                            initializeAndRenderDiagram();
-                        }};
-                    }} else {{
-                        initializeAndRenderDiagram();
-                    }}
-                    
-                    function initializeAndRenderDiagram() {{
-                        // Initialize mermaid in target document
-                        if (targetWindow.mermaid) {{
-                            targetWindow.mermaid.initialize({{
-                                startOnLoad: false,
-                                theme: 'base',
-                                themeVariables: {{
-                                    primaryColor: '#fff',
-                                    primaryTextColor: '#333',
-                                    primaryBorderColor: '#333',
-                                    lineColor: '#666',
-                                    clusterBkg: '#f9f9f9',
-                                    clusterBorder: '#333'
-                                }},
-                                flowchart: {{
-                                    useMaxWidth: false,
-                                    htmlLabels: true,
-                                    subgraphTitleMargin: {{
-                                        top: 5,
-                                        bottom: 25
-                                    }},
-                                    padding: 15,
-                                    nodeSpacing: 30,
-                                    rankSpacing: 30
-                                }}
-                            }});
-                            
-                            // Render the diagram
-                            try {{
-                                targetWindow.mermaid.init(undefined, expandedDiagram);
-                            }} catch (error) {{
-                                console.error('Error rendering expanded diagram:', error);
-                                expandedDiagram.innerHTML = '<p style="color: #666; padding: 20px; font-size: 16px;">Error rendering expanded diagram</p>';
-                            }}
-                        }}
-                    }}
+                    // Render diagram in modal
+                    renderGraphvizInElement(expandedDiagram, `{dot_code}`);
                     
                     // Close modal on outside click
                     modal.onclick = (e) => {{
@@ -1082,104 +1108,57 @@ def display_mermaid_diagram(mermaid_code: str, key: str = "diagram"):
                 // Make expandDiagram function globally available
                 window.expandDiagram = expandDiagram;
                 
-                // Render the diagram
-                const diagramDiv = document.createElement('div');
-                diagramDiv.className = 'mermaid';
-                diagramDiv.style.width = "{'100%' if is_chat_diagram else 'fit-content'}";
-                diagramDiv.style.minWidth = '100%';
-                diagramDiv.style.minHeight = '150px';
-                diagramDiv.style.display = 'block';
-                diagramDiv.style.margin = '0 auto';
-                diagramDiv.style.padding = "{'5px' if is_chat_diagram else '20px'}";
-                diagramDiv.textContent = `{mermaid_code}`;
-                
-                document.getElementById('mermaid-{key}').appendChild(diagramDiv);
-                
-                // Force re-render with proper error handling
-                try {{
-                    mermaid.init(undefined, diagramDiv);
-                    
-                    // After rendering, check if scrollbars are needed and add visual indicator
-                    setTimeout(() => {{
-                        const container = document.getElementById('mermaid-container-{key}');
-                        const content = document.getElementById('mermaid-{key}');
-                        
-                        if (container && content) {{
-                            const hasHorizontalScroll = content.scrollWidth > container.clientWidth;
-                            const hasVerticalScroll = content.scrollHeight > container.clientHeight;
-                            
-                            if (hasHorizontalScroll || hasVerticalScroll) {{
-                                // Add scroll indicator
-                                const indicator = document.createElement('div');
-                                indicator.style.cssText = 'position: absolute; top: 35px; right: 8px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; z-index: 1000;';
-                                indicator.textContent = '↕ ↔ Scroll to view';
-                                container.appendChild(indicator);
-                            }}
+                // Function to render Graphviz in a specific element
+                async function renderGraphvizInElement(element, dotSource) {{
+                    try {{
+                        // Try to load hpcc-js/wasm
+                        let Graphviz;
+                        if (typeof window.hpccWasm !== 'undefined') {{
+                            Graphviz = window.hpccWasm.Graphviz;
+                        }} else {{
+                            // Dynamic import fallback
+                            const module = await import('https://unpkg.com/@hpcc-js/wasm@2.13.0/dist/index.js');
+                            Graphviz = module.Graphviz;
                         }}
-                    }}, 500);
-                    
-                }} catch (error) {{
-                    console.error('Mermaid rendering error:', error);
-                    diagramDiv.innerHTML = '<p style="color: #666; padding: 20px;">Diagram rendering error. Please check the syntax.</p>';
+                        
+                        const graphviz = await Graphviz.load();
+                        const svg = graphviz.dot(dotSource);
+                        element.innerHTML = svg;
+                        
+                    }} catch (error) {{
+                        console.error('Graphviz rendering error:', error);
+                        element.innerHTML = `
+                            <div style="color: red; margin-bottom: 15px;">
+                                <h4>❌ Graphviz Rendering Failed</h4>
+                                <p>Error: ${{error.message}}</p>
+                            </div>
+                            <div style="background: #f0f0f0; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+                                <h4>🔗 Online Graphviz Renderer</h4>
+                                <p>Copy the DOT code below and paste it into:</p>
+                                <a href="https://dreampuf.github.io/GraphvizOnline/" target="_blank">Graphviz Online</a>
+                            </div>
+                            <div style="background: #2d3748; color: #cbd5e0; padding: 15px; border-radius: 4px; font-family: monospace; white-space: pre-wrap; font-size: 12px;">
+                                ${{dotSource.replace(/</g, '&lt;').replace(/>/g, '&gt;')}}
+                            </div>
+                        `;
+                    }}
                 }}
+                
+                // Render the main diagram
+                renderGraphvizInElement(document.getElementById('graphviz-{key}'), `{dot_code}`);
             </script>
         </div>
     </div>
     """, height=250 if is_chat_diagram else (base_height + 50))
 
 
-def test_mermaid_html_structure():
-    """Test function to examine Mermaid HTML output structure"""
-    test_mermaid = """
-graph LR
-    Internet(("🌐 Internet"))
-    subgraph AWS["AWS Cloud"]
-        subgraph AWSVPC["VPC (10.0.0.0/16)"]
-            webServer[🌐 web-server]
-        end
-    end
-    style AWS fill:#FF9900,stroke:#e47911,color:#000
-"""
-    
-    # Generate the HTML that would be created
-    html_output = f"""
-    <div id="mermaid-test" style="width: 100%; min-height: 400px; text-align: center;">
-        <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-        <script>
-            mermaid.initialize({{ 
-                startOnLoad: true,
-                theme: 'default',
-                flowchart: {{
-                    useMaxWidth: true,
-                    htmlLabels: true,
-                    subGraphTitleMargin: {{
-                        top: 5,
-                        bottom: 25
-                    }},
-                    padding: 15
-                }}
-            }});
-        </script>
-        <div class="mermaid">
-{test_mermaid}
-        </div>
-    </div>
-    """
-    
-    print("=== GENERATED HTML STRUCTURE ===")
-    print(html_output)
-    print("=== END HTML ===")
-    
-    return html_output
-
-
 def display_diagram_in_chat(analysis_result, yaml_content: str = '', user_requirements: str = '') -> str:
-    """Generate Mermaid diagram for display in chat history"""
+    """Generate Graphviz diagram for display in chat history"""
     try:
         diagram_data = extract_diagram_data(analysis_result, yaml_content, user_requirements)
         if diagram_data and diagram_data.get('instances'):
-            full_mermaid = create_full_infrastructure_diagram(diagram_data)
-            return full_mermaid
+            full_dot = create_full_infrastructure_diagram(diagram_data)
+            return full_dot
         return None
     except Exception:
         return None

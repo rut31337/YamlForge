@@ -24,7 +24,7 @@ labels:
   pairs:
     app.kubernetes.io/name: demobuilder
     app.kubernetes.io/instance: demobuilder-prod
-    app.kubernetes.io/version: v1.0.0
+    app.kubernetes.io/version: v1.0.0b5
     app.kubernetes.io/component: infrastructure-assistant
     app.kubernetes.io/part-of: yamlforge
     app.kubernetes.io/managed-by: kustomize

@@ -6,7 +6,7 @@ metadata:
   labels:
     app: demobuilder
     component: web-app
-    version: v1.0.0
+    version: v1.0.0b5
     logging: enabled
 spec:
   replicas: 2
@@ -24,7 +24,7 @@ spec:
       labels:
         app: demobuilder
         component: web-app
-        version: v1.0.0
+        version: v1.0.0b5
         logging: enabled
       annotations:
         prometheus.io/scrape: "false"
@@ -91,7 +91,7 @@ spec:
         - name: DEPLOYMENT_NAME
           value: "demobuilder"
         - name: APP_VERSION
-          value: "v1.0.0"
+          value: "v1.0.0b5"
         - name: CLUSTER_NAME
           valueFrom:
             configMapKeyRef:

@@ -39,7 +39,7 @@ except ImportError:
     HAS_JSONSCHEMA = False
 
 # Version information
-__version__ = "1.0.0b1"
+from ._version import __version__
 
 def validate_yaml_against_schema(yaml_data, input_file_path, ansible_mode=False):
     """Validate YAML configuration against YamlForge schema"""
@@ -165,6 +165,7 @@ def analyze_configuration(converter, config, raw_yaml_data):
     # Reset cost tracking lists for analysis
     converter.instance_costs = []
     converter.openshift_costs = []
+    converter.storage_cost_tracking = []
     
     # Get instances from yamlforge section
     instances = config.get('instances', [])
@@ -508,6 +509,80 @@ def analyze_configuration(converter, config, raw_yaml_data):
                 except Exception as e:
                     print(f"   → Error: {e}")
     
+    # Analyze storage buckets
+    storage = config.get('storage', [])
+    if storage:
+        print(f"\nSTORAGE BUCKETS ({len(storage)} found):")
+        print("-" * 40)
+        
+        for i, bucket in enumerate(storage, 1):
+            bucket_name = bucket.get('name', 'unnamed')
+            provider = bucket.get('provider', 'unspecified')
+            
+            # Replace GUID in name for display
+            if '{guid}' in bucket_name:
+                guid = converter.get_validated_guid(raw_yaml_data)
+                resolved_name = bucket_name.replace('{guid}', guid)
+            else:
+                resolved_name = bucket_name
+            
+            print(f"\n{i}. {resolved_name}:")
+            
+            # Resolve provider and calculate costs
+            resolved_provider = provider
+            if provider == 'cheapest':
+                # Show cost analysis for cheapest provider
+                try:
+                    resolved_provider = converter.find_cheapest_storage_provider(bucket, suppress_output=False)
+                except Exception as e:
+                    print(f"   → Error in cost analysis: {e}")
+                    resolved_provider = 'aws'
+                    print(f"   → Using fallback: {resolved_provider}")
+            else:
+                print(f"   Provider: {provider}")
+            
+            # Calculate and display storage cost
+            try:
+                # Get storage cost for this bucket
+                storage_location = bucket.get('location') or bucket.get('region', 'us-east')
+                storage_cost = converter.calculate_storage_cost(resolved_provider, storage_location)
+                
+                if storage_cost is not None:
+                    print(f"   Monthly Cost: ${storage_cost:.4f}/month")
+                    # Track cost for summary
+                    converter.storage_cost_tracking.append({
+                        'bucket_name': resolved_name,
+                        'provider': resolved_provider,
+                        'cost': storage_cost
+                    })
+                else:
+                    print(f"   Monthly Cost: Cost information not available for {resolved_provider}")
+            except Exception as e:
+                print(f"   Monthly Cost: Error calculating cost - {e}")
+            
+            # Show region/location
+            region = bucket.get('region')
+            location = bucket.get('location') 
+            if region:
+                print(f"   Region: {region}")
+            elif location:
+                print(f"   Location: {location}")
+            
+            # Show storage configuration
+            public = bucket.get('public', False)
+            versioning = bucket.get('versioning', False)
+            encryption = bucket.get('encryption', True)
+            
+            print(f"   Access: {'public-read' if public else 'private'}")
+            print(f"   Versioning: {'enabled' if versioning else 'disabled'}")
+            print(f"   Encryption: {'enabled' if encryption else 'disabled'}")
+            
+            # Show tags if present
+            tags = bucket.get('tags', {})
+            if tags:
+                tag_list = [f"{k}={v}" for k, v in tags.items()]
+                print(f"   Tags: {', '.join(tag_list)}")
+    
     # Analyze OpenShift clusters
     openshift_clusters = config.get('openshift_clusters', [])
     if openshift_clusters:
@@ -621,7 +696,7 @@ def analyze_configuration(converter, config, raw_yaml_data):
     
     # Show required providers
     try:
-        required_providers = converter.detect_required_providers(config)
+        required_providers = converter.detect_required_providers(raw_yaml_data)
         print(f"\nREQUIRED PROVIDERS:")
         print("-" * 40)
         for provider in required_providers:
@@ -629,8 +704,8 @@ def analyze_configuration(converter, config, raw_yaml_data):
     except Exception as e:
         print(f"\nREQUIRED PROVIDERS: Error analyzing - {e}")
     
-    # Display total hourly cost summary
-    if converter.instance_costs or converter.openshift_costs:
+    # Display total cost summary
+    if converter.instance_costs or converter.openshift_costs or converter.storage_cost_tracking:
         print(f"\nCOST SUMMARY:")
         print("-" * 40)
         
@@ -652,13 +727,36 @@ def analyze_configuration(converter, config, raw_yaml_data):
                 cluster_total += cost_info['cost']
             print(f"  Cluster Subtotal: ${cluster_total:.4f}/hour")
         
-        # Show grand total
-        grand_total = sum(cost_info['cost'] for cost_info in converter.instance_costs) + sum(cost_info['cost'] for cost_info in converter.openshift_costs)
-        print(f"\n  TOTAL HOURLY COST: ${grand_total:.4f}")
+        # Show total hourly cost (instances + clusters)
+        hourly_total = sum(cost_info['cost'] for cost_info in converter.instance_costs) + sum(cost_info['cost'] for cost_info in converter.openshift_costs)
+        if hourly_total > 0:
+            print(f"\nTOTAL HOURLY COST: ${hourly_total:.4f}")
+        
+        # Show storage costs breakdown
+        if converter.storage_cost_tracking:
+            storage_total = 0.0
+            print("\nStorage Buckets:")
+            for cost_info in converter.storage_cost_tracking:
+                print(f"  • {cost_info['bucket_name']} ({cost_info['provider']}): ${cost_info['cost']:.4f}/month")
+                storage_total += cost_info['cost']
+            print(f"  Storage Subtotal: ${storage_total:.4f}/month")
+        
+        # Calculate totals for monthly estimate  
+        hourly_total = sum(cost_info['cost'] for cost_info in converter.instance_costs) + sum(cost_info['cost'] for cost_info in converter.openshift_costs)
+        monthly_storage_total = sum(cost_info['cost'] for cost_info in converter.storage_cost_tracking) if converter.storage_cost_tracking else 0.0
         
         # Show estimated monthly cost (24 hours * 30 days = 720 hours)
-        monthly_estimate = grand_total * 720
-        print(f"  ESTIMATED MONTHLY COST: ${monthly_estimate:.2f}")
+        if hourly_total > 0:
+            monthly_compute_estimate = hourly_total * 720
+            total_monthly = monthly_compute_estimate + monthly_storage_total
+            print(f"\nESTIMATED MONTHLY COST:")
+            if monthly_compute_estimate > 0:
+                print(f"  Compute & Clusters: ${monthly_compute_estimate:.2f}/month")
+            if monthly_storage_total > 0:
+                print(f"  Storage: ${monthly_storage_total:.2f}/month")
+            print(f"  TOTAL: ${total_monthly:.2f}/month")
+        elif monthly_storage_total > 0:
+            print(f"\nESTIMATED MONTHLY COST: ${monthly_storage_total:.2f}")
     
     print("\n" + "="*80)
     print("  ANALYSIS COMPLETE")

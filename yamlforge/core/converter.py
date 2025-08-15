@@ -41,6 +41,9 @@ class YamlForgeConverter:
         # Load OpenShift-specific flavors from dedicated directory
         openshift_flavors = self.load_flavors("mappings/flavors_openshift")
         self.flavors.update(openshift_flavors)
+        
+        # Load storage cost mappings
+        self.storage_costs = self.load_storage_costs("mappings/storage_costs.yaml")
 
         self.core_config = self.load_core_config("defaults/core.yaml")
 
@@ -342,6 +345,17 @@ class YamlForgeConverter:
                 return data or {}
         except FileNotFoundError:
             print(f"Warning: {file_path} not found. Using empty location mappings.")
+            return {}
+
+    def load_storage_costs(self, file_path):
+        """Load storage cost mappings from YAML file."""
+        try:
+            actual_path = find_yamlforge_file(file_path)
+            with open(actual_path, 'r') as f:
+                data = yaml.safe_load(f)
+                return data or {}
+        except FileNotFoundError:
+            print(f"Warning: {file_path} not found. Storage cost optimization disabled.")
             return {}
 
     def load_flavors(self, directory_path):
@@ -660,7 +674,7 @@ class YamlForgeConverter:
                 providers_in_use.add(provider)
 
         # Check instances
-        instances = yaml_data.get('instances', [])
+        instances = yaml_data.get('yamlforge', {}).get('instances', [])
         for instance in instances:
             provider = instance.get('provider')
             if provider:
@@ -674,8 +688,20 @@ class YamlForgeConverter:
                 else:
                     providers_in_use.add(provider)
 
+        # Check storage
+        storage = yaml_data.get('yamlforge', {}).get('storage', [])
+        for bucket in storage:
+            provider = bucket.get('provider')
+            if provider:
+                # Resolve cheapest provider to actual provider
+                if provider == 'cheapest':
+                    resolved_provider = self.find_cheapest_storage_provider(bucket, suppress_output=True)
+                    providers_in_use.add(resolved_provider)
+                else:
+                    providers_in_use.add(provider)
+
         # Check OpenShift clusters
-        openshift_clusters = yaml_data.get('openshift_clusters', [])
+        openshift_clusters = yaml_data.get('yamlforge', {}).get('openshift_clusters', [])
         
         for cluster in openshift_clusters:
             cluster_type = cluster.get('type')
@@ -772,14 +798,15 @@ class YamlForgeConverter:
                 "  • Multi-cloud resource grouping"
             )
         
-        # Validate that either instances or openshift_clusters are required under yamlforge
+        # Validate that at least one of instances, openshift_clusters, or storage is required under yamlforge
         yamlforge_data = yaml_data.get('yamlforge', {})
         instances = yamlforge_data.get('instances', [])
         openshift_clusters = yamlforge_data.get('openshift_clusters', [])
+        storage = yamlforge_data.get('storage', [])
         
-        if not instances and not openshift_clusters:
+        if not instances and not openshift_clusters and not storage:
             raise ValueError(
-                "Configuration Error: Either 'instances' or 'openshift_clusters' (or both) are required in YamlForge configurations.\n\n"
+                "Configuration Error: At least one of 'instances', 'openshift_clusters', or 'storage' is required in YamlForge configurations.\n\n"
                 "Add at least one of these to your YAML file:\n\n"
                 "For cloud instances:\n"
                 "yamlforge:\n"
@@ -801,7 +828,15 @@ class YamlForgeConverter:
                 "      type: \"rosa-classic\"\n"
                 "      region: \"us-east-1\"\n"
                 "      size: \"small\"\n\n"
-                "YamlForge is designed to deploy both cloud instances and OpenShift clusters."
+                "For object storage:\n"
+                "yamlforge:\n"
+                "  cloud_workspace:\n"
+                "    name: \"your-workspace-name\"\n"
+                "  storage:\n"
+                "    - name: \"my-bucket-{guid}\"\n"
+                "      provider: \"aws\"\n"
+                "      region: \"us-east-1\"\n\n"
+                "YamlForge is designed to deploy cloud instances, OpenShift clusters, and object storage."
             )
         
         required_providers = self.detect_required_providers(yaml_data)
@@ -830,6 +865,35 @@ class YamlForgeConverter:
                     instance_name = instance.get('name', 'unnamed')
                     raise ValueError(
                         f"Configuration Error: Instance '{instance_name}' cannot specify both 'region' and 'location'.\n\n"
+                        f"Choose one:\n"
+                        f"  region: \"us-east-1\"  # Direct region specification\n"
+                        f"  location: \"east\"     # Location mapping"
+                    )
+        
+        # Validate that all storage buckets have required fields
+        storage = yamlforge_data.get('storage', [])
+        for bucket in storage:
+            provider = bucket.get('provider')
+            if provider:
+                # Check if bucket has region or location
+                has_region = 'region' in bucket
+                has_location = 'location' in bucket
+                
+                if not has_region and not has_location:
+                    bucket_name = bucket.get('name', 'unnamed')
+                    raise ValueError(
+                        f"Configuration Error: Storage bucket '{bucket_name}' (provider: {provider}) must specify either 'region' or 'location'.\n\n"
+                        f"Add one of these to your bucket configuration:\n"
+                        f"  region: \"us-east-1\"  # Direct region specification\n"
+                        f"  location: \"east\"     # Location mapping (see mappings/locations.yaml)\n\n"
+                        f"Available locations: {', '.join(sorted(self.locations.keys()))}\n"
+                        f"Common regions: us-east-1, us-west-2, eu-west-1, ap-southeast-1"
+                    )
+                
+                if has_region and has_location:
+                    bucket_name = bucket.get('name', 'unnamed')
+                    raise ValueError(
+                        f"Configuration Error: Storage bucket '{bucket_name}' cannot specify both 'region' and 'location'.\n\n"
                         f"Choose one:\n"
                         f"  region: \"us-east-1\"  # Direct region specification\n"
                         f"  location: \"east\"     # Location mapping"
@@ -1384,6 +1448,17 @@ provider "helm" {
                 
                 terraform_content += self.generate_virtual_machine(instance_copy, instance_counter, yaml_data, full_yaml_data=effective_yaml_data, zone=zone)
                 instance_counter += 1
+
+        # Generate object storage buckets
+        terraform_content += '''
+# ========================================
+# Object Storage Buckets
+# ========================================
+
+'''
+        storage = yaml_data.get('storage', [])
+        for bucket in storage:
+            terraform_content += self.generate_storage_bucket(bucket, yaml_data, effective_yaml_data)
 
         # ROSA clusters use ROSA CLI instead of Terraform providers
 
@@ -3477,6 +3552,106 @@ no_credentials_mode = {str(self.no_credentials).lower()}
                 print(f"     {provider}: {cost_display} ({info['instance_type']}, {vcpus} vCPU, {memory_gb}GB{gpu_info}){marker}")
         
         return cheapest_provider
+
+    def find_cheapest_storage_provider(self, bucket, suppress_output=False):
+        """Find the cheapest cloud provider for object storage."""
+        bucket_name = bucket.get('name', 'unnamed')
+        
+        # Check if storage costs are available
+        if not self.storage_costs or not self.storage_costs.get('storage_costs'):
+            if not suppress_output:
+                print(f"   Storage analysis for bucket '{bucket_name}': No cost data available, defaulting to AWS")
+            return 'aws'
+        
+        # Get available providers (excluding those configured to be excluded from cheapest)
+        available_providers = self.get_effective_providers()
+        storage_costs = self.storage_costs.get('storage_costs', {})
+        regional_multipliers = self.storage_costs.get('regional_multipliers', {})
+        
+        # Get region for cost calculation
+        region = bucket.get('region')
+        location = bucket.get('location')
+        
+        provider_costs = {}
+        
+        for provider in available_providers:
+            if provider in storage_costs:
+                # Check if provider supports the requested location/region
+                if location:
+                    # Check if location maps to this provider
+                    mapped_region = self.locations.get(location, {}).get(provider)
+                    if not mapped_region:
+                        # Provider doesn't support this location, skip it
+                        continue
+                
+                base_cost = storage_costs[provider].get('typical_monthly_cost', 999.0)
+                
+                # Apply regional multiplier
+                multiplier = 1.0
+                if region and region in regional_multipliers:
+                    multiplier = regional_multipliers[region]
+                elif location:
+                    # Try to resolve location to region and get multiplier
+                    mapped_region = self.locations.get(location, {}).get(provider)
+                    if mapped_region and mapped_region in regional_multipliers:
+                        multiplier = regional_multipliers[mapped_region]
+                    else:
+                        multiplier = regional_multipliers.get('default', 1.0)
+                else:
+                    multiplier = regional_multipliers.get('default', 1.0)
+                
+                final_cost = base_cost * multiplier
+                provider_costs[provider] = final_cost
+        
+        if not provider_costs:
+            if not suppress_output:
+                print(f"   Storage analysis for bucket '{bucket_name}': No providers with cost data, defaulting to AWS")
+            return 'aws'
+        
+        # Find the cheapest provider
+        cheapest_provider = min(provider_costs.keys(), key=lambda p: provider_costs[p])
+        
+        if not suppress_output:
+            print(f"   Storage cost analysis for bucket '{bucket_name}':")
+            # Sort providers by cost for display
+            sorted_providers = sorted(provider_costs.items(), key=lambda x: x[1])
+            for provider, cost in sorted_providers:
+                marker = " ← cheapest" if provider == cheapest_provider else ""
+                print(f"     {provider}: ${cost:.2f}/month{marker}")
+        
+        return cheapest_provider
+    
+    def calculate_storage_cost(self, provider, location=None):
+        """Calculate storage cost for a specific provider and location."""
+        if not self.storage_costs or not self.storage_costs.get('storage_costs'):
+            return None
+        
+        storage_costs = self.storage_costs.get('storage_costs', {})
+        regional_multipliers = self.storage_costs.get('regional_multipliers', {})
+        
+        if provider not in storage_costs:
+            return None
+        
+        base_cost = storage_costs[provider].get('typical_monthly_cost', 0.0)
+        
+        # Apply regional multiplier
+        multiplier = 1.0
+        if location:
+            # Try to resolve location to region and get multiplier
+            mapped_region = None
+            for region, providers in self.locations.items():
+                if provider in providers:
+                    mapped_region = region
+                    break
+            
+            if mapped_region and mapped_region in regional_multipliers:
+                multiplier = regional_multipliers[mapped_region]
+            else:
+                multiplier = regional_multipliers.get('default', 1.0)
+        else:
+            multiplier = regional_multipliers.get('default', 1.0)
+        
+        return base_cost * multiplier
     
     def find_cheapest_gpu_by_specs(self, gpu_type=None, instance_exclusions=None):
         """Find cheapest GPU instances across all providers, ignoring CPU/memory constraints."""
@@ -4456,7 +4631,107 @@ no_credentials_mode = {str(self.no_credentials).lower()}
         else:
             raise ValueError(f"Unsupported provider: {provider}")
 
+    def generate_storage_bucket(self, bucket, yaml_data, full_yaml_data=None):
+        """Generate object storage bucket configuration using provider modules."""
+        provider = bucket.get("provider")
+        if not provider:
+            bucket_name = bucket.get("name", "unknown")
+            raise ValueError(f"Storage bucket '{bucket_name}' must specify a 'provider'")
 
+        bucket_name = bucket.get("name", "unnamed")
+        
+        # Store original provider before it gets changed
+        original_provider = provider
+        
+        # Handle cheapest provider meta-provider
+        if provider == 'cheapest':
+            provider = self.find_cheapest_storage_provider(bucket, suppress_output=True)
+            # Update the bucket with the selected provider for consistency
+            bucket = bucket.copy()
+            bucket['provider'] = provider
+        
+        # Start bucket section with the resolved provider
+        self.start_bucket_section(bucket_name, provider)
+        
+        # Handle cheapest provider meta-provider output
+        if original_provider == 'cheapest':
+            self.print_bucket_output(bucket_name, provider, f"Provider: cheapest ({provider})")
+        else:
+            self.print_bucket_output(bucket_name, provider, f"Provider: {provider}")
+        
+        # Get and display region information
+        region = self.resolve_bucket_region(bucket, provider)
+        self.print_bucket_output(bucket_name, provider, f"Region: {region}")
+        
+        # Display bucket configuration
+        public = bucket.get('public', False)
+        versioning = bucket.get('versioning', False)
+        encryption = bucket.get('encryption', True)
+        
+        access_type = "public-read" if public else "private"
+        self.print_bucket_output(bucket_name, provider, f"Access: {access_type}")
+        self.print_bucket_output(bucket_name, provider, f"Versioning: {'enabled' if versioning else 'disabled'}")
+        self.print_bucket_output(bucket_name, provider, f"Encryption: {'enabled' if encryption else 'disabled'}")
+
+        # Use full_yaml_data if provided, otherwise fall back to yaml_data
+        effective_yaml_data = full_yaml_data if full_yaml_data is not None else yaml_data
+
+        if provider == 'aws':
+            return self.get_aws_provider().generate_s3_bucket(bucket, effective_yaml_data)
+        elif provider == 'azure':
+            return self.azure_provider.generate_storage_account(bucket, effective_yaml_data)
+        elif provider == 'gcp':
+            return self.gcp_provider.generate_storage_bucket(bucket, effective_yaml_data)
+        elif provider == 'oci':
+            return self.oci_provider.generate_object_storage(bucket, effective_yaml_data)
+        elif provider == 'alibaba':
+            return self.alibaba_provider.generate_oss_bucket(bucket, effective_yaml_data)
+        elif provider in ['ibm_vpc', 'ibm_classic']:
+            return self.ibm_vpc_provider.generate_cos_bucket(bucket, effective_yaml_data)
+        else:
+            raise ValueError(f"Unsupported storage provider: {provider}")
+
+    def resolve_bucket_region(self, bucket, provider):
+        """Resolve bucket region with support for both direct regions and mapped locations."""
+        bucket_name = bucket.get('name', 'unnamed')
+        has_region = 'region' in bucket
+        has_location = 'location' in bucket
+
+        if has_region and has_location:
+            raise ValueError(f"Storage bucket '{bucket_name}' cannot specify both 'region' and 'location'.")
+
+        if not has_region and not has_location:
+            raise ValueError(f"Storage bucket '{bucket_name}' must specify either 'region' or 'location'.")
+
+        if has_location:
+            # Location-based: Map to provider-specific region
+            location_key = bucket['location']
+            
+            if location_key in self.locations:
+                mapped_region = self.locations[location_key].get(provider)
+                if not mapped_region:
+                    raise ValueError(f"Storage bucket '{bucket_name}': Location '{location_key}' is not supported for provider '{provider}'. "
+                                   f"Check mappings/locations.yaml for supported locations.")
+                return mapped_region
+            else:
+                raise ValueError(f"Storage bucket '{bucket_name}': Location '{location_key}' not found in location mappings. "
+                               f"Check mappings/locations.yaml for supported locations.")
+
+        if has_region:
+            # Region-based: Use directly
+            return bucket['region']
+
+    def start_bucket_section(self, bucket_name, provider):
+        """Start a new bucket section in the output."""
+        print()
+        # Replace {guid} with actual GUID in bucket name
+        resolved_bucket_name = self.replace_guid_placeholders(bucket_name)
+        print(f"[{resolved_bucket_name}]")
+
+    def print_bucket_output(self, bucket_name, provider, message, indent_level=1):
+        """Print bucket-specific output with proper indentation."""
+        indent = "  " * indent_level
+        print(f"{indent}{message}")
 
     def generate_native_security_group_rule(self, rule, provider):
         """Generate native security group rule data for specified provider."""
