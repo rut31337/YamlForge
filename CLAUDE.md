@@ -224,3 +224,73 @@ python yamlforge.py config.yaml --analyze
 **Provider Validation**: Each provider includes credential validation and environment checking before Terraform generation.
 
 **Error Handling**: Graceful degradation when cloud APIs are unavailable, with fallback to static configurations where possible.
+
+## Release Management and Distribution Updates
+
+### Version Management
+- **Single Source of Truth**: All versions are managed in `pyproject.toml` only
+- **Dynamic Version Import**: Other files import version from `_version.py` which reads `pyproject.toml`
+- **Semantic Versioning**: Follow semver for releases (major.minor.patch, with pre-release suffixes like b5)
+
+### Distribution Channel Updates
+When releasing a new version, update all three distribution channels in this order:
+
+#### 1. PyPI Package (yamlforge-infra)
+```bash
+# 1. Update version in pyproject.toml (single source of truth)
+# 2. Build the package
+python -m build
+
+# 3. Upload to PyPI
+python -m twine upload dist/*
+
+# 4. Verify upload at https://pypi.org/project/yamlforge-infra/
+```
+
+#### 2. Ansible Galaxy Collection (rut31337.yamlforge)
+```bash
+# 1. Update collection version in galaxy.yml
+# 2. Update dependency requirement in galaxy.yml description (pip install yamlforge-infra>=X.X.X)
+# 3. Build collection tarball
+ansible-galaxy collection build ansible_collections/rut31337/yamlforge/
+
+# 4. Publish to Galaxy
+ansible-galaxy collection publish rut31337-yamlforge-*.tar.gz
+
+# 5. Verify at https://galaxy.ansible.com/rut31337/yamlforge
+```
+
+#### 3. Execution Environment (agnosticd-ee-dev)
+```bash
+# Update both repositories for compatibility:
+
+# agnosticd-ee-dev (primary development)
+cd /home/prutledg/agnosticd-ee-dev/tools/execution_environments/ee-multicloud-public/
+# Update requirements.yml: rut31337.yamlforge version
+# Update requirements.txt: yamlforge-infra>=X.X.X
+git add requirements.yml requirements.txt
+git commit -m "Update YamlForge to vX.X.X"
+git push
+
+# agnosticd (legacy compatibility)  
+cd /home/prutledg/agnosticd/tools/execution_environments/ee-multicloud-public/
+# Update requirements.txt: add yamlforge-infra>=X.X.X if missing
+# Update requirements.yml: add rut31337.yamlforge collection if missing
+git add requirements.yml requirements.txt
+git commit -m "Update YamlForge to vX.X.X"
+git push
+```
+
+### Update Process Checklist
+1. **Version Bump**: Update only `pyproject.toml` version field
+2. **Build and Test**: Verify changes work locally before distribution
+3. **PyPI**: Build with `python -m build`, upload with `twine upload dist/*`
+4. **Galaxy**: Update `galaxy.yml`, build and publish collection
+5. **EE**: Update both agnosticd-ee-dev and agnosticd requirements files
+6. **Verification**: Test all three distribution channels work correctly
+
+### Common Issues
+- **Version Conflicts**: Ensure all three channels reference the same core version
+- **Dependency Updates**: Update pip dependency references in Galaxy description
+- **EE Compatibility**: Both agnosticd repos need consistent requirements
+- **Build Failures**: Clean `dist/` directory before rebuilding PyPI packages
