@@ -496,12 +496,36 @@ def _get_ai_client():
         except Exception:
             pass
     
-    # Try Vertex AI
+    # Try Vertex AI (only if AI_MODEL is gemini, or claude with vertex project)
+    ai_model = os.getenv("AI_MODEL", "claude").lower()
+    ai_model_version = os.getenv("AI_MODEL_VERSION")
     vertex_project = os.getenv("ANTHROPIC_VERTEX_PROJECT_ID")
-    if vertex_project and VERTEX_AI:
+    
+    # Handle Gemini requirement for Vertex AI
+    if ai_model == "gemini" and not vertex_project:
+        print("DEBUG: AI_MODEL=gemini requires ANTHROPIC_VERTEX_PROJECT_ID environment variable")
+        return None
+    
+    # Only use Vertex AI if appropriate
+    use_vertex = (
+        (ai_model == "gemini" and vertex_project and VERTEX_AI) or
+        (ai_model == "claude" and vertex_project and VERTEX_AI)
+    )
+    
+    if use_vertex:
         try:
+            if ai_model == "gemini":
+                # Use specific Gemini version or default
+                model_name = ai_model_version if ai_model_version else "gemini-1.5-flash-001"
+            else:
+                # Use specific Claude version or default with publisher prefix
+                if ai_model_version:
+                    model_name = f"publishers/anthropic/models/{ai_model_version}"
+                else:
+                    model_name = "publishers/anthropic/models/claude-3-haiku@20240307"
+                
             llm = ChatVertexAI(
-                model="publishers/anthropic/models/claude-3-haiku@20240307",
+                model=model_name,
                 temperature=0.1,
                 max_tokens=1500,
                 project=vertex_project,

@@ -78,6 +78,8 @@ class YamlForgeGenerator:
     def __init__(self):
         self.use_ai = AI_AVAILABLE
         self.client_type = None
+        self.ai_model = os.getenv("AI_MODEL", "claude").lower()
+        self.ai_model_version = os.getenv("AI_MODEL_VERSION")
         # AI client initialization (debug output removed for cleaner logs)
         
         if self.use_ai:
@@ -91,26 +93,76 @@ class YamlForgeGenerator:
                 except Exception as e:
                     print(f"DEBUG: Direct Anthropic client initialization failed: {e}")
             
-            # Try Vertex AI if we have the project ID and it's available
+            # Try Vertex AI if needed based on AI_MODEL setting
             vertex_project = os.getenv("ANTHROPIC_VERTEX_PROJECT_ID")
-            if self.client_type is None and vertex_project and VERTEX_AI:
+            
+            # Handle Gemini requirement for Vertex AI
+            if self.ai_model == "gemini" and not vertex_project:
+                print("DEBUG: AI_MODEL=gemini requires ANTHROPIC_VERTEX_PROJECT_ID environment variable")
+                self.use_ai = False
+                return
+            
+            # Only use Vertex AI if:
+            # 1. AI_MODEL is set to "gemini" (requires Vertex AI), OR
+            # 2. AI_MODEL is "claude" but we want to use Claude via Vertex AI and have project ID
+            use_vertex = (
+                (self.ai_model == "gemini" and vertex_project and VERTEX_AI) or
+                (self.ai_model == "claude" and vertex_project and VERTEX_AI and self.client_type is None)
+            )
+            
+            if use_vertex:
                 # Try multiple model and location combinations
-                vertex_configs = [
-                    # Try the standard Claude 3 Haiku (most likely to work)
-                    {"model": "claude-3-haiku@20240307", "location": "us-east5"},
-                    {"model": "claude-3-haiku@20240307", "location": "us-central1"},
-                    {"model": "claude-3-haiku@20240307", "location": "europe-west1"},
-                    # Try Claude 3.5 Sonnet
-                    {"model": "claude-3-5-sonnet@20241022", "location": "us-east5"},
-                    {"model": "claude-3-5-sonnet@20241022", "location": "us-central1"},
-                    # Try without publisher prefix (direct model name)
-                    {"model": "claude-3-haiku@20240307", "location": "us-east5", "no_publisher": True},
-                ]
+                
+                if self.ai_model == "gemini":
+                    if self.ai_model_version:
+                        # Use specific version if provided
+                        vertex_configs = [
+                            {"model": self.ai_model_version, "location": "us-east5"},
+                            {"model": self.ai_model_version, "location": "us-central1"},
+                        ]
+                    else:
+                        # Use default Gemini models in order of preference
+                        vertex_configs = [
+                            # Try Gemini 2.0 Flash (most capable)
+                            {"model": "gemini-2.0-flash-001", "location": "us-east5"},
+                            {"model": "gemini-2.0-flash-001", "location": "us-central1"},
+                            # Try Gemini 1.5 Pro (good balance)
+                            {"model": "gemini-1.5-pro-001", "location": "us-east5"},
+                            {"model": "gemini-1.5-pro-001", "location": "us-central1"},
+                            # Try Gemini 1.5 Flash (fast and efficient)
+                            {"model": "gemini-1.5-flash-001", "location": "us-east5"},
+                            {"model": "gemini-1.5-flash-001", "location": "us-central1"},
+                            # Try Gemini 1.0 Pro (stable)
+                            {"model": "gemini-1.0-pro", "location": "us-east5"},
+                            {"model": "gemini-1.0-pro", "location": "us-central1"},
+                        ]
+                else:  # Claude models
+                    if self.ai_model_version:
+                        # Use specific Claude version if provided
+                        vertex_configs = [
+                            {"model": self.ai_model_version, "location": "us-east5"},
+                            {"model": self.ai_model_version, "location": "us-central1"},
+                            {"model": self.ai_model_version, "location": "europe-west1"},
+                        ]
+                    else:
+                        # Use default Claude models in order of preference
+                        vertex_configs = [
+                            # Try the standard Claude 3 Haiku (most likely to work)
+                            {"model": "claude-3-haiku@20240307", "location": "us-east5"},
+                            {"model": "claude-3-haiku@20240307", "location": "us-central1"},
+                            {"model": "claude-3-haiku@20240307", "location": "europe-west1"},
+                            # Try Claude 3.5 Sonnet
+                            {"model": "claude-3-5-sonnet@20241022", "location": "us-east5"},
+                            {"model": "claude-3-5-sonnet@20241022", "location": "us-central1"},
+                            # Try without publisher prefix (direct model name)
+                            {"model": "claude-3-haiku@20240307", "location": "us-east5", "no_publisher": True},
+                        ]
                 
                 for config in vertex_configs:
                     try:
                         model_name = config["model"]
-                        if not config.get("no_publisher", False):
+                        # Only add publisher prefix for Claude models
+                        if self.ai_model == "claude" and not config.get("no_publisher", False):
                             model_name = f"publishers/anthropic/models/{model_name}"
                         
                         test_llm = ChatVertexAI(
@@ -140,9 +192,10 @@ class YamlForgeGenerator:
                     print("DEBUG: All Vertex AI configurations failed")
             
             # Fall back to regular LangChain if direct API and Vertex failed
-            if self.client_type is None and LANGCHAIN_ANTHROPIC:
+            if self.client_type is None and LANGCHAIN_ANTHROPIC and self.ai_model == "claude":
                 try:
-                    model = os.getenv("ANTHROPIC_MODEL", "claude-3-haiku-20240307")
+                    # Use AI_MODEL_VERSION if set, otherwise fall back to ANTHROPIC_MODEL, then default
+                    model = self.ai_model_version or os.getenv("ANTHROPIC_MODEL", "claude-3-haiku-20240307")
                     self.llm = ChatAnthropic(model=model, temperature=0.1, max_tokens=2000)
                     self.client_type = "langchain"
                     print(f"DEBUG: LangChain Anthropic client initialized successfully with model: {model}")
@@ -162,6 +215,13 @@ class YamlForgeGenerator:
             'aws', 'azure', 'gcp', 'ibm_vpc', 'ibm_classic', 'oci', 
             'alibaba', 'vmware', 'cnv', 'cheapest', 'cheapest-gpu'
         ]
+    
+    def _get_claude_model_name(self) -> str:
+        """Get the Claude model name to use for direct Anthropic API calls."""
+        if self.ai_model_version:
+            return self.ai_model_version
+        else:
+            return "claude-3-haiku-20240307"  # Default Claude model
     
     def _load_yamlforge_mappings(self) -> Dict[str, Any]:
         """Load YamlForge mapping files for AI context."""
@@ -518,7 +578,7 @@ class YamlForgeGenerator:
             # Get AI response
             if self.client_type == "direct":
                 response = self.anthropic.messages.create(
-                    model="claude-3-haiku-20240307",
+                    model=self._get_claude_model_name(),
                     max_tokens=200,
                     messages=[{"role": "user", "content": prompt}]
                 )
@@ -1104,7 +1164,7 @@ Generate YAML:"""
             try:
                 if self.client_type == "direct":
                     response = self.anthropic.messages.create(
-                        model="claude-3-haiku-20240307",
+                        model=self._get_claude_model_name(),
                         max_tokens=1000,
                         temperature=0.1,
                         messages=[{"role": "user", "content": prompt}]
@@ -1207,7 +1267,7 @@ OUTPUT FORMAT:
             try:
                 if self.client_type == "direct":
                     response = self.anthropic.messages.create(
-                        model="claude-3-haiku-20240307",
+                        model=self._get_claude_model_name(),
                         max_tokens=3000,
                         temperature=0.1,
                         messages=[{"role": "user", "content": prompt}]

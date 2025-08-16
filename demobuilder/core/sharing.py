@@ -10,7 +10,7 @@ import base64
 import urllib.parse
 from typing import Dict, Any, Optional, List
 import streamlit as st
-from ..version import __version__
+from demobuilder.version import __version__
 
 
 def capture_shareable_state() -> Dict[str, Any]:

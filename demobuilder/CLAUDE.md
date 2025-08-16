@@ -196,7 +196,62 @@ export YAMLFORGE_EXCLUDE_PROVIDERS="aws,azure"     # Provider filtering
 export KEYCLOAK_ENABLED="true"                     # Enable authentication
 export AUTH_DEV_MODE="true"                        # Development authentication
 export AUTH_DEV_USER="dev-user"                    # Mock user for testing
+export AI_MODEL="gemini"                           # Use gemini models on Vertex AI (defaults to claude)
+export AI_MODEL_VERSION="gemini-1.5-pro-001"       # Specific model version (optional)
+export ANTHROPIC_VERTEX_PROJECT_ID="your-project"  # Google Cloud project ID (REQUIRED for AI_MODEL=gemini)
 ```
+
+### AI Model Configuration
+
+DemoBuilder supports two AI model families with different requirements:
+
+#### Claude Models (Default)
+- **Environment**: `AI_MODEL="claude"` (or omit - this is the default)
+- **Authentication**: Uses `ANTHROPIC_API_KEY` for direct Anthropic API access
+- **Project ID**: `ANTHROPIC_VERTEX_PROJECT_ID` is NOT required
+- **Version Control**: Use `AI_MODEL_VERSION` to specify exact Claude model version
+- **Fallback**: If Vertex AI project is configured, can also use Claude via Vertex AI
+
+#### Gemini Models  
+- **Environment**: `AI_MODEL="gemini"`
+- **Authentication**: Requires Google Cloud authentication
+- **Project ID**: `ANTHROPIC_VERTEX_PROJECT_ID` is REQUIRED (your GCP project ID)
+- **Version Control**: Use `AI_MODEL_VERSION` to specify exact Gemini model version
+- **Access**: Only available through Vertex AI
+
+**Usage Examples:**
+```bash
+# Use Claude (default) - only needs Anthropic API key
+export ANTHROPIC_API_KEY="sk-ant-..."
+export AI_MODEL="claude"  # Optional, this is the default
+
+# Use specific Claude model version
+export ANTHROPIC_API_KEY="sk-ant-..."
+export AI_MODEL="claude"
+export AI_MODEL_VERSION="claude-3-5-sonnet-20241022"
+
+# Use Gemini - requires Google Cloud project
+export AI_MODEL="gemini"
+export ANTHROPIC_VERTEX_PROJECT_ID="your-gcp-project-id"
+
+# Use specific Gemini model version
+export AI_MODEL="gemini"
+export AI_MODEL_VERSION="gemini-1.5-pro-001"
+export ANTHROPIC_VERTEX_PROJECT_ID="your-gcp-project-id"
+```
+
+**Available Model Versions:**
+
+*Claude Models:*
+- `claude-3-haiku-20240307` (default, fast and cost-effective)
+- `claude-3-5-sonnet-20241022` (most capable)
+- `claude-3-opus-20240229` (highest performance)
+
+*Gemini Models:*
+- `gemini-2.0-flash-001` (most capable, default)
+- `gemini-1.5-pro-001` (good balance)
+- `gemini-1.5-flash-001` (fast and efficient)
+- `gemini-1.0-pro` (stable)
 
 ## Development Guidelines
 
