@@ -7,29 +7,37 @@ YamlForge provides powerful cost optimization features that automatically select
 ### Basic Cost Optimization
 
 ```yaml
-guid: "cost1"
+guid: "cst01"
 
 yamlforge:
+  cloud_workspace:
+    name: "cost-optimized-{guid}"
+    description: "Basic cost optimization example"
+  
   instances:
     - name: "cost-optimized-{guid}"
       provider: "cheapest"
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
 ```
 
 ### GPU Cost Optimization
 
 ```yaml
-guid: "gpu1"
+guid: "gpu01"
 
 yamlforge:
+  cloud_workspace:
+    name: "gpu-cost-optimized-{guid}"
+    description: "GPU cost optimization example"
+  
   instances:
     - name: "gpu-optimized-{guid}"
       provider: "cheapest-gpu"
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       gpu_type: "NVIDIA T4"
       gpu_count: 1
 ```
@@ -93,15 +101,19 @@ Discounts are applied **before** cheapest provider selection, ensuring accurate 
 # AWS becomes cheapest with 25% discount
 # Without discount: GCP ($0.0335) < AWS ($0.0416)
 # With 25% AWS discount: AWS ($0.0312) < GCP ($0.0335)
-guid: "disc1"
+guid: "dsc01"
 
 yamlforge:
+  cloud_workspace:
+    name: "discount-example-{guid}"
+    description: "Provider discount impact example"
+  
   instances:
     - name: "cost-optimized-{guid}"
       provider: "cheapest"  # Will select AWS with discount applied
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-east"
+      location: "us-east"
 ```
 
 ## Cost Analysis
@@ -139,67 +151,79 @@ Cost analysis for instance 'web-server-cost1':
 ### 1. Generic Size Optimization
 
 ```yaml
-guid: "size1"
+guid: "siz01"
 
 yamlforge:
+  cloud_workspace:
+    name: "size-optimization-{guid}"
+    description: "Generic size optimization example"
+  
   instances:
     # Automatically finds cheapest medium instance across ALL clouds
     - name: "medium-optimized-{guid}"
       provider: "cheapest"
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
 ```
 
 ### 2. Specialized Workload Optimization
 
 ```yaml
-guid: "spec1"
+guid: "spc01"
 
 yamlforge:
+  cloud_workspace:
+    name: "specialized-workload-{guid}"
+    description: "Specialized workload optimization"
+  
   instances:
     # Finds cheapest compute-optimized instance across all providers
     - name: "compute-optimized-{guid}"
       provider: "cheapest"
       flavor: "compute_large"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       
     # Finds cheapest memory-optimized instance across all providers
     - name: "memory-optimized-{guid}"
       provider: "cheapest"
       flavor: "memory_large"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
 ```
 
 ### 3. Provider-Specific Optimization
 
 ```yaml
-guid: "prov1"
+guid: "prv01"
 
 yamlforge:
+  cloud_workspace:
+    name: "provider-specific-{guid}"
+    description: "Provider-specific optimization"
+  
   instances:
     # Automatically maps to best AWS instance for medium workloads
     - name: "aws-optimized-{guid}"
       provider: "aws"
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       
     # Automatically maps to best Azure memory-optimized VM
     - name: "azure-optimized-{guid}"
       provider: "azure"
       flavor: "memory_large"
       image: "RHEL9-latest"
-      region: "eastus"
+      location: "eastus"
       
     # Automatically maps to best GCP compute-optimized instance
     - name: "gcp-optimized-{guid}"
       provider: "gcp"
       flavor: "compute_large"
       image: "RHEL9-latest"
-      region: "us-central1"
+      location: "us-central1"
 ```
 
 ## Advanced Cost Optimization
@@ -207,9 +231,13 @@ yamlforge:
 ### 1. Custom Specifications
 
 ```yaml
-guid: "cust1"
+guid: "cst01"
 
 yamlforge:
+  cloud_workspace:
+    name: "custom-specs-{guid}"
+    description: "Custom CPU/memory specification optimization"
+  
   instances:
     # Find cheapest instance with specific CPU/memory requirements
     - name: "custom-specs-{guid}"
@@ -217,43 +245,51 @@ yamlforge:
       cores: 8
       memory: 16384  # 16GB in MB
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
 ```
 
 ### 2. Multi-Region Optimization
 
 ```yaml
-guid: "multi1"
+guid: "mul01"
 
 yamlforge:
+  cloud_workspace:
+    name: "multi-region-{guid}"
+    description: "Multi-region cost optimization"
+  
   instances:
     # Compare costs across different regions
     - name: "east-cost-{guid}"
       provider: "cheapest"
       flavor: "large"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       
     - name: "west-cost-{guid}"
       provider: "cheapest"
       flavor: "large"
       image: "RHEL9-latest"
-      region: "us-west-2"
+      location: "us-west-2"
 ```
 
 ### 3. GPU Cost Optimization
 
 ```yaml
-guid: "gpu2"
+guid: "gpu02"
 
 yamlforge:
+  cloud_workspace:
+    name: "gpu-cost-optimization-{guid}"
+    description: "Advanced GPU cost optimization"
+  
   instances:
     # Find cheapest GPU instance across all providers
     - name: "gpu-cheapest-{guid}"
       provider: "cheapest-gpu"
       flavor: "large"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       gpu_type: "NVIDIA T4"
       gpu_count: 1
       
@@ -262,7 +298,7 @@ yamlforge:
       provider: "cheapest-gpu"
       flavor: "large"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       gpu_type: "NVIDIA V100"
       gpu_count: 1
       
@@ -270,7 +306,7 @@ yamlforge:
       provider: "cheapest-gpu"
       flavor: "large"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       gpu_type: "NVIDIA A100"
       gpu_count: 1
 ```
@@ -280,9 +316,13 @@ yamlforge:
 ### Global Exclusions
 
 ```yaml
-guid: "excl1"
+guid: "exc01"
 
 yamlforge:
+  cloud_workspace:
+    name: "provider-exclusions-{guid}"
+    description: "Provider exclusion example"
+  
   # Exclude providers from cost comparison
   exclude_providers: ["vmware", "alibaba"]
   
@@ -291,21 +331,25 @@ yamlforge:
       provider: "cheapest"  # Only considers aws, azure, gcp, oci, ibm_vpc, ibm_classic
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
 ```
 
 ### Instance-Specific Exclusions
 
 ```yaml
-guid: "inst1"
+guid: "ins01"
 
 yamlforge:
+  cloud_workspace:
+    name: "instance-exclusions-{guid}"
+    description: "Instance-specific provider exclusions"
+  
   instances:
     - name: "selective-optimized-{guid}"
       provider: "cheapest"
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       exclude_providers: ["aws", "azure"]  # Only consider gcp, oci, ibm_vpc, ibm_classic
 ```
 
@@ -327,15 +371,19 @@ python yamlforge.py my-config.yaml --analyze
 ### Cost Tracking
 
 ```yaml
-guid: "track1"
+guid: "trk01"
 
 yamlforge:
+  cloud_workspace:
+    name: "cost-tracking-{guid}"
+    description: "Cost tracking and monitoring example"
+  
   instances:
     - name: "tracked-instance-{guid}"
       provider: "cheapest"
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       tags:
         cost_center: "development"
         budget: "monthly"
@@ -389,15 +437,19 @@ tags:
 ### Development Environment
 
 ```yaml
-guid: "dev1"
+guid: "dev01"
 
 yamlforge:
+  cloud_workspace:
+    name: "development-environment-{guid}"
+    description: "Cost-optimized development environment"
+  
   instances:
     - name: "dev-server-{guid}"
       provider: "cheapest"
       flavor: "small"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       tags:
         environment: "development"
         auto_shutdown: "true"
@@ -406,15 +458,19 @@ yamlforge:
 ### Production Environment
 
 ```yaml
-guid: "prod1"
+guid: "prd01"
 
 yamlforge:
+  cloud_workspace:
+    name: "production-environment-{guid}"
+    description: "Cost-optimized production environment"
+  
   instances:
     - name: "prod-web-{guid}"
       provider: "cheapest"
       flavor: "large"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       tags:
         environment: "production"
         sla: "99.9"
@@ -423,15 +479,19 @@ yamlforge:
 ### High-Performance Computing
 
 ```yaml
-guid: "hpc1"
+guid: "hpc01"
 
 yamlforge:
+  cloud_workspace:
+    name: "hpc-environment-{guid}"
+    description: "High-performance computing cost optimization"
+  
   instances:
     - name: "hpc-compute-{guid}"
       provider: "cheapest"
       flavor: "memory_xlarge"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       tags:
         workload: "hpc"
         priority: "high"
@@ -457,7 +517,7 @@ yamlforge:
    ```yaml
    # Try smaller flavors or different regions
    flavor: "small"
-   region: "us-west-2"  # May be cheaper than us-east-1
+   location: "us-west-2"  # May be cheaper than us-east-1
    ```
 
 ## Next Steps

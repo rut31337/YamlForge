@@ -4,6 +4,46 @@ This directory contains utility tools for YamlForge development and maintenance.
 
 ## Available Tools
 
+### `validate_schema.py` - Schema Validation Tool
+Validates YAML files and documentation examples against the YamlForge schema.
+
+```bash
+# Validate all YAML files in examples/
+python tools/validate_schema.py
+
+# Validate specific files
+python tools/validate_schema.py examples/simple.yaml examples/3tier.yaml
+
+# Check documentation YAML examples
+python tools/validate_schema.py --check-docs
+
+# Auto-fix common schema violations
+python tools/validate_schema.py --fix
+
+# Verbose output for debugging
+python tools/validate_schema.py --verbose
+```
+
+**Features:**
+- ✅ Validates all YAML files against YamlForge schema
+- ✅ Checks YAML code blocks in documentation files
+- ✅ Auto-fixes common violations (missing cloud_workspace, GUID format, etc.)
+- ✅ Educational example support (skip validation with `# yamlforge-validation: skip-schema-errors`)
+- ✅ Line-number reporting for precise error location
+- ✅ Integrated with Git commit hooks
+
+**Educational Examples:**
+For documentation with intentional errors:
+```yaml
+# yamlforge-validation: skip-schema-errors
+# This example shows what NOT to do
+guid: "bad01"
+yamlforge:
+  instances:
+    - name: "example"
+      # Missing required fields intentionally
+```
+
 ### `run_vulture.sh` - Static Analysis Tool
 Optimized script for running Vulture static analysis with smart configuration and multiple output modes.
 
@@ -25,15 +65,15 @@ Optimized script for running Vulture static analysis with smart configuration an
 ```
 
 ### `install_git_hooks.sh` - Git Integration
-Installs Git hooks to automatically run Vulture before and after commits.
+Installs Git hooks for automated quality checks including schema validation and Vulture analysis.
 
 ```bash
 # Install Git hooks
 ./tools/install_git_hooks.sh
 
-# After installation, Vulture runs automatically on:
-#   • git commit (pre-commit hook)
-#   • After commit (post-commit hook)
+# After installation, quality checks run automatically:
+#   • Pre-commit: Schema validation + Vulture + functionality tests
+#   • Post-commit: Background schema validation + Vulture analysis
 ```
 
 ### `extract_resourceclaim_vars.py` - ResourceClaim Variable Extractor
@@ -198,13 +238,15 @@ Alternatively, use the whitelist generation feature:
 The Vulture setup is integrated into the Git workflow:
 
 #### **Pre-commit Hook**
-- **Automatic** - Runs Vulture on staged Python files before each commit
-- **Blocking** - Prevents commits if unused code is found
-- **Configurable** - Uses the same ignore patterns as manual runs
+- **Schema Validation** - Validates all YAML files and documentation examples
+- **Vulture Analysis** - Runs on staged Python files before each commit  
+- **Functionality Tests** - Validates provider initialization and Terraform generation
+- **Blocking** - Prevents commits if any checks fail
 - **Bypass** - Use `git commit --no-verify` to skip (not recommended)
 
 #### **Post-commit Hook**
-- **Monitoring** - Runs Vulture on entire codebase after each commit
+- **Schema Monitoring** - Quick background check of schema compliance
+- **Vulture Monitoring** - Runs Vulture on entire codebase after each commit
 - **Non-blocking** - Runs in background, doesn't affect commit
 - **Informational** - Provides feedback on overall code quality
 

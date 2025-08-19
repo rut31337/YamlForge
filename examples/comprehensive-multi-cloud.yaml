@@ -5,29 +5,6 @@ yamlforge:
     name: "comprehensive-demo-{guid}"
     description: "Comprehensive multi-cloud deployment demonstration"
 
-  # Global configurations
-  aws:
-    region: "us-east-1"
-    ssh_key_name: "demo-key-{guid}"
-
-  azure:
-    location: "East US"
-    resource_group: "demo-rg-{guid}"
-
-  gcp:
-    project_id: "demo-project-{guid}"
-    region: "us-central1"
-
-  ibm_classic:
-    domain: "example.com"
-
-  ibm_vpc:
-    region: "us-east"
-
-  vmware:
-    datacenter: "demo-dc"
-    cluster: "demo-cluster"
-    datastore: "demo-datastore"
 
   # Security groups
   security_groups:
@@ -123,34 +100,32 @@ yamlforge:
           source: "0.0.0.0/0"
 
   # OpenShift Clusters
-  rosa_classic_clusters:
+  openshift_clusters:
     - name: "rosa-classic-{guid}"
+      type: "rosa-classic"
       region: "us-east-1"
-      version: "4.15"
+      version: "4.15.12"
       worker_count: 3
       worker_machine_type: "m5.xlarge"
-
-  aro_clusters:
+    
     - name: "aro-{guid}"
-      location: "eastus"
-      version: "4.15"
+      type: "aro"
+      region: "eastus"
+      version: "4.15.12"
       worker_count: 3
       worker_machine_type: "Standard_D4s_v3"
-
-  rosa_hcp_clusters:
+    
     - name: "rosa-hcp-{guid}"
+      type: "rosa-hcp"
       region: "us-east-1"
-      version: "4.15"
+      version: "4.15.12"
       worker_count: 3
       worker_machine_type: "m5.xlarge"
-
-  openshift_clusters:
+    
     - name: "openshift-{guid}"
       type: "self-managed"
-      provider: "aws"
       region: "us-east-1"
-      version: "4.15"
-      size: "large"
+      version: "4.15.12"
       controlplane_count: 3
       controlplane_machine_type: "m5.xlarge"
       worker_count: 5

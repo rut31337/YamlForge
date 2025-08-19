@@ -14,7 +14,7 @@ yamlforge:
   storage:
     - name: "my-bucket-{guid}"
       provider: "aws"
-      region: "us-east-1"
+      location: "us-east"
       public: false
       versioning: true
       encryption: true
@@ -57,7 +57,7 @@ yamlforge:
 storage:
   - name: "s3-bucket-{guid}"
     provider: "aws"
-    region: "us-east-1"
+    location: "us-east"
     public: false
     versioning: true
     encryption: true
@@ -157,7 +157,7 @@ storage:
 storage:
   - name: "direct-bucket-{guid}"
     provider: "aws"
-    region: "us-east-1"  # Direct region
+    location: "us-east"  # Direct region
 ```
 
 ## Cost Optimization
@@ -190,7 +190,7 @@ yamlforge:
     # Raw data ingestion
     - name: "raw-data-{guid}"
       provider: "aws"
-      region: "us-east-1"
+      location: "us-east"
       public: false
       versioning: true
       tags:
@@ -219,7 +219,7 @@ yamlforge:
 
 ### Content Distribution
 ```yaml
-guid: "cdn1"
+guid: "cdn01"
 
 yamlforge:
   cloud_workspace:
@@ -229,7 +229,7 @@ yamlforge:
     # Primary content storage
     - name: "primary-content-{guid}"
       provider: "aws"
-      region: "us-east-1"
+      location: "us-east"
       public: true
       versioning: true
       tags:
@@ -263,7 +263,7 @@ yamlforge:
 storage:
   - name: "production-data-{guid}"
     provider: "aws"
-    region: "us-east-1"
+    location: "us-east"
     tags:
       Environment: "production"
       Owner: "data-engineering"
@@ -279,7 +279,7 @@ storage:
 storage:
   - name: "secure-bucket-{guid}"
     provider: "aws"
-    region: "us-east-1"
+    location: "us-east"
     public: false          # No public access
     versioning: true       # Enable versioning for audit
     encryption: true       # Server-side encryption
@@ -291,7 +291,7 @@ storage:
 storage:
   - name: "public-assets-{guid}"
     provider: "aws"
-    region: "us-east-1"
+    location: "us-east"
     public: true           # Public read access
     versioning: false      # No versioning needed
     encryption: true       # Still encrypt at rest
@@ -382,13 +382,13 @@ storage:
 # Error: Both region and location specified
 storage:
   - name: "bucket-{guid}"
-    region: "us-east-1"
+    location: "us-east"
     location: "us-east"     # Remove one
 
 # Solution: Use either region OR location
 storage:
   - name: "bucket-{guid}"
-    region: "us-east-1"     # Direct region
+    location: "us-east"     # Direct region
 ```
 
 **Provider-specific naming:**

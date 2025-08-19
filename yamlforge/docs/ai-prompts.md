@@ -90,7 +90,7 @@ yamlforge:
   instances:
     - name: "dev-server"
       provider: "cheapest"
-      size: "small"
+      flavor: "small"
       image: "RHEL9-latest"
       tags:
         environment: "development"
@@ -109,9 +109,9 @@ yamlforge:
   openshift_clusters:
     - name: "production-cluster"
       type: "rosa-hcp"
-      region: "us-east-1"
+      location: "us-east-1"
       version: "latest"
-      size: "large"
+      flavor: "large"
       worker_count: 6
       auto_scaling:
         enabled: true
@@ -142,7 +142,7 @@ yamlforge:
       provider: "cheapest"
       gpu_type: "NVIDIA V100"
       gpu_count: 2
-      size: "gpu_large"
+      flavor: "gpu_large"
       image: "RHEL9-latest"
       tags:
         workload: "ai-training"
@@ -259,23 +259,23 @@ yamlforge:
   instances:
     - name: "web-server-1"
       provider: "aws"
-      region: "us-east-1"
-      size: "medium"
+      location: "us-east-1"
+      flavor: "medium"
       image: "RHEL9-latest"
       tags:
         role: "web"
         tier: "frontend"
     - name: "web-server-2"
       provider: "aws"
-      region: "us-east-1"
-      size: "medium"
+      location: "us-east-1"
+      flavor: "medium"
       image: "RHEL9-latest"
       tags:
         role: "web"
         tier: "frontend"
     - name: "database-server"
       provider: "cheapest"
-      size: "large"
+      flavor: "large"
       memory: 16384
       image: "RHEL9-latest"
       tags:
@@ -285,9 +285,9 @@ yamlforge:
   openshift_clusters:
     - name: "microservices-cluster"
       type: "rosa-hcp"
-      region: "us-east-1"
+      location: "us-east-1"
       version: "latest"
-      size: "large"
+      flavor: "large"
       worker_count: 6
       auto_scaling:
         enabled: true

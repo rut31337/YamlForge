@@ -1,13 +1,6 @@
 ---
-name: OpenShift on Google Cloud Platform
-description: Complete OpenShift deployment options on GCP including self-managed and
-  dedicated
-networking:
-  enable_cross_cloud: false
-security:
-  ssh_keys:
-  - name: gcp-admin-key
-    public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... gcp-admin@example.com
+guid: gcp01
+
 yamlforge:
   instances:
   - name: jumphost
@@ -48,7 +41,7 @@ yamlforge:
     region: us-central1
     zone: us-central1-a
     size: medium
-    version: 4.14.15
+    version: "4.14.15"
     base_domain: openshift.example.com
     worker_count: 3
     networking:
@@ -62,7 +55,7 @@ yamlforge:
     provider: gcp
     region: us-west1
     size: medium
-    version: 4.14.15
+    version: "4.14.15"
     dedicated:
       support_level: premium
       maintenance_window: sunday-3am
@@ -75,15 +68,16 @@ yamlforge:
     region: us-west1
     zone: us-west1-a
     size: small
-    version: 4.14.15
+    version: "4.14.15"
     worker_count: 2
     base_domain: dev.openshift.example.com
+  cloud_workspace:
+    name: "gcp-openshift-{guid}"
+    description: OpenShift on Google Cloud Platform - Complete OpenShift deployment options on GCP
+  
   tags:
     Environment: production
     Project: gcp-openshift
     Owner: platform-team
     CostCenter: engineering
     Cloud: gcp
-  cloud_workspace:
-    name: "gcp-openshift-{guid}"
-    description: Default workspace for this deployment

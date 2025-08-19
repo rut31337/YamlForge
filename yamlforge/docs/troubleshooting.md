@@ -27,13 +27,19 @@ guid: "web-01"    # Special characters
 **Solution**: Ensure all required fields are present:
 
 ```yaml
+guid: "trb01"
+
 yamlforge:
+  cloud_workspace:
+    name: "troubleshooting-example-{guid}"
+    description: "Example for troubleshooting guide"
+  
   instances:
     - name: "web-server-{guid}"
       provider: "aws"        # ✅ Required
       flavor: "medium"       # ✅ Required (or cores/memory)
       image: "RHEL9-latest"  # ✅ Required
-      region: "us-east-1"    # ✅ Required (except for CNV)
+      location: "us-east"    # ✅ Required (except for CNV)
 ```
 
 ### 3. Invalid Provider
@@ -99,19 +105,19 @@ source envvars.sh
 
 ### 6. Invalid Region
 
-**Error**: `Invalid region: 'invalid-region'`
+**Error**: `Invalid location: 'invalid-region'`
 
 **Solution**: Use valid regions or universal locations:
 
 ```yaml
 # ✅ Universal locations (recommended)
-region: "us-east"    # Maps to us-east-1, eastus, us-east1, etc.
-region: "eu-west"    # Maps to eu-west-1, westeurope, europe-west1, etc.
+location: "us-east"    # Maps to us-east-1, eastus, us-east1, etc.
+location: "eu-west"    # Maps to eu-west-1, westeurope, europe-west1, etc.
 
 # ✅ Provider-specific regions
-region: "us-east-1"  # AWS
-region: "eastus"     # Azure
-region: "us-east1"   # GCP
+location: "us-east-1"  # AWS
+location: "eastus"     # Azure
+location: "us-east1"   # GCP
 ```
 
 ### 7. GPU Configuration Issues
@@ -158,13 +164,21 @@ openshift_clusters:
 
 ```yaml
 # Global provider exclusions
+guid: "trb02"
+
 yamlforge:
+  cloud_workspace:
+    name: "cost-analysis-example-{guid}"
+    description: "Example for cost analysis troubleshooting"
+  
   exclude_providers: ["vmware", "alibaba"]  # Exclude from cost analysis
   
   instances:
     - name: "web-server-{guid}"
       provider: "cheapest"  # Only considers providers with cost data
       flavor: "medium"
+      image: "RHEL9-latest"
+      location: "us-east"
 ```
 
 ### 10. Terraform Generation Issues
@@ -230,26 +244,34 @@ python yamlforge.py my-config.yaml --analyze
 guid: "dev01"
 
 yamlforge:
+  cloud_workspace:
+    name: "development-environment-{guid}"
+    description: "Development environment example"
+  
   instances:
     - name: "dev-server-{guid}"
       provider: "cheapest"
       flavor: "small"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east"
 ```
 
 ### 2. Production Environment
 
 ```yaml
-guid: "prod1"
+guid: "prd01"
 
 yamlforge:
+  cloud_workspace:
+    name: "production-environment-{guid}"
+    description: "Production environment example"
+  
   instances:
     - name: "web-server-{guid}"
       provider: "aws"
       flavor: "large"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east"
       security_groups: ["web-access-{guid}"]
 ```
 
@@ -259,12 +281,16 @@ yamlforge:
 guid: "gpu01"
 
 yamlforge:
+  cloud_workspace:
+    name: "gpu-workload-{guid}"
+    description: "GPU workload example"
+  
   instances:
     - name: "gpu-training-{guid}"
       provider: "cheapest-gpu"
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east"
       gpu_type: "NVIDIA T4"
       gpu_count: 1
 ```

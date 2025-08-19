@@ -105,7 +105,7 @@ yamlforge:
     type: rosa-hcp
     provider: aws
     region: us-east-1
-    version: 4.15.0
+    version: "4.15.12"
     size: large
     worker_count: 4
     min_replicas: 3
@@ -152,7 +152,7 @@ yamlforge:
     type: rosa-classic
     provider: aws
     region: us-west-2
-    version: 4.14.15
+    version: "4.14.15"
     size: medium
     worker_count: 3
     machine_pools:

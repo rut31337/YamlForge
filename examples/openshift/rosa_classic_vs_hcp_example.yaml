@@ -16,7 +16,7 @@ yamlforge:
   - name: rosa-classic-production
     type: rosa-classic
     region: us-east-1
-    version: 4.14.15
+    version: "4.14.15"
     size: medium
     networking:
       machine_cidr: 10.0.0.0/16
@@ -46,7 +46,7 @@ yamlforge:
   - name: rosa-hcp-development
     type: rosa-hcp
     region: us-west-2
-    version: 4.14.15
+    version: "4.14.15"
     size: small
     networking:
       machine_cidr: 10.1.0.0/16
@@ -76,7 +76,7 @@ yamlforge:
   - name: rosa-hcp-staging
     type: rosa-hcp
     region: us-east-1
-    version: 4.14.15
+    version: "4.14.15"
     size: micro
     networking:
       machine_cidr: 10.2.0.0/16
@@ -226,6 +226,3 @@ yamlforge:
         - port: 80
           targetPort: 80
         type: NodePort
-  cloud_workspace:
-    name: default-workspace
-    description: Default workspace for this deployment

@@ -26,21 +26,41 @@ The following environment variables are **NOT USED** and should be configured in
 
 ### IBM Classic Configuration Section
 ```yaml
+guid: "ibc01"
+
 yamlforge:
+  cloud_workspace:
+    name: "ibm-classic-config-{guid}"
+    description: "IBM Classic configuration example"
+  
   ibm_classic:
     domain: "example.com"  # Required: Domain for all IBM Classic instances
     create_cloud_user: true  # Optional: Create cloud-user account (default: true)
     auto_create_outbound_sg: true  # Optional: Auto-create outbound security group (default: true)
+  
+  instances:
+    - name: "example-{guid}"
+      provider: "ibm_classic"
+      flavor: "medium"
+      image: "RHEL9-latest"
+      region: "dal10"
 ```
 
 ### Instance Configuration
 ```yaml
-instances:
-  - name: "web-server-{guid}"
-    provider: "ibm_classic"
-    region: "dal10"  # IBM Classic datacenter (e.g., dal10, wdc04, lon02)
-    flavor: "medium"
-    image: "RHEL9-latest"
+guid: "ibc02"
+
+yamlforge:
+  cloud_workspace:
+    name: "ibm-classic-instance-{guid}"
+    description: "IBM Classic instance configuration example"
+  
+  instances:
+    - name: "web-server-{guid}"
+      provider: "ibm_classic"
+      region: "dal10"  # IBM Classic datacenter (e.g., dal10, wdc04, lon02)
+      flavor: "medium"
+      image: "RHEL9-latest"
 ```
 
 ## Available Datacenters
@@ -87,19 +107,21 @@ IBM Cloud Classic datacenters (use as `region` in instances):
 ### Cloud User Creation
 IBM Classic can automatically create a `cloud-user` account with SSH access instead of using the root account:
 
+**Configuration in your YamlForge file:**
 ```yaml
-yamlforge:
-  ibm_classic:
-    create_cloud_user: true  # Default: true
+# In the ibm_classic section
+ibm_classic:
+  create_cloud_user: true  # Default: true
 ```
 
 ### Automatic Outbound Security Groups
 IBM Classic can automatically create outbound security groups for internet access:
 
+**Configuration in your YamlForge file:**
 ```yaml
-yamlforge:
-  ibm_classic:
-    auto_create_outbound_sg: true  # Default: true
+# In the ibm_classic section
+ibm_classic:
+  auto_create_outbound_sg: true  # Default: true
 ```
 
 ## Example

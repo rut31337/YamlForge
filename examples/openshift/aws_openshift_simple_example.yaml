@@ -7,7 +7,7 @@ yamlforge:
   instances:
   - name: openshift-jumphost
     provider: aws
-    size: medium
+    flavor: medium
     image: RHEL9-latest
     region: us-east-1
     security_groups:
@@ -29,5 +29,5 @@ yamlforge:
   - name: my-rosa-classic
     type: rosa-classic
     region: us-east-1
-    version: 4.18.19
+    version: "4.18.19"
     size: small

@@ -22,30 +22,38 @@ YamlForge provides comprehensive support for deploying and managing OpenShift cl
 ### Basic ROSA Cluster
 
 ```yaml
-guid: "rosa1"
+guid: "ros01"
 
 yamlforge:
+  cloud_workspace:
+    name: "rosa-cluster-{guid}"
+    description: "Basic ROSA cluster deployment"
+  
   openshift_clusters:
     - name: "my-rosa-cluster"
       type: "rosa-classic"
-      region: "us-east-1"
+      location: "us-east-1"
       version: "latest"
-      size: "medium"  # Cluster size (not instance size)
+      flavor: "medium"  # Cluster size (not instance size)
       worker_count: 3
 ```
 
 ### Basic ARO Cluster
 
 ```yaml
-guid: "aro1"
+guid: "aro01"
 
 yamlforge:
+  cloud_workspace:
+    name: "aro-cluster-{guid}"
+    description: "Basic ARO cluster deployment"
+  
   openshift_clusters:
     - name: "my-aro-cluster"
       type: "aro"
-      region: "eastus"
+      location: "eastus"
       version: "latest"
-      size: "medium"  # Cluster size (not instance size)
+      flavor: "medium"  # Cluster size (not instance size)
       worker_count: 3
 ```
 
@@ -57,22 +65,22 @@ yamlforge:
 openshift_clusters:
   - name: "small-cluster"
     type: "rosa-classic"
-    size: "small"    # 3 controlplane + 3 worker nodes
+    flavor: "small"    # 3 controlplane + 3 worker nodes
     worker_count: 3
     
   - name: "medium-cluster"
     type: "rosa-classic"
-    size: "medium"   # 3 controlplane + 6 worker nodes
+    flavor: "medium"   # 3 controlplane + 6 worker nodes
     worker_count: 6
     
   - name: "large-cluster"
     type: "rosa-classic"
-    size: "large"    # 3 controlplane + 12 worker nodes
+    flavor: "large"    # 3 controlplane + 12 worker nodes
     worker_count: 12
     
   - name: "xlarge-cluster"
     type: "rosa-classic"
-    size: "xlarge"   # 3 controlplane + 24 worker nodes
+    flavor: "xlarge"   # 3 controlplane + 24 worker nodes
     worker_count: 24
 ```
 
@@ -84,12 +92,16 @@ openshift_clusters:
 guid: "full1"
 
 yamlforge:
+  cloud_workspace:
+    name: "full-openshift-{guid}"
+    description: "OpenShift with supporting infrastructure"
+  
   openshift_clusters:
     - name: "production-cluster"
       type: "rosa-classic"
-      region: "us-east-1"
+      location: "us-east-1"
       version: "latest"
-      size: "large"  # Cluster size (not instance size)
+      flavor: "large"  # Cluster size (not instance size)
       worker_count: 6
       
   instances:
@@ -97,13 +109,13 @@ yamlforge:
       provider: "aws"
       flavor: "medium"  # Instance flavor (not cluster size)
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       
     - name: "backup-server-{guid}"
       provider: "aws"
       flavor: "large"  # Instance flavor (not cluster size)
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
 ```
 
 ## Environment Variables
@@ -134,45 +146,53 @@ export SSH_PUBLIC_KEY="ssh-rsa your_public_key_here"
 ### Multi-Cluster Deployment
 
 ```yaml
-guid: "multi1"
+guid: "mul01"
 
 yamlforge:
+  cloud_workspace:
+    name: "multi-cluster-{guid}"
+    description: "Multi-cluster OpenShift deployment"
+  
   openshift_clusters:
     - name: "prod-cluster"
       type: "rosa-classic"
-      region: "us-east-1"
+      location: "us-east-1"
       version: "latest"
-      size: "large"  # Cluster size (not instance size)
+      flavor: "large"  # Cluster size (not instance size)
       worker_count: 6
       
     - name: "staging-cluster"
       type: "aro"
-      region: "eastus"
+      location: "eastus"
       version: "latest"
-      size: "medium"  # Cluster size (not instance size)
+      flavor: "medium"  # Cluster size (not instance size)
       worker_count: 3
       
     - name: "dev-cluster"
       type: "self-managed"
       provider: "gcp"
-      region: "us-central1"
+      location: "us-central1"
       version: "latest"
-      size: "small"  # Cluster size (not instance size)
+      flavor: "small"  # Cluster size (not instance size)
       worker_count: 3
 ```
 
 ### Custom Networking
 
 ```yaml
-guid: "net1"
+guid: "net01"
 
 yamlforge:
+  cloud_workspace:
+    name: "custom-networking-{guid}"
+    description: "OpenShift cluster with custom networking"
+  
   openshift_clusters:
     - name: "custom-network-cluster"
       type: "rosa-classic"
-      region: "us-east-1"
+      location: "us-east-1"
       version: "latest"
-      size: "medium"  # Cluster size (not instance size)
+      flavor: "medium"  # Cluster size (not instance size)
       worker_count: 3
       networking:
         machine_cidr: "10.0.0.0/16"
@@ -186,15 +206,19 @@ yamlforge:
 ### Using Cheapest Provider for Supporting Infrastructure
 
 ```yaml
-guid: "cost1"
+guid: "cst01"
 
 yamlforge:
+  cloud_workspace:
+    name: "cost-optimized-{guid}"
+    description: "Cost-optimized OpenShift with supporting infrastructure"
+  
   openshift_clusters:
     - name: "cost-optimized-cluster"
       type: "rosa-classic"
-      region: "us-east-1"
+      location: "us-east-1"
       version: "latest"
-      size: "medium"  # Cluster size (not instance size)
+      flavor: "medium"  # Cluster size (not instance size)
       worker_count: 3
       
   instances:
@@ -202,7 +226,7 @@ yamlforge:
       provider: "cheapest"  # Automatically finds cheapest provider
       flavor: "medium"  # Instance flavor (not cluster size)
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
 ```
 
 ## Troubleshooting

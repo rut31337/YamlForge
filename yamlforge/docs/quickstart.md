@@ -153,7 +153,7 @@ yamlforge:
       provider: "aws"
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east"
       
     - name: "web-azure"
       provider: "azure"
@@ -165,7 +165,7 @@ yamlforge:
 ### Cost-Optimized Setup
 
 ```yaml
-guid: "save01"
+guid: "sav01"
 
 yamlforge:
   cloud_workspace:
@@ -210,7 +210,7 @@ yamlforge:
 ### Azure Full Subscription Setup (Default)
 
 ```yaml
-guid: "full01"
+guid: "ful01"
 
 yamlforge:
   cloud_workspace:
@@ -246,7 +246,7 @@ yamlforge:
   storage:
     - name: "data-bucket-{guid}"
       provider: "aws"
-      region: "us-east-1"
+      location: "us-east"
       public: false
       versioning: true
       encryption: true

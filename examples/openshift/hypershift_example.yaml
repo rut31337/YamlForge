@@ -1,19 +1,13 @@
 ---
-name: HyperShift Cost-Optimized OpenShift Platform
-description: HyperShift hosted control planes for massive cost savings and fast provisioning
-networking:
-  enable_cross_cloud: true
-security:
-  ssh_keys:
-  - name: hypershift-key
-    public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... hypershift@example.com
+guid: hyp01
+
 yamlforge:
   openshift_clusters:
   - name: hypershift-mgmt
     type: rosa-classic
     region: us-east-1
     size: large
-    version: 4.14.15
+    version: "4.14.15"
     addons:
     - hypershift-addon-operator
     hypershift:
@@ -27,7 +21,7 @@ yamlforge:
     region: us-east-1
     size: small
     worker_count: 2
-    version: 4.14.15
+    version: "4.14.15"
     base_domain: dev-us.hypershift.example.com
   - name: prod-gcp
     type: hypershift
@@ -37,7 +31,7 @@ yamlforge:
     zone: us-central1-a
     size: medium
     worker_count: 5
-    version: 4.14.15
+    version: "4.14.15"
     base_domain: prod-gcp.hypershift.example.com
   - name: test-cheapest
     type: hypershift
@@ -45,7 +39,7 @@ yamlforge:
     provider: cheapest
     size: small
     worker_count: 1
-    version: 4.14.15
+    version: "4.14.15"
     base_domain: test.hypershift.example.com
   - name: demo-cluster
     type: hypershift
@@ -54,12 +48,12 @@ yamlforge:
     region: us-west-2
     size: micro
     worker_count: 1
-    version: 4.14.15
+    version: "4.14.15"
     base_domain: demo.hypershift.example.com
   instances:
   - name: hypershift-admin
     provider: aws
-    size: small
+    flavor: small
     image: RHEL9-latest
     region: us-east-1
     user_data_script: '#!/bin/bash
@@ -88,5 +82,5 @@ yamlforge:
     CostCenter: engineering
     Approach: cost-optimized
   cloud_workspace:
-    name: default-workspace
-    description: Default workspace for this deployment
+    name: hypershift-platform
+    description: HyperShift Cost-Optimized OpenShift Platform - hosted control planes for massive cost savings and fast provisioning

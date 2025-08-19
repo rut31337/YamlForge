@@ -1,39 +1,16 @@
 ---
-name: Multi-Provider Self-Managed OpenShift
-description: Self-managed OpenShift clusters across different cloud providers and
-  platforms
-openshift_clusters_dev:
-- name: dev-aws
-  type: self-managed
-  provider: aws
-  region: us-west-2
-  size: small
-  version: 4.14.15
-  worker_count: 2
-  base_domain: dev-aws.example.com
-- name: dev-cheapest
-  type: self-managed
-  provider: cheapest
-  size: small
-  version: 4.14.15
-  worker_count: 2
-  base_domain: dev-cheapest.example.com
-networking:
-  enable_cross_cloud: true
-security:
-  ssh_keys:
-  - name: admin-key
-    public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... admin@example.com
+guid: mul01
+
 yamlforge:
   instances:
   - name: jumphost-aws
     provider: aws
-    size: small
+    flavor: small
     image: RHEL9-latest
     region: us-east-1
   - name: monitor-azure
     provider: azure
-    size: small
+    flavor: small
     image: RHEL9-latest
     region: eastus
   openshift_clusters:
@@ -42,7 +19,7 @@ yamlforge:
     provider: aws
     region: us-east-1
     size: medium
-    version: 4.14.15
+    version: "4.14.15"
     base_domain: aws.openshift.example.com
     worker_count: 3
     networking:
@@ -56,7 +33,7 @@ yamlforge:
     provider: azure
     region: westeurope
     size: medium
-    version: 4.14.15
+    version: "4.14.15"
     base_domain: azure.openshift.example.com
     worker_count: 3
     networking:
@@ -69,7 +46,7 @@ yamlforge:
     region: us-central1
     zone: us-central1-a
     size: medium
-    version: 4.14.15
+    version: "4.14.15"
     base_domain: gcp.openshift.example.com
     worker_count: 3
     networking:
@@ -82,7 +59,7 @@ yamlforge:
     region: us-south
     zone: us-south-1
     size: medium
-    version: 4.14.15
+    version: "4.14.15"
     base_domain: ibm.openshift.example.com
     worker_count: 3
   - name: oci-self-managed
@@ -90,7 +67,7 @@ yamlforge:
     provider: oci
     region: us-ashburn-1
     size: medium
-    version: 4.14.15
+    version: "4.14.15"
     base_domain: oci.openshift.example.com
     worker_count: 3
   - name: vmware-self-managed
@@ -98,7 +75,7 @@ yamlforge:
     provider: vmware
     region: datacenter1
     size: medium
-    version: 4.14.15
+    version: "4.14.15"
     base_domain: vmware.openshift.example.com
     worker_count: 3
   - name: alibaba-self-managed
@@ -106,7 +83,7 @@ yamlforge:
     provider: alibaba
     region: cn-hangzhou
     size: medium
-    version: 4.14.15
+    version: "4.14.15"
     base_domain: alibaba.openshift.example.com
     worker_count: 3
   tags:
@@ -116,5 +93,5 @@ yamlforge:
     CostCenter: engineering
     Approach: self-managed
   cloud_workspace:
-    name: default-workspace
-    description: Default workspace for this deployment
+    name: multi-provider-workspace
+    description: Multi-Provider Self-Managed OpenShift clusters across different cloud providers and platforms

@@ -10,12 +10,16 @@ This guide covers IBM VPC-specific configuration options and best practices for 
 guid: "ibm01"
 
 yamlforge:
+  cloud_workspace:
+    name: "ibm-vpc-demo-{guid}"
+    description: "Basic IBM VPC instance deployment"
+  
   instances:
     - name: "ibm-vpc-vm-{guid}"
       provider: "ibm_vpc"
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-south"
+      location: "us-south"
 ```
 
 ### Multi-Region IBM VPC Deployment
@@ -24,18 +28,22 @@ yamlforge:
 guid: "ibm02"
 
 yamlforge:
+  cloud_workspace:
+    name: "multi-region-ibm-{guid}"
+    description: "Multi-region IBM VPC deployment"
+  
   instances:
     - name: "vpc-east-{guid}"
       provider: "ibm_vpc"
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-east"
+      location: "us-east"
       
     - name: "vpc-south-{guid}"
       provider: "ibm_vpc"
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-south"
+      location: "us-south"
 ```
 
 ## Environment Variables
@@ -66,14 +74,14 @@ IBM VPC supports these regions:
 
 ```yaml
 # ✅ Supported regions
-region: "us-south"      # Dallas
-region: "us-east"       # Washington DC
-region: "eu-gb"         # London
-region: "eu-de"         # Frankfurt
-region: "jp-tok"        # Tokyo
-region: "au-syd"        # Sydney
-region: "ca-tor"        # Toronto
-region: "br-sao"        # São Paulo
+location: "us-south"      # Dallas
+location: "us-east"       # Washington DC
+location: "eu-gb"         # London
+location: "eu-de"         # Frankfurt
+location: "jp-tok"        # Tokyo
+location: "au-syd"        # Sydney
+location: "ca-tor"        # Toronto
+location: "br-sao"        # São Paulo
 ```
 
 ## Instance Flavors
@@ -100,6 +108,10 @@ memory: 8192  # 8GB in MB
 guid: "ibm03"
 
 yamlforge:
+  cloud_workspace:
+    name: "ibm-security-demo-{guid}"
+    description: "IBM VPC with security groups"
+  
   security_groups:
     - name: "web-access-{guid}"
       description: "Web server access"
@@ -122,7 +134,7 @@ yamlforge:
       provider: "ibm_vpc"
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-south"
+      location: "us-south"
       security_groups: ["web-access-{guid}"]
 ```
 
@@ -132,12 +144,16 @@ yamlforge:
 guid: "ibm04"
 
 yamlforge:
+  cloud_workspace:
+    name: "ibm-tagged-demo-{guid}"
+    description: "IBM VPC with tags and labels"
+  
   instances:
     - name: "tagged-vm-{guid}"
       provider: "ibm_vpc"
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-south"
+      location: "us-south"
       tags:
         environment: "production"
         team: "development"
@@ -152,12 +168,16 @@ yamlforge:
 guid: "ibm05"
 
 yamlforge:
+  cloud_workspace:
+    name: "ibm-cost-optimized-{guid}"
+    description: "Cost-optimized IBM VPC deployment"
+  
   instances:
     - name: "cost-optimized-{guid}"
       provider: "cheapest"  # IBM VPC may be selected if cheapest
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-south"
+      location: "us-south"
 ```
 
 ### Custom Specifications
@@ -166,13 +186,17 @@ yamlforge:
 guid: "ibm06"
 
 yamlforge:
+  cloud_workspace:
+    name: "ibm-custom-specs-{guid}"
+    description: "IBM VPC with custom specifications"
+  
   instances:
     - name: "custom-specs-{guid}"
       provider: "ibm_vpc"
       cores: 6
       memory: 12288  # 12GB in MB
       image: "RHEL9-latest"
-      region: "us-south"
+      location: "us-south"
 ```
 
 ## Troubleshooting
@@ -200,7 +224,7 @@ yamlforge:
 
 ### Best Practices
 
-1. **Use Universal Locations**: `region: "us-east"` maps to IBM VPC regions
+1. **Use Universal Locations**: `location: "us-east"` maps to IBM VPC regions
 2. **Tag Resources**: Use tags for cost tracking and organization
 3. **Security Groups**: Always use security groups for network access control
 4. **Backup Strategy**: Consider IBM Cloud Backup for data protection
@@ -213,13 +237,17 @@ IBM VPC can be used with OpenShift clusters:
 guid: "ibm07"
 
 yamlforge:
+  cloud_workspace:
+    name: "ibm-openshift-{guid}"
+    description: "IBM VPC with OpenShift cluster"
+  
   openshift_clusters:
     - name: "ibm-openshift-{guid}"
       type: "self-managed"
       provider: "ibm_vpc"
-      region: "us-south"
+      location: "us-south"
       version: "latest"
-      size: "medium"  # Cluster size (not instance size)
+      flavor: "medium"  # Cluster size (not instance size)
       worker_count: 3
 ```
 

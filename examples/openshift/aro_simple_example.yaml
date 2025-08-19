@@ -1,6 +1,6 @@
 # Azure Red Hat OpenShift (ARO) Simple Example
 
-guid: "aro1"
+guid: "aro01"
 
 yamlforge:
   cloud_workspace:

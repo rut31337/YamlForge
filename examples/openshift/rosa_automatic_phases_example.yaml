@@ -1,16 +1,12 @@
 ---
 guid: rosap
-project_name: rosa-multi-cluster
-environment: production
-providers:
-- name: aws
-  region: us-east-1
+
 yamlforge:
   openshift_clusters:
   - name: production-rosa-classic
     type: rosa-classic
     region: us-east-1
-    version: 4.18.19
+    version: "4.18.19"
     size: large
     worker_count: 3
     multi_az: true
@@ -28,7 +24,7 @@ yamlforge:
   - name: development-rosa-hcp
     type: rosa-hcp
     region: us-east-1
-    version: 4.18.19
+    version: "4.18.19"
     size: medium
     worker_count: 6
     auto_scaling:
@@ -44,7 +40,7 @@ yamlforge:
   - name: staging-rosa-hcp
     type: rosa-hcp
     region: us-east-1
-    version: 4.18.19
+    version: "4.18.19"
     size: small
     worker_count: 3
     networking:
@@ -55,7 +51,7 @@ yamlforge:
   - name: hypershift-mgmt
     type: rosa-classic
     region: us-east-1
-    version: 4.18.19
+    version: "4.18.19"
     size: large
     worker_count: 3
     multi_az: true
@@ -72,7 +68,7 @@ yamlforge:
     management_cluster: hypershift-mgmt
     provider: aws
     region: us-west-2
-    version: 4.18.19
+    version: "4.18.19"
     size: small
     worker_count: 2
     base_domain: dev.hypershift.example.com
@@ -125,5 +121,5 @@ yamlforge:
     port: 8080
     namespace: development
   cloud_workspace:
-    name: default-workspace
+    name: rosa-multi-cluster
     description: Default workspace for this deployment

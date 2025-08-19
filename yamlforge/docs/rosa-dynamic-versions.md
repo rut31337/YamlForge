@@ -37,37 +37,66 @@ openshift:
 
 ### **Auto-Discover and Upgrade Unsupported Versions**  
 ```yaml
+# yamlforge-validation: skip-schema-errors
+# This example intentionally shows invalid version to demonstrate auto-discovery
+guid: "ros01"
+
 yamlforge:
+  cloud_workspace:
+    name: "rosa-auto-discover-{guid}"
+    description: "ROSA auto-discovery example"
+  
   # Set in defaults/openshift.yaml or override in main config
   openshift:
     auto_discover_version: true        #  Enable auto-discovery globally
     
-    clusters:
-      - name: my-cluster
-        version: "1.0.0"                  #  Unsupported version → will auto-discover and upgrade
-        # ... other config
+  openshift_clusters:
+    - name: "my-cluster"
+      type: "rosa-classic"
+      location: "us-east"
+      version: "1.0.0"                  #  Unsupported version → will auto-discover and upgrade
+      flavor: "medium"
+      worker_count: 3
 ```
 
 ### **Recommended Patterns**
 ```yaml
+guid: "ros02"
+
 yamlforge:
+  cloud_workspace:
+    name: "rosa-patterns-{guid}"
+    description: "ROSA version pattern examples"
+  
   # Global setting - applies to all clusters
   openshift:
     auto_discover_version: false       #  Strict validation (recommended for production)
 # auto_discover_version: true     #  Flexible auto-discovery (for dev environments)
     
-    clusters:
-      #  Explicit supported version
-      - name: production-cluster
-        version: "4.18.19"
+  openshift_clusters:
+    #  Explicit supported version
+    - name: "production-cluster"
+      type: "rosa-classic"
+      location: "us-east"
+      version: "4.18.19"
+      flavor: "large"
+      worker_count: 6
 
-      #  Always get latest
-      - name: dev-cluster
-        version: "latest"
+    #  Always get latest
+    - name: "dev-cluster"
+      type: "rosa-classic"
+      location: "us-east"
+      version: "latest"
+      flavor: "medium"
+      worker_count: 3
         
-      #  Version may become unsupported over time
-      - name: test-cluster 
-        version: "4.16.0"                 # Behavior depends on global auto_discover_version setting
+    #  Version may become unsupported over time
+    - name: "test-cluster"
+      type: "rosa-classic"
+      location: "us-east"
+      version: "4.16.0"                 # Behavior depends on global auto_discover_version setting
+      flavor: "small"
+      worker_count: 3
 ```
 
 ---
@@ -147,19 +176,47 @@ def get_recommended_version(input_version=None):
 ##  Usage Examples
 
 ### **Example 1: Fix Outdated Configuration**
-```yaml
-# Before (my-config.yaml)
-openshift_clusters:
-  - name: "prod-cluster" 
-    version: "4.14.15"  #  Outdated
 
+**Before (my-config.yaml):**
+```yaml
+guid: "ros03"
+
+yamlforge:
+  cloud_workspace:
+    name: "outdated-config-{guid}"
+    description: "Example with outdated version"
+  
+  openshift_clusters:
+    - name: "prod-cluster"
+      type: "rosa-classic"
+      location: "us-east"
+      version: "4.14.15"  #  Outdated
+      flavor: "large"
+      worker_count: 6
+```
+
+**Command:**
+```bash
 # YamlForge automatically detects and validates versions
 yamlforge my-config.yaml -d terraform/
+```
 
-# After (YamlForge updates to latest supported)
-openshift_clusters:
-  - name: "prod-cluster"
-    version: "4.19.3"   #  Latest supported
+**After (YamlForge updates to latest supported):**
+```yaml
+guid: "ros04"
+
+yamlforge:
+  cloud_workspace:
+    name: "updated-config-{guid}"
+    description: "Example with updated version"
+  
+  openshift_clusters:
+    - name: "prod-cluster"
+      type: "rosa-classic"
+      location: "us-east"
+      version: "4.19.3"   #  Latest supported
+      flavor: "large"
+      worker_count: 6
 ```
 
 ### **Example 2: Version Validation**
@@ -187,13 +244,23 @@ yamlforge my-config.yaml -d terraform/
 ### **Example 4: Auto-Discovery Mode**
 ```yaml
 # my-config.yaml with auto-discovery enabled globally
+guid: "ros05"
+
 yamlforge:
+  cloud_workspace:
+    name: "auto-discovery-{guid}"
+    description: "Auto-discovery mode example"
+  
   openshift:
     auto_discover_version: true     # Enable auto-discovery for all clusters
     
-    clusters:
-      - name: "prod-cluster"
-        version: "4.14.15"             # Unsupported → will auto-discover and upgrade
+  openshift_clusters:
+    - name: "prod-cluster"
+      type: "rosa-classic"
+      location: "us-east"
+      version: "4.14.15"             # Unsupported → will auto-discover and upgrade
+      flavor: "large"
+      worker_count: 6
 ```
 
 ```bash

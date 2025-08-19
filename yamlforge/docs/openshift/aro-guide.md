@@ -10,12 +10,16 @@ This guide covers deploying Azure Red Hat OpenShift (ARO) clusters using YamlFor
 guid: "aro01"
 
 yamlforge:
+  cloud_workspace:
+    name: "aro-cluster-{guid}"
+    description: "Basic ARO cluster deployment"
+  
   openshift_clusters:
     - name: "my-aro-cluster"
       type: "aro"
       region: "eastus"
       version: "latest"
-      size: "medium"  # Cluster size (not instance size)
+      flavor: "medium"  # Cluster size (not instance size)
       worker_count: 3
 ```
 
@@ -25,12 +29,16 @@ yamlforge:
 guid: "aro02"
 
 yamlforge:
+  cloud_workspace:
+    name: "custom-aro-{guid}"
+    description: "ARO cluster with custom networking"
+  
   openshift_clusters:
     - name: "custom-aro-cluster"
       type: "aro"
       region: "eastus"
       version: "4.14.15"
-      size: "large"  # Cluster size (not instance size)
+      flavor: "large"  # Cluster size (not instance size)
       worker_count: 6
       networking:
         vnet_cidr: "10.0.0.0/16"
@@ -75,45 +83,45 @@ az ad sp create-for-rbac \
 openshift_clusters:
   - name: "small-cluster"
     type: "aro"
-    size: "small"    # 3 controlplane + 3 worker nodes
+    flavor: "small"    # 3 controlplane + 3 worker nodes
     worker_count: 3
     
   - name: "medium-cluster"
     type: "aro"
-    size: "medium"   # 3 controlplane + 6 worker nodes
+    flavor: "medium"   # 3 controlplane + 6 worker nodes
     worker_count: 6
     
   - name: "large-cluster"
     type: "aro"
-    size: "large"    # 3 controlplane + 12 worker nodes
+    flavor: "large"    # 3 controlplane + 12 worker nodes
     worker_count: 12
     
   - name: "xlarge-cluster"
     type: "aro"
-    size: "xlarge"   # 3 controlplane + 24 worker nodes
+    flavor: "xlarge"   # 3 controlplane + 24 worker nodes
     worker_count: 24
 ```
 
 ### VM Size Mappings
 
-ARO automatically selects appropriate VM sizes based on cluster size:
+ARO automatically selects appropriate VM sizes based on cluster flavor:
 
 ```yaml
 # Small cluster configuration
-size: "small"  # Standard_D4s_v3 (4 vCPU, 16GB)
-worker_disk_size: 128  # Disk size in GB
+flavor: "small"  # Standard_D4s_v3 (4 vCPU, 16GB)
+worker_disk_size: 128  # Storage in GB
 
 # Medium cluster configuration
-size: "medium"  # Standard_D8s_v3 (8 vCPU, 32GB)
-worker_disk_size: 256  # Disk size in GB
+flavor: "medium"  # Standard_D8s_v3 (8 vCPU, 32GB)
+worker_disk_size: 256  # Storage in GB
 
 # Large cluster configuration
-size: "large"  # Standard_D16s_v3 (16 vCPU, 64GB)
-worker_disk_size: 512  # Disk size in GB
+flavor: "large"  # Standard_D16s_v3 (16 vCPU, 64GB)
+worker_disk_size: 512  # Storage in GB
 
 # XLarge cluster configuration
-size: "xlarge"  # Standard_D32s_v3 (32 vCPU, 128GB)
-worker_disk_size: 1024  # Disk size in GB
+flavor: "xlarge"  # Standard_D32s_v3 (32 vCPU, 128GB)
+worker_disk_size: 1024  # Storage in GB
 ```
 
 ## Advanced Configuration
@@ -124,16 +132,20 @@ worker_disk_size: 1024  # Disk size in GB
 guid: "aro03"
 
 yamlforge:
+  cloud_workspace:
+    name: "aro-workspace-{guid}"
+    description: "ARO deployment workspace"
+  
   openshift_clusters:
     - name: "custom-vm-aro"
       type: "aro"
       region: "eastus"
       version: "latest"
-      size: "medium"  # Cluster size (not instance size)
+      flavor: "medium"  # Cluster size (not instance size)
       worker_count: 6
       controlplane_machine_type: "Standard_D8s_v3"  # Custom controlplane VM size
       worker_machine_type: "Standard_D4s_v3"  # Custom worker VM size
-      worker_disk_size: 256  # Custom disk size in GB
+      worker_disk_size: 256  # Custom storage in GB
 ```
 
 ### Autoscaling Configuration
@@ -142,12 +154,16 @@ yamlforge:
 guid: "aro04"
 
 yamlforge:
+  cloud_workspace:
+    name: "aro-workspace-{guid}"
+    description: "ARO deployment workspace"
+  
   openshift_clusters:
     - name: "autoscale-aro"
       type: "aro"
       region: "eastus"
       version: "latest"
-      size: "medium"  # Cluster size (not instance size)
+      flavor: "medium"  # Cluster size (not instance size)
       worker_count: 3
       auto_scaling:
         enabled: true
@@ -161,12 +177,16 @@ yamlforge:
 guid: "aro05"
 
 yamlforge:
+  cloud_workspace:
+    name: "aro-workspace-{guid}"
+    description: "ARO deployment workspace"
+  
   openshift_clusters:
     - name: "multi-zone-aro"
       type: "aro"
       region: "eastus"
       version: "latest"
-      size: "large"  # Cluster size (not instance size)
+      flavor: "large"  # Cluster size (not instance size)
       worker_count: 6
       availability_zones:
         - "1"
@@ -182,12 +202,16 @@ yamlforge:
 guid: "aro06"
 
 yamlforge:
+  cloud_workspace:
+    name: "aro-workspace-{guid}"
+    description: "ARO deployment workspace"
+  
   openshift_clusters:
     - name: "production-aro"
       type: "aro"
       region: "eastus"
       version: "latest"
-      size: "large"  # Cluster size (not instance size)
+      flavor: "large"  # Cluster size (not instance size)
       worker_count: 6
       
   instances:
@@ -212,12 +236,16 @@ yamlforge:
 guid: "aro07"
 
 yamlforge:
+  cloud_workspace:
+    name: "aro-workspace-{guid}"
+    description: "ARO deployment workspace"
+  
   openshift_clusters:
     - name: "cost-optimized-aro"
       type: "aro"
       region: "eastus"
       version: "latest"
-      size: "medium"  # Cluster size (not instance size)
+      flavor: "medium"  # Cluster size (not instance size)
       worker_count: 3
       
   instances:
@@ -225,7 +253,7 @@ yamlforge:
       provider: "cheapest"  # Automatically finds cheapest provider
       flavor: "medium"  # Instance flavor (not cluster size)
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east"
 ```
 
 ## Troubleshooting

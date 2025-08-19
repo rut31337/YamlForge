@@ -16,7 +16,7 @@ yamlforge:
   - name: rosa-with-custom-networking
     type: rosa-classic
     region: us-east-1
-    version: 4.14.15
+    version: "4.14.15"
     size: medium
     networking:
       machine_cidr: 192.168.0.0/16
@@ -31,7 +31,7 @@ yamlforge:
   - name: aro-with-custom-subnets
     type: aro
     region: East US
-    version: 4.14.15
+    version: "4.14.15"
     size: small
     networking:
       vnet_cidr: 10.10.0.0/16
@@ -43,7 +43,7 @@ yamlforge:
     type: self-managed
     provider: gcp
     region: us-central1
-    version: 4.14.15
+    version: "4.14.15"
     size: large
     networking:
       machine_cidr: 10.50.0.0/16

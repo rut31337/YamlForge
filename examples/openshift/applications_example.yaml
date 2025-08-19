@@ -1,53 +1,28 @@
 ---
-name: Complete OpenShift Application Platform
-description: Full-stack application deployment across OpenShift clusters with all
-  deployment types
-application_config:
-  registry:
-    server: myregistry.example.com
-    username: ${var.container_registry_username}
-    password: ${var.container_registry_password}
-  domains:
-    production: example.com
-    development: dev.example.com
-    testing: test.example.com
-  monitoring:
-    enabled: true
-    retention: 30d
-    alerting: true
-  security:
-    enable_network_policies: true
-    enable_pod_security_standards: true
-    image_scanning: true
-networking:
-  enable_cross_cluster: true
-  service_mesh: istio
-security:
-  ssh_keys:
-  - name: platform-admin
-    public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... platform@example.com
+guid: apps1
+
 yamlforge:
   openshift_clusters:
   - name: prod-rosa
     type: rosa-classic
     region: us-east-1
     size: large
-    version: 4.14.15
+    version: "4.14.15"
   - name: dev-aro
     type: aro
     region: eastus
     size: medium
-    version: 4.14.15
+    version: "4.14.15"
   - name: test-gcp
     type: self-managed
     provider: gcp
     region: us-central1
     size: small
-    version: 4.14.15
+    version: "4.14.15"
   instances:
   - name: monitoring-server
     provider: aws
-    size: medium
+    flavor: medium
     image: RHEL9-latest
     region: us-east-1
   openshift_applications:
@@ -287,5 +262,5 @@ yamlforge:
     CostCenter: engineering
     Stack: full-stack
   cloud_workspace:
-    name: default-workspace
-    description: Default workspace for this deployment
+    name: openshift-app-platform
+    description: Complete OpenShift Application Platform - Full-stack application deployment across OpenShift clusters

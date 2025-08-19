@@ -38,11 +38,6 @@ yamlforge:
       memory: 16384  # 16GB in MB
       image: "kubevirt/fedora-cloud-container-disk-demo:latest"
   
-  # SSH configuration for VM access
-  ssh_keys:
-    default:
-      public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC..."
-      username: "cloud-user"
 
 # CNV Provider Notes:
 # - Requires KubeVirt operator on Kubernetes clusters

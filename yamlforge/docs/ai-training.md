@@ -7,15 +7,19 @@ YamlForge provides comprehensive support for AI/ML training workloads across mul
 ### Basic GPU Training Setup
 
 ```yaml
-guid: "ai01"
+guid: "ai001"
 
 yamlforge:
+  cloud_workspace:
+    name: "ai-training-{guid}"
+    description: "AI/ML training infrastructure"
+  
   instances:
     - name: "training-gpu-{guid}"
       provider: "cheapest-gpu"
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       gpu_type: "NVIDIA T4"
       gpu_count: 1
 ```
@@ -23,15 +27,19 @@ yamlforge:
 ### Multi-GPU Training Setup
 
 ```yaml
-guid: "ai02"
+guid: "ai002"
 
 yamlforge:
+  cloud_workspace:
+    name: "multi-gpu-training-{guid}"
+    description: "Multi-GPU training setup"
+  
   instances:
     - name: "multi-gpu-{guid}"
       provider: "cheapest-gpu"
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       gpu_type: "NVIDIA V100"
       gpu_count: 4
 ```
@@ -39,16 +47,20 @@ yamlforge:
 ### Custom Specifications
 
 ```yaml
-guid: "ai03"
+guid: "ai003"
 
 yamlforge:
+  cloud_workspace:
+    name: "custom-gpu-training-{guid}"
+    description: "Custom GPU specifications for training"
+  
   instances:
     - name: "custom-gpu-{guid}"
       provider: "cheapest-gpu"
       cores: 16
       memory: 65536  # 64GB
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       gpu_type: "NVIDIA A100"
       gpu_count: 2
 ```
@@ -58,15 +70,19 @@ yamlforge:
 ### 1. Spot Instances for Training
 
 ```yaml
-guid: "spot1"
+guid: "spt01"
 
 yamlforge:
+  cloud_workspace:
+    name: "spot-training-{guid}"
+    description: "Cost-effective spot instance training"
+  
   instances:
     - name: "spot-training-{guid}"
       provider: "cheapest-gpu"
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       gpu_type: "NVIDIA T4"
       gpu_count: 1
       # YamlForge automatically selects cheapest GPU provider
@@ -75,16 +91,20 @@ yamlforge:
 ### 2. Multi-Cloud GPU Selection
 
 ```yaml
-guid: "gpu1"
+guid: "gpu01"
 
 yamlforge:
+  cloud_workspace:
+    name: "multi-cloud-gpu-{guid}"
+    description: "Multi-cloud GPU selection for training"
+  
   instances:
     # Development - T4 GPU (cost-effective)
     - name: "dev-gpu-{guid}"
       provider: "cheapest-gpu"
       flavor: "small"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       gpu_type: "NVIDIA T4"
       
     # Training - V100 GPU (performance)
@@ -92,7 +112,7 @@ yamlforge:
       provider: "cheapest-gpu"
       flavor: "medium"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       gpu_type: "NVIDIA V100"
       
     # Production - A100 GPU (latest)
@@ -100,7 +120,7 @@ yamlforge:
       provider: "cheapest-gpu"
       flavor: "large"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       gpu_type: "NVIDIA A100"
 ```
 
@@ -109,15 +129,19 @@ yamlforge:
 ### AWS GPU Instances
 
 ```yaml
-guid: "aws1"
+guid: "aws01"
 
 yamlforge:
+  cloud_workspace:
+    name: "aws-gpu-training-{guid}"
+    description: "AWS-specific GPU training setup"
+  
   instances:
     - name: "aws-gpu-{guid}"
       provider: "aws"
       flavor: "gpu_large"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       gpu_type: "NVIDIA T4"
       gpu_count: 1
 ```
@@ -125,15 +149,19 @@ yamlforge:
 ### Azure GPU Instances
 
 ```yaml
-guid: "az1"
+guid: "az001"
 
 yamlforge:
+  cloud_workspace:
+    name: "azure-gpu-training-{guid}"
+    description: "Azure-specific GPU training setup"
+  
   instances:
     - name: "azure-gpu-{guid}"
       provider: "azure"
       flavor: "gpu_medium"
       image: "RHEL9-latest"
-      region: "eastus"
+      location: "eastus"
       gpu_type: "NVIDIA V100"
       gpu_count: 1
 ```
@@ -141,15 +169,19 @@ yamlforge:
 ### GCP GPU Instances
 
 ```yaml
-guid: "gcp1"
+guid: "gcp01"
 
 yamlforge:
+  cloud_workspace:
+    name: "gcp-gpu-training-{guid}"
+    description: "GCP-specific GPU training setup"
+  
   instances:
     - name: "gcp-gpu-{guid}"
       provider: "gcp"
       flavor: "gpu_large"
       image: "RHEL9-latest"
-      region: "us-central1"
+      location: "us-central1"
       gpu_type: "NVIDIA A100"
       gpu_count: 1
 ```
@@ -159,23 +191,27 @@ yamlforge:
 ### 1. Development → Training → Production Pipeline
 
 ```yaml
-guid: "pipe1"
+guid: "pip01"
 
 yamlforge:
+  cloud_workspace:
+    name: "training-pipeline-{guid}"
+    description: "Development to production training pipeline"
+  
   instances:
     # Development environment
     - name: "dev-env-{guid}"
       provider: "cheapest"
       flavor: "small"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       
     # Training environment
     - name: "train-env-{guid}"
       provider: "cheapest-gpu"
       flavor: "large"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       gpu_type: "NVIDIA V100"
       gpu_count: 2
       
@@ -184,22 +220,26 @@ yamlforge:
       provider: "cheapest"
       flavor: "large"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
 ```
 
 ### 2. Distributed Training Setup
 
 ```yaml
-guid: "dist1"
+guid: "dst01"
 
 yamlforge:
+  cloud_workspace:
+    name: "distributed-training-{guid}"
+    description: "Distributed training cluster setup"
+  
   instances:
     # Control plane node
     - name: "controlplane-{guid}"
       provider: "cheapest-gpu"
       flavor: "large"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       gpu_type: "NVIDIA A100"
       gpu_count: 1
       
@@ -208,7 +248,7 @@ yamlforge:
       provider: "cheapest-gpu"
       flavor: "large"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       gpu_type: "NVIDIA A100"
       gpu_count: 1
       
@@ -216,7 +256,7 @@ yamlforge:
       provider: "cheapest-gpu"
       flavor: "large"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       gpu_type: "NVIDIA A100"
       gpu_count: 1
 ```
@@ -260,7 +300,7 @@ Use these guidelines for different workloads:
 
 ### 3. Region Selection
 
-- Use `region: "us-east-1"` for best GPU availability
+- Use `location: "us-east-1"` for best GPU availability
 - Consider spot instances for cost savings
 - Use `provider: "cheapest-gpu"` for automatic optimization
 
@@ -269,16 +309,20 @@ Use these guidelines for different workloads:
 ### Custom Training Environment
 
 ```yaml
-guid: "cust1"
+guid: "cst01"
 
 yamlforge:
+  cloud_workspace:
+    name: "custom-training-{guid}"
+    description: "Custom training environment with specific requirements"
+  
   instances:
     - name: "custom-training-{guid}"
       provider: "cheapest-gpu"
       cores: 32
       memory: 131072  # 128GB
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       gpu_type: "NVIDIA A100"
       gpu_count: 4
       user_data_script: |
@@ -291,22 +335,26 @@ yamlforge:
 ### Multi-Region Training
 
 ```yaml
-guid: "multi1"
+guid: "mul01"
 
 yamlforge:
+  cloud_workspace:
+    name: "multi-region-training-{guid}"
+    description: "Multi-region training deployment"
+  
   instances:
     - name: "training-east-{guid}"
       provider: "cheapest-gpu"
       flavor: "large"
       image: "RHEL9-latest"
-      region: "us-east-1"
+      location: "us-east-1"
       gpu_type: "NVIDIA V100"
       
     - name: "training-west-{guid}"
       provider: "cheapest-gpu"
       flavor: "large"
       image: "RHEL9-latest"
-      region: "us-west-2"
+      location: "us-west-2"
       gpu_type: "NVIDIA V100"
 ```
 

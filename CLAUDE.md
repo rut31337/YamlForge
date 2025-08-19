@@ -22,6 +22,13 @@ python yamlforge.py config.yaml -d output/ --verbose
 # Generate without credentials (testing/development)
 python yamlforge.py config.yaml -d output/ --no-credentials
 
+# Validate YAML schema compliance
+python tools/validate_schema.py                     # Validate all examples/
+python tools/validate_schema.py myfile.yaml         # Validate specific file
+python tools/validate_schema.py *.yaml --verbose    # Validate multiple files
+python tools/validate_schema.py --fix               # Auto-fix violations
+python tools/validate_schema.py --check-docs        # Include documentation
+
 # Check for unused code (optimized)
 ./tools/run_vulture.sh                    # Standard analysis (70% confidence)
 ./tools/run_vulture.sh --confidence 80    # Stricter analysis

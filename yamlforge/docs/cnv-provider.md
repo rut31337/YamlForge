@@ -272,7 +272,7 @@ See [cnv-example.yaml](../../examples/cloud-specific/cnv-example.yaml) for a com
 instances:
   - name: "my-vm"
     provider: "cnv"  # Was "aws", "azure", etc.
-    size: "medium"
+    flavor: "medium"
     namespace: "default"
 ```
 

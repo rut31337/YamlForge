@@ -81,21 +81,21 @@ yamlforge:
   instances:
     - name: "web-aws-{guid}"
       provider: "aws"
-      region: "us-east"
+      location: "us-east"
       flavor: "medium"
       image: "RHEL9-latest"
       count: 3  # Deploy 3 identical instances
       
     - name: "web-azure-{guid}"
       provider: "azure"
-      region: "us-east"
+      location: "us-east"
       flavor: "medium"
       image: "RHEL9-latest"
       count: 2  # Deploy 2 identical instances
       
     - name: "web-gcp-{guid}"
       provider: "gcp"
-      region: "us-east"
+      location: "us-east"
       flavor: "medium"
       image: "RHEL9-latest"
       # count: 1 (default - single instance)
@@ -105,15 +105,15 @@ yamlforge:
   openshift_clusters:
     - name: "aws-rosa-{guid}"
       type: "rosa-classic"
-      region: "us-east"
+      location: "us-east-1"
       version: "4.18.19"
-      size: "medium"
+      flavor: "medium"
       
     - name: "azure-aro-{guid}"
       type: "aro"
-      region: "us-east"
+      location: "eastus"
       version: "latest"
-      size: "medium"
+      flavor: "medium"
   
   # Object storage buckets using universal locations  
   storage:
@@ -151,7 +151,7 @@ yamlforge:
 ### CNV Example: Virtual Machines on Kubernetes/OpenShift
 ```yaml
 # cnv-infrastructure.yaml
-guid: "cnv1"
+guid: "cnv01"
 
 yamlforge:
   cloud_workspace:
@@ -162,8 +162,7 @@ yamlforge:
     - name: "cnv-vm-{guid}"
       provider: "cnv"
       flavor: "small"  # 1 vCPU, 1GB RAM
-      image: "rhel-9.6"  # Dynamic discovery from DataVolumes
-      ssh_key: "~/.ssh/id_rsa.pub"
+      image: "kubevirt/fedora-cloud-container-disk-demo:latest"
 ```
 
 **Environment Setup:**
@@ -197,12 +196,23 @@ YamlForge provides a configurable default username across all cloud providers fo
 # defaults/core.yaml - Organization-wide setting
 security:
   default_username: "cloud-user"  # Change to your preferred username
+```
 
-# Or override per instance
+**Per-instance override example:**
+```yaml
+guid: "user1"
+
 yamlforge:
+  cloud_workspace:
+    name: "custom-user-demo"
+    description: "Custom username demonstration"
+    
   instances:
     - name: "my-vm"
       provider: "aws"
+      location: "us-east"
+      flavor: "small"
+      image: "RHEL9-latest"
       username: "my-custom-user"  # Instance-specific override
 ```
 
@@ -357,7 +367,7 @@ python yamlforge.py ai-generated-config.yaml -d output/ --auto-deploy  # Deploy 
 ### Multi-Cloud Strategy
 Deploy identical infrastructure across multiple clouds for redundancy and compliance:
 ```yaml
-guid: "prod1"
+guid: "prod0"
 
 yamlforge:
   cloud_workspace:
@@ -367,17 +377,17 @@ yamlforge:
   instances:
     - name: "app-aws-{guid}"
       provider: "aws"
-      region: "us-east"
+      location: "us-east"
       flavor: "large"
       image: "RHEL9-latest"
     - name: "app-azure-{guid}"
       provider: "azure"
-      region: "us-east"
+      location: "us-east"
       flavor: "large"
       image: "RHEL9-latest"
     - name: "app-gcp-{guid}"
       provider: "gcp"
-      region: "us-east"
+      location: "us-east"
       flavor: "large"
       image: "RHEL9-latest"
 ```
@@ -385,7 +395,7 @@ yamlforge:
 ### Cloud Migration
 Seamlessly migrate workloads between cloud providers:
 ```yaml
-guid: "mig1"
+guid: "mig01"
 
 yamlforge:
   cloud_workspace:
@@ -395,7 +405,7 @@ yamlforge:
   instances:
     - name: "migrated-app-{guid}"
       provider: "aws"  # Migrate from Azure to AWS
-      region: "us-east"
+      location: "us-east"
       flavor: "medium"
       image: "RHEL9-latest"
 ```
@@ -404,7 +414,7 @@ yamlforge:
 No need to memorize provider-specific instance types! YamlForge automatically maps your CPU and memory requirements to the appropriate instance type for each cloud:
 
 ```yaml
-guid: "flav1"
+guid: "flav0"
 
 yamlforge:
   cloud_workspace:
@@ -414,19 +424,19 @@ yamlforge:
   instances:
     - name: "web-server-{guid}"
       provider: "aws"
-      region: "us-east"
+      location: "us-east"
       cores: 2
       memory: 4096  # MB - YamlForge selects t3.medium automatically
       image: "RHEL9-latest"
     - name: "app-server-{guid}"
       provider: "azure"
-      region: "us-east"
+      location: "us-east"
       cores: 4
       memory: 8192  # MB - YamlForge selects Standard_D2s_v3 automatically
       image: "RHEL9-latest"
     - name: "database-{guid}"
       provider: "gcp"
-      region: "us-east"
+      location: "us-east"
       cores: 8
       memory: 16384  # MB - YamlForge selects e2-standard-8 automatically
       image: "RHEL9-latest"
@@ -441,7 +451,7 @@ yamlforge:
 
 **Or use simple t-shirt sizing:**
 ```yaml
-guid: "size1"
+guid: "siz01"
 
 yamlforge:
   cloud_workspace:
@@ -451,17 +461,17 @@ yamlforge:
   instances:
     - name: "web-server-{guid}"
       provider: "aws"
-      region: "us-east"
+      location: "us-east"
       flavor: "small"  # Generic size - works on all clouds
       image: "RHEL9-latest"
     - name: "app-server-{guid}"
       provider: "azure"
-      region: "us-east"
+      location: "us-east"
       flavor: "medium"  # Generic size - works on all clouds
       image: "RHEL9-latest"
     - name: "database-{guid}"
       provider: "gcp"
-      region: "us-east"
+      location: "us-east"
       flavor: "large"  # Generic size - works on all clouds
       image: "RHEL9-latest"
 ```
@@ -472,7 +482,7 @@ yamlforge:
 Deploy multiple identical instances using the `count` field:
 
 ```yaml
-guid: "scale1"
+guid: "scl01"
 
 yamlforge:
   cloud_workspace:
@@ -482,14 +492,14 @@ yamlforge:
   instances:
     - name: "web-server-{guid}"
       provider: "aws"
-      region: "us-east"
+      location: "us-east"
       flavor: "medium"
       image: "RHEL9-latest"
       count: 5  # Deploy 5 identical web servers
     
     - name: "worker-{guid}"
       provider: "gcp"
-      region: "us-east"
+      location: "us-east"
       cores: 4
       memory: 8192
       image: "RHEL9-latest"
@@ -544,7 +554,7 @@ YamlForge offers two intelligent cost optimization providers:
 
 **`cheapest`** - General cost optimization for balanced workloads:
 ```yaml
-guid: "cost1"
+guid: "cst01"
 
 yamlforge:
   cloud_workspace:
@@ -554,18 +564,18 @@ yamlforge:
   instances:
     - name: "api-server-{guid}"
       provider: "cheapest"  # Finds cheapest instance meeting CPU/memory requirements
-      region: "us-east"
+      location: "us-east"
       flavor: "medium"  # Must specify size or cores/memory
       image: "RHEL9-latest"
     - name: "database-server-{guid}"
       provider: "cheapest"  # CPU/memory only - no GPU needed
-      region: "us-east"
+      location: "us-east"
       cores: 4
       memory: 8192  # MB
       image: "RHEL9-latest"
     - name: "ml-training-{guid}"
       provider: "cheapest"  # Can also optimize GPU workloads with specs
-      region: "us-east"
+      location: "us-east"
       cores: 8
       memory: 16384  # MB
       gpu_type: "NVIDIA V100"
@@ -573,14 +583,14 @@ yamlforge:
       image: "RHEL9-latest"
     - name: "app-server-{guid}"
       provider: "cheapest"  # Combines t-shirt sizing with cost optimization
-      region: "us-east"
+      location: "us-east"
       flavor: "large"  # Generic size - YamlForge finds cheapest "large" across all clouds
       image: "RHEL9-latest"
 ```
 
 **`cheapest-gpu`** - Specialized GPU cost optimization:
 ```yaml
-guid: "gpu1"
+guid: "gpu01"
 
 yamlforge:
   cloud_workspace:
@@ -590,7 +600,7 @@ yamlforge:
   instances:
     - name: "gpu-worker-{guid}"
       provider: "cheapest-gpu"  # Focuses purely on GPU cost, ignores CPU/memory
-      region: "us-east"
+      location: "us-east"
       gpu_type: "NVIDIA T4"  # Only GPU requirements needed
       gpu_count: 1
       image: "RHEL9-latest"
@@ -604,7 +614,7 @@ yamlforge:
 Deploy native object storage buckets across all cloud providers with unified configuration:
 
 ```yaml
-guid: "stor1"
+guid: "str01"
 
 yamlforge:
   cloud_workspace:
@@ -614,7 +624,7 @@ yamlforge:
   storage:
     - name: "data-bucket-{guid}"
       provider: "aws"
-      region: "us-east-1"
+      location: "us-east-1"
       public: false
       versioning: true
       encryption: true
@@ -634,7 +644,7 @@ yamlforge:
     
     - name: "archive-bucket-{guid}"
       provider: "gcp"
-      region: "us-central1"
+      location: "us-central1"
       public: false
       versioning: true
       tags:
@@ -644,7 +654,7 @@ yamlforge:
 
 **Cost-Optimized Storage:**
 ```yaml
-guid: "cheap1"
+guid: "chp01"
 
 yamlforge:
   cloud_workspace:
@@ -671,7 +681,7 @@ yamlforge:
 ### Enterprise OpenShift
 Deploy OpenShift clusters optimized for each cloud's native capabilities:
 ```yaml
-guid: "ocp1"
+guid: "ocp01"
 
 yamlforge:
   cloud_workspace:
@@ -681,20 +691,20 @@ yamlforge:
   openshift_clusters:
     - name: "aws-rosa-{guid}"
       type: "rosa-classic"
-      region: "us-east"
+      location: "us-east"
       version: "4.18.19"
-      size: "large"  # Cluster size (not instance size)
+      flavor: "large"  # Cluster size (not instance size)
     - name: "azure-aro-{guid}"
       type: "aro"
-      region: "us-east"
+      location: "us-east"
       version: "latest"
-      size: "large"  # Cluster size (not instance size)
+      flavor: "large"  # Cluster size (not instance size)
 ```
 
 ### Generic Images
 Use the same image names across all cloud providers:
 ```yaml
-guid: "img1"
+guid: "img01"
 
 yamlforge:
   cloud_workspace:
@@ -704,22 +714,22 @@ yamlforge:
   instances:
     - name: "web-server-{guid}"
       provider: "aws"
-      region: "us-east"
+      location: "us-east"
       flavor: "medium"
       image: "RHEL9-latest"  # Generic name - maps to provider-specific images
     - name: "app-server-{guid}"
       provider: "azure"
-      region: "us-east"
+      location: "us-east"
       flavor: "medium"
       image: "Ubuntu2204-latest"  # Ubuntu 22.04 LTS - works on all clouds
     - name: "db-server-{guid}"
       provider: "gcp"
-      region: "us-east"
+      location: "us-east"
       flavor: "medium"
       image: "Fedora-latest"  # Fedora (latest stable) - works on all clouds
     - name: "monitoring-{guid}"
       provider: "oci"
-      region: "us-east"
+      location: "us-east"
       flavor: "medium"
       image: "OracleLinux9-latest"  # Oracle Linux 9 - works on all clouds
 ```
@@ -731,7 +741,7 @@ Use simple region names that work across all cloud providers:
 # AWS: us-east-1, Azure: East US, GCP: us-east1, OCI: us-ashburn-1...
 
 # Just use: "us-east" - YamlForge maps to the correct region for each provider
-region: "us-east"  # Works on all clouds
+location: "us-east"  # Works on all clouds
 ```
 
 ## Universal Mappings

@@ -50,31 +50,58 @@ security:
 **Default behavior** (uses `cloud-user`):
 ```yaml
 # No core configuration needed - uses defaults/core.yaml
+guid: "cor01"
+
 yamlforge:
+  cloud_workspace:
+    name: "core-config-example-{guid}"
+    description: "Core configuration example"
+  
   instances:
     - name: "my-vm"
       provider: "aws"
+      flavor: "medium"
+      image: "RHEL9-latest"
+      location: "us-east"
       # Will use cloud-user as default username
 ```
 
 **Custom username**:
 ```yaml
+guid: "cor02"
+
 yamlforge:
+  cloud_workspace:
+    name: "custom-username-{guid}"
+    description: "Custom username configuration example"
+  
   core:
     security:
       default_username: "my-custom-user"
   instances:
     - name: "my-vm"
       provider: "aws"
+      flavor: "medium"
+      image: "RHEL9-latest"
+      location: "us-east"
       # Will use my-custom-user as default username
 ```
 
 **Per-instance override**:
 ```yaml
+guid: "cor03"
+
 yamlforge:
+  cloud_workspace:
+    name: "instance-username-{guid}"
+    description: "Per-instance username override example"
+  
   instances:
     - name: "my-vm"
       provider: "aws"
+      flavor: "medium"
+      image: "RHEL9-latest"
+      location: "us-east"
       username: "instance-specific-user"  # Overrides default
 ```
 
@@ -291,6 +318,7 @@ deployment:
 
 ## Logging and Monitoring
 
+**Configuration in `defaults/core.yaml`:**
 ```yaml
 logging:
   # Log level for yamlforge operations
@@ -318,13 +346,22 @@ Create environment-specific core configuration files and use them with the `--co
 Override specific core settings in your YAML configuration:
 
 ```yaml
+guid: "cor04"
+
 yamlforge:
+  cloud_workspace:
+    name: "core-override-{guid}"
+    description: "Core configuration override example"
+  
   core:
     security:
       default_username: "my-custom-user"
   instances:
     - name: "my-vm"
       provider: "aws"
+      flavor: "medium"
+      image: "RHEL9-latest"
+      location: "us-east"
 ```
 
 ## Best Practices

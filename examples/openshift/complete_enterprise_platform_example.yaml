@@ -1,29 +1,13 @@
 ---
-dns:
-- name: production-dns
-  domain: production.example.com
-  provider: aws
-  records:
-  - name: '*.apps'
-    type: CNAME
-    value: production-rosa-elb.us-east-1.elb.amazonaws.com
-  - name: api
-    type: A
-    value: '{{ production_api_ip }}'
-- name: development-dns
-  domain: dev.example.com
-  provider: gcp
-  records:
-  - name: '*.apps'
-    type: CNAME
-    value: development-gcp-lb.us-central1.gcp.example.com
+guid: ent01
+
 yamlforge:
   openshift_clusters:
   - name: production-rosa
     type: rosa
     region: us-east-1
     size: large
-    version: 4.14.15
+    version: "4.14.15"
     worker_count: 6
     base_domain: production.example.com
   - name: development-gcp
@@ -31,7 +15,7 @@ yamlforge:
     provider: gcp
     region: us-central1
     size: medium
-    version: 4.14.15
+    version: "4.14.15"
     worker_count: 3
     base_domain: dev.example.com
   - name: testing-azure
@@ -39,7 +23,7 @@ yamlforge:
     provider: azure
     region: eastus
     size: small
-    version: 4.14.15
+    version: "4.14.15"
     worker_count: 2
     base_domain: test.example.com
   - name: hypershift-aws-workloads
@@ -310,7 +294,7 @@ yamlforge:
   - name: bastion-host
     provider: aws
     region: us-east-1
-    size: small
+    flavor: small
     image: RHEL9-latest
     security_groups:
     - ssh_access
@@ -318,12 +302,12 @@ yamlforge:
   - name: monitoring-tools
     provider: gcp
     region: us-central1
-    size: medium
+    flavor: medium
     image: RHEL9-latest
   - name: build-agent
     provider: azure
     region: eastus
-    size: large
+    flavor: large
     image: RHEL9-latest
     count: 2
   cloud_workspace:

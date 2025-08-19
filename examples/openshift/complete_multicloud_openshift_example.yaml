@@ -1,13 +1,4 @@
 ---
-name: Complete Multi-Cloud OpenShift Platform
-description: OpenShift deployment across AWS (ROSA), Azure (ARO), and GCP (self-managed)
-  with supporting infrastructure
-networking:
-  enable_cross_cloud: true
-security:
-  ssh_keys:
-  - name: admin-key
-    public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... admin@example.com
 guid: "ocp01"
 
 yamlforge:
@@ -141,7 +132,7 @@ yamlforge:
     type: rosa-classic
     region: us-east-1
     size: medium
-    version: 4.14.15
+    version: "4.14.15"
     min_replicas: 3
     max_replicas: 8
     private: false
@@ -152,7 +143,7 @@ yamlforge:
     type: aro
     region: westeurope
     size: medium
-    version: 4.14.15
+    version: "4.14.15"
     worker_count: 3
     worker_disk_size: 128
     networking:
@@ -169,7 +160,7 @@ yamlforge:
     region: us-central1
     zone: us-central1-a
     size: medium
-    version: 4.14.15
+    version: "4.14.15"
     base_domain: asia.openshift.example.com
     worker_count: 3
     networking:
@@ -182,7 +173,7 @@ yamlforge:
     type: rosa-hcp
     region: us-west-2
     size: small
-    version: 4.14.15
+    version: "4.14.15"
     min_replicas: 2
     max_replicas: 4
   - name: dev-gcp
@@ -191,7 +182,7 @@ yamlforge:
     region: us-west1
     zone: us-west1-a
     size: small
-    version: 4.14.15
+    version: "4.14.15"
     worker_count: 2
     base_domain: dev.openshift.example.com
   - name: enterprise-dedicated-aws
@@ -199,7 +190,7 @@ yamlforge:
     provider: aws
     region: us-east-1
     size: large
-    version: 4.14.15
+    version: "4.14.15"
     dedicated:
       support_level: premium
       maintenance_window: sunday-2am
@@ -212,7 +203,7 @@ yamlforge:
     provider: gcp
     region: us-central1
     size: large
-    version: 4.14.15
+    version: "4.14.15"
     dedicated:
       support_level: premium
       maintenance_window: sunday-3am

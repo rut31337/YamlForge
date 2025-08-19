@@ -160,13 +160,4 @@ yamlforge:
           namespace: "openshift-local-storage"
           channel: "stable"
 
-# Environment configuration
-environment: "production"
-
-# Tags for all resources
-tags:
-  Project: "Enterprise-ARO"
-  Environment: "Multi-Tier"
-  Owner: "Platform-Team"
-  CostCenter: "Engineering"
-  Compliance: "SOC2" 
+ 
