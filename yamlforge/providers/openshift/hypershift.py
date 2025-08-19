@@ -10,6 +10,194 @@ from .base import BaseOpenShiftProvider
 class HyperShiftProvider(BaseOpenShiftProvider):
     """HyperShift Provider for hosted control planes"""
     
+    def get_worker_infrastructure_dependency(self, worker_provider: str, clean_name: str) -> str:
+        """Get the appropriate worker infrastructure dependency based on provider"""
+        if worker_provider == 'aws':
+            return f",\n    aws_autoscaling_group.{clean_name}_workers_asg"
+        elif worker_provider == 'gcp':
+            # For now, GCP worker infrastructure is TODO, so no dependency
+            return ""
+        elif worker_provider == 'azure':
+            # For now, Azure worker infrastructure is TODO, so no dependency
+            return ""
+        else:
+            # For other providers, no specific dependency yet
+            return ""
+    
+    def get_coreos_image_for_openshift_version(self, openshift_version: str) -> str:
+        """Determine appropriate CoreOS image key based on OpenShift version"""
+        if not openshift_version:
+            return "RHCOS-latest"
+        
+        # Extract major.minor version (e.g., "4.14.15" -> "4.14")
+        try:
+            version_parts = openshift_version.split('.')
+            if len(version_parts) >= 2:
+                major_minor = f"{version_parts[0]}.{version_parts[1]}"
+                
+                # Map OpenShift versions to CoreOS image keys
+                version_map = {
+                    "4.14": "RHCOS-414",
+                    "4.15": "RHCOS-415",
+                    "4.16": "RHCOS-latest",  # Use latest for newer versions
+                }
+                
+                return version_map.get(major_minor, "RHCOS-latest")
+        except (ValueError, IndexError):
+            pass
+        
+        return "RHCOS-latest"
+    
+    def generate_coreos_ami_data_source(self, clean_name: str, coreos_image_key: str) -> str:
+        """Generate fallback AMI data source for CoreOS"""
+        # Get image configuration from mappings
+        image_config = self.converter.images.get(coreos_image_key, {})
+        aws_config = image_config.get('aws', {})
+        
+        # Use configured pattern or fallback to generic
+        name_pattern = aws_config.get('name_pattern', 'rhcos-*')
+        owner_key = aws_config.get('owner_key', 'rhcos_owner')
+        
+        # Get owner ID from configuration
+        try:
+            aws_provider = getattr(self.converter, 'providers', {}).get('aws')
+            if aws_provider:
+                owner_id = aws_provider.get_aws_resolver()._get_required_config_owner(owner_key)
+            else:
+                owner_id = "531415883065"  # RHCOS owner fallback
+        except:
+            owner_id = "531415883065"  # RHCOS owner fallback
+        
+        return f'''
+# Get Red Hat CoreOS AMI for HyperShift worker nodes ({coreos_image_key})
+data "aws_ami" "{clean_name}_worker_ami" {{
+  most_recent = true
+  owners      = ["{owner_id}"]
+  
+  filter {{
+    name   = "name"
+    values = ["{name_pattern}"]
+  }}
+  
+  filter {{
+    name   = "architecture"
+    values = ["x86_64"]
+  }}
+  
+  filter {{
+    name   = "state"
+    values = ["available"]
+  }}
+}}
+'''
+    
+    def resolve_hypershift_worker_ami(self, clean_name: str, coreos_image_key: str, region: str, no_credentials_mode: bool) -> tuple:
+        """Resolve AMI reference and data source for HyperShift worker nodes"""
+        if no_credentials_mode:
+            return '"ami-PLACEHOLDER-REPLACE-WITH-ACTUAL-AMI"', ""
+        
+        # Try dynamic resolution first
+        try:
+            aws_provider = getattr(self.converter, 'providers', {}).get('aws')
+            if aws_provider:
+                ami_reference, resolution_type = aws_provider.resolve_aws_ami(
+                    coreos_image_key, clean_name, "x86_64", region, self.converter.current_yaml_data
+                )
+                
+                if resolution_type == "dynamic" and ami_reference:
+                    # Dynamic resolution succeeded - use the AMI directly
+                    return ami_reference, ""
+                elif ami_reference is None:
+                    # Fallback to data source
+                    data_source = self.generate_coreos_ami_data_source(clean_name, coreos_image_key)
+                    return f'data.aws_ami.{clean_name}_worker_ami.id', data_source
+                else:
+                    # Data source HCL returned
+                    return f'data.aws_ami.{clean_name}_worker_ami.id', resolution_type or ""
+        except Exception as e:
+            print(f"Warning: Failed to resolve CoreOS image {coreos_image_key}: {e}")
+        
+        # Fallback to data source
+        data_source = self.generate_coreos_ami_data_source(clean_name, coreos_image_key)
+        return f'data.aws_ami.{clean_name}_worker_ami.id', data_source
+    
+    def resolve_gcp_hypershift_worker_image(self, clean_name: str, coreos_image_key: str, region: str, no_credentials_mode: bool) -> tuple:
+        """Resolve GCP image reference and data source for HyperShift worker nodes"""
+        if no_credentials_mode:
+            return '"projects/rhcos-cloud/global/images/family/rhcos"', ""
+        
+        # Try dynamic resolution first using GCP provider
+        try:
+            gcp_provider = getattr(self.converter, 'providers', {}).get('gcp')
+            if gcp_provider:
+                # Check if the GCP provider has image resolution methods
+                image_config = self.converter.images.get(coreos_image_key, {})
+                gcp_config = image_config.get('gcp', {})
+                
+                if gcp_config:
+                    image_family = gcp_config.get('image_family', 'rhcos')
+                    project = gcp_config.get('project', 'rhcos-cloud')
+                    
+                    # Use data source for GCP CoreOS images
+                    data_source = self.generate_gcp_coreos_image_data_source(clean_name, image_family, project)
+                    return f'data.google_compute_image.{clean_name}_worker_image.self_link', data_source
+        except Exception as e:
+            print(f"Warning: Failed to resolve GCP CoreOS image {coreos_image_key}: {e}")
+        
+        # Fallback to hardcoded RHCOS family
+        data_source = self.generate_gcp_coreos_image_data_source(clean_name, "rhcos", "rhcos-cloud")
+        return f'data.google_compute_image.{clean_name}_worker_image.self_link', data_source
+    
+    def generate_gcp_coreos_image_data_source(self, clean_name: str, image_family: str, project: str) -> str:
+        """Generate GCP data source for CoreOS images"""
+        return f'''
+# Get Red Hat CoreOS image for HyperShift worker nodes (GCP)
+data "google_compute_image" "{clean_name}_worker_image" {{
+  family  = "{image_family}"
+  project = "{project}"
+}}
+'''
+    
+    def resolve_azure_hypershift_worker_image(self, clean_name: str, coreos_image_key: str, region: str, no_credentials_mode: bool) -> tuple:
+        """Resolve Azure image reference and data source for HyperShift worker nodes"""
+        if no_credentials_mode:
+            return '''
+    publisher = "RedHat"
+    offer     = "rhel-coreos"
+    sku       = "rhel-coreos-gen2"
+    version   = "latest"''', ""
+        
+        # Try dynamic resolution first using image mappings
+        try:
+            # Check if the converter has image mappings loaded
+            image_config = self.converter.images.get(coreos_image_key, {})
+            azure_config = image_config.get('azure', {})
+            
+            if azure_config:
+                publisher = azure_config.get('publisher', 'RedHat')
+                offer = azure_config.get('offer', 'rhel-coreos')
+                sku = azure_config.get('sku', 'rhel-coreos-gen2')
+                version = azure_config.get('version', 'latest')
+                
+                # Use direct marketplace image reference for Azure VM scale sets
+                image_ref = f'''
+    publisher = "{publisher}"
+    offer     = "{offer}"
+    sku       = "{sku}"
+    version   = "{version}"'''
+                return image_ref, ""
+        except Exception as e:
+            print(f"Warning: Failed to resolve Azure CoreOS image {coreos_image_key}: {e}")
+        
+        # Fallback to hardcoded CoreOS configuration
+        image_ref = '''
+    publisher = "RedHat"
+    offer     = "rhel-coreos"
+    sku       = "rhel-coreos-gen2"
+    version   = "latest"'''
+        return image_ref, ""
+    
+    
     def generate_hypershift_cluster(self, cluster_config: Dict, all_clusters: List[Dict]) -> str:
         """Generate HyperShift hosted cluster configuration"""
         
@@ -52,17 +240,27 @@ class HyperShiftProvider(BaseOpenShiftProvider):
         version = cluster_config.get('version')
         if not version:
             raise ValueError(f"HyperShift cluster '{cluster_name}' must specify 'version'")
-        version = self.validate_openshift_version(version, cluster_type="hypershift-hosted")
+        version = self.validate_openshift_version(version, cluster_type="hypershift", cluster_name=cluster_name)
         
         # Determine if HyperShift deployment separation is needed
         needs_hypershift_separation = cluster_config.get('_needs_hypershift_separation', False)
         deployment_group = cluster_config.get('_deployment_group', 'hypershift_hosted')
         
-        deployment_condition = ''
-        if needs_hypershift_separation and deployment_group == 'hypershift_hosted':
-            deployment_condition = 'var.deploy_hypershift_hosted ? 1 : 0'
+        # Always deploy (no conditional variables needed)
+        deployment_condition = '1'
+        
+        # Get management cluster resource reference for dependency
+        management_clean_name = self.clean_name(management_cluster_name)
+        management_cluster_type = management_cluster.get('type', 'rosa-classic')
+        
+        # Determine the management cluster resource reference based on its type
+        if management_cluster_type == 'rosa-classic':
+            management_resource_ref = f"rhcs_cluster_rosa_classic.{management_clean_name}"
+        elif management_cluster_type == 'rosa-hcp':
+            management_resource_ref = f"rhcs_cluster_rosa_hcp.{management_clean_name}"
         else:
-            deployment_condition = '1'
+            # For other types, use a generic reference
+            management_resource_ref = f"module.{management_clean_name}_openshift"
         
         # Generate worker infrastructure based on provider
         worker_terraform = self.generate_hypershift_worker_infrastructure(
@@ -71,7 +269,7 @@ class HyperShiftProvider(BaseOpenShiftProvider):
         
         # Generate HyperShift hosted cluster configuration
         hosted_cluster_terraform = self.generate_hosted_cluster_config(
-            cluster_config, management_cluster, version, deployment_condition
+            cluster_config, management_cluster, version, deployment_condition, management_resource_ref, worker_provider
         )
         
         group_note = ""
@@ -128,6 +326,18 @@ class HyperShiftProvider(BaseOpenShiftProvider):
         
         # Get merged networking configuration (defaults + user overrides)
         networking = self.get_merged_networking_config(cluster_config, 'hypershift')
+        
+        # Check if we're in no-credentials mode
+        no_credentials_mode = getattr(self.converter, 'no_credentials', False)
+        
+        # Determine CoreOS image based on OpenShift version
+        openshift_version = cluster_config.get('version', '4.14.15')
+        coreos_image_key = self.get_coreos_image_for_openshift_version(openshift_version)
+        
+        # Resolve CoreOS AMI for launch template
+        ami_reference, ami_data_source = self.resolve_hypershift_worker_ami(
+            clean_name, coreos_image_key, region, no_credentials_mode
+        )
         
         terraform_config = f'''
 # AWS Worker Infrastructure for HyperShift Cluster
@@ -240,14 +450,30 @@ resource "aws_launch_template" "{clean_name}_workers_lt" {{
   count = {deployment_condition}
   
   name_prefix   = "{cluster_name}-workers-"
-  image_id      = data.aws_ami.{clean_name}_worker_ami.id
+  image_id      = {ami_reference}
   instance_type = "{machine_type}"
   
   vpc_security_group_ids = [aws_security_group.{clean_name}_workers_sg[0].id]
   
-  user_data = base64encode(templatefile("${{path.module}}/hypershift-worker-userdata.sh", {{
-    cluster_name = "{cluster_name}"
-  }}))
+  user_data = base64encode(<<-EOF
+#!/bin/bash
+# HyperShift worker node initialization script
+# Cluster: {cluster_name}
+
+# Basic system setup for HyperShift worker
+yum update -y
+yum install -y container-selinux
+
+# Configure cgroup v2 for OpenShift 4.14+
+echo 'GRUB_CMDLINE_LINUX="systemd.unified_cgroup_hierarchy=1"' >> /etc/default/grub
+grub2-mkconfig -o /boot/grub2/grub.cfg
+
+# Ensure proper DNS resolution
+echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+
+echo "HyperShift worker node setup completed for cluster {cluster_name}"
+EOF
+  )
   
   tag_specifications {{
     resource_type = "instance"
@@ -291,26 +517,12 @@ resource "aws_autoscaling_group" "{clean_name}_workers_asg" {{
   }}
 }}
 
-# Get RHEL CoreOS AMI for worker nodes
-data "aws_ami" "{clean_name}_worker_ami" {{
-  most_recent = true
-  owners      = ["309956199498"] # Red Hat
-  
-  filter {{
-    name   = "name"
-    values = ["RHCOS-*"]
-  }}
-  
-  filter {{
-    name   = "architecture"
-    values = ["x86_64"]
-  }}
-}}
+{ami_data_source}
 '''
         
         return terraform_config
     
-    def generate_hosted_cluster_config(self, cluster_config: Dict, management_cluster: Dict, version: str, deployment_condition: str) -> str:
+    def generate_hosted_cluster_config(self, cluster_config: Dict, management_cluster: Dict, version: str, deployment_condition: str, management_resource_ref: str, worker_provider: str) -> str:
         """Generate HyperShift hosted cluster configuration"""
         
         cluster_name = cluster_config.get('name')
@@ -324,6 +536,8 @@ data "aws_ami" "{clean_name}_worker_ami" {{
 # HyperShift Hosted Cluster Configuration
 resource "kubectl_manifest" "{clean_name}_hostedcluster" {{
   count = {deployment_condition}
+  
+  # Wait for management cluster and worker infrastructure before deploying hosted cluster
   
   yaml_body = yamlencode({{
     apiVersion = "hypershift.openshift.io/v1beta1"
@@ -393,7 +607,7 @@ resource "kubectl_manifest" "{clean_name}_hostedcluster" {{
   }})
 
   depends_on = [
-    aws_autoscaling_group.{clean_name}_workers_asg
+    {management_resource_ref}{self.get_worker_infrastructure_dependency(worker_provider, clean_name)}
   ]
 }}
 
@@ -436,13 +650,286 @@ resource "kubectl_manifest" "{clean_name}_nodepool" {{
     
     def generate_azure_hypershift_workers(self, cluster_config: Dict, region: str, worker_count: int, machine_type: str, deployment_condition: str) -> str:
         """Generate Azure worker infrastructure for HyperShift"""
-        # TODO: Implement Azure HyperShift worker infrastructure
-        return f"# TODO: Azure HyperShift worker infrastructure for {cluster_config.get('name')}\n"
+        
+        cluster_name = cluster_config.get('name')
+        clean_name = self.clean_name(cluster_name)
+        
+        # Check if we're in no-credentials mode
+        no_credentials_mode = getattr(self.converter, 'no_credentials', False)
+        
+        # Determine CoreOS image based on OpenShift version
+        openshift_version = cluster_config.get('version', '4.14.15')
+        coreos_image_key = self.get_coreos_image_for_openshift_version(openshift_version)
+        
+        # Resolve CoreOS image for Azure
+        image_reference, image_data_source = self.resolve_azure_hypershift_worker_image(
+            clean_name, coreos_image_key, region, no_credentials_mode
+        )
+        
+        terraform_config = f'''
+# Azure Worker Infrastructure for HyperShift Cluster
+resource "azurerm_resource_group" "{clean_name}_workers_rg" {{
+  count = {deployment_condition}
+  
+  name     = "{cluster_name}-workers-rg"
+  location = "{region}"
+}}
+
+resource "azurerm_virtual_network" "{clean_name}_workers_vnet" {{
+  count = {deployment_condition}
+  
+  name                = "{cluster_name}-workers-vnet"
+  address_space       = ["10.0.0.0/16"]
+  location            = azurerm_resource_group.{clean_name}_workers_rg[0].location
+  resource_group_name = azurerm_resource_group.{clean_name}_workers_rg[0].name
+}}
+
+resource "azurerm_subnet" "{clean_name}_workers_subnet" {{
+  count = {deployment_condition}
+  
+  name                 = "{cluster_name}-workers-subnet"
+  resource_group_name  = azurerm_resource_group.{clean_name}_workers_rg[0].name
+  virtual_network_name = azurerm_virtual_network.{clean_name}_workers_vnet[0].name
+  address_prefixes     = ["10.0.1.0/24"]
+}}
+
+resource "azurerm_network_security_group" "{clean_name}_workers_nsg" {{
+  count = {deployment_condition}
+  
+  name                = "{cluster_name}-workers-nsg"
+  location            = azurerm_resource_group.{clean_name}_workers_rg[0].location
+  resource_group_name = azurerm_resource_group.{clean_name}_workers_rg[0].name
+
+  security_rule {{
+    name                       = "SSH"
+    priority                   = 1001
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = "10.0.0.0/16"
+    destination_address_prefix = "*"
+  }}
+
+  security_rule {{
+    name                       = "Kubelet"
+    priority                   = 1002
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "10250"
+    source_address_prefix      = "10.0.0.0/8"
+    destination_address_prefix = "*"
+  }}
+
+  security_rule {{
+    name                       = "NodePorts"
+    priority                   = 1003
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "30000-32767"
+    source_address_prefix      = "10.0.0.0/8"
+    destination_address_prefix = "*"
+  }}
+}}
+
+resource "azurerm_linux_virtual_machine_scale_set" "{clean_name}_workers_vmss" {{
+  count = {deployment_condition}
+  
+  name                = "{cluster_name}-workers"
+  resource_group_name = azurerm_resource_group.{clean_name}_workers_rg[0].name
+  location            = azurerm_resource_group.{clean_name}_workers_rg[0].location
+  sku                 = "{machine_type}"
+  instances           = {worker_count}
+
+  admin_username                  = "azureuser"
+  disable_password_authentication = true
+
+  source_image_reference {{
+{image_reference}
+  }}
+
+  os_disk {{
+    storage_account_type = "Standard_LRS"
+    caching              = "ReadWrite"
+  }}
+
+  network_interface {{
+    name    = "internal"
+    primary = true
+
+    ip_configuration {{
+      name      = "internal"
+      primary   = true
+      subnet_id = azurerm_subnet.{clean_name}_workers_subnet[0].id
+    }}
+
+    network_security_group_id = azurerm_network_security_group.{clean_name}_workers_nsg[0].id
+  }}
+
+  custom_data = base64encode(<<-EOF
+#!/bin/bash
+# HyperShift worker node initialization script for Azure
+# Cluster: {cluster_name}
+
+# Basic system setup for HyperShift worker
+yum update -y
+yum install -y container-selinux
+
+# Configure cgroup v2 for OpenShift 4.14+
+echo 'GRUB_CMDLINE_LINUX="systemd.unified_cgroup_hierarchy=1"' >> /etc/default/grub
+grub2-mkconfig -o /boot/grub2/grub.cfg
+
+# Ensure proper DNS resolution
+echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+
+echo "Azure HyperShift worker node setup completed for cluster {cluster_name}"
+EOF
+  )
+
+  tags = {{
+    "hypershift-cluster" = "{cluster_name}"
+    "hypershift-role"    = "worker"
+  }}
+}}
+
+{image_data_source}
+'''
+        
+        return terraform_config
         
     def generate_gcp_hypershift_workers(self, cluster_config: Dict, region: str, worker_count: int, machine_type: str, deployment_condition: str) -> str:
         """Generate GCP worker infrastructure for HyperShift"""
-        # TODO: Implement GCP HyperShift worker infrastructure
-        return f"# TODO: GCP HyperShift worker infrastructure for {cluster_config.get('name')}\n"
+        
+        cluster_name = cluster_config.get('name')
+        clean_name = self.clean_name(cluster_name)
+        
+        # Get merged networking configuration (defaults + user overrides)
+        networking = self.get_merged_networking_config(cluster_config, 'hypershift')
+        
+        # Check if we're in no-credentials mode
+        no_credentials_mode = getattr(self.converter, 'no_credentials', False)
+        
+        # Determine CoreOS image based on OpenShift version
+        openshift_version = cluster_config.get('version', '4.14.15')
+        coreos_image_key = self.get_coreos_image_for_openshift_version(openshift_version)
+        
+        # Resolve CoreOS image for GCP
+        image_reference, image_data_source = self.resolve_gcp_hypershift_worker_image(
+            clean_name, coreos_image_key, region, no_credentials_mode
+        )
+        
+        terraform_config = f'''
+# GCP Worker Infrastructure for HyperShift Cluster
+resource "google_compute_network" "{clean_name}_workers_network" {{
+  count = {deployment_condition}
+  
+  name                    = "{cluster_name}-workers-network"
+  auto_create_subnetworks = false
+  project                 = local.project_id
+}}
+
+resource "google_compute_subnetwork" "{clean_name}_workers_subnet" {{
+  count = {deployment_condition}
+  
+  name          = "{cluster_name}-workers-subnet"
+  ip_cidr_range = "10.0.1.0/24"
+  region        = "{region}"
+  network       = google_compute_network.{clean_name}_workers_network[0].id
+  project       = local.project_id
+}}
+
+resource "google_compute_firewall" "{clean_name}_workers_firewall" {{
+  count = {deployment_condition}
+  
+  name    = "{cluster_name}-workers-firewall"
+  network = google_compute_network.{clean_name}_workers_network[0].name
+  project = local.project_id
+
+  allow {{
+    protocol = "tcp"
+    ports    = ["22", "10250", "30000-32767"]
+  }}
+
+  source_ranges = ["{networking.get('machine_cidr', '10.0.0.0/16')}"]
+  target_tags   = ["{cluster_name}-workers"]
+}}
+
+resource "google_compute_instance_template" "{clean_name}_workers_template" {{
+  count = {deployment_condition}
+  
+  name_prefix  = "{cluster_name}-workers-"
+  machine_type = "{machine_type}"
+  project      = local.project_id
+
+  disk {{
+    source_image = {image_reference}
+    auto_delete  = true
+    boot         = true
+    disk_size_gb = 50
+    disk_type    = "pd-standard"
+  }}
+
+  network_interface {{
+    subnetwork = google_compute_subnetwork.{clean_name}_workers_subnet[0].id
+    access_config {{
+      // Ephemeral IP
+    }}
+  }}
+
+  metadata_startup_script = <<-EOF
+#!/bin/bash
+# HyperShift worker node initialization script for GCP
+# Cluster: {cluster_name}
+
+# Basic system setup for HyperShift worker
+yum update -y
+yum install -y container-selinux
+
+# Configure cgroup v2 for OpenShift 4.14+
+echo 'GRUB_CMDLINE_LINUX="systemd.unified_cgroup_hierarchy=1"' >> /etc/default/grub
+grub2-mkconfig -o /boot/grub2/grub.cfg
+
+# Ensure proper DNS resolution
+echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+
+echo "GCP HyperShift worker node setup completed for cluster {cluster_name}"
+EOF
+
+  tags = ["{cluster_name}-workers"]
+
+  labels = {{
+    "hypershift-cluster" = "{cluster_name}"
+    "hypershift-role"    = "worker"
+  }}
+
+  lifecycle {{
+    create_before_destroy = true
+  }}
+}}
+
+resource "google_compute_instance_group_manager" "{clean_name}_workers_group" {{
+  count = {deployment_condition}
+  
+  name               = "{cluster_name}-workers"
+  base_instance_name = "{cluster_name}-worker"
+  zone               = "{region}-a"
+  target_size        = {worker_count}
+  project            = local.project_id
+
+  version {{
+    instance_template = google_compute_instance_template.{clean_name}_workers_template[0].id
+  }}
+}}
+
+{image_data_source}
+'''
+        
+        return terraform_config
         
     def generate_ibm_hypershift_workers(self, cluster_config: Dict, region: str, worker_count: int, machine_type: str, deployment_condition: str) -> str:
         """Generate IBM Cloud worker infrastructure for HyperShift"""

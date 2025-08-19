@@ -121,43 +121,60 @@ class ROSAVersionManager:
             if cache_age < 3600:  # Cache for 1 hour
                 return self.versions_cache
         
-        # Map cluster types to API endpoints
-        endpoint_map = {
-            'rosa': '/api/upgrades_info/v1/graph',
-            'hypershift': '/api/upgrades_info/v1/graph',
-            'openshift-dedicated': '/api/upgrades_info/v1/graph'
-        }
-        
-        endpoint = endpoint_map.get(cluster_type, '/api/upgrades_info/v1/graph')
-        url = f"{self.base_url}{endpoint}"
+        # Use the correct versions API endpoint
+        url = f"{self.base_url}/api/clusters_mgmt/v1/versions"
         
         try:
             headers = self.get_headers()
-            response = requests.get(url, headers=headers, timeout=30)
             
-            if response.status_code == 200:
-                data = response.json()
+            # Fetch all versions with pagination
+            all_versions = []
+            page = 1
+            
+            while True:
+                response = requests.get(f'{url}?page={page}&size=100', headers=headers, timeout=30)
                 
-                # Parse the graph data to extract versions
-                versions = []
-                if 'nodes' in data:
-                    for node in data['nodes']:
-                        if 'version' in node:
-                            version_info = {
-                                'version': node['version'],
-                                'available': node.get('available', True),
-                                'channel': node.get('channel', 'stable'),
-                                'cluster_type': cluster_type
-                            }
-                            versions.append(version_info)
+                if response.status_code == 200:
+                    data = response.json()
+                    items = data.get('items', [])
+                    
+                    if not items:
+                        break
+                        
+                    all_versions.extend(items)
+                    page += 1
+                    
+                    if len(items) < 100:  # Last page
+                        break
+                else:
+                    raise ValueError(f"API request failed: {response.status_code} - {response.text}")
+            
+            # Filter and format versions based on cluster type
+            versions = []
+            for version in all_versions:
+                if not version.get('rosa_enabled', False):
+                    continue
                 
-                # Cache the results
-                self.versions_cache = versions
-                self.cache_timestamp = time.time()
+                # Filter by cluster type
+                if cluster_type == "rosa-classic" and version.get('hosted_control_plane_enabled', False):
+                    continue
+                elif cluster_type == "rosa-hcp" and not version.get('hosted_control_plane_enabled', False):
+                    continue
                 
-                return versions
-            else:
-                raise ValueError(f"API request failed: {response.status_code} - {response.text}")
+                version_info = {
+                    'version': version.get('raw_id', ''),
+                    'available': version.get('enabled', True),
+                    'channel': version.get('channel_group', 'stable'),
+                    'cluster_type': cluster_type,
+                    'hosted_control_plane_enabled': version.get('hosted_control_plane_enabled', False)
+                }
+                versions.append(version_info)
+            
+            # Cache the results
+            self.versions_cache = versions
+            self.cache_timestamp = time.time()
+            
+            return versions
                 
         except Exception as e:
             # Try ROSA CLI as fallback

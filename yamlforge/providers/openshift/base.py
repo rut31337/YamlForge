@@ -98,7 +98,7 @@ class BaseOpenShiftProvider:
         """Get the cloud provider for an OpenShift cluster type"""
         return self.OPENSHIFT_PROVIDER_MAP.get(cluster_type)
         
-    def validate_openshift_version(self, version: str, cluster_type: str = "rosa", auto_discover_version: bool = False) -> str:
+    def validate_openshift_version(self, version: str, cluster_type: str = "rosa", auto_discover_version: bool = False, cluster_name: str = None) -> str:
         """
         Validate OpenShift version using dynamic version management
         
@@ -126,7 +126,9 @@ class BaseOpenShiftProvider:
         
         # Only validate against ROSA API for ROSA cluster types
         if cluster_type not in ["rosa-classic", "rosa-hcp"]:
-            print(f"  NON-ROSA CLUSTER: Skipping ROSA version validation for '{version}' (cluster type: {cluster_type})")
+            if self.converter and hasattr(self.converter, 'verbose') and self.converter.verbose:
+                cluster_info = f" for cluster '{cluster_name}'" if cluster_name else ""
+                print(f"  [DEBUG] NON-ROSA CLUSTER: Skipping ROSA version validation for '{version}'{cluster_info} (cluster type: {cluster_type})")
             return version
             
         try:
@@ -302,17 +304,8 @@ variable "deploy_day2_operations" {
 
 
 
-variable "deploy_hypershift_mgmt" {
-  description = "Deploy HyperShift management clusters"
-  type        = bool
-  default     = false
-}
+# HyperShift management clusters are now handled as regular cluster types
 
-variable "deploy_hypershift_hosted" {
-  description = "Deploy HyperShift hosted clusters (requires management clusters to be ready)"
-  type        = bool
-  default     = false
-}
 
 variable "rosa_oidc_config_id" {
   description = "OIDC configuration ID for ROSA clusters (shared between Classic and HCP)"
@@ -486,7 +479,7 @@ variable "openshift_{clean_name}_token" {{
                     cluster_endpoint = f"module.{clean_name}_openshift.cluster_endpoint"
             elif cluster_type == 'hypershift':
                 cluster_endpoint = f"rhcs_cluster_rosa_hcp.{clean_name}.api_url"
-                cluster_condition = 'var.deploy_hypershift_hosted ? 1 : 0'
+                cluster_condition = '1'
             else:
                 # Generic fallback
                 cluster_endpoint = f"module.{clean_name}.cluster_endpoint"

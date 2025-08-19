@@ -37,7 +37,7 @@ class SelfManagedOpenShiftProvider(BaseOpenShiftProvider):
         clean_name = self.clean_name(cluster_name)
         provider = cluster_config.get('provider')
         region = cluster_config.get('region')
-        version = self.validate_openshift_version(cluster_config.get('version'), cluster_type="self-managed")
+        version = self.validate_openshift_version(cluster_config.get('version'), cluster_type="self-managed", cluster_name=cluster_name)
         
         size_config = self.get_cluster_size_config(
             cluster_config.get('size'), 'self-managed', cloud_provider=provider

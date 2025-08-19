@@ -604,6 +604,20 @@ def analyze_configuration(converter, config, raw_yaml_data):
             
             print(f"\n{i}. {resolved_name}:")
             print(f"   Type: {cluster_type}")
+            
+            # Show provider for cluster types that have implicit providers
+            if cluster_type in ['rosa-classic', 'rosa-hcp']:
+                print(f"   Provider: aws")
+            elif cluster_type == 'aro':
+                print(f"   Provider: azure")
+            elif cluster_type == 'hypershift':
+                provider = cluster.get('provider', 'unspecified')
+                print(f"   Provider: {provider}")
+            elif cluster_type in ['self-managed', 'openshift-dedicated']:
+                provider = cluster.get('provider', 'unspecified')
+                if provider != 'unspecified':
+                    print(f"   Provider: {provider}")
+            
             print(f"   Region: {region}")
             print(f"   Version: {version}")
             print(f"   Size: {size}")
@@ -721,7 +735,7 @@ def analyze_configuration(converter, config, raw_yaml_data):
         # Show OpenShift cluster costs breakdown
         if converter.openshift_costs:
             cluster_total = 0.0
-            print("OpenShift Clusters:")
+            print("\nOpenShift Clusters:")
             for cost_info in converter.openshift_costs:
                 print(f"  • {cost_info['cluster_name']} ({cost_info['cluster_type']}): ${cost_info['cost']:.4f}/hour")
                 cluster_total += cost_info['cost']
@@ -788,11 +802,10 @@ def generate_deployment_instructions(config, output_dir, converter=None, raw_yam
                 aro_clusters.append(cluster)
     
     # Detect hypershift clusters
-    hypershift_mgmt_clusters = [c for c in openshift_clusters if c.get('type') == 'rosa-classic' and c.get('hypershift', {}).get('role') == 'management']
-    hypershift_hosted_clusters = [c for c in openshift_clusters if c.get('type') == 'hypershift']
+    hypershift_clusters = [c for c in openshift_clusters if c.get('type') == 'hypershift']
     
     # Combine all clusters for total count
-    all_clusters = rosa_classic_clusters + aro_clusters + rosa_hcp_clusters + openshift_clusters + hypershift_mgmt_clusters + hypershift_hosted_clusters
+    all_clusters = rosa_classic_clusters + aro_clusters + rosa_hcp_clusters + openshift_clusters + hypershift_clusters
     
     # Check deployment method (CLI vs Terraform) - only relevant if ROSA clusters exist
     rosa_deployment = config.get('rosa_deployment', {})
@@ -810,7 +823,7 @@ def generate_deployment_instructions(config, output_dir, converter=None, raw_yam
     
     # Only show OpenShift cluster types if there are actual OpenShift clusters
     if all_clusters:
-        instructions += "OpenShift Clusters:\n"
+        instructions += "\nOpenShift Clusters:\n"
         
         # List each cluster individually with details
         if rosa_classic_clusters:
@@ -831,6 +844,7 @@ def generate_deployment_instructions(config, output_dir, converter=None, raw_yam
                 worker_nodes = cluster.get('worker_nodes', 'unspecified')
                 worker_machine_type = cluster.get('worker_machine_type', 'unspecified')
                 instructions += f" * {resolved_cluster_name} (ROSA Classic):\n"
+                instructions += f"     Provider: aws\n"
                 instructions += f"     Region: {region}\n"
                 instructions += f"     Version: {version}\n"
                 instructions += f"     Size: {size}\n"
@@ -859,6 +873,7 @@ def generate_deployment_instructions(config, output_dir, converter=None, raw_yam
                 compute_nodes = cluster.get('compute_nodes', 'unspecified')
                 compute_machine_type = cluster.get('compute_machine_type', 'unspecified')
                 instructions += f" * {resolved_cluster_name} (ROSA HCP):\n"
+                instructions += f"     Provider: aws\n"
                 instructions += f"     Region: {region}\n"
                 instructions += f"     Version: {version}\n"
                 instructions += f"     Size: {size}\n"
@@ -888,6 +903,7 @@ def generate_deployment_instructions(config, output_dir, converter=None, raw_yam
                 worker_nodes = cluster.get('worker_nodes', 'unspecified')
                 worker_machine_type = cluster.get('worker_machine_type', 'unspecified')
                 instructions += f" * {resolved_cluster_name} (ARO):\n"
+                instructions += f"     Provider: azure\n"
                 instructions += f"     Location: {location}\n"
                 instructions += f"     Version: {version}\n"
                 instructions += f"     Size: {size}\n"
@@ -899,10 +915,16 @@ def generate_deployment_instructions(config, output_dir, converter=None, raw_yam
                     hourly_cost = converter.calculate_openshift_cluster_cost(cluster, 'aro')
                     cost_string = converter.get_openshift_cluster_cost_string(resolved_cluster_name, 'aro', hourly_cost)
                     instructions += f"{cost_string}\n"
+        # Handle remaining cluster types (self-managed, hypershift, etc.)
         if openshift_clusters:
             for cluster in openshift_clusters:
+                cluster_type = cluster.get('type', 'unspecified')
                 cluster_name = cluster.get('name', 'unnamed')
                 
+                # Skip clusters already handled by specific type handlers
+                if cluster_type in ['rosa-classic', 'rosa-hcp', 'aro']:
+                    continue
+                    
                 # Resolve {guid} in cluster name for display
                 resolved_cluster_name = cluster_name
                 if '{guid}' in cluster_name and raw_yaml_data:
@@ -917,7 +939,17 @@ def generate_deployment_instructions(config, output_dir, converter=None, raw_yam
                 worker_count = cluster.get('worker_count', 'unspecified')
                 controlplane_type = cluster.get('compute_machine_type', 'unspecified')
                 worker_type = cluster.get('worker_machine_type', 'unspecified')
-                instructions += f" * {resolved_cluster_name} (Self-Managed):\n"
+                
+                # Display cluster type-specific information
+                if cluster_type == 'self-managed':
+                    instructions += f" * {resolved_cluster_name} (Self-Managed):\n"
+                elif cluster_type == 'hypershift':
+                    instructions += f" * {resolved_cluster_name} (HyperShift):\n"
+                elif cluster_type == 'openshift-dedicated':
+                    instructions += f" * {resolved_cluster_name} (OpenShift Dedicated):\n"
+                else:
+                    instructions += f" * {resolved_cluster_name} ({cluster_type}):\n"
+                    
                 instructions += f"     Provider: {provider}\n"
                 instructions += f"     Region: {region}\n"
                 instructions += f"     Version: {version}\n"
@@ -927,31 +959,9 @@ def generate_deployment_instructions(config, output_dir, converter=None, raw_yam
                 
                 # Calculate and display cost if converter is available
                 if converter:
-                    hourly_cost = converter.calculate_openshift_cluster_cost(cluster, 'self-managed')
-                    cost_string = converter.get_openshift_cluster_cost_string(resolved_cluster_name, 'self-managed', hourly_cost)
+                    hourly_cost = converter.calculate_openshift_cluster_cost(cluster, cluster_type)
+                    cost_string = converter.get_openshift_cluster_cost_string(resolved_cluster_name, cluster_type, hourly_cost)
                     instructions += f"{cost_string}\n"
-        if hypershift_mgmt_clusters:
-            for cluster in hypershift_mgmt_clusters:
-                cluster_name = cluster.get('name', 'unnamed')
-                
-                # Resolve {guid} in cluster name for display
-                resolved_cluster_name = cluster_name
-                if '{guid}' in cluster_name and raw_yaml_data:
-                    guid = raw_yaml_data.get('guid', 'unknown')
-                    resolved_cluster_name = cluster_name.replace('{guid}', guid)
-                
-                instructions += f" * {resolved_cluster_name} HyperShift Management\n"
-        if hypershift_hosted_clusters:
-            for cluster in hypershift_hosted_clusters:
-                cluster_name = cluster.get('name', 'unnamed')
-                
-                # Resolve {guid} in cluster name for display
-                resolved_cluster_name = cluster_name
-                if '{guid}' in cluster_name and raw_yaml_data:
-                    guid = raw_yaml_data.get('guid', 'unknown')
-                    resolved_cluster_name = cluster_name.replace('{guid}', guid)
-                
-                instructions += f" * {resolved_cluster_name} HyperShift Hosted\n"
         
         # List Day-2 operations with headers for different types
         if has_day2_ops:
@@ -1068,12 +1078,9 @@ def generate_deployment_instructions(config, output_dir, converter=None, raw_yam
         instructions += f"  terraform init\n"
         instructions += f"  terraform plan\n"
         
-        # Build deployment variables for any remaining conditional features (HyperShift, Day-2 ops)
+        # Build deployment variables for any remaining conditional features (Day-2 ops)
         deploy_vars = []
-        if hypershift_mgmt_clusters:
-            deploy_vars.append("deploy_hypershift_mgmt=true")
-        if hypershift_hosted_clusters:
-            deploy_vars.append("deploy_hypershift_hosted=true")
+        # HyperShift clusters now use automatic dependency management (no variables needed)
         if has_day2_ops:
             deploy_vars.append("deploy_day2_operations=true")
         

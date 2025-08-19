@@ -78,7 +78,7 @@ yamlforge:
   # OpenShift Applications for ARO clusters
   openshift_applications:
     # Multi-cluster application deployment
-    - type: "multi-cluster"
+    - type: "gitops"
       name: "enterprise-monitoring"
       description: "Monitoring stack deployed across all ARO clusters"
       clusters:
@@ -100,7 +100,7 @@ yamlforge:
           version: "7.3.9"
 
     # Production-specific applications
-    - type: "single-cluster"
+    - type: "monitoring"
       cluster: "prod-aro-cluster"
       name: "production-workloads"
       description: "Production applications for main ARO cluster"
@@ -121,7 +121,7 @@ yamlforge:
   # OpenShift Operators for enhanced functionality
   openshift_operators:
     # Core operators for all clusters
-    - type: "multi-cluster"
+    - type: "gitops"
       name: "core-operators"
       description: "Essential operators for all ARO clusters"
       clusters:
@@ -146,7 +146,7 @@ yamlforge:
           channel: "stable"
 
     # Storage operators for production
-    - type: "single-cluster"
+    - type: "monitoring"
       cluster: "prod-aro-cluster"
       name: "storage-operators"
       description: "Advanced storage operators for production cluster"

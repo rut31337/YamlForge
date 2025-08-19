@@ -331,8 +331,7 @@
               "aro",
               "openshift-dedicated",
               "self-managed",
-              "hypershift-mgmt",
-              "hypershift-hosted"
+              "hypershift"
             ],
             "description": "OpenShift cluster type"
           },
@@ -426,6 +425,32 @@
                 "description": "Service network CIDR"
               }
             }
+          },
+          "hypershift": {
+            "type": "object",
+            "description": "HyperShift configuration for management clusters (optional)",
+            "properties": {
+              "role": {
+                "type": "string",
+                "enum": ["management"],
+                "description": "HyperShift role - currently only 'management' is supported"
+              },
+              "max_hosted_clusters": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000,
+                "description": "Maximum number of hosted clusters this management cluster can support",
+                "default": 50
+              },
+              "control_plane_replicas": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5,
+                "description": "Number of control plane replicas for hosted clusters",
+                "default": 3
+              }
+            },
+            "additionalProperties": false
           }
         }
       }

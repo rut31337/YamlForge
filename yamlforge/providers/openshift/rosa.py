@@ -27,7 +27,7 @@ class ROSAProvider(BaseOpenShiftProvider):
         version = cluster_config.get('version')
         # Get auto_discover_version from global defaults
         auto_discover_version = self.openshift_defaults.get('openshift', {}).get('auto_discover_version', False)
-        version = self.validate_openshift_version(version, cluster_type="rosa-classic", auto_discover_version=auto_discover_version)
+        version = self.validate_openshift_version(version, cluster_type="rosa-classic", auto_discover_version=auto_discover_version, cluster_name=cluster_name)
         
         size = cluster_config.get('size')
         if not size:
@@ -86,7 +86,7 @@ class ROSAProvider(BaseOpenShiftProvider):
         version = cluster_config.get('version')
         # Get auto_discover_version from global defaults
         auto_discover_version = self.openshift_defaults.get('openshift', {}).get('auto_discover_version', False)
-        version = self.validate_openshift_version(version, cluster_type="rosa-hcp", auto_discover_version=auto_discover_version)
+        version = self.validate_openshift_version(version, cluster_type="rosa-hcp", auto_discover_version=auto_discover_version, cluster_name=cluster_name)
         
         size = cluster_config.get('size')
         if not size:

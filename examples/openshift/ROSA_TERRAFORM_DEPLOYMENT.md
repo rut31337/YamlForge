@@ -74,21 +74,21 @@ terraform apply -var="deploy_rosa_classic=true" -var="deploy_rosa_hcp=true"
 
 ### Step 3: HyperShift Management Deployment (if needed)
 ```bash
-terraform apply -var="deploy_rosa_classic=true" -var="deploy_rosa_hcp=true" -var="deploy_hypershift_mgmt=true"
+terraform apply -var="deploy_rosa_classic=true" -var="deploy_rosa_hcp=true"
 ```
-- Deploys HyperShift management clusters (based on ROSA Classic)
+- HyperShift management clusters are now deployed as regular ROSA clusters with HyperShift addon
 - Sets up HyperShift operator and management plane
 
 ### Step 4: HyperShift Hosted Deployment (if needed)
 ```bash
-terraform apply -var="deploy_rosa_classic=true" -var="deploy_rosa_hcp=true" -var="deploy_hypershift_mgmt=true" -var="deploy_hypershift_hosted=true"
+terraform apply -var="deploy_rosa_classic=true" -var="deploy_rosa_hcp=true" -var="" -var="deploy_hypershift_hosted=true"
 ```
 - Deploys HyperShift hosted clusters (requires management clusters to be ready)
 - Creates worker infrastructure and hosted control planes
 
 ### Step 5: Day-2 Operations (always last)
 ```bash
-terraform apply -var="deploy_rosa_classic=true" -var="deploy_rosa_hcp=true" -var="deploy_hypershift_mgmt=true" -var="deploy_hypershift_hosted=true" -var="deploy_day2_operations=true"
+terraform apply -var="deploy_rosa_classic=true" -var="deploy_rosa_hcp=true" -var="" -var="deploy_hypershift_hosted=true" -var="deploy_day2_operations=true"
 ```
 - Deploys operators, monitoring, GitOps, etc.
 - Configures applications
@@ -159,7 +159,6 @@ To migrate existing CLI-based deployments:
 
 - `deploy_rosa_classic`: Deploy ROSA Classic clusters (default: `false`)
 - `deploy_rosa_hcp`: Deploy ROSA HCP clusters (default: `false`, separate from Classic to avoid Terraform conflicts)
-- `deploy_hypershift_mgmt`: Deploy HyperShift management clusters (default: `false`)
 - `deploy_hypershift_hosted`: Deploy HyperShift hosted clusters (default: `false`, requires management clusters)
 - `deploy_day2_operations`: Deploy Day-2 operations (default: `false`, always last)
 - `rosa_oidc_config_id`: OIDC configuration ID for ROSA clusters

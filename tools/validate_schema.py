@@ -30,6 +30,13 @@ import argparse
 from pathlib import Path
 from typing import Dict, List, Any, Tuple, Optional
 
+try:
+    import jsonschema
+    from jsonschema import validate, ValidationError
+    JSONSCHEMA_AVAILABLE = True
+except ImportError:
+    JSONSCHEMA_AVAILABLE = False
+
 # Add the project root to Python path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -147,6 +154,19 @@ class YamlForgeSchemaValidator:
                     violations.append(message)
             else:
                 violations.append(message)
+        
+        # First, try JSON Schema validation if available
+        if JSONSCHEMA_AVAILABLE:
+            try:
+                validate(instance=content, schema=self.schema)
+            except ValidationError as e:
+                # Parse JSON schema error to make it more user-friendly
+                error_path = " -> ".join(str(p) for p in e.absolute_path) if e.absolute_path else "root"
+                if "is not one of" in str(e.message):
+                    # Handle enum validation errors
+                    violations.append(f"Invalid value at {error_path}: {e.message}")
+                else:
+                    violations.append(f"Schema validation error at {error_path}: {e.message}")
         
         if not isinstance(content, dict):
             violations.append("Root must be a dictionary")

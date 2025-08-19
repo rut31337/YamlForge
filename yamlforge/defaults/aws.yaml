@@ -5,6 +5,7 @@
 ami_owners:
   redhat_gold: "309956199498"    # Red Hat Cloud Access Gold AMIs
   redhat_public: "309956199498"  # Red Hat public AMIs
+  rhcos_owner: "531415883065"    # Red Hat CoreOS AMIs (for OpenShift)
   fedora: "125523088429"         # Fedora Project AMIs
   amazon: "137112412989"         # Amazon Linux AMIs
   canonical: "099720109477"      # Ubuntu AMIs (Canonical)

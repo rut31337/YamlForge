@@ -286,7 +286,7 @@ yamlforge:
         - http01:
             ingress:
               class: nginx
-  - type: oadp
+  - type: backup
     name: cluster-backup
     target_cluster: production-rosa-hcp
     namespace: openshift-adp
@@ -306,7 +306,7 @@ yamlforge:
       - production
       - staging
       ttl: 720h
-  - type: advanced-cluster-management
+  - type: monitoring
     name: rhacm
     target_cluster: production-rosa-hcp
     namespace: open-cluster-management

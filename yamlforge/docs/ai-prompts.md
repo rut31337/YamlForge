@@ -90,6 +90,7 @@ yamlforge:
   instances:
     - name: "dev-server"
       provider: "cheapest"
+      location: "us-east"
       flavor: "small"
       image: "RHEL9-latest"
       tags:
@@ -140,6 +141,7 @@ yamlforge:
   instances:
     - name: "gpu-trainer"
       provider: "cheapest"
+      location: "us-east"
       gpu_type: "NVIDIA V100"
       gpu_count: 2
       flavor: "gpu_large"
@@ -275,8 +277,8 @@ yamlforge:
         tier: "frontend"
     - name: "database-server"
       provider: "cheapest"
+      location: "us-east"
       flavor: "large"
-      memory: 16384
       image: "RHEL9-latest"
       tags:
         role: "database"

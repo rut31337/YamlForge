@@ -523,7 +523,7 @@ class AWSProvider:
         # Check if we're in no-credentials mode
         if self.converter.no_credentials:
             print(f"  NO-CREDENTIALS MODE: Using placeholder AMI for '{image_key}' in region '{region}'")
-            return "ami-PLACEHOLDER-REPLACE-WITH-ACTUAL-AMI", "placeholder"
+            return '"ami-PLACEHOLDER-REPLACE-WITH-ACTUAL-AMI"', "placeholder"
 
         image_config = self.converter.images.get(image_key, {})
         aws_config = image_config.get('aws', {})
@@ -933,8 +933,13 @@ echo "User data script completed successfully"
         # Combine custom username script with user-provided script
         if custom_username_script:
             if user_data_script:
+                # Remove shebang from user-provided script to avoid duplicate #!/bin/bash
+                user_script_lines = user_data_script.split('\n')
+                if user_script_lines and user_script_lines[0].startswith('#!'):
+                    user_script_lines = user_script_lines[1:]  # Remove shebang line
+                clean_user_script = '\n'.join(user_script_lines)
                 # Prepend custom username script to user-provided script
-                user_data_script = custom_username_script + "\n\n" + user_data_script
+                user_data_script = custom_username_script + "\n\n" + clean_user_script
             else:
                 user_data_script = custom_username_script
 
@@ -989,7 +994,7 @@ resource "aws_instance" "{resource_name}" {{{self.get_aws_provider_reference(aws
     ManagedBy = "yamlforge"
   }}
   
-  {("user_data = base64encode(<<-EOF" + chr(10) + user_data_script + chr(10) + "EOF" + chr(10)) if user_data_script else ""}
+  {("user_data = base64encode(<<-EOF" + chr(10) + user_data_script + chr(10) + "EOF" + chr(10) + ")") if user_data_script else ""}
 }}
 
 {ami_data_source}
@@ -1324,142 +1329,7 @@ output "private_subnet_ids_{clean_region}_{guid}" {{
         else:
             return '["0.0.0.0/0"]'
 
-    def create_rosa_account_roles_via_cli(self, yaml_data=None):
-        """Create ROSA account roles using ROSA CLI."""
-        import subprocess
-        
-        guid = self.converter.get_validated_guid(yaml_data)
-        
-        try:
-            # Skip account role creation in no-credentials mode
-            if getattr(self.converter, 'no_credentials', False):
-                print("  NO-CREDENTIALS MODE: Skipping ROSA account role creation")
-                return True
-            
-            # Check if ROSA CLI is available
-            result = subprocess.run(['rosa', 'version'], capture_output=True, text=True)
-            if result.returncode != 0:
-                print("ROSA CLI not found. Please install ROSA CLI first:")
-                print("  curl -L https://mirror.openshift.com/pub/openshift-v4/amd64/clients/rosa/latest/rosa-linux.tar.gz | tar xz")
-                print("  sudo mv rosa /usr/local/bin/")
-                return False
-                
-            print("ROSA CLI found")
-            
-            # Check if ROSA is already logged in, or perform automatic login
-            if not self._ensure_rosa_login():
-                return False
-            
-            # Create account roles using ROSA CLI
-            print("Creating ROSA account roles using ROSA CLI...")
-            
-            # Check if we have ROSA HCP clusters to determine what roles to create
-            clusters = yaml_data.get('openshift_clusters', []) if yaml_data else []
-            has_hcp_clusters = any(cluster.get('type') == 'rosa-hcp' for cluster in clusters)
-            has_classic_clusters = any(cluster.get('type') == 'rosa-classic' for cluster in clusters)
-            
-            # Create HCP-specific roles if HCP clusters are present
-            if has_hcp_clusters:
-                cmd = [
-                    'rosa', 'create', 'account-roles',
-                    '--hosted-cp',
-                    '--mode', 'auto',
-                    '--yes',
-                    '--prefix', f'ManagedOpenShift-{guid}'
-                ]
-                
-                print(f"Running: {' '.join(cmd)}")
-                result = subprocess.run(cmd, capture_output=True, text=True)
-                
-                if result.returncode == 0:
-                    print("ROSA HCP account roles created successfully!")
-                    # Only show detailed output in verbose mode
-                    verbose = getattr(self.converter, 'verbose', False)
-                    if verbose:
-                        print("Detailed ROSA CLI output:")
-                        print(result.stdout)
-                else:
-                    print("Failed to create ROSA HCP account roles:")
-                    print(result.stderr)
-                    return False
-            
-            # Create Classic roles if Classic clusters are present (or as fallback)
-            if has_classic_clusters or not has_hcp_clusters:
-                cmd = [
-                    'rosa', 'create', 'account-roles',
-                    '--mode', 'auto',
-                    '--yes',
-                    '--prefix', f'ManagedOpenShift-{guid}'
-                ]
-                
-                print(f"Running: {' '.join(cmd)}")
-                result = subprocess.run(cmd, capture_output=True, text=True)
-                
-                if result.returncode == 0:
-                    print("ROSA Classic account roles created successfully!")
-                    # Only show detailed output in verbose mode
-                    verbose = getattr(self.converter, 'verbose', False)
-                    if verbose:
-                        print("Detailed ROSA CLI output:")
-                        print(result.stdout)
-                else:
-                    print("Failed to create ROSA Classic account roles:")
-                    print(result.stderr)
-                    return False
-            
-            return True
-                
-        except Exception as e:
-            print(f"Error creating ROSA account roles: {str(e)}")
-            return False
 
-    def _ensure_rosa_login(self):
-        """Ensure ROSA CLI is logged in, attempting automatic login if needed."""
-        import subprocess
-        
-        try:
-            # First check if already logged in
-            result = subprocess.run(['rosa', 'whoami'], capture_output=True, text=True)
-            if result.returncode == 0:
-                print("ROSA CLI already authenticated")
-                verbose = getattr(self.converter, 'verbose', False)
-                if verbose:
-                    print(f"Logged in as: {result.stdout.strip()}")
-                return True
-            
-            # Not logged in, try automatic login with environment variables
-            print("ROSA CLI not authenticated, attempting automatic login...")
-            
-            # Check for Red Hat OpenShift token
-            token_sources = ['REDHAT_OPENSHIFT_TOKEN']
-            rhcs_token = None
-            for token_var in token_sources:
-                rhcs_token = os.getenv(token_var)
-                if rhcs_token:
-                    break
-            
-            if not rhcs_token:
-                print("  WARNING: Red Hat OpenShift token not found")
-                print("  Required for ROSA cluster creation")
-                print("  Set the following environment variable:")
-                print("  export REDHAT_OPENSHIFT_TOKEN='your_token_here'")
-                return False
-
-            # Attempt automatic login with token
-            cmd = ['rosa', 'login', '--token', rhcs_token]
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            
-            if result.returncode == 0:
-                print("ROSA CLI login successful!")
-                return True
-            else:
-                print("ROSA CLI login failed with provided token:")
-                print(result.stderr)
-                return False
-                
-        except Exception as e:
-            print(f"Error checking ROSA CLI authentication: {str(e)}")
-            return False
 
 
 
@@ -1529,27 +1399,70 @@ output "oidc_endpoint_url" {{
         
         terraform_config = '''
 # =============================================================================
-# ROSA STS IAM ROLES - DATA SOURCES (Created by ROSA CLI)
+# ROSA ACCOUNT ROLES - CREATION AND DATA SOURCES
 # =============================================================================
-# These data sources reference the ROSA account roles created by ROSA CLI
-# ROSA CLI creates these roles automatically when yamlforge runs
+# Create ROSA account roles using ROSA CLI via null_resource, then reference them
+
+'''
+        
+        # Add null_resource to create account roles first
+        if has_classic_clusters:
+            terraform_config += f'''
+# Create ROSA Classic account roles using ROSA CLI
+resource "null_resource" "rosa_classic_account_roles" {{
+  # Create account roles
+  provisioner "local-exec" {{
+    command = <<-EOT
+      echo "Creating ROSA Classic account roles..."
+      rosa create account-roles --mode auto --yes --prefix ManagedOpenShift-{guid} || echo "Account roles may already exist"
+    EOT
+  }}
+  
+  # Triggers to recreate if GUID changes
+  triggers = {{
+    guid = "{guid}"
+  }}
+}}
+
+'''
+        
+        if has_hcp_clusters:
+            terraform_config += f'''
+# Create ROSA HCP account roles using ROSA CLI
+resource "null_resource" "rosa_hcp_account_roles" {{
+  # Create HCP account roles
+  provisioner "local-exec" {{
+    command = <<-EOT
+      echo "Creating ROSA HCP account roles..."
+      rosa create account-roles --hosted-cp --mode auto --yes --prefix ManagedOpenShift-{guid} || echo "HCP account roles may already exist"
+    EOT
+  }}
+  
+  # Triggers to recreate if GUID changes
+  triggers = {{
+    guid = "{guid}"
+  }}
+}}
 
 '''
 
         # Generate HCP role data sources if HCP clusters are present
         if has_hcp_clusters:
             terraform_config += f'''
-# ROSA HCP Roles - Used by Hosted Control Plane clusters
+# ROSA HCP Roles - Used by Hosted Control Plane clusters (depends on creation)
 data "aws_iam_role" "rosa_hcp_installer_role" {{
   name = "ManagedOpenShift-{guid}-HCP-ROSA-Installer-Role"
+  depends_on = [null_resource.rosa_hcp_account_roles]
 }}
 
 data "aws_iam_role" "rosa_hcp_support_role" {{
   name = "ManagedOpenShift-{guid}-HCP-ROSA-Support-Role"
+  depends_on = [null_resource.rosa_hcp_account_roles]
 }}
 
 data "aws_iam_role" "rosa_hcp_worker_role" {{
   name = "ManagedOpenShift-{guid}-HCP-ROSA-Worker-Role"
+  depends_on = [null_resource.rosa_hcp_account_roles]
 }}
 
 '''
@@ -1557,21 +1470,25 @@ data "aws_iam_role" "rosa_hcp_worker_role" {{
         # Generate Classic role data sources if Classic clusters are present
         if has_classic_clusters:
             terraform_config += f'''
-# ROSA Classic Roles - Used by Classic clusters
+# ROSA Classic Roles - Used by Classic clusters (depends on creation)
 data "aws_iam_role" "rosa_classic_installer_role" {{
   name = "ManagedOpenShift-{guid}-Installer-Role"
+  depends_on = [null_resource.rosa_classic_account_roles]
 }}
 
 data "aws_iam_role" "rosa_classic_support_role" {{
   name = "ManagedOpenShift-{guid}-Support-Role"
+  depends_on = [null_resource.rosa_classic_account_roles]
 }}
 
 data "aws_iam_role" "rosa_classic_worker_role" {{
   name = "ManagedOpenShift-{guid}-Worker-Role"
+  depends_on = [null_resource.rosa_classic_account_roles]
 }}
 
 data "aws_iam_role" "rosa_classic_master_role" {{
   name = "ManagedOpenShift-{guid}-ControlPlane-Role"
+  depends_on = [null_resource.rosa_classic_account_roles]
 }}
 
 '''

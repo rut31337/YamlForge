@@ -191,7 +191,7 @@ yamlforge:
       cores: 4
       memory: 8192
       gpu_count: 1
-      gpu_type: "t4"
+      gpu_type: "NVIDIA T4"
       image: "RHEL9-latest"
       security_groups: ["demo-sg-{guid}"]
 

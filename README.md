@@ -601,6 +601,7 @@ yamlforge:
     - name: "gpu-worker-{guid}"
       provider: "cheapest-gpu"  # Focuses purely on GPU cost, ignores CPU/memory
       location: "us-east"
+      flavor: "medium"  # Basic flavor requirement
       gpu_type: "NVIDIA T4"  # Only GPU requirements needed
       gpu_count: 1
       image: "RHEL9-latest"

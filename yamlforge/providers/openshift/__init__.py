@@ -73,13 +73,12 @@ class OpenShiftProvider(BaseOpenShiftProvider):
         
         # Detect deployment separation needs for different cluster types
         rosa_classic_clusters = [c for c in clusters if c.get('type') == 'rosa-classic']
-        rosa_hcp_clusters = [c for c in clusters if c.get('type') == 'rosa-hcp'] 
-        hypershift_mgmt_clusters = [c for c in clusters if c.get('type') == 'rosa-classic' and c.get('hypershift', {}).get('role') == 'management']
-        hypershift_hosted_clusters = [c for c in clusters if c.get('type') == 'hypershift']
+        rosa_hcp_clusters = [c for c in clusters if c.get('type') == 'rosa-hcp']
+        hypershift_clusters = [c for c in clusters if c.get('type') == 'hypershift']
         
         # Determine separation needs
         needs_rosa_separation = len(rosa_classic_clusters) > 0 and len(rosa_hcp_clusters) > 0
-        needs_hypershift_separation = len(hypershift_mgmt_clusters) > 0 and len(hypershift_hosted_clusters) > 0
+        needs_hypershift_separation = len(hypershift_clusters) > 0
         
         # Check ROSA deployment method early
         rosa_deployment = yaml_data.get('rosa_deployment', {})
@@ -88,13 +87,8 @@ class OpenShiftProvider(BaseOpenShiftProvider):
         # Generate shared ROSA resources once if any ROSA clusters exist
         has_rosa_clusters = len(rosa_classic_clusters) > 0 or len(rosa_hcp_clusters) > 0
         if has_rosa_clusters:
-            # ALWAYS create ROSA account roles via CLI first (regardless of deployment method)
-            aws_provider = self.converter.get_aws_provider()
-            role_creation_success = aws_provider.create_rosa_account_roles_via_cli(yaml_data)
-            if not role_creation_success:
-                print("Warning: Failed to create ROSA account roles via CLI. Terraform may fail.")
-            
-            # For terraform deployment method, generate data sources to reference CLI-created roles
+            # ROSA account roles will be created by Terraform null_resource in AWS provider
+            # For terraform deployment method, generate data sources to reference Terraform-created roles
             if deployment_method == 'terraform':
                 terraform_config += self._generate_shared_rosa_data_sources(yaml_data)
         
@@ -124,7 +118,7 @@ class OpenShiftProvider(BaseOpenShiftProvider):
                     # HyperShift management cluster
                     if needs_hypershift_separation:
                         cluster['_needs_hypershift_separation'] = True
-                        cluster['_deployment_group'] = 'hypershift_mgmt'
+                        cluster['_deployment_group'] = 'hypershift_management'
                 else:
                     # Regular ROSA Classic cluster
                     if needs_rosa_separation:

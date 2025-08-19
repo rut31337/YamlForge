@@ -653,6 +653,74 @@ images:
     alibaba:
       image_name: "aliyun_3_x64_20G_alibase_20230727.vhd"
 
+  # ========================================
+  # COREOS IMAGES FOR HYPERSHIFT WORKERS
+  # ========================================
+  # Red Hat CoreOS images for HyperShift worker nodes
+  # Required for OpenShift HyperShift hosted control planes
+  
+  # Pattern: RHCOS-latest → Multi-cloud CoreOS (OpenShift 4.14+)
+  RHCOS-latest:
+    description: "Red Hat CoreOS latest (for HyperShift workers)"
+    aws:
+      name_pattern: "rhcos-*"
+      owner_key: "redhat_public"
+      architecture: "x86_64"
+      aws_filters:
+        - name: "is-public"
+          values: ["true"]
+        - name: "state"  
+          values: ["available"]
+    gcp:
+      image_family: "rhcos"
+      project: "rhcos-cloud"
+      architecture: "X86_64"
+    azure:
+      publisher: "RedHat"
+      offer: "rhel-coreos"
+      sku: "rhel-coreos-gen2"
+      version: "latest"
+    
+  # Pattern: RHCOS-414 → OpenShift 4.14 specific CoreOS
+  RHCOS-414:
+    description: "Red Hat CoreOS for OpenShift 4.14"
+    aws:
+      name_pattern: "rhcos-414.92.*"
+      owner_key: "rhcos_owner" 
+      architecture: "x86_64"
+      aws_filters:
+        - name: "is-public"
+          values: ["true"]
+    gcp:
+      image_family: "rhcos-414"
+      project: "rhcos-cloud"
+      architecture: "X86_64"
+    azure:
+      publisher: "RedHat"
+      offer: "rhel-coreos"
+      sku: "rhel-coreos-414-gen2"
+      version: "latest"
+      
+  # Pattern: RHCOS-415 → OpenShift 4.15 specific CoreOS  
+  RHCOS-415:
+    description: "Red Hat CoreOS for OpenShift 4.15"
+    aws:
+      name_pattern: "rhcos-415*"
+      owner_key: "redhat_public"
+      architecture: "x86_64" 
+      aws_filters:
+        - name: "is-public"
+          values: ["true"]
+    gcp:
+      image_family: "rhcos-415"
+      project: "rhcos-cloud"
+      architecture: "X86_64"
+    azure:
+      publisher: "RedHat"
+      offer: "rhel-coreos"
+      sku: "rhel-coreos-415-gen2"
+      version: "latest"
+
   # CNV-specific static images
   fedora-demo:
     description: "Fedora Cloud Container Disk Demo"

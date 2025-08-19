@@ -175,11 +175,13 @@ yamlforge:
   instances:
     - name: "api-server"
       provider: "cheapest"    # Automatically finds lowest cost
+      location: "us-east"
       flavor: "large"
       image: "RHEL9-latest"
       
     - name: "worker-nodes"
       provider: "cheapest"
+      location: "us-east"
       flavor: "medium"
       image: "RHEL9-latest"
 ```

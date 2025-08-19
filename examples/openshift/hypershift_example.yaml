@@ -2,11 +2,22 @@
 guid: hyp01
 
 yamlforge:
+  tags:
+    Environment: production
+    Project: hypershift-platform
+    Owner: platform-team
+    CostCenter: engineering
+    Approach: cost-optimized
+
+  cloud_workspace:
+    name: hypershift-platform
+    description: HyperShift Cost-Optimized OpenShift Platform - hosted control planes for massive cost savings and fast provisioning
+
   openshift_clusters:
   - name: hypershift-mgmt
     type: rosa-classic
     region: us-east-1
-    size: large
+    size: small
     version: "4.14.15"
     addons:
     - hypershift-addon-operator
@@ -14,42 +25,35 @@ yamlforge:
       role: management
       max_hosted_clusters: 50
       control_plane_replicas: 3
-  - name: dev-us
+  - name: hypershift-aws
     type: hypershift
     management_cluster: hypershift-mgmt
     provider: aws
     region: us-east-1
     size: small
-    worker_count: 2
+    worker_count: 3
     version: "4.14.15"
     base_domain: dev-us.hypershift.example.com
-  - name: prod-gcp
+  # - name: hypershift-gcp
+  #   type: hypershift
+  #   management_cluster: hypershift-mgmt
+  #   provider: gcp
+  #   region: us-central1
+  #   zone: us-central1-a
+  #   size: small
+  #   worker_count: 3
+  #   version: "4.14.15"
+  #   base_domain: prod-gcp.hypershift.example.com
+  - name: hypershift-azure
     type: hypershift
     management_cluster: hypershift-mgmt
-    provider: gcp
-    region: us-central1
-    zone: us-central1-a
-    size: medium
-    worker_count: 5
-    version: "4.14.15"
-    base_domain: prod-gcp.hypershift.example.com
-  - name: test-cheapest
-    type: hypershift
-    management_cluster: hypershift-mgmt
-    provider: cheapest
+    provider: azure
+    region: eastus
     size: small
-    worker_count: 1
+    worker_count: 2
     version: "4.14.15"
-    base_domain: test.hypershift.example.com
-  - name: demo-cluster
-    type: hypershift
-    management_cluster: hypershift-mgmt
-    provider: aws
-    region: us-west-2
-    size: micro
-    worker_count: 1
-    version: "4.14.15"
-    base_domain: demo.hypershift.example.com
+    base_domain: prod-azure.hypershift.example.com
+
   instances:
   - name: hypershift-admin
     provider: aws
@@ -57,8 +61,6 @@ yamlforge:
     image: RHEL9-latest
     region: us-east-1
     user_data_script: '#!/bin/bash
-
-      yum update -y
 
       # Install HyperShift CLI
 
@@ -75,12 +77,3 @@ yamlforge:
       chmod +x /usr/local/bin/oc
 
       '
-  tags:
-    Environment: production
-    Project: hypershift-platform
-    Owner: platform-team
-    CostCenter: engineering
-    Approach: cost-optimized
-  cloud_workspace:
-    name: hypershift-platform
-    description: HyperShift Cost-Optimized OpenShift Platform - hosted control planes for massive cost savings and fast provisioning

@@ -2009,7 +2009,11 @@ output "external_ips" {
 
     def start_instance_section(self, instance_name, provider):
         """Start a new instance section in the output."""
-        print()
+        # Check if this is the first instance being processed
+        if not hasattr(self, '_instances_header_printed'):
+            print("\nInstances:")
+            self._instances_header_printed = True
+        
         # Replace {guid} with actual GUID in instance name
         resolved_instance_name = self.replace_guid_placeholders(instance_name)
         print(f"[{resolved_instance_name}]")
@@ -2812,7 +2816,7 @@ no_credentials_mode = {str(self.no_credentials).lower()}
         # Validate cloud provider setup early
         self.validate_provider_setup(full_yaml_data or config)
         
-        required_providers = self.detect_required_providers(config)
+        required_providers = self.detect_required_providers(full_yaml_data or config)
 
         # Generate the complete terraform configuration
         terraform_config = self.generate_complete_terraform(config, required_providers, full_yaml_data)

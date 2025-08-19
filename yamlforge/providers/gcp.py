@@ -842,6 +842,7 @@ resource "google_compute_firewall" "main_ssh_{clean_region}_{self.get_validated_
         if use_existing_project and existing_project_id:
             # Use existing project
             project_id = existing_project_id
+            project_name = existing_project_id  # Use project ID as display name for existing projects
             project_terraform += f'''
 # Using existing GCP Project: {existing_project_id}
 data "google_project" "main_{self.get_validated_guid()}" {{
@@ -1199,14 +1200,16 @@ output "dns_info" {{
 '''
         
         # Project outputs (always generated)
+        # Use appropriate project reference based on whether using existing or new project
+        project_reference = f"data.google_project.main_{self.get_validated_guid()}" if use_existing_project else f"google_project.main_{self.get_validated_guid()}"
         project_terraform += f'''
 # Project outputs
 output "project_info" {{
   description = "GCP Project information"
   value = {{
     project_id = local.project_id
-    project_name = google_project.main_{self.get_validated_guid()}.name
-    project_number = google_project.main_{self.get_validated_guid()}.number
+    project_name = {project_reference}.name
+    project_number = {project_reference}.number
     service_account_email = google_service_account.{sa_name.replace('-', '_')}_{self.get_validated_guid()}.email
     service_account_key_path = local_file.project_sa_key_file_{self.get_validated_guid()}.filename
     {f'dns_zone = "{subdomain}"' if dns_management_enabled and project_domain else '# DNS management disabled'}
