@@ -244,23 +244,6 @@ default_tags:
     CostCenter: "12345"
 ```
 
-## Image and Template Preferences
-
-```yaml
-image_preferences:
-  # Preferred operating system families in order of preference
-  os_family_priority:
-    - "rhel"          # Red Hat Enterprise Linux (enterprise standard)
-    - "ubuntu"        # Ubuntu (developer friendly)
-    - "centos"        # CentOS (free RHEL alternative)
-    
-  # Default to latest stable versions
-  prefer_latest_versions: true
-  
-  # Avoid beta/preview images in production
-  exclude_preview_images: true
-```
-
 ## Networking Defaults
 
 ```yaml
@@ -277,43 +260,6 @@ networking:
   # Default security posture
   default_internet_access: true
   default_private_subnets: false
-```
-
-## Feature Flags
-
-```yaml
-features:
-  # Enable experimental features
-  experimental_features: false
-  
-  # Enable cost optimization recommendations
-  cost_optimization_suggestions: true
-  
-  # Enable automatic resource tagging
-  auto_tagging: true
-  
-  # Enable multi-region deployments
-  multi_region_support: true
-  
-  # Enable provider health checks before deployment
-  provider_health_checks: false
-```
-
-## Deployment Behavior
-
-```yaml
-deployment:
-  # Default behavior for handling provider failures
-  provider_failure_behavior: "skip"  # "skip", "fail", "retry"
-  
-  # Maximum number of retries for failed provider operations
-  max_retries: 3
-  
-  # Timeout for provider operations (seconds)
-  provider_timeout: 300
-  
-  # Enable parallel provider operations
-  parallel_deployments: true
 ```
 
 ## Logging and Monitoring
