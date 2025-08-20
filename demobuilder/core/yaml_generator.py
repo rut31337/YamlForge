@@ -693,7 +693,8 @@ class YamlForgeGenerator:
             base_prompt += f"Available regions: {', '.join(available_options['locations'][:10])}...\n"
             base_prompt += "Map 'us east', 'virginia', 'east coast' to 'us-east'. "
             base_prompt += "Map 'us west', 'california', 'oregon' to 'us-west'. "
-            base_prompt += "Map 'europe', 'eu', 'london' to 'eu-west'.\n"
+            base_prompt += "Map 'europe', 'eu', 'london' to 'eu-west'. "
+            base_prompt += "Always return full location names from the available list - never abbreviated forms.\n"
             
         elif element_type == 'size':
             base_prompt += f"Available sizes: {', '.join(available_options['flavors'])}\n"
@@ -1097,6 +1098,7 @@ LOCATION MAPPING (use universal locations):
 - All providers → location: us-east (YamlForge will map to provider-specific regions)
 - DO NOT use provider-specific regions like "eastus" or "us-east1"
 - Use universal locations: us-east, us-west, eu-west, ap-southeast
+- NEVER use abbreviated locations like "us", "eu", "asia" - always use full location names
 
 MULTI-CLOUD SECURITY:
 - When components span multiple clouds, all instances need public connectivity
@@ -1146,7 +1148,7 @@ yamlforge:
 RULES:
 - Extract exact provider names from user request
 - Use role-based naming when roles are specified
-- Use universal locations (us-east) not provider-specific ones
+- Use universal locations (us-east) not provider-specific ones - NEVER use abbreviated locations
 - Add security groups for multi-cloud scenarios
 - Map cost terms: "cheap"/"budget" → provider: cheapest, flavor: small
 - NEVER use "cheap" as a flavor - use valid flavors: nano, small, medium, large, xlarge

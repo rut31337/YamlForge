@@ -3,10 +3,52 @@ import jsonschema
 import yaml
 from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
+import sys
+
+# Import YamlForge utilities for loading location mappings
+def find_yamlforge_root():
+    """Find YamlForge root directory using multiple strategies"""
+    current_file = Path(__file__).resolve()
+    
+    # Strategy 1: Standard relative path from demobuilder/core/validation.py
+    yamlforge_root = current_file.parent.parent.parent
+    if (yamlforge_root / 'yamlforge' / 'utils.py').exists():
+        return str(yamlforge_root)
+    
+    # Strategy 2: Search upward from current file location
+    search_path = current_file.parent
+    for _ in range(5):  # Limit search to 5 levels up
+        if (search_path / 'yamlforge' / 'utils.py').exists():
+            return str(search_path)
+        search_path = search_path.parent
+        if search_path == search_path.parent:  # Reached filesystem root
+            break
+    
+    # Strategy 3: Check if yamlforge is already importable (pip installed)
+    try:
+        import yamlforge.utils
+        return None  # Already available in path
+    except ImportError:
+        pass
+    
+    raise ImportError("Could not find YamlForge installation")
+
+yamlforge_path = find_yamlforge_root()
+if yamlforge_path and str(yamlforge_path) not in sys.path:
+    sys.path.insert(0, str(yamlforge_path))
+
+try:
+    from yamlforge.utils import find_yamlforge_file
+    YAMLFORGE_AVAILABLE = True
+except ImportError:
+    YAMLFORGE_AVAILABLE = False
 
 
 class YamlForgeValidator:
     def __init__(self, schema_path: Optional[str] = None):
+        # Load available locations from YamlForge mappings
+        self.valid_locations = self._load_valid_locations()
+        
         if schema_path is None:
             # Try multiple paths to find the schema file
             schema_paths = [
@@ -29,6 +71,19 @@ class YamlForgeValidator:
         
         self.validator = jsonschema.Draft7Validator(self.schema)
     
+    def _load_valid_locations(self) -> List[str]:
+        """Load valid locations from YamlForge mappings"""
+        if not YAMLFORGE_AVAILABLE:
+            return []
+        
+        try:
+            locations_file = find_yamlforge_file("mappings/locations.yaml")
+            with open(locations_file, 'r') as f:
+                locations_data = yaml.safe_load(f)
+                return list(locations_data.keys()) if locations_data else []
+        except (FileNotFoundError, yaml.YAMLError):
+            return []
+    
     def validate_yaml_config(self, config: Dict[str, Any]) -> Tuple[bool, List[str]]:
         errors = []
         
@@ -39,6 +94,11 @@ class YamlForgeValidator:
             # Additional custom validation for YamlForge requirements
             if not self._validate_yamlforge_requirements(config):
                 errors.append("Configuration Error: At least one of 'instances', 'openshift_clusters', or 'storage' is required in YamlForge configurations.")
+            
+            # Validate locations
+            location_errors = self._validate_locations(config)
+            if location_errors:
+                errors.extend(location_errors)
                 errors.append("")
                 errors.append("Add at least one of these to your YAML file:")
                 errors.append("")
@@ -101,6 +161,80 @@ class YamlForgeValidator:
         
         return has_instances or has_openshift or has_storage
     
+    def _validate_locations(self, config: Dict[str, Any]) -> List[str]:
+        """Validate that all locations used in the config exist in YamlForge mappings"""
+        if not self.valid_locations:
+            return []  # Skip validation if locations couldn't be loaded
+        
+        errors = []
+        
+        if 'yamlforge' not in config:
+            return errors
+        
+        yamlforge_config = config['yamlforge']
+        
+        # Check instance locations
+        if 'instances' in yamlforge_config:
+            for i, instance in enumerate(yamlforge_config['instances']):
+                location = instance.get('location') or instance.get('region')
+                if location and location not in self.valid_locations:
+                    errors.append(f"Invalid location '{location}' in instance {i+1} ('{instance.get('name', 'unnamed')}')")
+        
+        # Check cluster regions
+        if 'openshift_clusters' in yamlforge_config:
+            for i, cluster in enumerate(yamlforge_config['openshift_clusters']):
+                region = cluster.get('region') or cluster.get('location')
+                if region and region not in self.valid_locations:
+                    errors.append(f"Invalid location '{region}' in cluster {i+1} ('{cluster.get('name', 'unnamed')}')")
+        
+        # Check storage bucket locations
+        if 'storage' in yamlforge_config:
+            for i, bucket in enumerate(yamlforge_config['storage']):
+                location = bucket.get('location') or bucket.get('region')
+                if location and location not in self.valid_locations:
+                    errors.append(f"Invalid location '{location}' in storage bucket {i+1} ('{bucket.get('name', 'unnamed')}')")
+        
+        if errors:
+            errors.append("")
+            errors.append(f"Valid locations are: {', '.join(sorted(self.valid_locations[:10]))}{'...' if len(self.valid_locations) > 10 else ''}")
+        
+        return errors
+    
+    def _find_similar_location(self, invalid_location: str) -> Optional[str]:
+        """Find a similar valid location for an invalid one"""
+        if not self.valid_locations:
+            return None
+        
+        invalid_lower = invalid_location.lower()
+        
+        # Common mappings for invalid locations
+        location_mappings = {
+            'us': 'us-east-1',
+            'usa': 'us-east-1', 
+            'america': 'us-east-1',
+            'east': 'us-east-1',
+            'west': 'us-west-1',
+            'eu': 'eu-west-1',
+            'europe': 'eu-west-1',
+            'asia': 'ap-southeast-1',
+            'ap': 'ap-southeast-1',
+            'pacific': 'ap-southeast-1'
+        }
+        
+        # Direct mapping first
+        if invalid_lower in location_mappings:
+            mapped = location_mappings[invalid_lower]
+            if mapped in self.valid_locations:
+                return mapped
+        
+        # Partial matching - find the first valid location that contains the invalid string
+        for valid_location in self.valid_locations:
+            if invalid_lower in valid_location.lower() or valid_location.lower().startswith(invalid_lower):
+                return valid_location
+        
+        # If no match found, return the first valid location
+        return self.valid_locations[0] if self.valid_locations else None
+    
     def validate_yaml_string(self, yaml_string: str) -> Tuple[bool, List[str], Optional[Dict[str, Any]]]:
         try:
             config = yaml.safe_load(yaml_string)
@@ -150,7 +284,19 @@ class YamlForgeValidator:
                     instance['provider'] = 'cheapest'
                 
                 if instance.get('provider') != 'cnv' and 'region' not in instance and 'location' not in instance:
-                    instance['location'] = 'us-east'
+                    # Use first valid location if available, otherwise fallback
+                    instance['location'] = self.valid_locations[0] if self.valid_locations else 'us-east-1'
+                
+                # Fix invalid locations
+                location = instance.get('location') or instance.get('region')
+                if location and self.valid_locations and location not in self.valid_locations:
+                    # Try to find a similar valid location
+                    valid_location = self._find_similar_location(location)
+                    if valid_location:
+                        if 'location' in instance:
+                            instance['location'] = valid_location
+                        elif 'region' in instance:
+                            instance['region'] = valid_location
                 
                 # Fix common AI error: flavor set to object with cores/memory
                 if 'flavor' in instance and isinstance(instance['flavor'], dict):
